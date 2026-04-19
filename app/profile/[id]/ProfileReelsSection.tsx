@@ -4,8 +4,24 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-export default function ProfileReelsSection({ profileUserId }) {
-  const [reels, setReels] = useState([]);
+// ✅ FIX: Add proper prop type
+type ProfileReelsSectionProps = {
+  profileUserId: string;
+};
+
+// ✅ Optional but recommended: type your reel data
+type Reel = {
+  id: string;
+  video_url: string;
+  poster_url?: string;
+  title?: string;
+  created_at?: string;
+};
+
+export default function ProfileReelsSection({
+  profileUserId,
+}: ProfileReelsSectionProps) {
+  const [reels, setReels] = useState<Reel[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -70,7 +86,9 @@ export default function ProfileReelsSection({ profileUserId }) {
                 fontSize: "13px",
               }}
             >
-              <div style={{ fontWeight: "bold" }}>{reel.title}</div>
+              <div style={{ fontWeight: "bold" }}>
+                {reel.title || "Untitled"}
+              </div>
             </div>
           </Link>
         ))}
