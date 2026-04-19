@@ -194,14 +194,12 @@ export default function EditProfilePage() {
     const cleanedFullName = fullName.trim();
     const cleanedBio = bio.trim();
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        username: cleanedUsername || null,
-        full_name: cleanedFullName || null,
-        bio: cleanedBio || null,
-      })
-      .eq("id", currentUserId);
+    const { error } = await supabase.from("profiles").upsert({
+      id: currentUserId,
+      username: cleanedUsername || "",
+      full_name: cleanedFullName || "",
+      bio: cleanedBio || "",
+    });
 
     if (error) {
       setSaving(false);
