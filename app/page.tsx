@@ -1,36 +1,71 @@
 "use client";
+
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const [isLogin, setIsLogin] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleAuth = async () => {
-    if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const cleanEmail = email.trim();
 
-      if (error) {
-        alert(error.message);
-        return;
-      }
-    } else {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
+    if (!cleanEmail || !password) {
+      alert("Please enter your email and password.");
+      return;
     }
 
-    window.location.href = "/dashboard";
+    try {
+      setLoading(true);
+
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
+        if (error) {
+          console.error("LOGIN ERROR:", error);
+          alert(error.message);
+          return;
+        }
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            emailRedirectTo: "https://parapost.net",
+          },
+        });
+
+        console.log("SIGNUP DATA:", data);
+
+        if (error) {
+          console.error("SIGNUP ERROR:", error);
+          alert(error.message);
+          return;
+        }
+
+        if (!data.session) {
+          alert("Signup successful. Check your email to confirm your account.");
+          return;
+        }
+      }
+
+      window.location.href = "/dashboard";
+    } catch (err) {
+      console.error("AUTH CATCH ERROR:", err);
+
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert("Unexpected error during authentication.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,6 +86,7 @@ export default function Home() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="p-3 rounded-lg bg-zinc-800 outline-none"
+            autoComplete="email"
           />
 
           <input
@@ -59,13 +95,15 @@ export default function Home() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="p-3 rounded-lg bg-zinc-800 outline-none"
+            autoComplete={isLogin ? "current-password" : "new-password"}
           />
 
           <button
             onClick={handleAuth}
-            className="bg-purple-500 hover:bg-purple-400 p-3 rounded-lg font-semibold"
+            disabled={loading}
+            className="bg-purple-500 hover:bg-purple-400 p-3 rounded-lg font-semibold disabled:opacity-60"
           >
-            {isLogin ? "Login" : "Sign Up"}
+            {loading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
           </button>
         </div>
 
@@ -74,6 +112,7 @@ export default function Home() {
           <button
             onClick={() => setIsLogin(!isLogin)}
             className="ml-2 text-purple-400"
+            type="button"
           >
             {isLogin ? "Sign Up" : "Login"}
           </button>
