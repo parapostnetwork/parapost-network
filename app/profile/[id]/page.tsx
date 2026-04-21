@@ -4,6 +4,12 @@ import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import {
+  acceptFriendRequest,
+  cancelFriendRequest,
+  declineFriendRequest,
+  removeFriend,
+} from "@/lib/friends";
 
 type ProfileRow = {
   id: string;
@@ -30,6 +36,12 @@ type FollowRow = {
   following_id: string;
 };
 
+type FriendRequestStatus =
+  | "none"
+  | "outgoing_request"
+  | "incoming_request"
+  | "friends";
+
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -50,6 +62,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [followLoading, setFollowLoading] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<FriendRequestStatus>("none");
+  const [friendLoading, setFriendLoading] = useState(false);
 
   const isOwnProfile = !!viewerId && viewerId === profileId;
 
@@ -71,16 +85,48 @@ export default function ProfilePage() {
     setViewerId(nextViewerId);
     setViewerEmail(user?.email || "");
 
-    const [profileResult, postsResult, likesResult, followersResult] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, username, full_name, bio, avatar_url, is_online")
-        .eq("id", profileId)
-        .maybeSingle(),
-      supabase.from("posts").select("id, content, image_url, created_at, user_id").eq("user_id", profileId).order("created_at", { ascending: false }),
-      supabase.from("likes").select("post_id, user_id"),
-      supabase.from("followers").select("follower_id, following_id"),
-    ]);
+    const [profileResult, postsResult, likesResult, followersResult, outgoingRequestResult, incomingRequestResult, friendshipResult] =
+      await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, username, full_name, bio, avatar_url, is_online")
+          .eq("id", profileId)
+          .maybeSingle(),
+        supabase
+          .from("posts")
+          .select("id, content, image_url, created_at, user_id")
+          .eq("user_id", profileId)
+          .order("created_at", { ascending: false }),
+        supabase.from("likes").select("post_id, user_id"),
+        supabase.from("followers").select("follower_id, following_id"),
+        nextViewerId && profileId && nextViewerId !== profileId
+          ? supabase
+              .from("friend_requests")
+              .select("id")
+              .eq("sender_id", nextViewerId)
+              .eq("receiver_id", profileId)
+              .eq("status", "pending")
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        nextViewerId && profileId && nextViewerId !== profileId
+          ? supabase
+              .from("friend_requests")
+              .select("id")
+              .eq("sender_id", profileId)
+              .eq("receiver_id", nextViewerId)
+              .eq("status", "pending")
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        nextViewerId && profileId && nextViewerId !== profileId
+          ? supabase
+              .from("friendships")
+              .select("id")
+              .or(
+                `and(user_one.eq.${nextViewerId},user_two.eq.${profileId}),and(user_one.eq.${profileId},user_two.eq.${nextViewerId})`
+              )
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
 
     if (profileResult.error) {
       setErrorMessage(profileResult.error.message || "Unable to load profile.");
@@ -113,7 +159,22 @@ export default function ProfilePage() {
     const followerRows = ((followersResult.data as FollowRow[]) || []).filter(Boolean);
     setFollowersCount(followerRows.filter((row) => row.following_id === profileId).length);
     setFollowingCount(followerRows.filter((row) => row.follower_id === profileId).length);
-    setIsFollowing(!!nextViewerId && followerRows.some((row) => row.follower_id === nextViewerId && row.following_id === profileId));
+    setIsFollowing(
+      !!nextViewerId &&
+        followerRows.some((row) => row.follower_id === nextViewerId && row.following_id === profileId)
+    );
+
+    if (!nextViewerId || nextViewerId === profileId) {
+      setFriendStatus("none");
+    } else if (friendshipResult.data) {
+      setFriendStatus("friends");
+    } else if (outgoingRequestResult.data) {
+      setFriendStatus("outgoing_request");
+    } else if (incomingRequestResult.data) {
+      setFriendStatus("incoming_request");
+    } else {
+      setFriendStatus("none");
+    }
 
     setLoading(false);
   }, [profileId]);
@@ -136,17 +197,29 @@ export default function ProfilePage() {
     const alreadyLiked = !!userLikes[postId];
 
     if (alreadyLiked) {
-      const { error: unlikeError } = await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
+      const { error: unlikeError } = await supabase
+        .from("likes")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("post_id", postId);
+
       if (unlikeError) {
         alert(`Unlike error: ${unlikeError.message}`);
         return;
       }
+
       setUserLikes((prev) => ({ ...prev, [postId]: false }));
-      setLikeCounts((prev) => ({ ...prev, [postId]: Math.max((prev[postId] || 1) - 1, 0) }));
+      setLikeCounts((prev) => ({
+        ...prev,
+        [postId]: Math.max((prev[postId] || 1) - 1, 0),
+      }));
       return;
     }
 
-    const { error: likeError } = await supabase.from("likes").insert([{ user_id: user.id, post_id: postId }]);
+    const { error: likeError } = await supabase
+      .from("likes")
+      .insert([{ user_id: user.id, post_id: postId }]);
+
     if (likeError) {
       alert(`Like error: ${likeError.message}`);
       return;
@@ -180,7 +253,9 @@ export default function ProfilePage() {
       return;
     }
 
-    const { error } = await supabase.from("followers").insert([{ follower_id: viewerId, following_id: profileId }]);
+    const { error } = await supabase
+      .from("followers")
+      .insert([{ follower_id: viewerId, following_id: profileId }]);
 
     if (error) {
       alert(`Follow error: ${error.message}`);
@@ -191,6 +266,120 @@ export default function ProfilePage() {
     setIsFollowing(true);
     setFollowersCount((prev) => prev + 1);
     setFollowLoading(false);
+  };
+
+  const handleSendFriendRequest = async () => {
+    if (!viewerId || !profileId || isOwnProfile) return;
+
+    setFriendLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("friend_requests")
+        .insert([
+          {
+            sender_id: viewerId,
+            receiver_id: profileId,
+            status: "pending",
+          },
+        ])
+        .select("id")
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const { error: notifyError } = await supabase
+        .from("notifications")
+        .insert([
+          {
+            user_id: profileId,
+            actor_id: viewerId,
+            type: "friend_request",
+            post_id: null,
+            comment_id: null,
+            friend_request_id: data.id,
+            message: "sent you a friend request.",
+            is_read: false,
+          },
+        ]);
+
+      if (notifyError) {
+        console.error("Friend request notification error:", notifyError.message);
+      }
+
+      setFriendStatus("outgoing_request");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to send friend request.";
+      alert(message);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  const handleCancelFriendRequest = async () => {
+    if (!viewerId || !profileId || isOwnProfile) return;
+
+    setFriendLoading(true);
+    try {
+      await cancelFriendRequest(supabase, viewerId, profileId);
+      setFriendStatus("none");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to cancel friend request.";
+      alert(message);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  const handleAcceptFriendRequest = async () => {
+    if (!viewerId || !profileId || isOwnProfile) return;
+
+    setFriendLoading(true);
+    try {
+      await acceptFriendRequest(supabase, viewerId, profileId);
+      setFriendStatus("friends");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to accept friend request.";
+      alert(message);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  const handleDeclineFriendRequest = async () => {
+    if (!viewerId || !profileId || isOwnProfile) return;
+
+    setFriendLoading(true);
+    try {
+      await declineFriendRequest(supabase, viewerId, profileId);
+      setFriendStatus("none");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to decline friend request.";
+      alert(message);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  const handleRemoveFriend = async () => {
+    if (!viewerId || !profileId || isOwnProfile) return;
+
+    const confirmed = window.confirm("Remove this friend?");
+    if (!confirmed) return;
+
+    setFriendLoading(true);
+    try {
+      await removeFriend(supabase, viewerId, profileId);
+      setFriendStatus("none");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to remove friend.";
+      alert(message);
+    } finally {
+      setFriendLoading(false);
+    }
   };
 
   const getInitial = (name?: string | null, username?: string | null) => {
@@ -206,7 +395,14 @@ export default function ProfilePage() {
             <h2 style={{ marginTop: 0, fontSize: "24px" }}>Parapost Network</h2>
             <p style={{ color: "#9ca3af", fontSize: "14px", marginTop: 0 }}>Profile view</p>
 
-            <div style={{ marginTop: "22px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div
+              style={{
+                marginTop: "22px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
               <Link href="/dashboard" style={navItemLinkStyle}>
                 Home Feed
               </Link>
@@ -228,8 +424,23 @@ export default function ProfilePage() {
           <section className="min-w-0">
             <div className="mx-auto w-full max-w-3xl space-y-4 md:space-y-6">
               <div style={mainCardStyle}>
-                <div className="flex flex-col md:flex-row" style={{ display: "flex", gap: "18px", alignItems: "center", flexWrap: "wrap" }}>
-                  <div style={{ position: "relative", width: "96px", height: "96px", flexShrink: 0 }}>
+                <div
+                  className="flex flex-col md:flex-row"
+                  style={{
+                    display: "flex",
+                    gap: "18px",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "96px",
+                      height: "96px",
+                      flexShrink: 0,
+                    }}
+                  >
                     {profile?.avatar_url ? (
                       <img
                         src={profile.avatar_url}
@@ -262,7 +473,7 @@ export default function ProfilePage() {
                       </div>
                     )}
 
-                    {profile?.is_online && (
+                    {profile?.is_online ? (
                       <span
                         style={{
                           position: "absolute",
@@ -276,16 +487,25 @@ export default function ProfilePage() {
                           boxShadow: "0 0 8px rgba(34,197,94,0.65)",
                         }}
                       />
-                    )}
+                    ) : null}
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between" style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                    <div
+                      className="flex flex-col md:flex-row md:items-start md:justify-between"
+                      style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}
+                    >
                       <div>
                         <h1 style={{ margin: 0, fontSize: "30px", lineHeight: 1.1 }}>
                           {profile?.full_name || profile?.username || "Profile"}
                         </h1>
-                        <p style={{ margin: "8px 0 0", color: "#9ca3af", fontSize: "15px" }}>
+                        <p
+                          style={{
+                            margin: "8px 0 0",
+                            color: "#9ca3af",
+                            fontSize: "15px",
+                          }}
+                        >
                           @{profile?.username || "no-username"}
                         </p>
                       </div>
@@ -293,28 +513,99 @@ export default function ProfilePage() {
                       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                         <Link
                           href={`/profile/${profileId}/reels`}
-                          style={{ ...secondaryButtonStyle, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+                          style={{
+                            ...secondaryButtonStyle,
+                            textDecoration: "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                          }}
                         >
                           Reels
                         </Link>
 
                         {isOwnProfile ? (
-                          <button onClick={() => router.push(`/profile/${viewerId}/edit`)} style={secondaryButtonStyle}>
+                          <button
+                            onClick={() => router.push(`/profile/${viewerId}/edit`)}
+                            style={secondaryButtonStyle}
+                          >
                             Edit profile
                           </button>
                         ) : viewerId ? (
-                          <button onClick={handleFollowToggle} disabled={followLoading} style={isFollowing ? secondaryButtonStyle : primaryButtonStyle}>
-                            {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
-                          </button>
+                          <>
+                            <button
+                              onClick={handleFollowToggle}
+                              disabled={followLoading}
+                              style={isFollowing ? secondaryButtonStyle : primaryButtonStyle}
+                            >
+                              {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
+                            </button>
+
+                            {friendStatus === "none" ? (
+                              <button
+                                onClick={handleSendFriendRequest}
+                                disabled={friendLoading}
+                                style={secondaryButtonStyle}
+                              >
+                                {friendLoading ? "Saving..." : "Add Friend"}
+                              </button>
+                            ) : friendStatus === "outgoing_request" ? (
+                              <button
+                                onClick={handleCancelFriendRequest}
+                                disabled={friendLoading}
+                                style={secondaryButtonStyle}
+                              >
+                                {friendLoading ? "Saving..." : "Requested"}
+                              </button>
+                            ) : friendStatus === "incoming_request" ? (
+                              <>
+                                <button
+                                  onClick={handleAcceptFriendRequest}
+                                  disabled={friendLoading}
+                                  style={primaryButtonStyle}
+                                >
+                                  {friendLoading ? "Saving..." : "Accept"}
+                                </button>
+                                <button
+                                  onClick={handleDeclineFriendRequest}
+                                  disabled={friendLoading}
+                                  style={secondaryButtonStyle}
+                                >
+                                  {friendLoading ? "Saving..." : "Decline"}
+                                </button>
+                              </>
+                            ) : friendStatus === "friends" ? (
+                              <button
+                                onClick={handleRemoveFriend}
+                                disabled={friendLoading}
+                                style={secondaryButtonStyle}
+                              >
+                                {friendLoading ? "Saving..." : "Friends"}
+                              </button>
+                            ) : null}
+                          </>
                         ) : null}
                       </div>
                     </div>
 
-                    <p style={{ margin: "14px 0 0", color: "#d1d5db", lineHeight: 1.7 }}>
+                    <p
+                      style={{
+                        margin: "14px 0 0",
+                        color: "#d1d5db",
+                        lineHeight: 1.7,
+                      }}
+                    >
                       {profile?.bio || "No bio added yet."}
                     </p>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "12px", marginTop: "18px" }}>
+                    <div
+                      className="grid grid-cols-2 md:grid-cols-4"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                        gap: "12px",
+                        marginTop: "18px",
+                      }}
+                    >
                       <div style={statPillStyle}>
                         <strong style={statNumberStyle}>{posts.length}</strong>
                         <span style={statLabelStyle}>Posts</span>
@@ -328,7 +619,9 @@ export default function ProfilePage() {
                         <span style={statLabelStyle}>Following</span>
                       </div>
                       <div style={statPillStyle}>
-                        <strong style={statNumberStyle}>{Object.values(likeCounts).reduce((sum, count) => sum + count, 0)}</strong>
+                        <strong style={statNumberStyle}>
+                          {Object.values(likeCounts).reduce((sum, count) => sum + count, 0)}
+                        </strong>
                         <span style={statLabelStyle}>Likes</span>
                       </div>
                     </div>
@@ -337,14 +630,25 @@ export default function ProfilePage() {
               </div>
 
               <div style={mainCardStyle}>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between" style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "8px" }}>
+                <div
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between"
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                    marginBottom: "8px",
+                  }}
+                >
                   <div>
                     <h3 style={{ marginTop: 0, marginBottom: "4px" }}>Profile Feed</h3>
                     <p style={{ margin: 0, color: "#9ca3af", fontSize: "13px" }}>
                       Posts shared by this investigator.
                     </p>
                   </div>
-                  <Link href="/dashboard" style={{ ...secondaryButtonStyle, textDecoration: "none" }}>
+                  <Link
+                    href="/dashboard"
+                    style={{ ...secondaryButtonStyle, textDecoration: "none" }}
+                  >
                     Back to feed
                   </Link>
                 </div>
@@ -365,7 +669,16 @@ export default function ProfilePage() {
 
                       return (
                         <div key={post.id} style={postCardStyle}>
-                          <div style={{ marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                          <div
+                            style={{
+                              marginBottom: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: "12px",
+                              flexWrap: "wrap",
+                            }}
+                          >
                             <div>
                               <div style={{ fontWeight: 600, color: "#f9fafb" }}>
                                 {profile.full_name || profile.username || "Unnamed User"}
@@ -377,7 +690,14 @@ export default function ProfilePage() {
                           </div>
 
                           {post.content && (
-                            <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.7, color: "#f9fafb" }}>
+                            <p
+                              style={{
+                                margin: 0,
+                                whiteSpace: "pre-wrap",
+                                lineHeight: 1.7,
+                                color: "#f9fafb",
+                              }}
+                            >
                               {post.content}
                             </p>
                           )}
@@ -398,8 +718,19 @@ export default function ProfilePage() {
                             />
                           )}
 
-                          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "18px", flexWrap: "wrap" }}>
-                            <button onClick={() => handleLikeToggle(post.id)} style={actionButtonStyle}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "12px",
+                              marginTop: "18px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <button
+                              onClick={() => handleLikeToggle(post.id)}
+                              style={actionButtonStyle}
+                            >
                               <span>{liked ? "♥" : "♡"}</span>
                               <span>{likeCount}</span>
                             </button>

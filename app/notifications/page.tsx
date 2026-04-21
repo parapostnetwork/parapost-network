@@ -2,20 +2,14 @@
 
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-
-type NotificationType =
-  | "friend_request"
-  | "friend_accept"
-  | "post_like"
-  | "comment_like"
-  | "comment_reply";
 
 type NotificationRow = {
   id: string;
   user_id: string;
   actor_id: string;
-  type: NotificationType;
+  type: "friend_request" | "friend_accept" | "post_like" | "comment_like" | "comment_reply";
   post_id: string | null;
   comment_id: string | null;
   friend_request_id: string | null;
@@ -32,127 +26,31 @@ type ProfilePreview = {
   is_online?: boolean | null;
 };
 
-const pageShellStyle: CSSProperties = {
-  minHeight: "100vh",
-  background: "#07090d",
-  color: "white",
-};
-
-const containerStyle: CSSProperties = {
-  maxWidth: "1180px",
-  margin: "0 auto",
-  padding: "24px 16px 48px",
-};
-
-const cardStyle: CSSProperties = {
-  background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.04) 100%)",
-  borderRadius: "28px",
-  padding: "18px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  backdropFilter: "blur(10px)",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
-};
-
-const primaryButtonStyle: CSSProperties = {
-  background: "white",
-  color: "#07090d",
-  border: "none",
-  borderRadius: "999px",
-  padding: "10px 16px",
-  fontWeight: 700,
-  fontSize: "14px",
-  cursor: "pointer",
-};
-
-const secondaryButtonStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
-  color: "white",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "999px",
-  padding: "10px 16px",
-  fontWeight: 600,
-  fontSize: "14px",
-  cursor: "pointer",
-};
-
-const pillStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.04)",
-  color: "#d1d5db",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: "999px",
-  padding: "8px 12px",
-  fontSize: "13px",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const activePillStyle: CSSProperties = {
-  ...pillStyle,
-  background: "white",
-  color: "#07090d",
-  border: "1px solid white",
-};
-
-const metaPillStyle: CSSProperties = {
-  fontSize: "12px",
-  color: "#d1d5db",
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: "999px",
-  padding: "6px 10px",
-  whiteSpace: "nowrap",
-};
-
-function getInitial(name?: string | null, username?: string | null) {
-  const value = name || username || "U";
-  return value.charAt(0).toUpperCase();
-}
-
-function formatNotificationType(type: NotificationType) {
-  switch (type) {
-    case "friend_request":
-      return "Friend Request";
-    case "friend_accept":
-      return "Friend Accepted";
-    case "post_like":
-      return "Post Like";
-    case "comment_like":
-      return "Comment Like";
-    case "comment_reply":
-      return "Comment Reply";
-    default:
-      return "Notification";
-  }
-}
-
-function fallbackMessage(item: NotificationRow, actorName: string) {
-  switch (item.type) {
-    case "friend_request":
-      return `${actorName} sent you a friend request.`;
-    case "friend_accept":
-      return `${actorName} accepted your friend request.`;
-    case "post_like":
-      return `${actorName} liked your post.`;
-    case "comment_like":
-      return `${actorName} liked your comment.`;
-    case "comment_reply":
-      return `${actorName} replied to your comment.`;
-    default:
-      return `${actorName} interacted with your account.`;
-  }
-}
-
 export default function NotificationsPage() {
+  const router = useRouter();
+
   const [currentUserId, setCurrentUserId] = useState("");
-  const [userEmail, setUserEmail] = useState("");
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
-  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
+
+  const unreadCount = useMemo(
+    () => notifications.filter((item) => !item.is_read).length,
+    [notifications]
+  );
+
+  const showStatus = useCallback((message: string) => {
+    setStatusMessage(message);
+    window.setTimeout(() => {
+      setStatusMessage("");
+    }, 2500);
+  }, []);
 
   const fetchProfilesMap = useCallback(async (userIds: string[]) => {
     const uniqueIds = [...new Set(userIds.filter(Boolean))];
+
     if (uniqueIds.length === 0) {
       setProfilesMap({});
       return;
@@ -183,7 +81,8 @@ export default function NotificationsPage() {
       .from("notifications")
       .select("id, user_id, actor_id, type, post_id, comment_id, friend_request_id, message, is_read, created_at")
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     if (error) {
       console.error("Error fetching notifications:", error.message);
@@ -194,12 +93,15 @@ export default function NotificationsPage() {
 
     const rows = (data || []) as NotificationRow[];
     setNotifications(rows);
-    await fetchProfilesMap(rows.map((item) => item.actor_id));
+
+    const actorIds = rows.map((item) => item.actor_id).filter(Boolean);
+    await fetchProfilesMap(actorIds);
+
     setLoading(false);
   }, [fetchProfilesMap]);
 
   useEffect(() => {
-    const initializePage = async () => {
+    const initialize = async () => {
       const {
         data: { user },
         error,
@@ -207,18 +109,16 @@ export default function NotificationsPage() {
 
       if (error || !user) {
         setCurrentUserId("");
-        setUserEmail("");
         setNotifications([]);
         setLoading(false);
         return;
       }
 
       setCurrentUserId(user.id);
-      setUserEmail(user.email || "");
       await fetchNotifications(user.id);
     };
 
-    initializePage();
+    initialize();
   }, [fetchNotifications]);
 
   useEffect(() => {
@@ -233,6 +133,13 @@ export default function NotificationsPage() {
           await fetchNotifications(currentUserId);
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        async () => {
+          await fetchNotifications(currentUserId);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -240,34 +147,57 @@ export default function NotificationsPage() {
     };
   }, [currentUserId, fetchNotifications]);
 
-  const unreadCount = useMemo(() => {
-    return notifications.filter((item) => !item.is_read).length;
-  }, [notifications]);
-
-  const filteredNotifications = useMemo(() => {
-    if (activeTab === "unread") {
-      return notifications.filter((item) => !item.is_read);
-    }
-    return notifications;
-  }, [activeTab, notifications]);
-
-  const handleMarkOneRead = async (notificationId: string) => {
-    const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId);
+  const markAsRead = async (notificationId: string) => {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", notificationId);
 
     if (error) {
-      console.error("Error marking notification read:", error.message);
-      return;
+      console.error("Mark read error:", error.message);
+      return false;
     }
 
     setNotifications((prev) =>
-      prev.map((item) => (item.id === notificationId ? { ...item, is_read: true } : item))
+      prev.map((item) =>
+        item.id === notificationId ? { ...item, is_read: true } : item
+      )
     );
+
+    return true;
+  };
+
+  const handleNotificationClick = async (notification: NotificationRow) => {
+    setProcessingId(notification.id);
+
+    if (!notification.is_read) {
+      await markAsRead(notification.id);
+    }
+
+    let destination = "/notifications";
+
+    if (notification.type === "friend_request") {
+      destination = "/friends/requests";
+    } else if (notification.type === "friend_accept") {
+      destination = "/friends";
+    } else if (notification.post_id) {
+      destination = `/dashboard#post-${notification.post_id}`;
+    } else if (notification.actor_id) {
+      destination = `/profile/${notification.actor_id}`;
+    }
+
+    router.push(destination);
+    setProcessingId(null);
   };
 
   const handleMarkAllRead = async () => {
-    if (!currentUserId || unreadCount === 0) return;
+    if (!currentUserId) return;
 
-    setMarkingAllRead(true);
+    const unreadIds = notifications.filter((item) => !item.is_read).map((item) => item.id);
+    if (unreadIds.length === 0) {
+      showStatus("No unread notifications.");
+      return;
+    }
 
     const { error } = await supabase
       .from("notifications")
@@ -276,351 +206,363 @@ export default function NotificationsPage() {
       .eq("is_read", false);
 
     if (error) {
-      console.error("Error marking all notifications read:", error.message);
-      setMarkingAllRead(false);
+      alert(`Mark all read error: ${error.message}`);
       return;
     }
 
     setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
-    setMarkingAllRead(false);
+    showStatus("All notifications marked as read.");
   };
 
-  const getNotificationHref = (item: NotificationRow) => {
-    if (item.post_id) return `/dashboard#post-${item.post_id}`;
-    if (item.actor_id) return `/profile/${item.actor_id}`;
-    return "/dashboard";
+  const getInitial = (name?: string | null, username?: string | null) => {
+    const value = name || username || "U";
+    return value.charAt(0).toUpperCase();
+  };
+
+  const formatRelativeTime = (value?: string | null) => {
+    if (!value) return "Just now";
+
+    const timestamp = new Date(value).getTime();
+    if (Number.isNaN(timestamp)) return "Just now";
+
+    const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
+    if (seconds < 60) return `${seconds}s ago`;
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return `${weeks}w ago`;
+
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months}mo ago`;
+
+    const years = Math.floor(days / 365);
+    return `${years}y ago`;
+  };
+
+  const getNotificationTargetLabel = (notification: NotificationRow) => {
+    if (notification.type === "friend_request") return "Opens Friend Requests";
+    if (notification.type === "friend_accept") return "Opens Friends List";
+    if (notification.post_id) return "Opens related post";
+    if (notification.actor_id) return "Opens profile";
+    return "Open";
+  };
+
+  const getNotificationMessage = (notification: NotificationRow) => {
+    const actor = profilesMap[notification.actor_id];
+    const actorName = actor?.full_name || actor?.username || "Someone";
+
+    if (notification.type === "friend_request") {
+      return `${actorName} sent you a friend request.`;
+    }
+
+    if (notification.type === "friend_accept") {
+      return `${actorName} accepted your friend request.`;
+    }
+
+    if (notification.message) {
+      return `${actorName} ${notification.message}`;
+    }
+
+    return `${actorName} sent you a notification.`;
   };
 
   return (
-    <div style={pageShellStyle}>
-      <div style={containerStyle}>
+    <div className="min-h-screen bg-[#07090d] text-white">
+      <div className="mx-auto max-w-6xl px-4 py-6 lg:px-6">
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr)",
-            gap: "20px",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.04) 100%)",
+            borderRadius: "28px",
+            padding: "20px",
+            border: "1px solid rgba(255,255,255,0.10)",
+            backdropFilter: "blur(10px)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
           }}
         >
-          <div style={cardStyle}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                gap: "14px",
-                flexWrap: "wrap",
-                marginBottom: "14px",
-              }}
-            >
-              <div>
-                <p
-                  style={{
-                    margin: "0 0 8px",
-                    color: "#9ca3af",
-                    fontSize: "13px",
-                    letterSpacing: "0.02em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Parapost Network
-                </p>
-                <h1 style={{ margin: "0 0 8px", fontSize: "30px", lineHeight: 1.1 }}>Notifications</h1>
-                <p style={{ margin: 0, color: "#9ca3af", fontSize: "14px" }}>
-                  Stay on top of likes, replies, follows, and community activity in one place.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <Link href="/dashboard" style={{ ...secondaryButtonStyle, textDecoration: "none" }}>
-                  Back to Dashboard
-                </Link>
-                <Link href={currentUserId ? `/profile/${currentUserId}` : "/dashboard"} style={{ ...secondaryButtonStyle, textDecoration: "none" }}>
-                  View Profile
-                </Link>
-              </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginBottom: "18px",
+            }}
+          >
+            <div>
+              <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800 }}>Notifications</h1>
+              <p style={{ margin: "6px 0 0", color: "#9ca3af", fontSize: "14px" }}>
+                Friend requests open Friend Requests. Friend accepts open your Friends list.
+              </p>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "12px",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <button onClick={() => setActiveTab("all")} style={activeTab === "all" ? activePillStyle : pillStyle}>
-                  All
-                </button>
-                <button onClick={() => setActiveTab("unread")} style={activeTab === "unread" ? activePillStyle : pillStyle}>
-                  Unread
-                </button>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                <span style={metaPillStyle}>{unreadCount} unread</span>
-                {userEmail ? <span style={metaPillStyle}>{userEmail}</span> : null}
-                <button onClick={handleMarkAllRead} disabled={markingAllRead || unreadCount === 0} style={primaryButtonStyle}>
-                  {markingAllRead ? "Updating..." : "Mark all as read"}
-                </button>
-              </div>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <Link href="/dashboard" style={secondaryLinkStyle}>
+                Back to Dashboard
+              </Link>
+              <span style={countPillStyle}>{notifications.length} total</span>
+              <span style={unreadPillStyle}>{unreadCount} unread</span>
+              <button type="button" onClick={handleMarkAllRead} style={secondaryButtonStyle}>
+                Mark all read
+              </button>
             </div>
           </div>
 
-          <div style={cardStyle}>
-            {loading ? (
-              <p style={{ margin: 0, color: "#9ca3af" }}>Loading notifications...</p>
-            ) : !currentUserId ? (
-              <p style={{ margin: 0, color: "#9ca3af" }}>You need to be logged in to view notifications.</p>
-            ) : filteredNotifications.length === 0 ? (
-              <div
-                style={{
-                  border: "1px dashed rgba(255,255,255,0.12)",
-                  borderRadius: "24px",
-                  padding: "20px",
-                  color: "#9ca3af",
-                }}
-              >
-                {activeTab === "unread"
-                  ? "You’re all caught up. No unread notifications right now."
-                  : "No notifications yet. Activity from your network will appear here."}
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                {filteredNotifications.map((item) => {
-                  const actor = profilesMap[item.actor_id];
-                  const actorName = actor?.full_name || actor?.username || "Someone";
-                  const href = getNotificationHref(item);
+          {statusMessage && (
+            <div
+              style={{
+                marginBottom: "16px",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                color: "#f9fafb",
+                borderRadius: "18px",
+                padding: "12px 14px",
+              }}
+            >
+              {statusMessage}
+            </div>
+          )}
 
-                  return (
+          {loading ? (
+            <p style={{ color: "#9ca3af", margin: 0 }}>Loading notifications...</p>
+          ) : notifications.length === 0 ? (
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.10)",
+                borderRadius: "24px",
+                padding: "24px",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <h2 style={{ marginTop: 0, marginBottom: "8px", fontSize: "20px" }}>No notifications yet</h2>
+              <p style={{ margin: 0, color: "#9ca3af", lineHeight: 1.6 }}>
+                When someone sends a friend request, accepts one, or interacts with your content, it will show up here.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {notifications.map((notification) => {
+                const actor = profilesMap[notification.actor_id];
+                const actorName = actor?.full_name || actor?.username || "Unnamed User";
+                const isBusy = processingId === notification.id;
+
+                return (
+                  <button
+                    key={notification.id}
+                    type="button"
+                    onClick={() => handleNotificationClick(notification)}
+                    style={{
+                      ...notificationCardStyle,
+                      background: notification.is_read
+                        ? "linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.03) 100%)"
+                        : "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.05) 100%)",
+                      opacity: isBusy ? 0.8 : 1,
+                    }}
+                  >
                     <div
-                      key={item.id}
                       style={{
-                        background: item.is_read
-                          ? "rgba(255,255,255,0.03)"
-                          : "linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.05) 100%)",
-                        border: item.is_read
-                          ? "1px solid rgba(255,255,255,0.08)"
-                          : "1px solid rgba(255,255,255,0.14)",
-                        borderRadius: "24px",
-                        padding: "16px",
-                        boxShadow: item.is_read ? "none" : "0 8px 24px rgba(0,0,0,0.18)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "14px",
+                        flexWrap: "wrap",
                       }}
                     >
                       <div
                         style={{
                           display: "flex",
-                          alignItems: "flex-start",
-                          justifyContent: "space-between",
-                          gap: "14px",
-                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: "12px",
+                          minWidth: 0,
+                          flex: 1,
                         }}
                       >
                         <div
                           style={{
+                            position: "relative",
+                            width: "54px",
+                            height: "54px",
+                            borderRadius: "50%",
                             display: "flex",
-                            gap: "12px",
-                            alignItems: "flex-start",
-                            minWidth: 0,
-                            flex: 1,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
                           }}
                         >
-                          <div
-                            style={{
-                              position: "relative",
-                              width: "48px",
-                              height: "48px",
-                              minWidth: "48px",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            {actor?.avatar_url ? (
-                              <img
-                                src={actor.avatar_url}
-                                alt={actorName}
-                                style={{
-                                  width: "44px",
-                                  height: "44px",
-                                  borderRadius: "50%",
-                                  objectFit: "cover",
-                                }}
-                              />
-                            ) : (
-                              <div
-                                style={{
-                                  width: "44px",
-                                  height: "44px",
-                                  borderRadius: "50%",
-                                  background: "#374151",
-                                  color: "#f9fafb",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontWeight: 700,
-                                  fontSize: "16px",
-                                }}
-                              >
-                                {getInitial(actor?.full_name, actor?.username)}
-                              </div>
-                            )}
-
-                            {actor?.is_online ? (
-                              <span
-                                style={{
-                                  position: "absolute",
-                                  bottom: "1px",
-                                  right: "1px",
-                                  width: "12px",
-                                  height: "12px",
-                                  borderRadius: "50%",
-                                  background: "#22c55e",
-                                  border: "2px solid #07090d",
-                                  boxShadow: "0 0 6px rgba(34,197,94,0.6)",
-                                }}
-                              />
-                            ) : null}
-                          </div>
-
-                          <div style={{ minWidth: 0, flex: 1 }}>
+                          {actor?.avatar_url ? (
+                            <img
+                              src={actor.avatar_url}
+                              alt={actorName}
+                              style={{
+                                width: "54px",
+                                height: "54px",
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
                             <div
                               style={{
+                                width: "54px",
+                                height: "54px",
+                                borderRadius: "50%",
+                                background: "#374151",
+                                color: "#f9fafb",
                                 display: "flex",
                                 alignItems: "center",
-                                gap: "8px",
-                                flexWrap: "wrap",
-                                marginBottom: "6px",
+                                justifyContent: "center",
+                                fontWeight: 700,
+                                fontSize: "18px",
                               }}
                             >
-                              <span style={{ fontWeight: 700, color: "#f9fafb" }}>{actorName}</span>
-                              <span style={metaPillStyle}>{formatNotificationType(item.type)}</span>
-                              {!item.is_read ? (
-                                <span
-                                  style={{
-                                    ...metaPillStyle,
-                                    color: "#86efac",
-                                    border: "1px solid rgba(34,197,94,0.24)",
-                                    background: "rgba(34,197,94,0.10)",
-                                  }}
-                                >
-                                  New
-                                </span>
-                              ) : null}
+                              {getInitial(actor?.full_name, actor?.username)}
                             </div>
+                          )}
 
-                            <p
+                          {actor?.is_online && (
+                            <span
                               style={{
-                                margin: "0 0 8px",
-                                color: "#e5e7eb",
-                                lineHeight: 1.6,
-                                whiteSpace: "pre-wrap",
+                                position: "absolute",
+                                bottom: "2px",
+                                right: "2px",
+                                width: "12px",
+                                height: "12px",
+                                borderRadius: "50%",
+                                background: "#22c55e",
+                                border: "2px solid #07090d",
+                                boxShadow: "0 0 6px rgba(34,197,94,0.6)",
                               }}
-                            >
-                              {item.message?.trim() || fallbackMessage(item, actorName)}
-                            </p>
-
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "10px",
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              <span style={{ fontSize: "13px", color: "#9ca3af" }}>
-                                {new Date(item.created_at).toLocaleString()}
-                              </span>
-
-                              <Link
-                                href={href}
-                                style={{
-                                  color: "white",
-                                  textDecoration: "none",
-                                  fontWeight: 600,
-                                  fontSize: "13px",
-                                }}
-                              >
-                                Open
-                              </Link>
-
-                              {item.actor_id ? (
-                                <Link
-                                  href={`/profile/${item.actor_id}`}
-                                  style={{
-                                    color: "#d1d5db",
-                                    textDecoration: "none",
-                                    fontWeight: 600,
-                                    fontSize: "13px",
-                                  }}
-                                >
-                                  View profile
-                                </Link>
-                              ) : null}
-                            </div>
-                          </div>
+                            />
+                          )}
                         </div>
 
-                        {!item.is_read ? (
-                          <button onClick={() => handleMarkOneRead(item.id)} style={secondaryButtonStyle}>
-                            Mark as read
-                          </button>
-                        ) : null}
+                        <div style={{ minWidth: 0, textAlign: "left" }}>
+                          <div
+                            style={{
+                              color: "#f9fafb",
+                              fontWeight: 700,
+                              fontSize: "16px",
+                              marginBottom: "6px",
+                            }}
+                          >
+                            {getNotificationMessage(notification)}
+                          </div>
+
+                          <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "6px" }}>
+                            @{actor?.username || "no-username"} · {formatRelativeTime(notification.created_at)}
+                          </div>
+
+                          <div style={{ color: "#d1d5db", fontSize: "13px" }}>
+                            {getNotificationTargetLabel(notification)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        {!notification.is_read && <span style={unreadDotStyle} />}
+                        <span style={openPillStyle}>{isBusy ? "Opening..." : "Open"}</span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div
-            style={{
-              ...cardStyle,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: "14px",
-            }}
-          >
-            <div
-              style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "22px",
-                padding: "16px",
-              }}
-            >
-              <h3 style={{ marginTop: 0, marginBottom: "8px" }}>Notification Tips</h3>
-              <p style={{ margin: 0, color: "#9ca3af", lineHeight: 1.7 }}>
-                Use the unread tab to focus on fresh activity first, then switch back to all when you want the full history.
-              </p>
+                  </button>
+                );
+              })}
             </div>
-
-            <div
-              style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "22px",
-                padding: "16px",
-              }}
-            >
-              <h3 style={{ marginTop: 0, marginBottom: "8px" }}>Launch Prep</h3>
-              <p style={{ margin: 0, color: "#9ca3af", lineHeight: 1.7 }}>
-                This page now visually matches the dashboard system so your launch testing feels consistent across core user flows.
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+const secondaryLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "42px",
+  padding: "0 16px",
+  borderRadius: "999px",
+  textDecoration: "none",
+  color: "#f9fafb",
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  fontWeight: 600,
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+  minHeight: "42px",
+  padding: "0 16px",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  color: "#f9fafb",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const countPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "42px",
+  padding: "0 14px",
+  borderRadius: "999px",
+  color: "#f9fafb",
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  fontWeight: 700,
+  fontSize: "14px",
+};
+
+const unreadPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "42px",
+  padding: "0 14px",
+  borderRadius: "999px",
+  color: "#86efac",
+  background: "rgba(34,197,94,0.10)",
+  border: "1px solid rgba(34,197,94,0.24)",
+  fontWeight: 700,
+  fontSize: "14px",
+};
+
+const notificationCardStyle: React.CSSProperties = {
+  width: "100%",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: "24px",
+  padding: "16px",
+  boxShadow: "0 10px 26px rgba(0,0,0,0.24)",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const unreadDotStyle: React.CSSProperties = {
+  width: "10px",
+  height: "10px",
+  borderRadius: "50%",
+  background: "#22c55e",
+  boxShadow: "0 0 8px rgba(34,197,94,0.7)",
+};
+
+const openPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "34px",
+  padding: "0 12px",
+  borderRadius: "999px",
+  color: "#f9fafb",
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  fontWeight: 700,
+  fontSize: "12px",
+};

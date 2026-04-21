@@ -1,183 +1,135 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-export type FriendshipStatus =
-  | "none"
-  | "friends"
-  | "incoming"
-  | "outgoing"
-  | "blocked"
-  | "self";
-
-type FriendRow = {
-  user_id: string;
-  friend_id: string;
-};
-
-type FriendRequestRow = {
-  sender_id: string;
-  receiver_id: string;
-};
-
-export async function getFriendshipStatus(
-  supabase: SupabaseClient,
-  userId: string,
-  targetId: string
-): Promise<FriendshipStatus> {
-  if (!userId || !targetId) return "none";
-  if (userId === targetId) return "self";
-
-  const { data: friendship, error: friendshipError } = await supabase
-    .from("friends")
-    .select("user_id, friend_id")
-    .or(
-      `and(user_id.eq.${userId},friend_id.eq.${targetId}),and(user_id.eq.${targetId},friend_id.eq.${userId})`
-    )
-    .maybeSingle<FriendRow>();
-
-  if (friendshipError) {
-    console.error("Error checking friendship:", friendshipError);
-  }
-
-  if (friendship) {
-    return "friends";
-  }
-
-  const { data: request, error: requestError } = await supabase
-    .from("friend_requests")
-    .select("sender_id, receiver_id")
-    .or(
-      `and(sender_id.eq.${userId},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${userId})`
-    )
-    .maybeSingle<FriendRequestRow>();
-
-  if (requestError) {
-    console.error("Error checking friend request:", requestError);
-  }
-
-  if (!request) {
-    return "none";
-  }
-
-  if (request.sender_id === userId && request.receiver_id === targetId) {
-    return "outgoing";
-  }
-
-  if (request.sender_id === targetId && request.receiver_id === userId) {
-    return "incoming";
-  }
-
-  return "none";
-}
+import { SupabaseClient } from "@supabase/supabase-js";
 
 export async function sendFriendRequest(
   supabase: SupabaseClient,
-  userId: string,
-  targetId: string
+  currentUserId: string,
+  targetUserId: string
 ) {
-  if (!userId || !targetId || userId === targetId) {
-    throw new Error("Invalid friend request.");
+  if (!currentUserId || !targetUserId) {
+    throw new Error("Missing user IDs.");
   }
 
-  const existingStatus = await getFriendshipStatus(supabase, userId, targetId);
-
-  if (existingStatus === "friends" || existingStatus === "outgoing") {
-    return { success: true };
+  if (currentUserId === targetUserId) {
+    throw new Error("You cannot send a friend request to yourself.");
   }
 
-  if (existingStatus === "incoming") {
-    return acceptFriendRequest(supabase, userId, targetId);
-  }
-
-  const { error } = await supabase.from("friend_requests").insert({
-    sender_id: userId,
-    receiver_id: targetId,
-  });
+  const { error } = await supabase.from("friend_requests").insert([
+    {
+      sender_id: currentUserId,
+      receiver_id: targetUserId,
+      status: "pending",
+    },
+  ]);
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
-  return { success: true };
+  return true;
 }
 
 export async function cancelFriendRequest(
   supabase: SupabaseClient,
-  userId: string,
-  targetId: string
+  currentUserId: string,
+  targetUserId: string
 ) {
   const { error } = await supabase
     .from("friend_requests")
-    .delete()
-    .eq("sender_id", userId)
-    .eq("receiver_id", targetId);
+    .update({ status: "cancelled" })
+    .eq("sender_id", currentUserId)
+    .eq("receiver_id", targetUserId)
+    .eq("status", "pending");
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
-  return { success: true };
+  return true;
 }
 
 export async function acceptFriendRequest(
   supabase: SupabaseClient,
-  userId: string,
-  targetId: string
+  currentUserId: string,
+  senderUserId: string
 ) {
-  const { error: deleteError } = await supabase
+  const { data: request, error } = await supabase
     .from("friend_requests")
-    .delete()
-    .eq("sender_id", targetId)
-    .eq("receiver_id", userId);
+    .select("*")
+    .eq("sender_id", senderUserId)
+    .eq("receiver_id", currentUserId)
+    .eq("status", "pending")
+    .single();
 
-  if (deleteError) {
-    throw deleteError;
+  if (error || !request) {
+    throw new Error("No request found.");
   }
 
-  const { error: insertError } = await supabase.from("friends").insert([
+  const user_one =
+    currentUserId < senderUserId ? currentUserId : senderUserId;
+  const user_two =
+    currentUserId < senderUserId ? senderUserId : currentUserId;
+
+  const { error: insertError } = await supabase.from("friendships").insert([
     {
-      user_id: userId,
-      friend_id: targetId,
+      user_one,
+      user_two,
     },
   ]);
 
   if (insertError) {
-    throw insertError;
+    throw new Error(insertError.message);
   }
 
-  return { success: true };
+  const { error: updateError } = await supabase
+    .from("friend_requests")
+    .update({ status: "accepted" })
+    .eq("id", request.id);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  return true;
+}
+
+export async function declineFriendRequest(
+  supabase: SupabaseClient,
+  currentUserId: string,
+  senderUserId: string
+) {
+  const { error } = await supabase
+    .from("friend_requests")
+    .update({ status: "declined" })
+    .eq("sender_id", senderUserId)
+    .eq("receiver_id", currentUserId)
+    .eq("status", "pending");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return true;
 }
 
 export async function removeFriend(
   supabase: SupabaseClient,
-  userId: string,
-  targetId: string
+  currentUserId: string,
+  targetUserId: string
 ) {
+  const user_one =
+    currentUserId < targetUserId ? currentUserId : targetUserId;
+  const user_two =
+    currentUserId < targetUserId ? targetUserId : currentUserId;
+
   const { error } = await supabase
-    .from("friends")
+    .from("friendships")
     .delete()
-    .or(
-      `and(user_id.eq.${userId},friend_id.eq.${targetId}),and(user_id.eq.${targetId},friend_id.eq.${userId})`
-    );
+    .eq("user_one", user_one)
+    .eq("user_two", user_two);
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
-  return { success: true };
-}
-
-export async function getFriendsList(
-  supabase: SupabaseClient,
-  userId: string
-) {
-  const { data, error } = await supabase
-    .from("friends")
-    .select("user_id, friend_id")
-    .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
-
-  if (error) {
-    throw error;
-  }
-
-  return data ?? [];
+  return true;
 }

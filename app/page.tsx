@@ -27,7 +27,6 @@ export default function Home() {
         });
 
         if (error) {
-          console.error("LOGIN ERROR:", error);
           alert(error.message);
           return;
         }
@@ -40,10 +39,7 @@ export default function Home() {
           },
         });
 
-        console.log("SIGNUP DATA:", data);
-
         if (error) {
-          console.error("SIGNUP ERROR:", error);
           alert(error.message);
           return;
         }
@@ -56,12 +52,49 @@ export default function Home() {
 
       window.location.href = "/dashboard";
     } catch (err) {
-      console.error("AUTH CATCH ERROR:", err);
-
       if (err instanceof Error) {
         alert(err.message);
       } else {
         alert("Unexpected error during authentication.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
+      alert("Please enter your email first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: "http://localhost:3000/reset-password",
+      });
+
+      if (error) {
+        const message = error.message.toLowerCase();
+
+        if (message.includes("rate limit")) {
+          alert("Too many reset emails were sent. Please wait a few minutes and try again.");
+          return;
+        }
+
+        alert(error.message);
+        return;
+      }
+
+      alert("Password reset email sent. Check your email.");
+    } catch (err) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert("Unexpected error sending reset email.");
       }
     } finally {
       setLoading(false);
@@ -97,6 +130,17 @@ export default function Home() {
             className="p-3 rounded-lg bg-zinc-800 outline-none"
             autoComplete={isLogin ? "current-password" : "new-password"}
           />
+
+          {isLogin && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="self-end text-sm text-purple-400 hover:text-purple-300 disabled:opacity-60"
+            >
+              Forgot Password?
+            </button>
+          )}
 
           <button
             onClick={handleAuth}

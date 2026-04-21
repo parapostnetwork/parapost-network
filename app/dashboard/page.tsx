@@ -123,6 +123,7 @@ export default function DashboardPage() {
   const [reportMessage, setReportMessage] = useState("");
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [pendingFriendRequestCount, setPendingFriendRequestCount] = useState(0);
   const [feedMode, setFeedMode] = useState<FeedMode>("for_you");
   const [followedUserIds, setFollowedUserIds] = useState<string[]>([]);
   const [followingMap, setFollowingMap] = useState<FollowMap>({});
@@ -199,7 +200,10 @@ export default function DashboardPage() {
       await fetchAllData(currentUserId || undefined);
 
       if (refreshNotifications && currentUserId) {
-        await fetchNotifications(currentUserId);
+        await Promise.all([
+          fetchNotifications(currentUserId),
+          fetchPendingFriendRequests(currentUserId),
+        ]);
       }
     }, 180);
   }, [currentUserId]);
@@ -217,6 +221,7 @@ export default function DashboardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "user_blocks" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "followers" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => scheduleRealtimeRefresh(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => scheduleRealtimeRefresh(true))
       .subscribe();
 
     return () => {
@@ -239,10 +244,11 @@ export default function DashboardPage() {
 
       await supabase.from("profiles").update({ is_online: true }).eq("id", user.id);
 
-      await Promise.all([fetchAllData(user.id), fetchNotifications(user.id)]);
+      await Promise.all([fetchAllData(user.id), fetchNotifications(user.id), fetchPendingFriendRequests(user.id)]);
     } else {
       await fetchAllData();
       setNotifications([]);
+      setPendingFriendRequestCount(0);
     }
   };
 
@@ -330,6 +336,27 @@ export default function DashboardPage() {
 
     setNotifications((data || []) as NotificationRow[]);
     setNotificationsLoading(false);
+  };
+
+  const fetchPendingFriendRequests = async (userId?: string) => {
+    if (!userId) {
+      setPendingFriendRequestCount(0);
+      return;
+    }
+
+    const { count, error } = await supabase
+      .from("friend_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("receiver_id", userId)
+      .eq("status", "pending");
+
+    if (error) {
+      console.error("Error fetching pending friend requests:", error.message);
+      setPendingFriendRequestCount(0);
+      return;
+    }
+
+    setPendingFriendRequestCount(count || 0);
   };
 
   const fetchFollowData = async (userId?: string) => {
@@ -1287,6 +1314,35 @@ export default function DashboardPage() {
     return value.charAt(0).toUpperCase();
   };
 
+  const formatRelativeTime = useCallback((value?: string | null) => {
+    if (!value) return "Just now";
+
+    const timestamp = new Date(value).getTime();
+    if (Number.isNaN(timestamp)) return "Just now";
+
+    const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
+
+    if (seconds < 60) return `${seconds}s ago`;
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return `${weeks}w ago`;
+
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months}mo ago`;
+
+    const years = Math.floor(days / 365);
+    return `${years}y ago`;
+  }, []);
+
   const currentFollowingCount = followedUserIds.length;
 
 
@@ -1326,6 +1382,41 @@ export default function DashboardPage() {
               </Link>
 
               <div style={navItemStyle}>Messages</div>
+
+              <Link
+                href="/friends/requests"
+                style={{
+                  ...navItemStyle,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  textDecoration: "none",
+                  color: "white",
+                  gap: "10px",
+                }}
+              >
+                <span>Friends</span>
+
+                {pendingFriendRequestCount > 0 && (
+                  <span
+                    style={{
+                      minWidth: "22px",
+                      height: "22px",
+                      borderRadius: "999px",
+                      background: "white",
+                      color: "black",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 6px",
+                    }}
+                  >
+                    {pendingFriendRequestCount > 99 ? "99+" : pendingFriendRequestCount}
+                  </span>
+                )}
+              </Link>
 
               <Link
                 href="/notifications"
@@ -1677,7 +1768,6 @@ export default function DashboardPage() {
                       const isCommentsOpen = !!openCommentSections[post.id];
                       const isEditing = editingPostId === post.id;
                       const isFollowingAuthor = !!followingMap[post.user_id];
-                      const authorFollowerCount = followerCountByUser[post.user_id] || 0;
 
                       return (
                         <div
@@ -1750,7 +1840,9 @@ export default function DashboardPage() {
                                 minWidth: 0,
                               }}
                             >
-                              <div
+                              <Link
+                                href={`/profile/${post.user_id}`}
+                                aria-label={`View ${profilesMap[post.user_id]?.full_name || profilesMap[post.user_id]?.username || "user"} profile`}
                                 style={{
                                   position: "relative",
                                   width: "48px",
@@ -1759,6 +1851,17 @@ export default function DashboardPage() {
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
+                                  flexShrink: 0,
+                                  textDecoration: "none",
+                                  transition: "transform 160ms ease, filter 160ms ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.transform = "scale(1.03)";
+                                  e.currentTarget.style.filter = "brightness(1.06)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform = "scale(1)";
+                                  e.currentTarget.style.filter = "brightness(1)";
                                 }}
                               >
                                 {profilesMap[post.user_id]?.avatar_url ? (
@@ -1809,7 +1912,7 @@ export default function DashboardPage() {
                                     }}
                                   />
                                 )}
-                              </div>
+                              </Link>
 
                               <div style={{ minWidth: 0 }}>
                                 <Link
@@ -1820,6 +1923,13 @@ export default function DashboardPage() {
                                     fontWeight: 600,
                                     display: "inline-block",
                                     marginBottom: "4px",
+                                    transition: "opacity 160ms ease",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.opacity = "0.85";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.opacity = "1";
                                   }}
                                 >
                                   {profilesMap[post.user_id]?.full_name ||
@@ -1827,14 +1937,14 @@ export default function DashboardPage() {
                                     "Unnamed User"}
                                 </Link>
 
-                                <div style={{ fontSize: "13px", color: "#9ca3af" }}>
+                                <div
+                                  style={{ fontSize: "13px", color: "#9ca3af" }}
+                                  title={new Date(post.created_at).toLocaleString()}
+                                >
                                   @{profilesMap[post.user_id]?.username || "no-username"} ·{" "}
-                                  {new Date(post.created_at).toLocaleString()}
+                                  {formatRelativeTime(post.created_at)}
                                 </div>
 
-                                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
-                                  {authorFollowerCount} follower{authorFollowerCount === 1 ? "" : "s"}
-                                </div>
                               </div>
                             </div>
 
@@ -1976,7 +2086,16 @@ export default function DashboardPage() {
                                 </span>
                               </div>
 
-                              <div className="flex flex-col sm:flex-row" style={{ display: "flex", gap: "10px", marginBottom: "14px", flexWrap: "wrap" }}>
+                              <div
+                                className="flex flex-col sm:flex-row"
+                                style={{
+                                  display: "flex",
+                                  gap: "10px",
+                                  marginBottom: "14px",
+                                  flexWrap: "wrap",
+                                  alignItems: "stretch",
+                                }}
+                              >
                                 <input
                                   ref={(el) => {
                                     commentInputRefs.current[post.id] = el;
@@ -1986,10 +2105,31 @@ export default function DashboardPage() {
                                   onChange={(e) => handleCommentChange(post.id, e.target.value)}
                                   placeholder="Write a comment..."
                                   className="w-full sm:w-auto"
-                                  style={{ ...inputStyle, minWidth: 0 }}
+                                  style={{
+                                    ...inputStyle,
+                                    minWidth: 0,
+                                    flex: 1,
+                                    height: "46px",
+                                    borderRadius: "16px",
+                                    background: "rgba(255,255,255,0.04)",
+                                    border: "1px solid rgba(255,255,255,0.10)",
+                                    color: "#f9fafb",
+                                    padding: "0 14px",
+                                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+                                  }}
                                 />
 
-                                <button className="w-full sm:w-auto" onClick={() => handleAddComment(post.id)} style={primaryButtonStyle}>
+                                <button
+                                  className="w-full sm:w-auto"
+                                  onClick={() => handleAddComment(post.id)}
+                                  style={{
+                                    ...primaryButtonStyle,
+                                    minHeight: "46px",
+                                    borderRadius: "16px",
+                                    padding: "0 18px",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
                                   Comment
                                 </button>
                               </div>
@@ -2020,6 +2160,7 @@ export default function DashboardPage() {
                                       onOpenMenu={openCommentMenu}
                                       depth={0}
                                       profilesMap={profilesMap}
+                                      formatRelativeTime={formatRelativeTime}
                                     />
                                   ))}
                                 </div>
@@ -2247,7 +2388,7 @@ export default function DashboardPage() {
                               marginBottom: "8px",
                             }}
                           >
-                            {new Date(report.created_at).toLocaleString()}
+                            {formatRelativeTime(report.created_at)}
                           </div>
 
                           <p style={{ margin: "0 0 8px 0", color: "#f9fafb", lineHeight: 1.5 }}>
@@ -2442,6 +2583,7 @@ function CommentThread({
   blockedUserIds,
   posts,
   profilesMap,
+  formatRelativeTime,
 }: {
   comment: Comment;
   postId: string;
@@ -2466,6 +2608,7 @@ function CommentThread({
   blockedUserIds: string[];
   posts: Post[];
   profilesMap: Record<string, ProfilePreview>;
+  formatRelativeTime: (value?: string | null) => string;
 }) {
   const childReplies = allComments.filter(
     (item) => item.parent_comment_id === comment.id && (isPostOwner ? true : !item.is_hidden)
@@ -2519,16 +2662,19 @@ function CommentThread({
         onReply={() => onReplyToggle(comment.id)}
         onHide={() => onHide(comment.id, postId)}
         onOpenMenu={(e) => onOpenMenu(e, comment.id, postId)}
+        formatRelativeTime={formatRelativeTime}
       />
 
       {openReplyBoxes[comment.id] && !isHidden && (
         <div
+          className="flex flex-col sm:flex-row"
           style={{
             display: "flex",
             gap: "10px",
             marginTop: "10px",
             marginLeft: depth === 0 ? "22px" : "0px",
             flexWrap: "wrap",
+            alignItems: "stretch",
           }}
         >
           <input
@@ -2539,12 +2685,31 @@ function CommentThread({
             value={replyInputs[comment.id] || ""}
             onChange={(e) => onReplyChange(comment.id, e.target.value)}
             placeholder="Write a reply..."
+            className="w-full sm:w-auto"
             style={{
               ...inputStyle,
-              minWidth: "220px",
+              minWidth: 0,
+              flex: 1,
+              height: "44px",
+              borderRadius: "15px",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              color: "#f9fafb",
+              padding: "0 14px",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
             }}
           />
-          <button onClick={() => onAddReply(postId, comment.id)} style={primaryButtonStyle}>
+          <button
+            className="w-full sm:w-auto"
+            onClick={() => onAddReply(postId, comment.id)}
+            style={{
+              ...primaryButtonStyle,
+              minHeight: "44px",
+              borderRadius: "15px",
+              padding: "0 16px",
+              whiteSpace: "nowrap",
+            }}
+          >
             Reply
           </button>
         </div>
@@ -2581,6 +2746,7 @@ function CommentThread({
               onOpenMenu={onOpenMenu}
               depth={depth + 1}
               profilesMap={profilesMap}
+              formatRelativeTime={formatRelativeTime}
             />
           ))}
         </div>
@@ -2600,6 +2766,7 @@ function CommentCard({
   onLike,
   onHide,
   onOpenMenu,
+  formatRelativeTime,
 }: {
   comment: Comment;
   isPostOwner: boolean;
@@ -2611,6 +2778,7 @@ function CommentCard({
   onLike: () => void;
   onHide: () => void;
   onOpenMenu: (e: ReactMouseEvent<HTMLDivElement> | ReactTouchEvent<HTMLDivElement>) => void;
+  formatRelativeTime: (value?: string | null) => string;
 }) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2654,7 +2822,27 @@ function CommentCard({
       }}
     >
       <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-        <div style={{ position: "relative", width: "38px", height: "38px", flexShrink: 0 }}>
+        <Link
+          href={`/profile/${comment.user_id}`}
+          aria-label={`View ${displayName} profile`}
+          style={{
+            position: "relative",
+            width: "38px",
+            height: "38px",
+            flexShrink: 0,
+            textDecoration: "none",
+            borderRadius: "50%",
+            transition: "transform 160ms ease, filter 160ms ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.04)";
+            e.currentTarget.style.filter = "brightness(1.06)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.filter = "brightness(1)";
+          }}
+        >
           {profile?.avatar_url ? (
             <img
               src={profile.avatar_url}
@@ -2685,7 +2873,7 @@ function CommentCard({
             </div>
           )}
 
-          {!isReply && isOnline && (
+          {isOnline && (
             <span
               style={{
                 position: "absolute",
@@ -2699,11 +2887,27 @@ function CommentCard({
               }}
             />
           )}
-        </div>
+        </Link>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
-            <span style={{ fontWeight: 600, color: "#f9fafb" }}>{displayName}</span>
+            <Link
+              href={`/profile/${comment.user_id}`}
+              style={{
+                fontWeight: 600,
+                color: "#f9fafb",
+                textDecoration: "none",
+                transition: "opacity 160ms ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "0.85";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = "1";
+              }}
+            >
+              {displayName}
+            </Link>
             <span style={{ fontSize: "12px", color: "#6b7280" }}>@{username}</span>
             {isReply && (
               <span
@@ -2735,8 +2939,11 @@ function CommentCard({
             )}
           </div>
 
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "6px" }}>
-            {new Date(comment.created_at).toLocaleString()}
+          <div
+            style={{ fontSize: "12px", color: "#6b7280", marginBottom: "6px" }}
+            title={new Date(comment.created_at).toLocaleString()}
+          >
+            {formatRelativeTime(comment.created_at)}
           </div>
 
           <div style={{ color: "#f3f4f6", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
