@@ -14,6 +14,7 @@ import {
 } from "react";
 import Link from "next/link";
 import DashboardReelsSection from "./DashboardReelsSection";
+import DashboardNotificationsLink from "@/components/DashboardNotificationsLink";
 import { supabase } from "@/lib/supabase";
 
 type ProfilePreview = {
@@ -1418,43 +1419,10 @@ export default function DashboardPage() {
                 )}
               </Link>
 
-              <Link
-                href="/notifications"
-                style={{
-                  ...navItemStyle,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  textDecoration: "none",
-                  color: "white",
-                  gap: "10px",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <BellIcon />
-                  Notifications
-                </span>
-
-                {unreadNotificationCount > 0 && (
-                  <span
-                    style={{
-                      minWidth: "22px",
-                      height: "22px",
-                      borderRadius: "999px",
-                      background: "white",
-                      color: "black",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "0 6px",
-                    }}
-                  >
-                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                  </span>
-                )}
-              </Link>
+              <DashboardNotificationsLink
+                navItemStyle={navItemStyle}
+                icon={<BellIcon />}
+              />
 
               <div style={navItemStyle}>Saved Evidence</div>
               <div style={navItemStyle}>Settings</div>
