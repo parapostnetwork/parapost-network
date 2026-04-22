@@ -10,6 +10,7 @@ import {
   declineFriendRequest,
   removeFriend,
 } from "@/lib/friends";
+import MutualFriendsPreviewCard from "@/components/profile/MutualFriendsPreviewCard";
 
 type ProfileRow = {
   id: string;
@@ -42,9 +43,38 @@ type FriendRequestStatus =
   | "incoming_request"
   | "friends";
 
+function formatTimeAgo(dateString: string) {
+  const date = new Date(dateString);
+  const diffMs = Date.now() - date.getTime();
+
+  if (Number.isNaN(diffMs)) return "";
+
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return "just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+}
+
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
+
   const profileId = useMemo(() => {
     const raw = params?.id;
     return typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] || "" : "";
@@ -64,8 +94,16 @@ export default function ProfilePage() {
   const [followLoading, setFollowLoading] = useState(false);
   const [friendStatus, setFriendStatus] = useState<FriendRequestStatus>("none");
   const [friendLoading, setFriendLoading] = useState(false);
+  const [friendStatusMessage, setFriendStatusMessage] = useState("");
 
   const isOwnProfile = !!viewerId && viewerId === profileId;
+
+  const showFriendStatus = useCallback((message: string) => {
+    setFriendStatusMessage(message);
+    window.setTimeout(() => {
+      setFriendStatusMessage("");
+    }, 2500);
+  }, []);
 
   const loadPage = useCallback(async () => {
     if (!profileId) {
@@ -85,48 +123,56 @@ export default function ProfilePage() {
     setViewerId(nextViewerId);
     setViewerEmail(user?.email || "");
 
-    const [profileResult, postsResult, likesResult, followersResult, outgoingRequestResult, incomingRequestResult, friendshipResult] =
-      await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, username, full_name, bio, avatar_url, is_online")
-          .eq("id", profileId)
-          .maybeSingle(),
-        supabase
-          .from("posts")
-          .select("id, content, image_url, created_at, user_id")
-          .eq("user_id", profileId)
-          .order("created_at", { ascending: false }),
-        supabase.from("likes").select("post_id, user_id"),
-        supabase.from("followers").select("follower_id, following_id"),
-        nextViewerId && profileId && nextViewerId !== profileId
-          ? supabase
-              .from("friend_requests")
-              .select("id")
-              .eq("sender_id", nextViewerId)
-              .eq("receiver_id", profileId)
-              .eq("status", "pending")
-              .maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
-        nextViewerId && profileId && nextViewerId !== profileId
-          ? supabase
-              .from("friend_requests")
-              .select("id")
-              .eq("sender_id", profileId)
-              .eq("receiver_id", nextViewerId)
-              .eq("status", "pending")
-              .maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
-        nextViewerId && profileId && nextViewerId !== profileId
-          ? supabase
-              .from("friendships")
-              .select("id")
-              .or(
-                `and(user_one.eq.${nextViewerId},user_two.eq.${profileId}),and(user_one.eq.${profileId},user_two.eq.${nextViewerId})`
-              )
-              .maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
-      ]);
+    const [
+      profileResult,
+      postsResult,
+      likesResult,
+      followersResult,
+      outgoingRequestResult,
+      incomingRequestResult,
+      acceptedRequestResult,
+    ] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, username, full_name, bio, avatar_url, is_online")
+        .eq("id", profileId)
+        .maybeSingle(),
+      supabase
+        .from("posts")
+        .select("id, content, image_url, created_at, user_id")
+        .eq("user_id", profileId)
+        .order("created_at", { ascending: false }),
+      supabase.from("likes").select("post_id, user_id"),
+      supabase.from("followers").select("follower_id, following_id"),
+      nextViewerId && profileId && nextViewerId !== profileId
+        ? supabase
+            .from("friend_requests")
+            .select("id")
+            .eq("sender_id", nextViewerId)
+            .eq("receiver_id", profileId)
+            .eq("status", "pending")
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      nextViewerId && profileId && nextViewerId !== profileId
+        ? supabase
+            .from("friend_requests")
+            .select("id")
+            .eq("sender_id", profileId)
+            .eq("receiver_id", nextViewerId)
+            .eq("status", "pending")
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      nextViewerId && profileId && nextViewerId !== profileId
+        ? supabase
+            .from("friend_requests")
+            .select("id")
+            .eq("status", "accepted")
+            .or(
+              `and(sender_id.eq.${nextViewerId},receiver_id.eq.${profileId}),and(sender_id.eq.${profileId},receiver_id.eq.${nextViewerId})`
+            )
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
     if (profileResult.error) {
       setErrorMessage(profileResult.error.message || "Unable to load profile.");
@@ -153,6 +199,7 @@ export default function ProfilePage() {
         nextUserLikes[like.post_id] = true;
       }
     }
+
     setLikeCounts(nextLikeCounts);
     setUserLikes(nextUserLikes);
 
@@ -166,7 +213,7 @@ export default function ProfilePage() {
 
     if (!nextViewerId || nextViewerId === profileId) {
       setFriendStatus("none");
-    } else if (friendshipResult.data) {
+    } else if (acceptedRequestResult.data) {
       setFriendStatus("friends");
     } else if (outgoingRequestResult.data) {
       setFriendStatus("outgoing_request");
@@ -182,6 +229,32 @@ export default function ProfilePage() {
   useEffect(() => {
     loadPage();
   }, [loadPage]);
+
+  useEffect(() => {
+    if (!viewerId || !profileId || viewerId === profileId) return;
+
+    const channel = supabase
+      .channel(`profile-friends-${viewerId}-${profileId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friend_requests" },
+        async () => {
+          await loadPage();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "followers" },
+        async () => {
+          await loadPage();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [viewerId, profileId, loadPage]);
 
   const handleLikeToggle = async (postId: string) => {
     const {
@@ -310,6 +383,7 @@ export default function ProfilePage() {
       }
 
       setFriendStatus("outgoing_request");
+      showFriendStatus("Friend request sent.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to send friend request.";
@@ -326,6 +400,7 @@ export default function ProfilePage() {
     try {
       await cancelFriendRequest(supabase, viewerId, profileId);
       setFriendStatus("none");
+      showFriendStatus("Friend request cancelled.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to cancel friend request.";
       alert(message);
@@ -340,7 +415,36 @@ export default function ProfilePage() {
     setFriendLoading(true);
     try {
       await acceptFriendRequest(supabase, viewerId, profileId);
+
+      const { data: acceptedRow } = await supabase
+        .from("friend_requests")
+        .select("id")
+        .eq("sender_id", profileId)
+        .eq("receiver_id", viewerId)
+        .eq("status", "accepted")
+        .maybeSingle();
+
+      const { error: notifyError } = await supabase
+        .from("notifications")
+        .insert([
+          {
+            user_id: profileId,
+            actor_id: viewerId,
+            type: "friend_accept",
+            post_id: null,
+            comment_id: null,
+            friend_request_id: acceptedRow?.id || null,
+            message: "accepted your friend request.",
+            is_read: false,
+          },
+        ]);
+
+      if (notifyError) {
+        console.error("Friend accept notification error:", notifyError.message);
+      }
+
       setFriendStatus("friends");
+      showFriendStatus("Friend request accepted.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to accept friend request.";
       alert(message);
@@ -356,6 +460,7 @@ export default function ProfilePage() {
     try {
       await declineFriendRequest(supabase, viewerId, profileId);
       setFriendStatus("none");
+      showFriendStatus("Friend request declined.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to decline friend request.";
       alert(message);
@@ -374,6 +479,7 @@ export default function ProfilePage() {
     try {
       await removeFriend(supabase, viewerId, profileId);
       setFriendStatus("none");
+      showFriendStatus("Friend removed.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to remove friend.";
       alert(message);
@@ -385,6 +491,14 @@ export default function ProfilePage() {
   const getInitial = (name?: string | null, username?: string | null) => {
     const value = name || username || "U";
     return value.charAt(0).toUpperCase();
+  };
+
+  const getFriendStatusLabel = () => {
+    if (isOwnProfile) return "";
+    if (friendStatus === "friends") return "Friends";
+    if (friendStatus === "incoming_request") return "Incoming Request";
+    if (friendStatus === "outgoing_request") return "Request Sent";
+    return "Not Friends Yet";
   };
 
   return (
@@ -413,6 +527,9 @@ export default function ProfilePage() {
               ) : (
                 <div style={navItemStyle}>My Profile</div>
               )}
+              <Link href="/friends" style={navItemLinkStyle}>
+                Friends
+              </Link>
               <Link href="/notifications" style={navItemLinkStyle}>
                 Notifications
               </Link>
@@ -508,6 +625,26 @@ export default function ProfilePage() {
                         >
                           @{profile?.username || "no-username"}
                         </p>
+
+                        {!isOwnProfile && viewerId && (
+                          <div style={{ marginTop: "12px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                            <span style={getFriendStatusPillStyle(friendStatus)}>
+                              {getFriendStatusLabel()}
+                            </span>
+
+                            {friendStatus === "friends" && (
+                              <Link href="/friends" style={miniLinkStyle}>
+                                View Friends
+                              </Link>
+                            )}
+
+                            {friendStatus === "incoming_request" && (
+                              <Link href="/friends/requests" style={miniLinkStyle}>
+                                Open Requests
+                              </Link>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -587,6 +724,12 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
+                    {friendStatusMessage && (
+                      <div style={statusToastStyle}>
+                        {friendStatusMessage}
+                      </div>
+                    )}
+
                     <p
                       style={{
                         margin: "14px 0 0",
@@ -625,6 +768,13 @@ export default function ProfilePage() {
                         <span style={statLabelStyle}>Likes</span>
                       </div>
                     </div>
+
+                    {!loading && !errorMessage && profile && !isOwnProfile ? (
+                      <MutualFriendsPreviewCard
+                        currentUserId={viewerId}
+                        profileUserId={profileId}
+                      />
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -684,7 +834,7 @@ export default function ProfilePage() {
                                 {profile.full_name || profile.username || "Unnamed User"}
                               </div>
                               <div style={{ fontSize: "13px", color: "#9ca3af" }}>
-                                @{profile.username || "no-username"} · {new Date(post.created_at).toLocaleString()}
+                                @{profile.username || "no-username"} · {formatTimeAgo(post.created_at)}
                               </div>
                             </div>
                           </div>
@@ -708,9 +858,9 @@ export default function ProfilePage() {
                               alt="Post"
                               style={{
                                 width: "100%",
-                                maxHeight: "520px",
-                                marginTop: "16px",
-                                borderRadius: "22px",
+                                maxHeight: "680px",
+                                marginTop: "12px",
+                                borderRadius: "18px",
                                 objectFit: "cover",
                                 display: "block",
                                 boxShadow: "0 10px 28px rgba(0,0,0,0.30)",
@@ -750,9 +900,14 @@ export default function ProfilePage() {
               <p style={{ color: "#d1d5db", marginBottom: "10px" }}>
                 Viewer: <strong style={{ color: "white" }}>{viewerEmail || "Guest"}</strong>
               </p>
-              <p style={{ color: "#d1d5db", marginBottom: 0 }}>
+              <p style={{ color: "#d1d5db", marginBottom: "10px" }}>
                 Status: <strong style={{ color: "white" }}>{profile?.is_online ? "Online" : "Offline"}</strong>
               </p>
+              {!isOwnProfile && viewerId && (
+                <p style={{ color: "#d1d5db", marginBottom: 0 }}>
+                  Friend Status: <strong style={{ color: "white" }}>{getFriendStatusLabel()}</strong>
+                </p>
+              )}
             </div>
 
             <div style={sideCardStyle}>
@@ -767,6 +922,66 @@ export default function ProfilePage() {
       </div>
     </div>
   );
+}
+
+function getFriendStatusPillStyle(friendStatus: FriendRequestStatus): CSSProperties {
+  if (friendStatus === "friends") {
+    return {
+      display: "inline-flex",
+      alignItems: "center",
+      minHeight: "34px",
+      padding: "0 12px",
+      borderRadius: "999px",
+      color: "#86efac",
+      background: "rgba(34,197,94,0.10)",
+      border: "1px solid rgba(34,197,94,0.24)",
+      fontWeight: 700,
+      fontSize: "12px",
+    };
+  }
+
+  if (friendStatus === "incoming_request") {
+    return {
+      display: "inline-flex",
+      alignItems: "center",
+      minHeight: "34px",
+      padding: "0 12px",
+      borderRadius: "999px",
+      color: "#fcd34d",
+      background: "rgba(250,204,21,0.10)",
+      border: "1px solid rgba(250,204,21,0.24)",
+      fontWeight: 700,
+      fontSize: "12px",
+    };
+  }
+
+  if (friendStatus === "outgoing_request") {
+    return {
+      display: "inline-flex",
+      alignItems: "center",
+      minHeight: "34px",
+      padding: "0 12px",
+      borderRadius: "999px",
+      color: "#c4b5fd",
+      background: "rgba(139,92,246,0.10)",
+      border: "1px solid rgba(139,92,246,0.24)",
+      fontWeight: 700,
+      fontSize: "12px",
+    };
+  }
+
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: "34px",
+    padding: "0 12px",
+    borderRadius: "999px",
+    color: "#d1d5db",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    fontWeight: 700,
+    fontSize: "12px",
+  };
 }
 
 const mainCardStyle: CSSProperties = {
@@ -830,6 +1045,30 @@ const secondaryButtonStyle: CSSProperties = {
   fontWeight: 600,
   cursor: "pointer",
   minHeight: "42px",
+};
+
+const miniLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: "34px",
+  padding: "0 12px",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.05)",
+  color: "#f9fafb",
+  border: "1px solid rgba(255,255,255,0.10)",
+  textDecoration: "none",
+  fontSize: "12px",
+  fontWeight: 700,
+};
+
+const statusToastStyle: CSSProperties = {
+  marginTop: "14px",
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  color: "#f9fafb",
+  borderRadius: "18px",
+  padding: "10px 12px",
+  fontSize: "13px",
 };
 
 const actionButtonStyle: CSSProperties = {

@@ -251,7 +251,7 @@ export default function FriendsListPage() {
 
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <Link href="/friends/requests" style={secondaryLinkStyle}>
-                View Requests
+                View Friend Requests
               </Link>
               <span style={countPillStyle}>{friends.length} total</span>
               <span style={onlinePillStyle}>{onlineCount} online</span>

@@ -209,12 +209,231 @@ export default function DashboardPage() {
     }, 180);
   }, [currentUserId]);
 
+  const shouldShowIncomingPost = useCallback((post: Post) => {
+    if (!post?.user_id) return false;
+    if (blockedUserIds.includes(post.user_id)) return false;
+
+    if (feedMode === "following" && currentUserId) {
+      return followedUserIds.includes(post.user_id);
+    }
+
+    return true;
+  }, [blockedUserIds, currentUserId, feedMode, followedUserIds]);
+
+
   useEffect(() => {
     const channel = supabase
       .channel(`dashboard-live-${currentUserId || "guest"}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => scheduleRealtimeRefresh(false))
-      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => scheduleRealtimeRefresh(false))
-      .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, () => scheduleRealtimeRefresh(false))
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "posts" },
+        async (payload) => {
+          const incomingPost = payload.new as Post;
+
+          if (!incomingPost?.id) return;
+          if (!shouldShowIncomingPost(incomingPost)) return;
+
+          setPosts((prev) => {
+            if (prev.some((post) => post.id === incomingPost.id)) {
+              return prev;
+            }
+
+            return [incomingPost, ...prev];
+          });
+
+          setCommentsByPost((prev) => ({
+            ...prev,
+            [incomingPost.id]: prev[incomingPost.id] || [],
+          }));
+
+          setLikeCounts((prev) => ({ ...prev, [incomingPost.id]: prev[incomingPost.id] || 0 }));
+          setRepostCounts((prev) => ({ ...prev, [incomingPost.id]: prev[incomingPost.id] || 0 }));
+          setShareCounts((prev) => ({ ...prev, [incomingPost.id]: prev[incomingPost.id] || 0 }));
+
+          if (incomingPost.user_id) {
+            const { data: profileData, error: profileError } = await supabase
+              .from("profiles")
+              .select("id, username, full_name, avatar_url, is_online")
+              .eq("id", incomingPost.user_id)
+              .maybeSingle();
+
+            if (!profileError && profileData) {
+              setProfilesMap((prev) => ({
+                ...prev,
+                [incomingPost.user_id]: profileData as ProfilePreview,
+              }));
+            }
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "posts" },
+        (payload) => {
+          const updatedPost = payload.new as Post;
+
+          if (!updatedPost?.id) return;
+
+          setPosts((prev) =>
+            prev.map((post) => (post.id === updatedPost.id ? { ...post, ...updatedPost } : post))
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "posts" },
+        (payload) => {
+          const deletedPostId = (payload.old as { id?: string } | null)?.id;
+          if (!deletedPostId) return;
+
+          setPosts((prev) => prev.filter((post) => post.id !== deletedPostId));
+          setCommentsByPost((prev) => {
+            const next = { ...prev };
+            delete next[deletedPostId];
+            return next;
+          });
+          setLikeCounts((prev) => {
+            const next = { ...prev };
+            delete next[deletedPostId];
+            return next;
+          });
+          setRepostCounts((prev) => {
+            const next = { ...prev };
+            delete next[deletedPostId];
+            return next;
+          });
+          setShareCounts((prev) => {
+            const next = { ...prev };
+            delete next[deletedPostId];
+            return next;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "comments" },
+        async (payload) => {
+          const incomingComment = payload.new as Comment;
+
+          if (!incomingComment?.id || !incomingComment.post_id) return;
+
+          const relatedPostExists = posts.some((post) => post.id === incomingComment.post_id);
+          if (!relatedPostExists) return;
+          if (blockedUserIds.includes(incomingComment.user_id)) return;
+
+          let commentWithProfile: Comment = incomingComment;
+
+          if (incomingComment.user_id && !profilesMap[incomingComment.user_id]) {
+            const { data: profileData, error: profileError } = await supabase
+              .from("profiles")
+              .select("id, username, full_name, avatar_url, is_online")
+              .eq("id", incomingComment.user_id)
+              .maybeSingle();
+
+            if (!profileError && profileData) {
+              const profile = profileData as ProfilePreview;
+              setProfilesMap((prev) => ({
+                ...prev,
+                [incomingComment.user_id]: profile,
+              }));
+              commentWithProfile = {
+                ...incomingComment,
+                profiles: profile,
+              };
+            }
+          } else if (profilesMap[incomingComment.user_id]) {
+            commentWithProfile = {
+              ...incomingComment,
+              profiles: profilesMap[incomingComment.user_id] || null,
+            };
+          }
+
+          setCommentsByPost((prev) => {
+            const existing = prev[incomingComment.post_id] || [];
+            if (existing.some((comment) => comment.id === incomingComment.id)) {
+              return prev;
+            }
+
+            return {
+              ...prev,
+              [incomingComment.post_id]: [...existing, commentWithProfile],
+            };
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "comments" },
+        (payload) => {
+          const updatedComment = payload.new as Comment;
+          if (!updatedComment?.id || !updatedComment.post_id) return;
+
+          setCommentsByPost((prev) => ({
+            ...prev,
+            [updatedComment.post_id]: (prev[updatedComment.post_id] || []).map((comment) =>
+              comment.id === updatedComment.id ? { ...comment, ...updatedComment } : comment
+            ),
+          }));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "comments" },
+        (payload) => {
+          const deletedComment = payload.old as { id?: string; post_id?: string; parent_comment_id?: string | null } | null;
+          const deletedCommentId = deletedComment?.id;
+          const postId = deletedComment?.post_id;
+
+          if (!deletedCommentId || !postId) return;
+
+          setCommentsByPost((prev) => ({
+            ...prev,
+            [postId]: (prev[postId] || []).filter(
+              (comment) =>
+                comment.id !== deletedCommentId &&
+                comment.parent_comment_id !== deletedCommentId
+            ),
+          }));
+
+          setCommentLikeCounts((prev) => {
+            const next = { ...prev };
+            delete next[deletedCommentId];
+            return next;
+          });
+
+          setUserCommentLikes((prev) => {
+            const next = { ...prev };
+            delete next[deletedCommentId];
+            return next;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "likes" },
+        (payload) => {
+          const postId = (payload.new as { post_id?: string } | null)?.post_id;
+          if (!postId) return;
+
+          setLikeCounts((prev) => ({
+            ...prev,
+            [postId]: (prev[postId] || 0) + 1,
+          }));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "likes" },
+        (payload) => {
+          const postId = (payload.old as { post_id?: string } | null)?.post_id;
+          if (!postId) return;
+
+          setLikeCounts((prev) => ({
+            ...prev,
+            [postId]: Math.max((prev[postId] || 1) - 1, 0),
+          }));
+        }
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "reposts" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "shares" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "comment_likes" }, () => scheduleRealtimeRefresh(false))
@@ -231,7 +450,7 @@ export default function DashboardPage() {
       }
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, scheduleRealtimeRefresh]);
+  }, [currentUserId, scheduleRealtimeRefresh, shouldShowIncomingPost]);
 
   const initializeDashboard = async () => {
     const {
@@ -1385,39 +1604,38 @@ export default function DashboardPage() {
               <div style={navItemStyle}>Messages</div>
 
               <Link
-                href="/friends/requests"
-                style={{
-                  ...navItemStyle,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  textDecoration: "none",
-                  color: "white",
-                  gap: "10px",
-                }}
-              >
-                <span>Friends</span>
+  href="/friends"
+  style={{
+    ...navItemStyle,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    textDecoration: "none",
+    color: "white",
+  }}
+>
+  <span>Friends</span>
 
-                {pendingFriendRequestCount > 0 && (
-                  <span
-                    style={{
-                      minWidth: "22px",
-                      height: "22px",
-                      borderRadius: "999px",
-                      background: "white",
-                      color: "black",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "0 6px",
-                    }}
-                  >
-                    {pendingFriendRequestCount > 99 ? "99+" : pendingFriendRequestCount}
-                  </span>
-                )}
-              </Link>
+{pendingFriendRequestCount > 0 && (
+  <span
+    style={{
+      minWidth: "22px",
+      height: "22px",
+      borderRadius: "999px",
+      background: "white",
+      color: "black",
+      fontSize: "12px",
+      fontWeight: 700,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0 6px",
+    }}
+  >
+    {pendingFriendRequestCount > 99 ? "99+" : pendingFriendRequestCount}
+  </span>
+)}  
+</Link>
 
               <DashboardNotificationsLink
                 navItemStyle={navItemStyle}
@@ -1973,9 +2191,9 @@ export default function DashboardPage() {
                               alt="Post"
                               style={{
                                 width: "100%",
-                                maxHeight: "500px",
-                                marginTop: "16px",
-                                borderRadius: "22px",
+                                maxHeight: "680px",
+                                marginTop: "12px",
+                                borderRadius: "18px",
                                 objectFit: "cover",
                                 boxShadow: "0 10px 28px rgba(0,0,0,0.30)",
                               }}

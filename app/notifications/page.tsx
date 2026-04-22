@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -35,6 +35,9 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.is_read).length,
@@ -147,6 +150,25 @@ export default function NotificationsPage() {
     };
   }, [currentUserId, fetchNotifications]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setOpenMenuId(null);
+      }
+    };
+
+    const handleScroll = () => setOpenMenuId(null);
+
+    window.addEventListener("click", handleClickOutside);
+    window.addEventListener("scroll", handleScroll);
+
+    return () => {
+      window.removeEventListener("click", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   const markAsRead = async (notificationId: string) => {
     const { error } = await supabase
       .from("notifications")
@@ -167,27 +189,45 @@ export default function NotificationsPage() {
     return true;
   };
 
-  const handleNotificationClick = async (notification: NotificationRow) => {
+  const getNotificationDestination = (notification: NotificationRow) => {
+    if (notification.type === "friend_request") return "/friends/requests";
+    if (notification.type === "friend_accept") return "/friends";
+    if (notification.post_id) return `/dashboard#post-${notification.post_id}`;
+    if (notification.actor_id) return `/profile/${notification.actor_id}`;
+    return "/notifications";
+  };
+
+  const handleOpenNotification = async (notification: NotificationRow) => {
     setProcessingId(notification.id);
+    setOpenMenuId(null);
 
     if (!notification.is_read) {
       await markAsRead(notification.id);
     }
 
-    let destination = "/notifications";
-
-    if (notification.type === "friend_request") {
-      destination = "/friends/requests";
-    } else if (notification.type === "friend_accept") {
-      destination = "/friends";
-    } else if (notification.post_id) {
-      destination = `/dashboard#post-${notification.post_id}`;
-    } else if (notification.actor_id) {
-      destination = `/profile/${notification.actor_id}`;
-    }
-
+    const destination = getNotificationDestination(notification);
     router.push(destination);
     setProcessingId(null);
+  };
+
+  const handleDeleteNotification = async (notificationId: string) => {
+    setProcessingId(notificationId);
+    setOpenMenuId(null);
+
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", notificationId);
+
+    if (error) {
+      alert(`Delete notification error: ${error.message}`);
+      setProcessingId(null);
+      return;
+    }
+
+    setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
+    setProcessingId(null);
+    showStatus("Notification deleted.");
   };
 
   const handleMarkAllRead = async () => {
@@ -355,10 +395,8 @@ export default function NotificationsPage() {
                 const isBusy = processingId === notification.id;
 
                 return (
-                  <button
+                  <div
                     key={notification.id}
-                    type="button"
-                    onClick={() => handleNotificationClick(notification)}
                     style={{
                       ...notificationCardStyle,
                       background: notification.is_read
@@ -444,7 +482,7 @@ export default function NotificationsPage() {
                           )}
                         </div>
 
-                        <div style={{ minWidth: 0, textAlign: "left" }}>
+                        <div style={{ minWidth: 0, textAlign: "left", flex: 1 }}>
                           <div
                             style={{
                               color: "#f9fafb",
@@ -466,12 +504,44 @@ export default function NotificationsPage() {
                         </div>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <div
+                        ref={openMenuId === notification.id ? menuRef : null}
+                        style={{ display: "flex", alignItems: "center", gap: "10px", position: "relative" }}
+                      >
                         {!notification.is_read && <span style={unreadDotStyle} />}
-                        <span style={openPillStyle}>{isBusy ? "Opening..." : "Open"}</span>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId((prev) => (prev === notification.id ? null : notification.id));
+                          }}
+                          style={dotsButtonStyle}
+                        >
+                          <DotsIcon />
+                        </button>
+
+                        {openMenuId === notification.id && (
+                          <div style={menuStyle}>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenNotification(notification)}
+                              style={menuItemStyle}
+                            >
+                              Open
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteNotification(notification.id)}
+                              style={{ ...menuItemStyle, color: "#fca5a5" }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -482,7 +552,35 @@ export default function NotificationsPage() {
   );
 }
 
-const secondaryLinkStyle: React.CSSProperties = {
+function DotsIcon() {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "3px",
+        width: "16px",
+        height: "16px",
+      }}
+      aria-hidden="true"
+    >
+      <span style={dotStyle} />
+      <span style={dotStyle} />
+      <span style={dotStyle} />
+    </span>
+  );
+}
+
+const dotStyle: CSSProperties = {
+  width: "4px",
+  height: "4px",
+  borderRadius: "50%",
+  background: "#f9fafb",
+};
+
+const secondaryLinkStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -496,7 +594,7 @@ const secondaryLinkStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
-const secondaryButtonStyle: React.CSSProperties = {
+const secondaryButtonStyle: CSSProperties = {
   minHeight: "42px",
   padding: "0 16px",
   borderRadius: "999px",
@@ -507,7 +605,7 @@ const secondaryButtonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const countPillStyle: React.CSSProperties = {
+const countPillStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -521,7 +619,7 @@ const countPillStyle: React.CSSProperties = {
   fontSize: "14px",
 };
 
-const unreadPillStyle: React.CSSProperties = {
+const unreadPillStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -535,17 +633,15 @@ const unreadPillStyle: React.CSSProperties = {
   fontSize: "14px",
 };
 
-const notificationCardStyle: React.CSSProperties = {
+const notificationCardStyle: CSSProperties = {
   width: "100%",
   border: "1px solid rgba(255,255,255,0.12)",
   borderRadius: "24px",
   padding: "16px",
   boxShadow: "0 10px 26px rgba(0,0,0,0.24)",
-  cursor: "pointer",
-  textAlign: "left",
 };
 
-const unreadDotStyle: React.CSSProperties = {
+const unreadDotStyle: CSSProperties = {
   width: "10px",
   height: "10px",
   borderRadius: "50%",
@@ -553,16 +649,40 @@ const unreadDotStyle: React.CSSProperties = {
   boxShadow: "0 0 8px rgba(34,197,94,0.7)",
 };
 
-const openPillStyle: React.CSSProperties = {
+const dotsButtonStyle: CSSProperties = {
+  width: "38px",
+  height: "38px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#f9fafb",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minHeight: "34px",
-  padding: "0 12px",
-  borderRadius: "999px",
-  color: "#f9fafb",
-  background: "rgba(255,255,255,0.05)",
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+const menuStyle: CSSProperties = {
+  position: "absolute",
+  top: "44px",
+  right: 0,
+  minWidth: "140px",
+  borderRadius: "16px",
   border: "1px solid rgba(255,255,255,0.10)",
-  fontWeight: 700,
-  fontSize: "12px",
+  background: "#111827",
+  boxShadow: "0 14px 30px rgba(0,0,0,0.35)",
+  overflow: "hidden",
+  zIndex: 50,
+};
+
+const menuItemStyle: CSSProperties = {
+  width: "100%",
+  textAlign: "left",
+  background: "transparent",
+  border: "none",
+  color: "#f9fafb",
+  padding: "12px 14px",
+  cursor: "pointer",
+  fontSize: "14px",
 };
