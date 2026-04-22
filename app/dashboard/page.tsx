@@ -220,6 +220,13 @@ export default function DashboardPage() {
     return true;
   }, [blockedUserIds, currentUserId, feedMode, followedUserIds]);
 
+  const refreshNotificationSurfaces = useCallback(async () => {
+    if (!currentUserId) return;
+    await fetchNotifications(currentUserId);
+    await fetchPendingFriendRequests(currentUserId);
+  }, [currentUserId]);
+
+
 
   useEffect(() => {
     const channel = supabase
@@ -309,105 +316,7 @@ export default function DashboardPage() {
           });
         }
       )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "comments" },
-        async (payload) => {
-          const incomingComment = payload.new as Comment;
-
-          if (!incomingComment?.id || !incomingComment.post_id) return;
-
-          const relatedPostExists = posts.some((post) => post.id === incomingComment.post_id);
-          if (!relatedPostExists) return;
-          if (blockedUserIds.includes(incomingComment.user_id)) return;
-
-          let commentWithProfile: Comment = incomingComment;
-
-          if (incomingComment.user_id && !profilesMap[incomingComment.user_id]) {
-            const { data: profileData, error: profileError } = await supabase
-              .from("profiles")
-              .select("id, username, full_name, avatar_url, is_online")
-              .eq("id", incomingComment.user_id)
-              .maybeSingle();
-
-            if (!profileError && profileData) {
-              const profile = profileData as ProfilePreview;
-              setProfilesMap((prev) => ({
-                ...prev,
-                [incomingComment.user_id]: profile,
-              }));
-              commentWithProfile = {
-                ...incomingComment,
-                profiles: profile,
-              };
-            }
-          } else if (profilesMap[incomingComment.user_id]) {
-            commentWithProfile = {
-              ...incomingComment,
-              profiles: profilesMap[incomingComment.user_id] || null,
-            };
-          }
-
-          setCommentsByPost((prev) => {
-            const existing = prev[incomingComment.post_id] || [];
-            if (existing.some((comment) => comment.id === incomingComment.id)) {
-              return prev;
-            }
-
-            return {
-              ...prev,
-              [incomingComment.post_id]: [...existing, commentWithProfile],
-            };
-          });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "comments" },
-        (payload) => {
-          const updatedComment = payload.new as Comment;
-          if (!updatedComment?.id || !updatedComment.post_id) return;
-
-          setCommentsByPost((prev) => ({
-            ...prev,
-            [updatedComment.post_id]: (prev[updatedComment.post_id] || []).map((comment) =>
-              comment.id === updatedComment.id ? { ...comment, ...updatedComment } : comment
-            ),
-          }));
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "comments" },
-        (payload) => {
-          const deletedComment = payload.old as { id?: string; post_id?: string; parent_comment_id?: string | null } | null;
-          const deletedCommentId = deletedComment?.id;
-          const postId = deletedComment?.post_id;
-
-          if (!deletedCommentId || !postId) return;
-
-          setCommentsByPost((prev) => ({
-            ...prev,
-            [postId]: (prev[postId] || []).filter(
-              (comment) =>
-                comment.id !== deletedCommentId &&
-                comment.parent_comment_id !== deletedCommentId
-            ),
-          }));
-
-          setCommentLikeCounts((prev) => {
-            const next = { ...prev };
-            delete next[deletedCommentId];
-            return next;
-          });
-
-          setUserCommentLikes((prev) => {
-            const next = { ...prev };
-            delete next[deletedCommentId];
-            return next;
-          });
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => scheduleRealtimeRefresh(false))
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "likes" },
@@ -440,8 +349,128 @@ export default function DashboardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "comment_reports" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "user_blocks" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "followers" }, () => scheduleRealtimeRefresh(false))
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => scheduleRealtimeRefresh(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => scheduleRealtimeRefresh(true))
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications" },
+        async (payload) => {
+          const incoming = payload.new as NotificationRow;
+          if (!currentUserId || incoming.user_id !== currentUserId) return;
+          await fetchNotifications(currentUserId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications" },
+        async (payload) => {
+          const incoming = payload.new as NotificationRow;
+          if (!currentUserId || incoming.user_id !== currentUserId) return;
+          await fetchNotifications(currentUserId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "notifications" },
+        async (payload) => {
+          const outgoing = payload.old as NotificationRow;
+          if (!currentUserId || outgoing.user_id !== currentUserId) return;
+
+          setNotifications((prev) => prev.filter((item) => item.id !== outgoing.id));
+          await fetchNotifications(currentUserId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "friend_requests" },
+        async (payload) => {
+          const incoming = payload.new as {
+            sender_id?: string | null;
+            receiver_id?: string | null;
+            status?: string | null;
+          };
+
+          if (!currentUserId) return;
+
+          const involvesUser =
+            incoming.sender_id === currentUserId || incoming.receiver_id === currentUserId;
+
+          if (!involvesUser) return;
+
+          if (incoming.receiver_id === currentUserId && incoming.status === "pending") {
+            setPendingFriendRequestCount((prev) => prev + 1);
+          } else {
+            await fetchPendingFriendRequests(currentUserId);
+          }
+
+          await fetchNotifications(currentUserId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "friend_requests" },
+        async (payload) => {
+          const oldRow = payload.old as {
+            sender_id?: string | null;
+            receiver_id?: string | null;
+            status?: string | null;
+          };
+          const newRow = payload.new as {
+            sender_id?: string | null;
+            receiver_id?: string | null;
+            status?: string | null;
+          };
+
+          if (!currentUserId) return;
+
+          const involvesUser =
+            oldRow.sender_id === currentUserId ||
+            oldRow.receiver_id === currentUserId ||
+            newRow.sender_id === currentUserId ||
+            newRow.receiver_id === currentUserId;
+
+          if (!involvesUser) return;
+
+          const oldPendingForUser =
+            oldRow.receiver_id === currentUserId && oldRow.status === "pending";
+          const newPendingForUser =
+            newRow.receiver_id === currentUserId && newRow.status === "pending";
+
+          if (oldPendingForUser && !newPendingForUser) {
+            setPendingFriendRequestCount((prev) => Math.max(prev - 1, 0));
+          } else if (!oldPendingForUser && newPendingForUser) {
+            setPendingFriendRequestCount((prev) => prev + 1);
+          } else {
+            await fetchPendingFriendRequests(currentUserId);
+          }
+
+          await fetchNotifications(currentUserId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "friend_requests" },
+        async (payload) => {
+          const outgoing = payload.old as {
+            sender_id?: string | null;
+            receiver_id?: string | null;
+            status?: string | null;
+          };
+
+          if (!currentUserId) return;
+
+          const involvesUser =
+            outgoing.sender_id === currentUserId || outgoing.receiver_id === currentUserId;
+
+          if (!involvesUser) return;
+
+          if (outgoing.receiver_id === currentUserId && outgoing.status === "pending") {
+            setPendingFriendRequestCount((prev) => Math.max(prev - 1, 0));
+          } else {
+            await fetchPendingFriendRequests(currentUserId);
+          }
+
+          await fetchNotifications(currentUserId);
+        }
+      )
       .subscribe();
 
     return () => {
