@@ -9,7 +9,7 @@ type ProfileRow = {
   username: string | null;
   full_name: string | null;
   avatar_url: string | null;
-  is_online?: boolean | null;
+  is_online: boolean | null;
 };
 
 type MutualFriendsPreviewCardProps = {
@@ -107,8 +107,13 @@ async function getMutualFriends(
     throw new Error(profilesError.message);
   }
 
-  const orderedProfiles = previewIds
-    .map((id) => (profiles ?? []).find((profile) => profile.id === id))
+  const typedProfiles = ((profiles ?? []) as ProfileRow[]).map((profile) => ({
+    ...profile,
+    is_online: profile.is_online ?? null,
+  }));
+
+  const orderedProfiles: ProfileRow[] = previewIds
+    .map((id) => typedProfiles.find((profile) => profile.id === id))
     .filter((profile): profile is ProfileRow => Boolean(profile));
 
   return {
@@ -139,7 +144,8 @@ function Avatar({
         position: "relative",
         border: "2px solid rgba(7,9,13,0.95)",
         boxShadow: "0 10px 20px rgba(0,0,0,0.28)",
-        background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))",
+        background:
+          "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
