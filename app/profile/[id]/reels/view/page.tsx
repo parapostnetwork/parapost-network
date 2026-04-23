@@ -39,6 +39,12 @@ type CommentRow = {
   profiles?: CommentProfile;
 };
 
+type ReelLikeRow = {
+  id: string;
+  reel_id: string;
+  user_id: string;
+};
+
 function formatDate(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -93,6 +99,8 @@ export default function ProfileReelsViewerPage() {
   const [selectedReelId, setSelectedReelId] = useState("");
   const [mutedMap, setMutedMap] = useState<Record<string, boolean>>({});
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [likeLoadingMap, setLikeLoadingMap] = useState<Record<string, boolean>>({});
   const [shareMessage, setShareMessage] = useState("");
 
   const [viewerId, setViewerId] = useState("");
@@ -145,7 +153,7 @@ export default function ProfileReelsViewerPage() {
       }
       setViewerUsername(nextViewerUsername);
 
-      const [profileResult, reelsResult, commentCountsResult] = await Promise.all([
+      const [profileResult, reelsResult, commentCountsResult, likesResult] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, username, full_name")
@@ -157,6 +165,7 @@ export default function ProfileReelsViewerPage() {
           .eq("user_id", profileId)
           .order("created_at", { ascending: false }),
         supabase.from("reel_comments").select("id, reel_id"),
+        supabase.from("reel_likes").select("id, reel_id, user_id"),
       ]);
 
       if (!isMounted) return;
@@ -198,12 +207,24 @@ export default function ProfileReelsViewerPage() {
         setSelectedReelId("");
       }
 
-      const nextCounts: Record<string, number> = {};
+      const nextCommentCounts: Record<string, number> = {};
       for (const row of commentCountsResult.data || []) {
         if (!row.reel_id) continue;
-        nextCounts[row.reel_id] = (nextCounts[row.reel_id] || 0) + 1;
+        nextCommentCounts[row.reel_id] = (nextCommentCounts[row.reel_id] || 0) + 1;
       }
-      setCommentCounts(nextCounts);
+      setCommentCounts(nextCommentCounts);
+
+      const nextLikedMap: Record<string, boolean> = {};
+      const nextLikeCounts: Record<string, number> = {};
+      for (const row of (likesResult.data as ReelLikeRow[]) || []) {
+        if (!row.reel_id) continue;
+        nextLikeCounts[row.reel_id] = (nextLikeCounts[row.reel_id] || 0) + 1;
+        if (nextViewerId && row.user_id === nextViewerId) {
+          nextLikedMap[row.reel_id] = true;
+        }
+      }
+      setLikedMap(nextLikedMap);
+      setLikeCounts(nextLikeCounts);
 
       setLoading(false);
     }
@@ -386,8 +407,62 @@ export default function ProfileReelsViewerPage() {
     });
   };
 
-  const handleLikeToggle = (reelId: string) => {
-    setLikedMap((prev) => ({ ...prev, [reelId]: !prev[reelId] }));
+  const handleLikeToggle = async (reelId: string) => {
+    if (!viewerId) {
+      setShareMessage("Log in to like reels.");
+      window.setTimeout(() => setShareMessage(""), 1800);
+      return;
+    }
+
+    if (likeLoadingMap[reelId]) return;
+
+    setLikeLoadingMap((prev) => ({ ...prev, [reelId]: true }));
+
+    const isLiked = !!likedMap[reelId];
+
+    if (isLiked) {
+      const { error } = await supabase
+        .from("reel_likes")
+        .delete()
+        .eq("reel_id", reelId)
+        .eq("user_id", viewerId);
+
+      if (error) {
+        setShareMessage(error.message || "Unable to remove like.");
+        window.setTimeout(() => setShareMessage(""), 1800);
+        setLikeLoadingMap((prev) => ({ ...prev, [reelId]: false }));
+        return;
+      }
+
+      setLikedMap((prev) => ({ ...prev, [reelId]: false }));
+      setLikeCounts((prev) => ({
+        ...prev,
+        [reelId]: Math.max((prev[reelId] || 1) - 1, 0),
+      }));
+      setLikeLoadingMap((prev) => ({ ...prev, [reelId]: false }));
+      return;
+    }
+
+    const { error } = await supabase.from("reel_likes").insert([
+      {
+        reel_id: reelId,
+        user_id: viewerId,
+      },
+    ]);
+
+    if (error) {
+      setShareMessage(error.message || "Unable to like reel.");
+      window.setTimeout(() => setShareMessage(""), 1800);
+      setLikeLoadingMap((prev) => ({ ...prev, [reelId]: false }));
+      return;
+    }
+
+    setLikedMap((prev) => ({ ...prev, [reelId]: true }));
+    setLikeCounts((prev) => ({
+      ...prev,
+      [reelId]: (prev[reelId] || 0) + 1,
+    }));
+    setLikeLoadingMap((prev) => ({ ...prev, [reelId]: false }));
   };
 
   const handleShare = async (reelId: string) => {
@@ -549,7 +624,7 @@ export default function ProfileReelsViewerPage() {
                 fontSize: "0.95rem",
               }}
             >
-              Viewer mode with comments drawer and polished overlay controls.
+              Viewer mode with real likes, comments drawer, and polished overlay controls.
             </p>
           </div>
 
@@ -603,6 +678,8 @@ export default function ProfileReelsViewerPage() {
               const isSelected = reel.id === selectedReelId;
               const isMuted = mutedMap[reel.id] ?? true;
               const isLiked = likedMap[reel.id] ?? false;
+              const likeCount = likeCounts[reel.id] || 0;
+              const likeLoading = likeLoadingMap[reel.id] || false;
               const commentCount = commentCounts[reel.id] || 0;
 
               return (
@@ -757,11 +834,14 @@ export default function ProfileReelsViewerPage() {
                         onClick={() => handleLikeToggle(reel.id)}
                         style={overlayActionButtonStyle}
                         title="Like reel"
+                        disabled={likeLoading}
                       >
                         <span style={{ fontSize: "18px", lineHeight: 1 }}>
                           {isLiked ? "♥" : "♡"}
                         </span>
-                        <span style={overlayActionLabelStyle}>Like</span>
+                        <span style={overlayActionLabelStyle}>
+                          {likeLoading ? "..." : likeCount}
+                        </span>
                       </button>
 
                       <button
@@ -903,7 +983,7 @@ export default function ProfileReelsViewerPage() {
                         fontSize: "13px",
                       }}
                     >
-                      <span>{isLiked ? "Liked" : "Ready to like"}</span>
+                      <span>{likeCount} likes</span>
                       <span>•</span>
                       <span>{commentCount} comments</span>
                       <span>•</span>
