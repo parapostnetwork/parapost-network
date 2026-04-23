@@ -177,18 +177,22 @@ const overlayStyle: CSSProperties = {
   zIndex: 80,
 };
 
-const drawerStyle: CSSProperties = {
+const commentsSheetStyle: CSSProperties = {
   position: "fixed",
-  top: 0,
-  right: 0,
+  left: "50%",
   bottom: 0,
-  width: "min(430px, 100%)",
+  transform: "translateX(-50%)",
+  width: "min(880px, calc(100% - 18px))",
+  maxHeight: "82vh",
   background: "#0b1020",
-  borderLeft: "1px solid rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderBottom: "none",
+  borderRadius: "28px 28px 0 0",
   zIndex: 90,
   display: "flex",
   flexDirection: "column",
-  boxShadow: "-16px 0 36px rgba(0,0,0,0.42)",
+  boxShadow: "0 -16px 36px rgba(0,0,0,0.42)",
+  overflow: "hidden",
 };
 
 const modalWrapStyle: CSSProperties = {
@@ -857,6 +861,15 @@ export default function ReelsPage() {
       type: "reel_comment",
       message: "commented on your reel.",
     });
+  };
+
+  const handleCommentInputKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void handleAddComment();
+    }
   };
 
   const handleShareToFeed = () => {
@@ -1651,27 +1664,68 @@ export default function ReelsPage() {
       {commentsOpen && (
         <>
           <div style={overlayStyle} onClick={() => setCommentsOpen(false)} />
-          <div style={drawerStyle}>
+          <div style={commentsSheetStyle}>
             <div
               style={{
-                padding: "18px",
+                padding: "14px 18px 10px",
                 borderBottom: "1px solid rgba(255,255,255,0.08)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "10px",
+                display: "grid",
+                gap: "12px",
+                background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.00) 100%)",
               }}
             >
-              <div>
-                <div style={{ fontWeight: 800, fontSize: "20px" }}>Comments</div>
-                <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
-                  {activeReel?.title}
+              <div
+                style={{
+                  width: "52px",
+                  height: "5px",
+                  borderRadius: "999px",
+                  background: "rgba(255,255,255,0.20)",
+                  justifySelf: "center",
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: "22px" }}>Comments</div>
+                  <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
+                    {activeReel?.title}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      color: "#d1d5db",
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      borderRadius: "999px",
+                      padding: "8px 12px",
+                    }}
+                  >
+                    {activeComments.length} comments
+                  </div>
+
+                  <button onClick={() => setCommentsOpen(false)} style={buttonStyle}>
+                    Close
+                  </button>
                 </div>
               </div>
-
-              <button onClick={() => setCommentsOpen(false)} style={buttonStyle}>
-                Close
-              </button>
             </div>
 
             <div
@@ -1688,11 +1742,12 @@ export default function ReelsPage() {
                   style={{
                     border: "1px dashed rgba(255,255,255,0.12)",
                     borderRadius: "22px",
-                    padding: "16px",
+                    padding: "18px",
                     color: "#9ca3af",
+                    background: "rgba(255,255,255,0.03)",
                   }}
                 >
-                  No comments yet.
+                  No comments yet. Start the conversation.
                 </div>
               ) : (
                 activeComments.map((comment) => (
@@ -1702,7 +1757,7 @@ export default function ReelsPage() {
                       background: "rgba(255,255,255,0.04)",
                       border: "1px solid rgba(255,255,255,0.08)",
                       borderRadius: "22px",
-                      padding: "14px",
+                      padding: "14px 15px",
                     }}
                   >
                     <div
@@ -1712,6 +1767,7 @@ export default function ReelsPage() {
                         justifyContent: "space-between",
                         gap: "10px",
                         marginBottom: "8px",
+                        flexWrap: "wrap",
                       }}
                     >
                       <div style={{ fontWeight: 700 }}>{comment.author}</div>
@@ -1727,20 +1783,45 @@ export default function ReelsPage() {
 
             <div
               style={{
-                padding: "18px",
+                padding: "14px 18px 18px",
                 borderTop: "1px solid rgba(255,255,255,0.08)",
                 display: "grid",
                 gap: "10px",
+                background: "#0b1020",
               }}
             >
-              <input
+              <textarea
                 value={commentDraft}
                 onChange={(event) => setCommentDraft(event.target.value)}
+                onKeyDown={handleCommentInputKeyDown}
                 placeholder="Write a comment..."
-                style={inputStyle}
+                rows={3}
+                style={{
+                  ...textAreaStyle,
+                  minHeight: viewportType === "mobile" ? "86px" : "96px",
+                }}
               />
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button onClick={handleAddComment} style={primaryButtonStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ fontSize: "12px", color: "#9ca3af" }}>
+                  Press Enter to post
+                </div>
+                <button
+                  onClick={handleAddComment}
+                  disabled={!commentDraft.trim()}
+                  style={{
+                    ...primaryButtonStyle,
+                    opacity: commentDraft.trim() ? 1 : 0.45,
+                    cursor: commentDraft.trim() ? "pointer" : "not-allowed",
+                  }}
+                >
                   Post Comment
                 </button>
               </div>
