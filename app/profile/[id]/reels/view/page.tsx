@@ -19,16 +19,24 @@ type ProfileRow = {
   full_name: string | null;
 };
 
+type CommentProfile =
+  | {
+      username: string | null;
+      full_name: string | null;
+    }
+  | Array<{
+      username: string | null;
+      full_name: string | null;
+    }>
+  | null;
+
 type CommentRow = {
   id: string;
   reel_id: string;
   user_id: string;
   content: string;
   created_at: string | null;
-  profiles?: {
-    username: string | null;
-    full_name: string | null;
-  } | null;
+  profiles?: CommentProfile;
 };
 
 function formatDate(value: string | null) {
@@ -54,8 +62,16 @@ function getDisplayName(profile: ProfileRow | null) {
   return profile.username || profile.full_name || "Profile";
 }
 
+function getCommentProfile(comment: CommentRow) {
+  const raw = comment.profiles;
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw[0] || null;
+  return raw;
+}
+
 function getCommentAuthorName(comment: CommentRow) {
-  return comment.profiles?.username || comment.profiles?.full_name || "User";
+  const profile = getCommentProfile(comment);
+  return profile?.username || profile?.full_name || "User";
 }
 
 export default function ProfileReelsViewerPage() {
@@ -333,8 +349,16 @@ export default function ProfileReelsViewerPage() {
       return;
     }
 
-    const safeComments = ((data as CommentRow[]) || []).filter(
-      (item) => item && typeof item.id === "string"
+    const safeComments = ((data as unknown[]) || []).filter(
+      (item): item is CommentRow =>
+        Boolean(
+          item &&
+            typeof item === "object" &&
+            "id" in item &&
+            "reel_id" in item &&
+            "user_id" in item &&
+            "content" in item
+        )
     );
 
     setCommentsByReel((prev) => ({ ...prev, [reelId]: safeComments }));
