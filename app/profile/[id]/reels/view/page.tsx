@@ -1,83 +1,351 @@
 "use client";
 
+import {
+  CSSProperties,
+  MouseEvent as ReactMouseEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type ReelRow = {
+type ReelItem = {
   id: string;
   user_id: string;
-  video_url: string | null;
+  creator_profile_id: string;
+  title: string;
+  creator: string;
+  creatorName: string;
+  creatorAvatarUrl?: string;
+  caption: string;
+  video: string;
+  poster: string;
+  likes: number;
+  comments: number;
+  favorites: number;
+  shares: number;
+  createdAt?: string;
+};
+
+type ReelComment = {
+  id: string;
+  reelId: string;
+  author: string;
+  text: string;
+  time: string;
+};
+
+type ReelLikeDbRow = {
+  id: string;
+  reel_id: string | null;
+  user_id: string | null;
+  created_at?: string | null;
+};
+
+type ReelCommentDbRow = {
+  id: string;
+  reel_id: string | null;
+  user_id: string | null;
+  content: string | null;
+  created_at?: string | null;
+};
+
+type ReelDbRow = {
+  id: string;
+  user_id: string | null;
+  creator_profile_id: string | null;
+  title: string | null;
   caption: string | null;
-  created_at: string | null;
+  video_url: string | null;
+  poster_url: string | null;
+  favorites?: number | null;
+  shares?: number | null;
+  created_at?: string | null;
 };
 
 type ProfileRow = {
   id: string;
-  username: string | null;
-  full_name: string | null;
+  username?: string | null;
+  full_name?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
 };
 
-type CommentProfile =
-  | {
-      username: string | null;
-      full_name: string | null;
-    }
-  | Array<{
-      username: string | null;
-      full_name: string | null;
-    }>
-  | null;
+type MenuState = {
+  reelId: string;
+  x: number;
+  y: number;
+} | null;
 
-type CommentRow = {
-  id: string;
-  reel_id: string;
-  user_id: string;
-  content: string;
-  created_at: string | null;
-  profiles?: CommentProfile;
+const initialComments: ReelComment[] = [];
+
+const pageStyle: CSSProperties = {
+  minHeight: "100vh",
+  background: "#000",
+  color: "#fff",
 };
 
-type ReelLikeRow = {
-  id: string;
-  reel_id: string;
-  user_id: string;
+const topBarStyle: CSSProperties = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  zIndex: 60,
+  padding: "16px 22px 0",
+  background: "transparent",
+  backdropFilter: "none",
+  pointerEvents: "none",
 };
 
-function formatDate(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+const topBarInnerStyle: CSSProperties = {
+  maxWidth: "1560px",
+  margin: "0 auto",
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "12px",
+  flexWrap: "wrap",
+  pointerEvents: "auto",
+};
+
+const buttonStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.08)",
+  color: "white",
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: "999px",
+  padding: "10px 16px",
+  fontWeight: 700,
+  fontSize: "14px",
+  cursor: "pointer",
+  backdropFilter: "blur(10px)",
+};
+
+const primaryButtonStyle: CSSProperties = {
+  background: "white",
+  color: "#000",
+  border: "none",
+  borderRadius: "999px",
+  padding: "10px 16px",
+  fontWeight: 800,
+  fontSize: "14px",
+  cursor: "pointer",
+};
+
+const navLinkStyle: CSSProperties = {
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,255,255,0.08)",
+  color: "white",
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: "999px",
+  padding: "10px 16px",
+  fontWeight: 700,
+  fontSize: "14px",
+  backdropFilter: "blur(10px)",
+};
+
+const scrollContainerStyle: CSSProperties = {
+  height: "100vh",
+  overflowY: "auto",
+  scrollSnapType: "y mandatory",
+  scrollBehavior: "smooth",
+  WebkitOverflowScrolling: "touch",
+};
+
+const sectionStyle: CSSProperties = {
+  position: "relative",
+  minHeight: "100vh",
+  scrollSnapAlign: "start",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  overflow: "hidden",
+  background: "#000",
+};
+
+const overlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.64)",
+  zIndex: 80,
+};
+
+const drawerStyle: CSSProperties = {
+  position: "fixed",
+  top: 0,
+  right: 0,
+  bottom: 0,
+  width: "min(430px, 100%)",
+  background: "#0b1020",
+  borderLeft: "1px solid rgba(255,255,255,0.10)",
+  zIndex: 90,
+  display: "flex",
+  flexDirection: "column",
+  boxShadow: "-16px 0 36px rgba(0,0,0,0.42)",
+};
+
+const modalWrapStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "20px",
+  zIndex: 90,
+};
+
+const modalCardStyle: CSSProperties = {
+  width: "min(560px, 100%)",
+  background: "#0b1020",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: "28px",
+  padding: "20px",
+  boxShadow: "0 16px 36px rgba(0,0,0,0.36)",
+};
+
+const inputStyle: CSSProperties = {
+  width: "100%",
+  background: "rgba(255,255,255,0.04)",
+  color: "white",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: "18px",
+  padding: "14px 16px",
+  fontSize: "14px",
+  outline: "none",
+};
+
+const textAreaStyle: CSSProperties = {
+  ...inputStyle,
+  minHeight: "120px",
+  resize: "vertical",
+  fontFamily: "inherit",
+};
+
+const menuItemStyle: CSSProperties = {
+  width: "100%",
+  background: "transparent",
+  color: "white",
+  border: "none",
+  padding: "13px 14px",
+  textAlign: "left",
+  cursor: "pointer",
+  fontSize: "14px",
+  borderBottom: "1px solid rgba(255,255,255,0.06)",
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
-function formatDateTime(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString();
+function getViewportType(width: number) {
+  if (width <= 767) return "mobile";
+  if (width <= 1024) return "tablet";
+  return "desktop";
 }
 
-function getDisplayName(profile: ProfileRow | null) {
-  if (!profile) return "Profile";
-  return profile.username || profile.full_name || "Profile";
+function formatHandle(username?: string | null) {
+  if (!username) return "@user";
+  return `@${username.replace(/^@+/, "")}`;
 }
 
-function getCommentProfile(comment: CommentRow) {
-  const raw = comment.profiles;
-  if (!raw) return null;
-  if (Array.isArray(raw)) return raw[0] || null;
-  return raw;
+function formatRelativeTime(value?: string | null) {
+  if (!value) return "Just now";
+
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return "Just now";
+
+  const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
 }
 
-function getCommentAuthorName(comment: CommentRow) {
-  const profile = getCommentProfile(comment);
-  return profile?.username || profile?.full_name || "User";
+function buildReelItems(rows: ReelDbRow[], profiles: ProfileRow[]): ReelItem[] {
+  const profileMap = new Map<string, ProfileRow>();
+  profiles.forEach((profile) => profileMap.set(profile.id, profile));
+
+  return rows
+    .filter((row) => row.id && row.video_url)
+    .map((row) => {
+      const profileId = row.creator_profile_id || row.user_id || "";
+      const profile = profileMap.get(profileId);
+
+      const creatorName =
+        profile?.display_name?.trim() ||
+        profile?.full_name?.trim() ||
+        profile?.username?.trim() ||
+        "Unknown User";
+
+      return {
+        id: row.id,
+        user_id: row.user_id || "",
+        creator_profile_id: profileId,
+        title: row.title?.trim() || "Untitled Reel",
+        creator: formatHandle(profile?.username),
+        creatorName,
+        creatorAvatarUrl: profile?.avatar_url || undefined,
+        caption: row.caption?.trim() || "",
+        video: row.video_url || "",
+        poster: row.poster_url || "",
+        likes: 0,
+        comments: 0,
+        favorites: Number(row.favorites || 0),
+        shares: Number(row.shares || 0),
+        createdAt: row.created_at || undefined,
+      };
+    });
+}
+
+async function insertReelNotification({
+  userId,
+  actorId,
+  type,
+  message,
+}: {
+  userId: string;
+  actorId: string;
+  type: "reel_like" | "reel_comment";
+  message: string;
+}) {
+  if (!userId || !actorId || userId === actorId) return;
+
+  const { error } = await supabase.from("notifications").insert([
+    {
+      user_id: userId,
+      actor_id: actorId,
+      type,
+      post_id: null,
+      comment_id: null,
+      friend_request_id: null,
+      message,
+      is_read: false,
+    },
+  ]);
+
+  if (error) {
+    console.error("Reel notification insert error:", error.message);
+  }
 }
 
 export default function ProfileReelsViewerPage() {
@@ -88,544 +356,727 @@ export default function ProfileReelsViewerPage() {
     return typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] || "" : "";
   }, [params]);
 
-  const targetReelIdRef = useRef("");
-  const reelRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const hasScrolledRef = useRef(false);
-
+  const [currentUserId, setCurrentUserId] = useState("");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [reels, setReels] = useState<ReelRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [selectedReelId, setSelectedReelId] = useState("");
-  const [mutedMap, setMutedMap] = useState<Record<string, boolean>>({});
+  const [reels, setReels] = useState<ReelItem[]>([]);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
-  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
-  const [likeLoadingMap, setLikeLoadingMap] = useState<Record<string, boolean>>({});
+  const [favoritedMap, setFavoritedMap] = useState<Record<string, boolean>>({});
+  const [shareBoostMap, setShareBoostMap] = useState<Record<string, number>>({});
+  const [comments, setComments] = useState<ReelComment[]>(initialComments);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [shareCaption, setShareCaption] = useState("");
   const [shareMessage, setShareMessage] = useState("");
-
-  const [viewerId, setViewerId] = useState("");
-  const [viewerUsername, setViewerUsername] = useState("");
+  const [activeReelId, setActiveReelId] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentsSubmitting, setCommentsSubmitting] = useState(false);
-  const [commentMessage, setCommentMessage] = useState("");
-  const [commentInput, setCommentInput] = useState("");
-  const [commentsByReel, setCommentsByReel] = useState<Record<string, CommentRow[]>>({});
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [shareOpen, setShareOpen] = useState(false);
+  const [muteAll, setMuteAll] = useState(true);
+  const [expandedCaptions, setExpandedCaptions] = useState<Record<string, boolean>>({});
+  const [progressMap, setProgressMap] = useState<Record<string, number>>({});
+  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
+  const [reelMenu, setReelMenu] = useState<MenuState>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingReelId, setEditingReelId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editCaption, setEditCaption] = useState("");
+  const [viewportWidth, setViewportWidth] = useState(1440);
+  const [holdPausedId, setHoldPausedId] = useState<string | null>(null);
+  const [heartBurstId, setHeartBurstId] = useState<string | null>(null);
+  const [isFetchingReels, setIsFetchingReels] = useState(true);
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
+  const heartTimeoutRef = useRef<number | null>(null);
+  const initialTargetReelIdRef = useRef("");
+  const hasInitialScrolledRef = useRef(false);
+
+  const fetchReels = async () => {
+    setIsFetchingReels(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const nextUserId = user?.id || "";
+    setCurrentUserId(nextUserId);
+
+    const [profileResult, reelsResult, followersResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, username, full_name, display_name, avatar_url")
+        .eq("id", profileId)
+        .maybeSingle(),
+      supabase
+        .from("reels")
+        .select("*")
+        .eq("user_id", profileId)
+        .order("created_at", { ascending: false }),
+      nextUserId && profileId && nextUserId !== profileId
+        ? supabase
+            .from("followers")
+            .select("follower_id, following_id")
+            .eq("follower_id", nextUserId)
+            .eq("following_id", profileId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (profileResult.error) {
+      console.error("Error loading profile:", profileResult.error.message);
+      setProfile(null);
+    } else {
+      setProfile((profileResult.data as ProfileRow | null) || null);
+    }
+
+    if (followersResult.data) {
+      setFollowingMap({ [profileId]: true });
+    } else {
+      setFollowingMap({});
+    }
+
+    if (reelsResult.error) {
+      console.error("Error loading profile reels:", reelsResult.error.message);
+      setReels([]);
+      setComments([]);
+      setLikedMap({});
+      setIsFetchingReels(false);
+      return;
+    }
+
+    const rows = (reelsResult.data || []) as ReelDbRow[];
+    const creatorProfileIds = Array.from(
+      new Set(rows.map((row) => row.creator_profile_id || row.user_id).filter(Boolean))
+    ) as string[];
+
+    let profiles: ProfileRow[] = [];
+    if (creatorProfileIds.length > 0) {
+      const { data: profileRows, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, username, full_name, display_name, avatar_url")
+        .in("id", creatorProfileIds);
+
+      if (profilesError) {
+        console.error("Error loading reel creator profiles:", profilesError.message);
+      } else {
+        profiles = (profileRows || []) as ProfileRow[];
+      }
+    }
+
+    let mapped = buildReelItems(rows, profiles);
+    const reelIds = mapped.map((reel) => reel.id);
+
+    if (reelIds.length > 0) {
+      const [{ data: likeRows, error: likesError }, { data: commentRows, error: commentsError }] =
+        await Promise.all([
+          supabase
+            .from("reel_likes")
+            .select("id, reel_id, user_id, created_at")
+            .in("reel_id", reelIds),
+          supabase
+            .from("reel_comments")
+            .select("id, reel_id, user_id, content, created_at")
+            .in("reel_id", reelIds)
+            .order("created_at", { ascending: false }),
+        ]);
+
+      if (!likesError && likeRows) {
+        const likedByCurrentUser: Record<string, boolean> = {};
+        const likeCountMap: Record<string, number> = {};
+
+        (likeRows as ReelLikeDbRow[]).forEach((row) => {
+          if (!row.reel_id) return;
+          likeCountMap[row.reel_id] = (likeCountMap[row.reel_id] || 0) + 1;
+          if (nextUserId && row.user_id === nextUserId) {
+            likedByCurrentUser[row.reel_id] = true;
+          }
+        });
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          likes: likeCountMap[reel.id] ?? 0,
+        }));
+
+        setLikedMap(likedByCurrentUser);
+      } else {
+        setLikedMap({});
+        if (likesError) {
+          console.error("Error loading reel likes:", likesError.message);
+        }
+      }
+
+      if (!commentsError && commentRows) {
+        const profileMap = new Map<string, ProfileRow>();
+        profiles.forEach((item) => profileMap.set(item.id, item));
+        if (profile) {
+          profileMap.set(profile.id, profile);
+        }
+
+        const mappedComments = (commentRows as ReelCommentDbRow[]).map((row) => {
+          const commentProfile = row.user_id ? profileMap.get(row.user_id) : undefined;
+          return {
+            id: row.id,
+            reelId: row.reel_id || "",
+            author: formatHandle(commentProfile?.username),
+            text: row.content?.trim() || "",
+            time: formatRelativeTime(row.created_at),
+          } satisfies ReelComment;
+        });
+
+        const commentCountMap: Record<string, number> = {};
+        mappedComments.forEach((comment) => {
+          if (!comment.reelId) return;
+          commentCountMap[comment.reelId] = (commentCountMap[comment.reelId] || 0) + 1;
+        });
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          comments: commentCountMap[reel.id] ?? 0,
+        }));
+
+        setComments(mappedComments);
+      } else {
+        setComments(initialComments);
+        if (commentsError) {
+          console.error("Error loading reel comments:", commentsError.message);
+        }
+      }
+    } else {
+      setComments(initialComments);
+      setLikedMap({});
+    }
+
+    setReels(mapped);
+
+    if (mapped.length > 0) {
+      const target = initialTargetReelIdRef.current;
+      const matched = target ? mapped.find((reel) => reel.id === target) : null;
+      setActiveReelId(matched?.id || mapped[0].id);
+    } else {
+      setActiveReelId("");
+    }
+
+    setIsFetchingReels(false);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
-    targetReelIdRef.current = url.searchParams.get("reelId") || "";
+    initialTargetReelIdRef.current = url.searchParams.get("reelId") || "";
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    hasScrolledRef.current = false;
-
-    async function loadData() {
-      if (!profileId) {
-        if (!isMounted) return;
-        setErrorMessage("Missing profile id.");
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setErrorMessage("");
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const nextViewerId = user?.id || "";
-      setViewerId(nextViewerId);
-
-      let nextViewerUsername = "";
-      if (nextViewerId) {
-        const { data: viewerProfile } = await supabase
-          .from("profiles")
-          .select("username, full_name")
-          .eq("id", nextViewerId)
-          .maybeSingle();
-
-        nextViewerUsername = viewerProfile?.username || viewerProfile?.full_name || "";
-      }
-      setViewerUsername(nextViewerUsername);
-
-      const [profileResult, reelsResult, commentCountsResult, likesResult] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, username, full_name")
-          .eq("id", profileId)
-          .maybeSingle(),
-        supabase
-          .from("reels")
-          .select("id, user_id, video_url, caption, created_at")
-          .eq("user_id", profileId)
-          .order("created_at", { ascending: false }),
-        supabase.from("reel_comments").select("id, reel_id"),
-        supabase.from("reel_likes").select("id, reel_id, user_id"),
-      ]);
-
-      if (!isMounted) return;
-
-      if (profileResult.error) {
-        setErrorMessage(profileResult.error.message || "Failed to load profile.");
-        setProfile(null);
-        setReels([]);
-        setLoading(false);
-        return;
-      }
-
-      setProfile((profileResult.data as ProfileRow | null) || null);
-
-      if (reelsResult.error) {
-        setErrorMessage(reelsResult.error.message || "Failed to load reels.");
-        setReels([]);
-        setLoading(false);
-        return;
-      }
-
-      const safeRows = ((reelsResult.data as ReelRow[]) || []).filter(
-        (item) => item && typeof item.id === "string"
-      );
-
-      setReels(safeRows);
-
-      const nextMutedMap: Record<string, boolean> = {};
-      safeRows.forEach((reel) => {
-        nextMutedMap[reel.id] = true;
-      });
-      setMutedMap(nextMutedMap);
-
-      if (safeRows.length > 0) {
-        const targetId = targetReelIdRef.current;
-        const matched = targetId ? safeRows.find((reel) => reel.id === targetId) : null;
-        setSelectedReelId(matched?.id || safeRows[0].id);
-      } else {
-        setSelectedReelId("");
-      }
-
-      const nextCommentCounts: Record<string, number> = {};
-      for (const row of commentCountsResult.data || []) {
-        if (!row.reel_id) continue;
-        nextCommentCounts[row.reel_id] = (nextCommentCounts[row.reel_id] || 0) + 1;
-      }
-      setCommentCounts(nextCommentCounts);
-
-      const nextLikedMap: Record<string, boolean> = {};
-      const nextLikeCounts: Record<string, number> = {};
-      for (const row of (likesResult.data as ReelLikeRow[]) || []) {
-        if (!row.reel_id) continue;
-        nextLikeCounts[row.reel_id] = (nextLikeCounts[row.reel_id] || 0) + 1;
-        if (nextViewerId && row.user_id === nextViewerId) {
-          nextLikedMap[row.reel_id] = true;
-        }
-      }
-      setLikedMap(nextLikedMap);
-      setLikeCounts(nextLikeCounts);
-
-      setLoading(false);
-    }
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
+    fetchReels();
   }, [profileId]);
 
   useEffect(() => {
-    if (loading || !selectedReelId || hasScrolledRef.current) return;
+    const channel = supabase
+      .channel(`profile-reels-live-${profileId}-${currentUserId || "guest"}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, async () => {
+        await fetchReels();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_likes" }, async () => {
+        await fetchReels();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comments" }, async () => {
+        await fetchReels();
+      })
+      .subscribe();
 
-    let attempts = 0;
-    const maxAttempts = 20;
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profileId, currentUserId]);
 
-    const scrollToSelected = () => {
-      attempts += 1;
-      const element = reelRefs.current[selectedReelId];
+  useEffect(() => {
+    const setWidth = () => setViewportWidth(window.innerWidth);
+    setWidth();
+    window.addEventListener("resize", setWidth);
+    return () => window.removeEventListener("resize", setWidth);
+  }, []);
 
-      if (element) {
-        element.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
+  useEffect(() => {
+    const closeMenu = () => setReelMenu(null);
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenu);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenu);
+    };
+  }, []);
 
-        element.classList.add("deep-link-highlight");
-        window.setTimeout(() => {
-          element.classList.remove("deep-link-highlight");
-        }, 1400);
+  useEffect(() => {
+    reels.forEach((reel) => {
+      const video = videoRefs.current[reel.id];
+      if (!video) return;
 
-        hasScrolledRef.current = true;
+      video.muted = muteAll;
+
+      if (reel.id === activeReelId && holdPausedId !== reel.id) {
+        const playPromise = video.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {});
+        }
+      } else {
+        video.pause();
+      }
+    });
+  }, [activeReelId, reels, muteAll, holdPausedId]);
+
+  useEffect(() => {
+    if (!isFetchingReels && activeReelId && !hasInitialScrolledRef.current) {
+      const target = initialTargetReelIdRef.current || activeReelId;
+      window.setTimeout(() => {
+        scrollToReel(target);
+        hasInitialScrolledRef.current = true;
+      }, 140);
+    }
+  }, [isFetchingReels, activeReelId]);
+
+  useEffect(() => {
+    return () => {
+      if (heartTimeoutRef.current) {
+        window.clearTimeout(heartTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const viewportType = getViewportType(viewportWidth);
+
+  const stageMetrics = useMemo(() => {
+    if (viewportType === "mobile") {
+      return {
+        stageWidth: "100vw",
+        stageHeight: "100vh",
+        borderRadius: 0,
+        showDesktopArrows: false,
+        outerPadding: 0,
+        actionRight: 12,
+        textLeft: 12,
+        textRight: 80,
+        bottomOffset: 20,
+        topOffset: 0,
+        titleSize: 20,
+        captionSize: 14,
+        topHeaderPad: 16,
+      };
+    }
+
+    if (viewportType === "tablet") {
+      return {
+        stageWidth: "min(74vw, 560px)",
+        stageHeight: "min(89vh, 960px)",
+        borderRadius: 30,
+        showDesktopArrows: false,
+        outerPadding: 18,
+        actionRight: 14,
+        textLeft: 16,
+        textRight: 86,
+        bottomOffset: 18,
+        topOffset: 8,
+        titleSize: 24,
+        captionSize: 15,
+        topHeaderPad: 16,
+      };
+    }
+
+    return {
+      stageWidth: "min(34vw, 540px)",
+      stageHeight: "min(90vh, 980px)",
+      borderRadius: 32,
+      showDesktopArrows: true,
+      outerPadding: 24,
+      actionRight: 12,
+      textLeft: 18,
+      textRight: 82,
+      bottomOffset: 16,
+      topOffset: 8,
+      titleSize: 22,
+      captionSize: 14,
+      topHeaderPad: 12,
+    };
+  }, [viewportType]);
+
+  const activeReel = useMemo(() => {
+    return reels.find((reel) => reel.id === activeReelId) || reels[0];
+  }, [reels, activeReelId]);
+
+  const activeComments = useMemo(() => {
+    return comments.filter((comment) => comment.reelId === activeReelId);
+  }, [comments, activeReelId]);
+
+  const scrollToReel = (reelId: string) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const target = container.querySelector<HTMLElement>(`[data-reel-id="${reelId}"]`);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveReelId(reelId);
+  };
+
+  const scrollToAdjacentReel = (direction: "prev" | "next") => {
+    const currentIndex = reels.findIndex((reel) => reel.id === activeReelId);
+    if (currentIndex === -1) return;
+
+    const nextIndex = direction === "prev" ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex < 0 || nextIndex >= reels.length) return;
+
+    scrollToReel(reels[nextIndex].id);
+  };
+
+  const updateActiveFromScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const containerTop = container.getBoundingClientRect().top;
+    let closestId = activeReelId;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    const sections = Array.from(container.querySelectorAll<HTMLElement>("[data-reel-id]"));
+
+    sections.forEach((section) => {
+      const rect = section.getBoundingClientRect();
+      const distance = Math.abs(rect.top - containerTop);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestId = section.dataset.reelId || closestId;
+      }
+    });
+
+    if (closestId !== activeReelId) {
+      setActiveReelId(closestId);
+      setHoldPausedId(null);
+    }
+  };
+
+  const handleTogglePlayPause = (reelId: string) => {
+    const video = videoRefs.current[reelId];
+    if (!video) return;
+
+    if (video.paused) {
+      setHoldPausedId(null);
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {});
+      }
+    } else {
+      video.pause();
+    }
+  };
+
+  const triggerHeartBurst = (reelId: string) => {
+    setHeartBurstId(reelId);
+    if (heartTimeoutRef.current) {
+      window.clearTimeout(heartTimeoutRef.current);
+    }
+    heartTimeoutRef.current = window.setTimeout(() => {
+      setHeartBurstId(null);
+    }, 700);
+  };
+
+  const handleDoubleTapLike = async (reelId: string) => {
+    if (likedMap[reelId]) return;
+    await handleLikeToggle(reelId, true);
+  };
+
+  const handleLikeToggle = async (reelId: string, forceLike = false) => {
+    if (!currentUserId) {
+      alert("You must be logged in to like reels.");
+      return;
+    }
+
+    const reel = reels.find((item) => item.id === reelId);
+    if (!reel) return;
+
+    const nextLiked = forceLike ? true : !likedMap[reelId];
+
+    setLikedMap((prev) => ({
+      ...prev,
+      [reelId]: nextLiked,
+    }));
+
+    setReels((prev) =>
+      prev.map((item) =>
+        item.id === reelId
+          ? { ...item, likes: Math.max(item.likes + (nextLiked ? 1 : -1), 0) }
+          : item
+      )
+    );
+
+    if (nextLiked) {
+      triggerHeartBurst(reelId);
+
+      const { error: likeInsertError } = await supabase.from("reel_likes").insert([
+        {
+          reel_id: reelId,
+          user_id: currentUserId,
+        },
+      ]);
+
+      if (likeInsertError && !likeInsertError.message.toLowerCase().includes("duplicate")) {
+        console.error("Profile reel like insert error:", likeInsertError.message);
+        alert(likeInsertError.message || "Could not like reel.");
+        await fetchReels();
         return;
       }
 
-      if (attempts < maxAttempts) {
-        window.setTimeout(scrollToSelected, 120);
-      }
-    };
-
-    window.setTimeout(scrollToSelected, 200);
-  }, [loading, selectedReelId]);
-
-  useEffect(() => {
-    if (reels.length === 0) return;
-
-    const items = reels
-      .map((reel) => reelRefs.current[reel.id])
-      .filter((item): item is HTMLDivElement => Boolean(item));
-
-    if (items.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let bestId = "";
-        let bestRatio = 0;
-
-        entries.forEach((entry) => {
-          const id = (entry.target as HTMLDivElement).dataset.reelId || "";
-          if (!id) return;
-          if (entry.isIntersecting && entry.intersectionRatio > bestRatio) {
-            bestRatio = entry.intersectionRatio;
-            bestId = id;
-          }
-        });
-
-        if (bestId) {
-          setSelectedReelId((prev) => (prev === bestId ? prev : bestId));
-        }
-      },
-      {
-        threshold: [0.35, 0.5, 0.7, 0.9],
-      }
-    );
-
-    items.forEach((item) => observer.observe(item));
-
-    return () => observer.disconnect();
-  }, [reels]);
-
-  useEffect(() => {
-    const videos = Array.from(document.querySelectorAll("video[data-profile-reel='true']"));
-
-    if (videos.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let bestVideo: HTMLVideoElement | null = null;
-        let bestRatio = 0;
-
-        entries.forEach((entry) => {
-          const video = entry.target as HTMLVideoElement;
-
-          if (!entry.isIntersecting || entry.intersectionRatio < 0.65) {
-            video.pause();
-            return;
-          }
-
-          if (entry.intersectionRatio > bestRatio) {
-            bestRatio = entry.intersectionRatio;
-            bestVideo = video;
-          }
-        });
-
-        const activeVideo = bestVideo as HTMLVideoElement | null;
-
-        if (activeVideo && bestRatio >= 0.72) {
-          void activeVideo.play().catch(() => {});
-        }
-      },
-      { threshold: [0.35, 0.65, 0.72, 0.95] }
-    );
-
-    videos.forEach((video) => observer.observe(video));
-
-    return () => observer.disconnect();
-  }, [reels]);
-
-  const loadCommentsForReel = async (reelId: string) => {
-    setCommentsLoading(true);
-    setCommentMessage("");
-
-    const { data, error } = await supabase
-      .from("reel_comments")
-      .select(`
-        id,
-        reel_id,
-        user_id,
-        content,
-        created_at,
-        profiles:user_id (
-          username,
-          full_name
-        )
-      `)
-      .eq("reel_id", reelId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setCommentMessage(error.message || "Unable to load comments.");
-      setCommentsLoading(false);
-      return;
-    }
-
-    const safeComments = ((data as unknown[]) || []).filter(
-      (item): item is CommentRow =>
-        Boolean(
-          item &&
-            typeof item === "object" &&
-            "id" in item &&
-            "reel_id" in item &&
-            "user_id" in item &&
-            "content" in item
-        )
-    );
-
-    setCommentsByReel((prev) => ({ ...prev, [reelId]: safeComments }));
-    setCommentCounts((prev) => ({ ...prev, [reelId]: safeComments.length }));
-    setCommentsLoading(false);
-  };
-
-  const openCommentsForReel = async (reelId: string) => {
-    setSelectedReelId(reelId);
-    setCommentsOpen(true);
-    await loadCommentsForReel(reelId);
-  };
-
-  const handleMuteToggle = (reelId: string) => {
-    setMutedMap((prev) => {
-      const nextMuted = !prev[reelId];
-      const next = { ...prev, [reelId]: nextMuted };
-
-      const video = document.querySelector<HTMLVideoElement>(`video[data-reel-id="${reelId}"]`);
-      if (video) {
-        video.muted = nextMuted;
-      }
-
-      return next;
-    });
-  };
-
-  const handleLikeToggle = async (reelId: string) => {
-    if (!viewerId) {
-      setShareMessage("Log in to like reels.");
-      window.setTimeout(() => setShareMessage(""), 1800);
-      return;
-    }
-
-    if (likeLoadingMap[reelId]) return;
-
-    setLikeLoadingMap((prev) => ({ ...prev, [reelId]: true }));
-
-    const isLiked = !!likedMap[reelId];
-
-    if (isLiked) {
-      const { error } = await supabase
+      await insertReelNotification({
+        userId: reel.user_id,
+        actorId: currentUserId,
+        type: "reel_like",
+        message: "liked your reel.",
+      });
+    } else {
+      const { error: likeDeleteError } = await supabase
         .from("reel_likes")
         .delete()
         .eq("reel_id", reelId)
-        .eq("user_id", viewerId);
+        .eq("user_id", currentUserId);
+
+      if (likeDeleteError) {
+        console.error("Profile reel like delete error:", likeDeleteError.message);
+        alert(likeDeleteError.message || "Could not remove reel like.");
+        await fetchReels();
+      }
+    }
+  };
+
+  const handleFavoriteToggle = (reelId: string) => {
+    setFavoritedMap((prev) => ({
+      ...prev,
+      [reelId]: !prev[reelId],
+    }));
+  };
+
+  const handleFollowToggle = async () => {
+    if (!currentUserId || !profileId || currentUserId === profileId) return;
+
+    const isFollowing = !!followingMap[profileId];
+    if (isFollowing) {
+      const { error } = await supabase
+        .from("followers")
+        .delete()
+        .eq("follower_id", currentUserId)
+        .eq("following_id", profileId);
 
       if (error) {
-        setShareMessage(error.message || "Unable to remove like.");
-        window.setTimeout(() => setShareMessage(""), 1800);
-        setLikeLoadingMap((prev) => ({ ...prev, [reelId]: false }));
+        alert(`Unfollow error: ${error.message}`);
         return;
       }
 
-      setLikedMap((prev) => ({ ...prev, [reelId]: false }));
-      setLikeCounts((prev) => ({
-        ...prev,
-        [reelId]: Math.max((prev[reelId] || 1) - 1, 0),
-      }));
-      setLikeLoadingMap((prev) => ({ ...prev, [reelId]: false }));
+      setFollowingMap({});
       return;
     }
 
-    const { error } = await supabase.from("reel_likes").insert([
+    const { error } = await supabase
+      .from("followers")
+      .insert([{ follower_id: currentUserId, following_id: profileId }]);
+
+    if (error) {
+      alert(`Follow error: ${error.message}`);
+      return;
+    }
+
+    setFollowingMap({ [profileId]: true });
+  };
+
+  const handleShareLink = async (reelId: string) => {
+    const reelUrl = `${window.location.origin}/profile/${profileId}/reels/view?reelId=${reelId}`;
+
+    try {
+      await navigator.clipboard.writeText(reelUrl);
+      setShareMessage("Reel link copied.");
+    } catch {
+      setShareMessage("Could not copy reel link.");
+    }
+
+    window.setTimeout(() => {
+      setShareMessage("");
+    }, 2200);
+  };
+
+  const handleAddComment = async () => {
+    const trimmed = commentDraft.trim();
+    if (!trimmed || !activeReel) return;
+
+    if (!currentUserId) {
+      alert("You must be logged in to comment on reels.");
+      return;
+    }
+
+    const nextComment: ReelComment = {
+      id: `comment-${Date.now()}`,
+      reelId: activeReel.id,
+      author: currentUserId === profileId ? "@you" : formatHandle(profile?.username),
+      text: trimmed,
+      time: "Just now",
+    };
+
+    setComments((prev) => [nextComment, ...prev]);
+    setReels((prev) =>
+      prev.map((reel) =>
+        reel.id === activeReel.id ? { ...reel, comments: reel.comments + 1 } : reel
+      )
+    );
+    setCommentDraft("");
+
+    const { error: commentInsertError } = await supabase.from("reel_comments").insert([
       {
-        reel_id: reelId,
-        user_id: viewerId,
+        reel_id: activeReel.id,
+        user_id: currentUserId,
+        content: trimmed,
       },
     ]);
 
-    if (error) {
-      setShareMessage(error.message || "Unable to like reel.");
-      window.setTimeout(() => setShareMessage(""), 1800);
-      setLikeLoadingMap((prev) => ({ ...prev, [reelId]: false }));
+    if (commentInsertError) {
+      console.error("Profile reel comment insert error:", commentInsertError.message);
+      alert(commentInsertError.message || "Could not save reel comment.");
+      await fetchReels();
       return;
     }
 
-    setLikedMap((prev) => ({ ...prev, [reelId]: true }));
-    setLikeCounts((prev) => ({
+    await insertReelNotification({
+      userId: activeReel.user_id,
+      actorId: currentUserId,
+      type: "reel_comment",
+      message: "commented on your reel.",
+    });
+  };
+
+  const handleShareToFeed = () => {
+    if (!activeReel) return;
+
+    setShareBoostMap((prev) => ({
       ...prev,
-      [reelId]: (prev[reelId] || 0) + 1,
+      [activeReel.id]: (prev[activeReel.id] || 0) + 1,
     }));
-    setLikeLoadingMap((prev) => ({ ...prev, [reelId]: false }));
+
+    setShareMessage("Reel staged for feed sharing.");
+    setShareCaption("");
+    setShareOpen(false);
+
+    window.setTimeout(() => {
+      setShareMessage("");
+    }, 2200);
   };
 
-  const handleShare = async (reelId: string) => {
-    if (typeof window === "undefined") return;
-    const shareUrl = `${window.location.origin}/profile/${profileId}/reels/view?reelId=${reelId}`;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `${getDisplayName(profile)} Reel`,
-          url: shareUrl,
-        });
-        return;
-      }
-
-      await navigator.clipboard.writeText(shareUrl);
-      setShareMessage("Reel link copied.");
-      window.setTimeout(() => setShareMessage(""), 1800);
-    } catch {
-      setShareMessage("Share cancelled.");
-      window.setTimeout(() => setShareMessage(""), 1800);
-    }
-  };
-
-  const handleSubmitComment = async (event: FormEvent) => {
+  const handleOpenReelMenu = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    reelId: string
+  ) => {
     event.preventDefault();
+    event.stopPropagation();
 
-    if (!selectedReelId) return;
-    if (!viewerId) {
-      setCommentMessage("You must be logged in to comment.");
-      return;
-    }
+    const x = clamp(event.clientX - 190, 12, window.innerWidth - 220);
+    const y = clamp(event.clientY + 8, 12, window.innerHeight - 120);
 
-    const trimmed = commentInput.trim();
-    if (!trimmed) {
-      setCommentMessage("Write a comment first.");
-      return;
-    }
-
-    setCommentsSubmitting(true);
-    setCommentMessage("");
-
-    const { data, error } = await supabase
-      .from("reel_comments")
-      .insert([
-        {
-          reel_id: selectedReelId,
-          user_id: viewerId,
-          content: trimmed,
-        },
-      ])
-      .select("id, reel_id, user_id, content, created_at")
-      .single();
-
-    if (error) {
-      setCommentMessage(error.message || "Unable to post comment.");
-      setCommentsSubmitting(false);
-      return;
-    }
-
-    const newComment: CommentRow = {
-      ...(data as CommentRow),
-      profiles: {
-        username: viewerUsername || null,
-        full_name: null,
-      },
-    };
-
-    setCommentsByReel((prev) => ({
-      ...prev,
-      [selectedReelId]: [newComment, ...(prev[selectedReelId] || [])],
-    }));
-
-    setCommentCounts((prev) => ({
-      ...prev,
-      [selectedReelId]: (prev[selectedReelId] || 0) + 1,
-    }));
-
-    setCommentInput("");
-    setCommentMessage("Comment posted.");
-    setCommentsSubmitting(false);
-    window.setTimeout(() => setCommentMessage(""), 1600);
+    setReelMenu({
+      reelId,
+      x,
+      y,
+    });
   };
 
-  const selectedComments = commentsByReel[selectedReelId] || [];
+  const handleStartEditReel = (reel: ReelItem) => {
+    setEditingReelId(reel.id);
+    setEditTitle(reel.title);
+    setEditCaption(reel.caption);
+    setEditOpen(true);
+    setReelMenu(null);
+  };
+
+  const handleSaveReelEdit = async () => {
+    if (!editingReelId) return;
+
+    const nextTitle = editTitle.trim();
+    const nextCaption = editCaption.trim();
+
+    const { error } = await supabase
+      .from("reels")
+      .update({
+        title: nextTitle,
+        caption: nextCaption,
+      })
+      .eq("id", editingReelId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      alert(error.message || "Could not save reel changes.");
+      return;
+    }
+
+    setReels((prev) =>
+      prev.map((reel) =>
+        reel.id === editingReelId
+          ? {
+              ...reel,
+              title: nextTitle || reel.title,
+              caption: nextCaption,
+            }
+          : reel
+      )
+    );
+
+    setEditOpen(false);
+    setEditingReelId(null);
+    setEditTitle("");
+    setEditCaption("");
+  };
+
+  const handleDeleteReel = async (reelId: string) => {
+    const confirmDelete = window.confirm("Delete this reel?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("reels")
+      .delete()
+      .eq("id", reelId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      alert(error.message || "Could not delete reel.");
+      return;
+    }
+
+    const nextReels = reels.filter((reel) => reel.id !== reelId);
+    setReels(nextReels);
+    setComments((prev) => prev.filter((comment) => comment.reelId !== reelId));
+    setProgressMap((prev) => {
+      const next = { ...prev };
+      delete next[reelId];
+      return next;
+    });
+
+    if (activeReelId === reelId) {
+      setActiveReelId(nextReels[0]?.id || "");
+    }
+
+    setReelMenu(null);
+  };
+
+  const isCaptionExpanded = (reelId: string) => !!expandedCaptions[reelId];
+  const isOwnProfile = !!currentUserId && currentUserId === profileId;
+  const creatorName =
+    profile?.display_name?.trim() ||
+    profile?.full_name?.trim() ||
+    profile?.username?.trim() ||
+    "Profile";
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0f0f10",
-        color: "#ffffff",
-      }}
-    >
-      <style jsx>{`
-        .deep-link-highlight {
-          outline: 2px solid rgba(88, 196, 255, 0.95);
-          box-shadow: 0 0 0 4px rgba(88, 196, 255, 0.15);
-          transition: outline 0.25s ease, box-shadow 0.25s ease;
-        }
-
-        .snap-item {
-          scroll-snap-align: start;
-        }
-
-        @media (max-width: 767px) {
-          .snap-list {
-            scroll-snap-type: y proximity;
-          }
-
-          .snap-item {
-            min-height: 92vh;
-          }
-        }
-
-        @media (min-width: 768px) {
-          .snap-list {
-            scroll-snap-type: none;
-          }
-
-          .snap-item {
-            min-height: auto;
-          }
-        }
-      `}</style>
-
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "820px",
-          margin: "0 auto",
-          padding: "20px 14px 24px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-            marginBottom: "18px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
+    <div style={pageStyle}>
+      <div style={topBarStyle}>
+        <div style={topBarInnerStyle}>
+          <div style={{ paddingTop: `${stageMetrics.topHeaderPad}px` }}>
             <h1
               style={{
                 margin: 0,
-                fontSize: "1.6rem",
-                lineHeight: 1.2,
+                fontSize: "26px",
+                lineHeight: 1.05,
+                textShadow: "0 2px 12px rgba(0,0,0,0.45)",
               }}
             >
-              {profile?.full_name || profile?.username || "Profile"} Reels
+              {creatorName} Reels
             </h1>
-            <p
-              style={{
-                margin: "8px 0 0",
-                color: "rgba(255,255,255,0.72)",
-                fontSize: "0.95rem",
-              }}
-            >
-              Viewer mode with real likes, comments drawer, and polished overlay controls.
-            </p>
           </div>
 
           <div
@@ -633,618 +1084,921 @@ export default function ProfileReelsViewerPage() {
               display: "flex",
               gap: "10px",
               flexWrap: "wrap",
+              paddingTop: `${stageMetrics.topHeaderPad}px`,
             }}
           >
-            <Link prefetch={false} href={`/profile/${profileId}/reels`} style={secondaryLinkStyle}>
+            <button onClick={() => setMuteAll((prev) => !prev)} style={buttonStyle}>
+              {muteAll ? "Unmute" : "Mute"}
+            </button>
+
+            <Link href={`/profile/${profileId}/reels`} style={navLinkStyle}>
               Back to Grid
             </Link>
-            <Link prefetch={false} href={`/profile/${profileId}`} style={secondaryLinkStyle}>
+
+            <Link href={`/profile/${profileId}`} style={navLinkStyle}>
               Back to Profile
             </Link>
           </div>
         </div>
+      </div>
 
-        {shareMessage ? (
-          <div
+      {stageMetrics.showDesktopArrows && reels.length > 1 && (
+        <div
+          style={{
+            position: "fixed",
+            right: "32px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            zIndex: 50,
+          }}
+        >
+          <button
+            onClick={() => scrollToAdjacentReel("prev")}
             style={{
-              marginBottom: "14px",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              borderRadius: "16px",
-              padding: "12px 14px",
-              color: "#f9fafb",
-              fontSize: "14px",
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(255,255,255,0.08)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "22px",
+              backdropFilter: "blur(12px)",
             }}
+            aria-label="Previous reel"
           >
-            {shareMessage}
+            ↑
+          </button>
+
+          <button
+            onClick={() => scrollToAdjacentReel("next")}
+            style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(255,255,255,0.08)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "22px",
+              backdropFilter: "blur(12px)",
+            }}
+            aria-label="Next reel"
+          >
+            ↓
+          </button>
+        </div>
+      )}
+
+      {isFetchingReels ? (
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "grid",
+            placeItems: "center",
+            padding: "24px",
+            textAlign: "center",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "28px", fontWeight: 900, marginBottom: "10px" }}>
+              Loading reels...
+            </div>
+            <div style={{ color: "#9ca3af", fontSize: "15px" }}>
+              Pulling this profile&apos;s reel uploads from the database.
+            </div>
           </div>
-        ) : null}
-
-        {loading ? (
-          <div style={cardStyle}>Loading reels...</div>
-        ) : errorMessage ? (
-          <div style={{ ...cardStyle, color: "#ffb4b4" }}>{errorMessage}</div>
-        ) : reels.length === 0 ? (
-          <div style={cardStyle}>No reels found for this profile yet.</div>
-        ) : (
+        </div>
+      ) : reels.length === 0 ? (
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "grid",
+            placeItems: "center",
+            padding: "24px",
+            textAlign: "center",
+          }}
+        >
           <div
-            className="snap-list"
             style={{
-              display: "grid",
-              gap: "18px",
+              maxWidth: "520px",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "rgba(255,255,255,0.04)",
+              borderRadius: "28px",
+              padding: "28px",
             }}
           >
-            {reels.map((reel) => {
-              const isSelected = reel.id === selectedReelId;
-              const isMuted = mutedMap[reel.id] ?? true;
-              const isLiked = likedMap[reel.id] ?? false;
-              const likeCount = likeCounts[reel.id] || 0;
-              const likeLoading = likeLoadingMap[reel.id] || false;
-              const commentCount = commentCounts[reel.id] || 0;
+            <div style={{ fontSize: "32px", fontWeight: 900, marginBottom: "10px" }}>
+              No reels yet
+            </div>
+            <div
+              style={{
+                color: "#d1d5db",
+                lineHeight: 1.7,
+                fontSize: "15px",
+                marginBottom: "18px",
+              }}
+            >
+              This profile does not have any reels to show yet.
+            </div>
+            <Link href={`/profile/${profileId}`} style={primaryButtonStyle}>
+              Back to Profile
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={scrollContainerRef}
+          style={scrollContainerStyle}
+          onScroll={updateActiveFromScroll}
+        >
+          {reels.map((reel) => {
+            const isLiked = !!likedMap[reel.id];
+            const isFavorited = !!favoritedMap[reel.id];
+            const isOwner = !!currentUserId && reel.user_id === currentUserId;
+            const isFollowingCreator = !!followingMap[profileId];
+            const displayedLikes = reel.likes;
+            const displayedFavorites = reel.favorites + (isFavorited ? 1 : 0);
+            const displayedComments = comments.filter(
+              (comment) => comment.reelId === reel.id
+            ).length;
+            const displayedShares = reel.shares + (shareBoostMap[reel.id] || 0);
+            const progress = progressMap[reel.id] || 0;
+            const expanded = isCaptionExpanded(reel.id);
+            const shortCaption =
+              reel.caption.length > 100 && !expanded
+                ? `${reel.caption.slice(0, 100)}...`
+                : reel.caption;
 
-              return (
+            return (
+              <section
+                key={reel.id}
+                data-reel-id={reel.id}
+                id={reel.id}
+                style={{
+                  ...sectionStyle,
+                  padding: `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
+                }}
+              >
                 <div
-                  key={reel.id}
-                  ref={(element) => {
-                    reelRefs.current[reel.id] = element;
-                  }}
-                  id={`reel-${reel.id}`}
-                  data-reel-id={reel.id}
-                  className="snap-item"
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    borderRadius: "26px",
+                    position: "relative",
+                    width: stageMetrics.stageWidth,
+                    height: stageMetrics.stageHeight,
+                    maxWidth: "100%",
                     overflow: "hidden",
-                    background: "rgba(255,255,255,0.05)",
-                    border: isSelected
-                      ? "1px solid rgba(88, 196, 255, 0.7)"
-                      : "1px solid rgba(255,255,255,0.08)",
-                    boxShadow: "0 14px 30px rgba(0,0,0,0.25)",
+                    borderRadius: stageMetrics.borderRadius,
+                    background: "#000",
+                    boxShadow:
+                      viewportType === "mobile"
+                        ? "none"
+                        : "0 16px 44px rgba(0,0,0,0.46)",
                   }}
                 >
                   <div
                     style={{
-                      position: "relative",
-                      background: "#000",
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: "3px",
+                      background: "rgba(255,255,255,0.12)",
+                      zIndex: 6,
                     }}
                   >
-                    {reel.video_url ? (
-                      <video
-                        src={reel.video_url}
-                        controls
-                        playsInline
-                        muted={isMuted}
-                        preload="metadata"
-                        data-profile-reel="true"
-                        data-reel-id={reel.id}
-                        style={{
-                          display: "block",
-                          width: "100%",
-                          maxHeight: "78vh",
-                          background: "#000000",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          padding: "24px 14px",
-                          color: "#ffb4b4",
-                        }}
-                      >
-                        Missing video URL for this reel.
-                      </div>
-                    )}
-
                     <div
+                      style={{
+                        width: `${progress}%`,
+                        height: "100%",
+                        background: "white",
+                        transition: "width 120ms linear",
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    onDoubleClick={() => handleDoubleTapLike(reel.id)}
+                    onClick={() => handleTogglePlayPause(reel.id)}
+                    onMouseDown={() => {
+                      if (viewportType === "desktop") {
+                        setHoldPausedId(reel.id);
+                        videoRefs.current[reel.id]?.pause();
+                      }
+                    }}
+                    onMouseUp={() => {
+                      if (viewportType === "desktop" && holdPausedId === reel.id) {
+                        setHoldPausedId(null);
+                        const playPromise = videoRefs.current[reel.id]?.play();
+                        if (playPromise && typeof playPromise.catch === "function") {
+                          playPromise.catch(() => {});
+                        }
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      if (viewportType === "desktop" && holdPausedId === reel.id) {
+                        setHoldPausedId(null);
+                        const playPromise = videoRefs.current[reel.id]?.play();
+                        if (playPromise && typeof playPromise.catch === "function") {
+                          playPromise.catch(() => {});
+                        }
+                      }
+                    }}
+                    onTouchStart={() => {
+                      setHoldPausedId(reel.id);
+                      videoRefs.current[reel.id]?.pause();
+                    }}
+                    onTouchEnd={() => {
+                      if (holdPausedId === reel.id) {
+                        setHoldPausedId(null);
+                        const playPromise = videoRefs.current[reel.id]?.play();
+                        if (playPromise && typeof playPromise.catch === "function") {
+                          playPromise.catch(() => {});
+                        }
+                      }
+                    }}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <video
+                      ref={(el) => {
+                        videoRefs.current[reel.id] = el;
+                      }}
+                      src={reel.video}
+                      poster={reel.poster || undefined}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      onTimeUpdate={(event) => {
+                        const video = event.currentTarget;
+                        const percent = video.duration
+                          ? (video.currentTime / video.duration) * 100
+                          : 0;
+
+                        setProgressMap((prev) => ({
+                          ...prev,
+                          [reel.id]: percent,
+                        }));
+                      }}
+                      onEnded={() => scrollToAdjacentReel("next")}
                       style={{
                         position: "absolute",
                         inset: 0,
-                        pointerEvents: "none",
-                        background:
-                          "linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.00) 30%, rgba(0,0,0,0.00) 58%, rgba(0,0,0,0.65) 100%)",
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        background: "#000",
+                        filter: "contrast(1.04) saturate(1.07)",
                       }}
                     />
 
                     <div
                       style={{
                         position: "absolute",
-                        top: "14px",
-                        left: "14px",
-                        right: "14px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: "12px",
-                        alignItems: "flex-start",
+                        inset: 0,
+                        background:
+                          "linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.08) 24%, rgba(0,0,0,0.22) 58%, rgba(0,0,0,0.86) 100%)",
                         pointerEvents: "none",
                       }}
-                    >
+                    />
+
+                    {heartBurstId === reel.id && (
                       <div
                         style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "6px",
-                          minWidth: 0,
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                          fontSize: viewportType === "mobile" ? "64px" : "80px",
+                          color: "white",
+                          opacity: 0.95,
+                          pointerEvents: "none",
+                          zIndex: 8,
+                          textShadow: "0 8px 26px rgba(0,0,0,0.45)",
                         }}
                       >
-                        <div
-                          style={{
-                            display: "inline-flex",
-                            width: "fit-content",
-                            alignItems: "center",
-                            gap: "8px",
-                            background: "rgba(0,0,0,0.55)",
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: "999px",
-                            padding: "8px 12px",
-                            fontWeight: 700,
-                            fontSize: "13px",
-                            color: "#fff",
-                            backdropFilter: "blur(10px)",
-                          }}
-                        >
-                          <span>@{profile?.username || "profile"}</span>
-                        </div>
-
-                        {reel.created_at ? (
-                          <div
-                            style={{
-                              color: "rgba(255,255,255,0.86)",
-                              fontSize: "12px",
-                              paddingLeft: "4px",
-                            }}
-                          >
-                            {formatDate(reel.created_at)}
-                          </div>
-                        ) : null}
+                        ♥
                       </div>
-
-                      {isSelected ? (
-                        <div
-                          style={{
-                            background: "rgba(88, 196, 255, 0.18)",
-                            color: "#bfeaff",
-                            border: "1px solid rgba(88, 196, 255, 0.40)",
-                            borderRadius: "999px",
-                            padding: "8px 12px",
-                            fontSize: "12px",
-                            fontWeight: 700,
-                            backdropFilter: "blur(10px)",
-                          }}
-                        >
-                          Active Reel
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div
-                      style={{
-                        position: "absolute",
-                        right: "14px",
-                        bottom: "16px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "10px",
-                        zIndex: 2,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleLikeToggle(reel.id)}
-                        style={overlayActionButtonStyle}
-                        title="Like reel"
-                        disabled={likeLoading}
-                      >
-                        <span style={{ fontSize: "18px", lineHeight: 1 }}>
-                          {isLiked ? "♥" : "♡"}
-                        </span>
-                        <span style={overlayActionLabelStyle}>
-                          {likeLoading ? "..." : likeCount}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => openCommentsForReel(reel.id)}
-                        style={overlayActionButtonStyle}
-                        title="Open comments"
-                      >
-                        <span style={{ fontSize: "18px", lineHeight: 1 }}>💬</span>
-                        <span style={overlayActionLabelStyle}>{commentCount}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleShare(reel.id)}
-                        style={overlayActionButtonStyle}
-                        title="Share reel"
-                      >
-                        <span style={{ fontSize: "18px", lineHeight: 1 }}>↗</span>
-                        <span style={overlayActionLabelStyle}>Share</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleMuteToggle(reel.id)}
-                        style={overlayActionButtonStyle}
-                        title={isMuted ? "Unmute reel" : "Mute reel"}
-                      >
-                        <span style={{ fontSize: "18px", lineHeight: 1 }}>
-                          {isMuted ? "🔇" : "🔊"}
-                        </span>
-                        <span style={overlayActionLabelStyle}>{isMuted ? "Mute" : "Sound"}</span>
-                      </button>
-
-                      <Link
-                        prefetch={false}
-                        href={`/profile/${profileId}`}
-                        style={{
-                          ...overlayActionButtonStyle,
-                          textDecoration: "none",
-                        }}
-                        title="Open profile"
-                      >
-                        <span style={{ fontSize: "18px", lineHeight: 1 }}>👤</span>
-                        <span style={overlayActionLabelStyle}>Profile</span>
-                      </Link>
-                    </div>
-
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: "16px",
-                        right: "88px",
-                        bottom: "18px",
-                        zIndex: 2,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "inline-flex",
-                          width: "fit-content",
-                          alignItems: "center",
-                          gap: "8px",
-                          padding: "8px 12px",
-                          borderRadius: "999px",
-                          background: "rgba(0,0,0,0.55)",
-                          border: "1px solid rgba(255,255,255,0.12)",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          color: "#fff",
-                          backdropFilter: "blur(10px)",
-                        }}
-                      >
-                        <span>Parapost Reels</span>
-                      </div>
-
-                      {reel.caption ? (
-                        <div
-                          style={{
-                            color: "#fff",
-                            fontSize: "14px",
-                            lineHeight: 1.45,
-                            textShadow: "0 1px 6px rgba(0,0,0,0.50)",
-                            maxWidth: "100%",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {reel.caption}
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            color: "rgba(255,255,255,0.85)",
-                            fontSize: "13px",
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          No caption added for this reel yet.
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
 
                   <div
                     style={{
-                      padding: "12px 14px",
+                      position: "absolute",
+                      top: "12px",
+                      right: "14px",
+                      zIndex: 7,
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "space-between",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <button
+                      onClick={(event) => handleOpenReelMenu(event, reel.id)}
+                      style={{
+                        width: "42px",
+                        height: "42px",
+                        borderRadius: "50%",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        background: "rgba(0,0,0,0.35)",
+                        color: "white",
+                        cursor: "pointer",
+                        fontSize: "20px",
+                      }}
+                      aria-label="Open reel menu"
+                    >
+                      ⋯
+                    </button>
+                  </div>
+
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: `${stageMetrics.actionRight}px`,
+                      bottom: `${stageMetrics.bottomOffset}px`,
+                      zIndex: 7,
+                      display: "flex",
+                      flexDirection: "column",
                       gap: "10px",
-                      flexWrap: "wrap",
-                      borderTop: "1px solid rgba(255,255,255,0.08)",
-                      background: "rgba(255,255,255,0.03)",
+                      alignItems: "center",
+                    }}
+                  >
+                    {[
+                      {
+                        symbol: isLiked ? "♥" : "♡",
+                        label: displayedLikes,
+                        action: () => handleLikeToggle(reel.id),
+                      },
+                      {
+                        symbol: "💬",
+                        label: displayedComments,
+                        action: () => {
+                          setActiveReelId(reel.id);
+                          setCommentsOpen(true);
+                        },
+                      },
+                      {
+                        symbol: isFavorited ? "★" : "☆",
+                        label: displayedFavorites,
+                        action: () => handleFavoriteToggle(reel.id),
+                      },
+                      {
+                        symbol: "↗",
+                        label: displayedShares,
+                        action: () => {
+                          setActiveReelId(reel.id);
+                          setShareOpen(true);
+                        },
+                      },
+                    ].map((item, actionIndex) => (
+                      <div
+                        key={`${reel.id}-${actionIndex}`}
+                        style={{
+                          display: "grid",
+                          justifyItems: "center",
+                          gap: "5px",
+                        }}
+                      >
+                        <button
+                          onClick={item.action}
+                          style={{
+                            width: viewportType === "mobile" ? "48px" : "52px",
+                            height: viewportType === "mobile" ? "48px" : "52px",
+                            borderRadius: "50%",
+                            border: "1px solid rgba(255,255,255,0.16)",
+                            background: "rgba(0,0,0,0.34)",
+                            color: "white",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            fontSize: viewportType === "mobile" ? "18px" : "19px",
+                            backdropFilter: "blur(12px)",
+                            boxShadow: "0 8px 18px rgba(0,0,0,0.38)",
+                          }}
+                        >
+                          {item.symbol}
+                        </button>
+
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            color: "#f3f4f6",
+                            textAlign: "center",
+                            maxWidth: "64px",
+                            lineHeight: 1.1,
+                            textShadow: "0 2px 10px rgba(0,0,0,0.45)",
+                          }}
+                        >
+                          {item.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: `${stageMetrics.textLeft}px`,
+                      right: `${stageMetrics.textRight}px`,
+                      bottom: `${stageMetrics.bottomOffset}px`,
+                      zIndex: 7,
+                      display: "grid",
+                      gap: "8px",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: "0.9rem",
-                        color: isSelected ? "#9eddff" : "rgba(255,255,255,0.78)",
-                        fontWeight: isSelected ? 700 : 500,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        flexWrap: "wrap",
                       }}
                     >
-                      {isSelected ? "Selected Reel" : "Reel ID"}: {reel.id}
+                      <div
+                        style={{
+                          width: "40px",
+                          height: "40px",
+                          borderRadius: "50%",
+                          background: "rgba(255,255,255,0.14)",
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          overflow: "hidden",
+                          fontWeight: 800,
+                          fontSize: "15px",
+                          backdropFilter: "blur(12px)",
+                        }}
+                      >
+                        {reel.creatorAvatarUrl ? (
+                          <img
+                            src={reel.creatorAvatarUrl}
+                            alt={reel.creatorName}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          reel.creatorName.charAt(0)
+                        )}
+                      </div>
+
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            fontSize: "15px",
+                            lineHeight: 1.15,
+                            textShadow: "0 2px 10px rgba(0,0,0,0.42)",
+                          }}
+                        >
+                          {reel.creatorName}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "13px",
+                            color: "#e5e7eb",
+                            textShadow: "0 2px 10px rgba(0,0,0,0.42)",
+                          }}
+                        >
+                          {reel.creator}
+                        </div>
+                      </div>
+
+                      {!isOwner && (
+                        <button
+                          onClick={handleFollowToggle}
+                          style={isFollowingCreator ? buttonStyle : primaryButtonStyle}
+                        >
+                          {isFollowingCreator ? "Following" : "Follow"}
+                        </button>
+                      )}
                     </div>
 
                     <div
                       style={{
-                        display: "flex",
-                        gap: "10px",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        color: "rgba(255,255,255,0.72)",
-                        fontSize: "13px",
+                        fontWeight: 900,
+                        fontSize: `${stageMetrics.titleSize}px`,
+                        lineHeight: 1.06,
+                        textShadow: "0 3px 12px rgba(0,0,0,0.48)",
                       }}
                     >
-                      <span>{likeCount} likes</span>
-                      <span>•</span>
-                      <span>{commentCount} comments</span>
-                      <span>•</span>
-                      <span>{isMuted ? "Muted" : "Sound on"}</span>
+                      {reel.title}
                     </div>
+
+                    <p
+                      style={{
+                        margin: 0,
+                        color: "#f3f4f6",
+                        lineHeight: 1.45,
+                        maxWidth: "100%",
+                        fontSize: `${stageMetrics.captionSize}px`,
+                        textShadow: "0 2px 10px rgba(0,0,0,0.45)",
+                      }}
+                    >
+                      {shortCaption}{" "}
+                      {reel.caption.length > 100 && (
+                        <button
+                          onClick={() =>
+                            setExpandedCaptions((prev) => ({
+                              ...prev,
+                              [reel.id]: !prev[reel.id],
+                            }))
+                          }
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "white",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            padding: 0,
+                            textShadow: "0 2px 10px rgba(0,0,0,0.45)",
+                          }}
+                        >
+                          {expanded ? "less" : "more"}
+                        </button>
+                      )}
+                    </p>
+
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "2px" }}>
+                      <button
+                        onClick={() => {
+                          const video = videoRefs.current[reel.id];
+                          if (!video) return;
+                          video.currentTime = 0;
+                          const playPromise = video.play();
+                          if (playPromise && typeof playPromise.catch === "function") {
+                            playPromise.catch(() => {});
+                          }
+                        }}
+                        style={buttonStyle}
+                      >
+                        Replay
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveReelId(reel.id);
+                          setCommentsOpen(true);
+                        }}
+                        style={buttonStyle}
+                      >
+                        Comments
+                      </button>
+
+                      <button onClick={() => handleShareLink(reel.id)} style={buttonStyle}>
+                        Copy Link
+                      </button>
+                    </div>
+
+                    {shareMessage && activeReel?.id === reel.id ? (
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          width: "fit-content",
+                          borderRadius: "999px",
+                          background: "rgba(255,255,255,0.12)",
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          padding: "8px 12px",
+                          fontSize: "13px",
+                          backdropFilter: "blur(12px)",
+                        }}
+                      >
+                        {shareMessage}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
 
-      {commentsOpen ? (
+      {reelMenu && (
         <div
           style={{
             position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            zIndex: 60,
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-            padding: "14px",
+            top: reelMenu.y,
+            left: reelMenu.x,
+            zIndex: 100,
+            minWidth: "200px",
+            background: "#0b1020",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: "18px",
+            overflow: "hidden",
+            boxShadow: "0 18px 34px rgba(0,0,0,0.34)",
           }}
-          onClick={() => setCommentsOpen(false)}
+          onClick={(event) => event.stopPropagation()}
         >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "720px",
-              maxHeight: "82vh",
-              background: "#121317",
-              borderRadius: "24px 24px 0 0",
-              border: "1px solid rgba(255,255,255,0.10)",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.38)",
-              overflow: "hidden",
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
+          {(() => {
+            const menuReel = reels.find((item) => item.id === reelMenu.reelId);
+            const isOwner =
+              !!menuReel && !!currentUserId && menuReel.user_id === currentUserId;
+
+            if (!menuReel) return null;
+
+            return isOwner ? (
+              <>
+                <button style={menuItemStyle} onClick={() => handleStartEditReel(menuReel)}>
+                  Edit Reel
+                </button>
+                <button
+                  style={{ ...menuItemStyle, color: "#fecaca", borderBottom: "none" }}
+                  onClick={() => handleDeleteReel(menuReel.id)}
+                >
+                  Delete Reel
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  style={menuItemStyle}
+                  onClick={() => alert("Report flow comes next when reel moderation is database-backed.")}
+                >
+                  Report Reel
+                </button>
+                <button
+                  style={{ ...menuItemStyle, borderBottom: "none" }}
+                  onClick={() => alert("Block flow comes next when user relationships are database-backed.")}
+                >
+                  Block User
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {commentsOpen && (
+        <>
+          <div style={overlayStyle} onClick={() => setCommentsOpen(false)} />
+          <div style={drawerStyle}>
             <div
               style={{
-                padding: "14px 16px",
+                padding: "18px",
                 borderBottom: "1px solid rgba(255,255,255,0.08)",
                 display: "flex",
-                justifyContent: "space-between",
                 alignItems: "center",
+                justifyContent: "space-between",
                 gap: "10px",
               }}
             >
               <div>
-                <div style={{ fontWeight: 700, fontSize: "16px" }}>Reel Comments</div>
-                <div style={{ color: "rgba(255,255,255,0.64)", fontSize: "13px", marginTop: "4px" }}>
-                  {commentCounts[selectedReelId] || 0} total comments
+                <div style={{ fontWeight: 800, fontSize: "20px" }}>Comments</div>
+                <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
+                  {activeReel?.title}
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setCommentsOpen(false)}
-                style={closeButtonStyle}
-              >
+              <button onClick={() => setCommentsOpen(false)} style={buttonStyle}>
                 Close
               </button>
             </div>
 
             <div
               style={{
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
-                maxHeight: "calc(82vh - 140px)",
+                flex: 1,
                 overflowY: "auto",
+                padding: "18px",
+                display: "grid",
+                gap: "12px",
               }}
             >
-              {commentsLoading ? (
-                <div style={drawerMutedCardStyle}>Loading comments...</div>
-              ) : selectedComments.length === 0 ? (
-                <div style={drawerMutedCardStyle}>No comments yet. Be the first to comment.</div>
+              {activeComments.length === 0 ? (
+                <div
+                  style={{
+                    border: "1px dashed rgba(255,255,255,0.12)",
+                    borderRadius: "22px",
+                    padding: "16px",
+                    color: "#9ca3af",
+                  }}
+                >
+                  No comments yet.
+                </div>
               ) : (
-                selectedComments.map((comment) => (
+                activeComments.map((comment) => (
                   <div
                     key={comment.id}
                     style={{
                       background: "rgba(255,255,255,0.04)",
                       border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "18px",
-                      padding: "12px 14px",
+                      borderRadius: "22px",
+                      padding: "14px",
                     }}
                   >
                     <div
                       style={{
                         display: "flex",
+                        alignItems: "center",
                         justifyContent: "space-between",
                         gap: "10px",
-                        alignItems: "center",
                         marginBottom: "8px",
-                        flexWrap: "wrap",
                       }}
                     >
-                      <div style={{ fontWeight: 700, color: "#fff", fontSize: "14px" }}>
-                        @{getCommentAuthorName(comment)}
-                      </div>
-                      <div style={{ color: "rgba(255,255,255,0.55)", fontSize: "12px" }}>
-                        {formatDateTime(comment.created_at)}
+                      <div style={{ fontWeight: 700 }}>{comment.author}</div>
+                      <div style={{ fontSize: "12px", color: "#9ca3af" }}>
+                        {comment.time}
                       </div>
                     </div>
-                    <div
-                      style={{
-                        color: "rgba(255,255,255,0.88)",
-                        lineHeight: 1.5,
-                        fontSize: "14px",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {comment.content}
-                    </div>
+                    <div style={{ color: "#e5e7eb", lineHeight: 1.6 }}>{comment.text}</div>
                   </div>
                 ))
               )}
             </div>
 
-            <form
-              onSubmit={handleSubmitComment}
+            <div
               style={{
-                padding: "14px 16px 16px",
+                padding: "18px",
                 borderTop: "1px solid rgba(255,255,255,0.08)",
-                background: "#121317",
-                display: "flex",
-                flexDirection: "column",
+                display: "grid",
                 gap: "10px",
               }}
             >
-              <textarea
-                value={commentInput}
-                onChange={(event) => setCommentInput(event.target.value)}
+              <input
+                value={commentDraft}
+                onChange={(event) => setCommentDraft(event.target.value)}
                 placeholder="Write a comment..."
-                rows={3}
-                style={commentTextareaStyle}
+                style={inputStyle}
               />
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={handleAddComment} style={primaryButtonStyle}>
+                  Post Comment
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
+      {shareOpen && activeReel && (
+        <>
+          <div style={overlayStyle} onClick={() => setShareOpen(false)} />
+          <div style={modalWrapStyle}>
+            <div style={modalCardStyle}>
               <div
                 style={{
                   display: "flex",
+                  alignItems: "flex-start",
                   justifyContent: "space-between",
-                  gap: "10px",
-                  alignItems: "center",
+                  gap: "12px",
+                  marginBottom: "14px",
                   flexWrap: "wrap",
                 }}
               >
-                <div style={{ color: "rgba(255,255,255,0.60)", fontSize: "12px" }}>
-                  {commentMessage || "Keep it respectful and on-topic."}
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: "24px", marginBottom: "6px" }}>
+                    Share Reel to Feed
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#9ca3af" }}>
+                    {activeReel.title} by {activeReel.creator}
+                  </div>
+                </div>
+
+                <button onClick={() => setShareOpen(false)} style={buttonStyle}>
+                  Close
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gap: "14px" }}>
+                <div
+                  style={{
+                    borderRadius: "22px",
+                    overflow: "hidden",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "#101828",
+                  }}
+                >
+                  <video
+                    src={activeReel.video}
+                    poster={activeReel.poster || undefined}
+                    muted
+                    playsInline
+                    controls
+                    style={{
+                      width: "100%",
+                      height: "260px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </div>
+
+                <textarea
+                  value={shareCaption}
+                  onChange={(event) => setShareCaption(event.target.value)}
+                  placeholder="Add a caption for when this reel is shared to your feed..."
+                  style={textAreaStyle}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button onClick={() => handleShareLink(activeReel.id)} style={buttonStyle}>
+                    Copy Reel Link
+                  </button>
+                  <button onClick={handleShareToFeed} style={primaryButtonStyle}>
+                    Share to Feed
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {editOpen && (
+        <>
+          <div
+            style={overlayStyle}
+            onClick={() => {
+              setEditOpen(false);
+              setEditingReelId(null);
+            }}
+          />
+          <div style={modalWrapStyle}>
+            <div style={modalCardStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  marginBottom: "14px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: "24px", marginBottom: "6px" }}>
+                    Edit Reel
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#9ca3af" }}>
+                    Only your own reel can be edited or deleted.
+                  </div>
                 </div>
 
                 <button
-                  type="submit"
-                  disabled={commentsSubmitting}
-                  style={submitCommentButtonStyle}
+                  onClick={() => {
+                    setEditOpen(false);
+                    setEditingReelId(null);
+                  }}
+                  style={buttonStyle}
                 >
-                  {commentsSubmitting ? "Posting..." : "Post Comment"}
+                  Close
                 </button>
               </div>
-            </form>
+
+              <div style={{ display: "grid", gap: "14px" }}>
+                <input
+                  value={editTitle}
+                  onChange={(event) => setEditTitle(event.target.value)}
+                  placeholder="Reel title"
+                  style={inputStyle}
+                />
+
+                <textarea
+                  value={editCaption}
+                  onChange={(event) => setEditCaption(event.target.value)}
+                  placeholder="Reel caption"
+                  style={textAreaStyle}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setEditOpen(false);
+                      setEditingReelId(null);
+                    }}
+                    style={buttonStyle}
+                  >
+                    Cancel
+                  </button>
+                  <button onClick={handleSaveReelEdit} style={primaryButtonStyle}>
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      ) : null}
+        </>
+      )}
     </div>
   );
 }
-
-const cardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
-  borderRadius: "24px",
-  padding: "18px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
-};
-
-const secondaryLinkStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  textDecoration: "none",
-  background: "rgba(255,255,255,0.05)",
-  color: "white",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: "999px",
-  padding: "10px 16px",
-  fontWeight: 600,
-  minHeight: "42px",
-};
-
-const overlayActionButtonStyle: React.CSSProperties = {
-  display: "inline-flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "5px",
-  width: "56px",
-  minHeight: "56px",
-  borderRadius: "18px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(0,0,0,0.52)",
-  color: "#ffffff",
-  cursor: "pointer",
-  backdropFilter: "blur(10px)",
-  boxShadow: "0 8px 18px rgba(0,0,0,0.22)",
-};
-
-const overlayActionLabelStyle: React.CSSProperties = {
-  fontSize: "11px",
-  fontWeight: 700,
-  lineHeight: 1,
-};
-
-const closeButtonStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minHeight: "40px",
-  borderRadius: "999px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
-  padding: "0 14px",
-  cursor: "pointer",
-  fontWeight: 700,
-};
-
-const drawerMutedCardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.72)",
-  borderRadius: "18px",
-  padding: "14px",
-  fontSize: "14px",
-};
-
-const commentTextareaStyle: React.CSSProperties = {
-  width: "100%",
-  borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.04)",
-  color: "#fff",
-  padding: "12px 14px",
-  resize: "vertical",
-  minHeight: "86px",
-  outline: "none",
-  fontSize: "14px",
-};
-
-const submitCommentButtonStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minHeight: "42px",
-  borderRadius: "999px",
-  border: "none",
-  background: "#ffffff",
-  color: "#111",
-  padding: "0 16px",
-  cursor: "pointer",
-  fontWeight: 700,
-};
