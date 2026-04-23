@@ -55,11 +55,7 @@ function getDisplayName(profile: ProfileRow | null) {
 }
 
 function getCommentAuthorName(comment: CommentRow) {
-  return (
-    comment.profiles?.username ||
-    comment.profiles?.full_name ||
-    "User"
-  );
+  return comment.profiles?.username || comment.profiles?.full_name || "User";
 }
 
 export default function ProfileReelsViewerPage() {
@@ -129,8 +125,7 @@ export default function ProfileReelsViewerPage() {
           .eq("id", nextViewerId)
           .maybeSingle();
 
-        nextViewerUsername =
-          viewerProfile?.username || viewerProfile?.full_name || "";
+        nextViewerUsername = viewerProfile?.username || viewerProfile?.full_name || "";
       }
       setViewerUsername(nextViewerUsername);
 
@@ -145,9 +140,7 @@ export default function ProfileReelsViewerPage() {
           .select("id, user_id, video_url, caption, created_at")
           .eq("user_id", profileId)
           .order("created_at", { ascending: false }),
-        supabase
-          .from("reel_comments")
-          .select("id, reel_id"),
+        supabase.from("reel_comments").select("id, reel_id"),
       ]);
 
       if (!isMounted) return;
@@ -288,18 +281,22 @@ export default function ProfileReelsViewerPage() {
 
         entries.forEach((entry) => {
           const video = entry.target as HTMLVideoElement;
+
           if (!entry.isIntersecting || entry.intersectionRatio < 0.65) {
             video.pause();
             return;
           }
+
           if (entry.intersectionRatio > bestRatio) {
             bestRatio = entry.intersectionRatio;
             bestVideo = video;
           }
         });
 
-        if (bestVideo && bestRatio >= 0.72) {
-          void bestVideo.play().catch(() => {});
+        const activeVideo = bestVideo as HTMLVideoElement | null;
+
+        if (activeVideo && bestRatio >= 0.72) {
+          void activeVideo.play().catch(() => {});
         }
       },
       { threshold: [0.35, 0.65, 0.72, 0.95] }
@@ -528,7 +525,7 @@ export default function ProfileReelsViewerPage() {
                 fontSize: "0.95rem",
               }}
             >
-              Viewer mode with reels comments drawer.
+              Viewer mode with comments drawer and polished overlay controls.
             </p>
           </div>
 
