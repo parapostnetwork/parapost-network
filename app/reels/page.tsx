@@ -38,6 +38,21 @@ type ReelComment = {
   time: string;
 };
 
+type ReelLikeDbRow = {
+  id: string;
+  reel_id: string | null;
+  user_id: string | null;
+  created_at?: string | null;
+};
+
+type ReelCommentDbRow = {
+  id: string;
+  reel_id: string | null;
+  user_id: string | null;
+  content: string | null;
+  created_at?: string | null;
+};
+
 type MenuState = {
   reelId: string;
   x: number;
@@ -67,22 +82,7 @@ type ProfileRow = {
   avatar_url?: string | null;
 };
 
-const initialComments: ReelComment[] = [
-  {
-    id: "comment-1",
-    reelId: "seed-reel-1",
-    author: "@paranormalfiles",
-    text: "That movement at the back of the frame is exactly why I paused this one twice.",
-    time: "2m ago",
-  },
-  {
-    id: "comment-2",
-    reelId: "seed-reel-1",
-    author: "@ghoulscope",
-    text: "The lighting makes it hard to rule out, but it is definitely interesting.",
-    time: "8m ago",
-  },
-];
+const initialComments: ReelComment[] = [];
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
@@ -292,6 +292,65 @@ function buildReelItems(rows: ReelDbRow[], profiles: ProfileRow[]): ReelItem[] {
     });
 }
 
+function formatRelativeTime(value?: string | null) {
+  if (!value) return "Just now";
+
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return "Just now";
+
+  const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+}
+
+async function insertReelNotification({
+  userId,
+  actorId,
+  type,
+  message,
+}: {
+  userId: string;
+  actorId: string;
+  type: "reel_like" | "reel_comment";
+  message: string;
+}) {
+  if (!userId || !actorId || userId === actorId) return;
+
+  const { error } = await supabase.from("notifications").insert([
+    {
+      user_id: userId,
+      actor_id: actorId,
+      type,
+      post_id: null,
+      comment_id: null,
+      friend_request_id: null,
+      message,
+      is_read: false,
+    },
+  ]);
+
+  if (error) {
+    console.error("Reel notification insert error:", error.message);
+  }
+}
+
 export default function ReelsPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [reels, setReels] = useState<ReelItem[]>([]);
@@ -331,7 +390,8 @@ export default function ReelsPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    setCurrentUserId(user?.id || "");
+    const nextUserId = user?.id || "";
+    setCurrentUserId(nextUserId);
 
     const { data: reelRows, error: reelsError } = await supabase
       .from("reels")
@@ -341,17 +401,15 @@ export default function ReelsPage() {
     if (reelsError) {
       console.error("Error loading reels:", reelsError.message);
       setReels([]);
+      setComments([]);
+      setLikedMap({});
       setIsFetchingReels(false);
       return;
     }
 
     const rows = (reelRows || []) as ReelDbRow[];
     const profileIds = Array.from(
-      new Set(
-        rows
-          .map((row) => row.creator_profile_id || row.user_id)
-          .filter(Boolean)
-      )
+      new Set(rows.map((row) => row.creator_profile_id || row.user_id).filter(Boolean))
     ) as string[];
 
     let profiles: ProfileRow[] = [];
@@ -369,7 +427,76 @@ export default function ReelsPage() {
       }
     }
 
-    const mapped = buildReelItems(rows, profiles);
+    let mapped = buildReelItems(rows, profiles);
+
+    const reelIds = mapped.map((reel) => reel.id);
+
+    if (reelIds.length > 0) {
+      const [{ data: likeRows, error: likesError }, { data: commentRows, error: commentsError }] =
+        await Promise.all([
+          supabase.from("reel_likes").select("id, reel_id, user_id, created_at").in("reel_id", reelIds),
+          supabase.from("reel_comments").select("id, reel_id, user_id, content, created_at").in("reel_id", reelIds).order("created_at", { ascending: false }),
+        ]);
+
+      if (!likesError && likeRows) {
+        const likedByCurrentUser: Record<string, boolean> = {};
+        const likeCountMap: Record<string, number> = {};
+
+        (likeRows as ReelLikeDbRow[]).forEach((row) => {
+          if (!row.reel_id) return;
+          likeCountMap[row.reel_id] = (likeCountMap[row.reel_id] || 0) + 1;
+          if (nextUserId && row.user_id === nextUserId) {
+            likedByCurrentUser[row.reel_id] = true;
+          }
+        });
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          likes: likeCountMap[reel.id] ?? reel.likes,
+        }));
+
+        setLikedMap(likedByCurrentUser);
+      } else if (likesError) {
+        console.error("Error loading reel likes:", likesError.message);
+        setLikedMap({});
+      }
+
+      if (!commentsError && commentRows) {
+        const profileMap = new Map<string, ProfileRow>();
+        profiles.forEach((profile) => profileMap.set(profile.id, profile));
+
+        const mappedComments = (commentRows as ReelCommentDbRow[]).map((row) => {
+          const profile = row.user_id ? profileMap.get(row.user_id) : undefined;
+          return {
+            id: row.id,
+            reelId: row.reel_id || "",
+            author: formatHandle(profile?.username),
+            text: row.content?.trim() || "",
+            time: formatRelativeTime(row.created_at),
+          } satisfies ReelComment;
+        });
+
+        const commentCountMap: Record<string, number> = {};
+        mappedComments.forEach((comment) => {
+          if (!comment.reelId) return;
+          commentCountMap[comment.reelId] = (commentCountMap[comment.reelId] || 0) + 1;
+        });
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          comments: commentCountMap[reel.id] ?? reel.comments,
+        }));
+
+        setComments(mappedComments);
+      } else if (commentsError) {
+        console.error("Error loading reel comments:", commentsError.message);
+        setComments(initialComments);
+      }
+    } else {
+      setComments(initialComments);
+      setLikedMap({});
+    }
+
     setReels(mapped);
 
     if (mapped.length > 0) {
@@ -384,6 +511,25 @@ export default function ReelsPage() {
   useEffect(() => {
     fetchReels();
   }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`reels-live-${currentUserId || "guest"}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, async () => {
+        await fetchReels();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_likes" }, async () => {
+        await fetchReels();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comments" }, async () => {
+        await fetchReels();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
 
   useEffect(() => {
     const setWidth = () => setViewportWidth(window.innerWidth);
@@ -565,22 +711,88 @@ export default function ReelsPage() {
     }, 700);
   };
 
-  const handleDoubleTapLike = (reelId: string) => {
-    setLikedMap((prev) => ({
-      ...prev,
-      [reelId]: true,
-    }));
-    triggerHeartBurst(reelId);
+  const handleDoubleTapLike = async (reelId: string) => {
+    if (likedMap[reelId]) return;
+    await handleLikeToggle(reelId, true);
   };
 
-  const handleLikeToggle = (reelId: string) => {
-    const nextLiked = !likedMap[reelId];
+  const handleLikeToggle = async (reelId: string, forceLike = false) => {
+    if (!currentUserId) {
+      alert("You must be logged in to like reels.");
+      return;
+    }
+
+    const reel = reels.find((item) => item.id === reelId);
+    if (!reel) return;
+
+    const nextLiked = forceLike ? true : !likedMap[reelId];
+
     setLikedMap((prev) => ({
       ...prev,
       [reelId]: nextLiked,
     }));
+
+    setReels((prev) =>
+      prev.map((item) =>
+        item.id === reelId
+          ? { ...item, likes: Math.max(item.likes + (nextLiked ? 1 : -1), 0) }
+          : item
+      )
+    );
+
     if (nextLiked) {
       triggerHeartBurst(reelId);
+      const { error: likeInsertError } = await supabase.from("reel_likes").insert([
+        {
+          reel_id: reelId,
+          user_id: currentUserId,
+        },
+      ]);
+
+      if (likeInsertError && !likeInsertError.message.toLowerCase().includes("duplicate")) {
+        console.error("Reel like insert error:", likeInsertError.message);
+        alert(likeInsertError.message || "Could not like reel.");
+        await fetchReels();
+        return;
+      }
+
+      const { error: reelUpdateError } = await supabase
+        .from("reels")
+        .update({ likes: Math.max((reel.likes || 0) + 1, 0) })
+        .eq("id", reelId);
+
+      if (reelUpdateError) {
+        console.error("Reel likes count update error:", reelUpdateError.message);
+      }
+
+      await insertReelNotification({
+        userId: reel.user_id,
+        actorId: currentUserId,
+        type: "reel_like",
+        message: "liked your reel.",
+      });
+    } else {
+      const { error: likeDeleteError } = await supabase
+        .from("reel_likes")
+        .delete()
+        .eq("reel_id", reelId)
+        .eq("user_id", currentUserId);
+
+      if (likeDeleteError) {
+        console.error("Reel like delete error:", likeDeleteError.message);
+        alert(likeDeleteError.message || "Could not remove reel like.");
+        await fetchReels();
+        return;
+      }
+
+      const { error: reelUpdateError } = await supabase
+        .from("reels")
+        .update({ likes: Math.max((reel.likes || 0) - 1, 0) })
+        .eq("id", reelId);
+
+      if (reelUpdateError) {
+        console.error("Reel likes count update error:", reelUpdateError.message);
+      }
     }
   };
 
@@ -615,9 +827,14 @@ export default function ReelsPage() {
     }, 2200);
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     const trimmed = commentDraft.trim();
     if (!trimmed || !activeReel) return;
+
+    if (!currentUserId) {
+      alert("You must be logged in to comment on reels.");
+      return;
+    }
 
     const nextComment: ReelComment = {
       id: `comment-${Date.now()}`,
@@ -628,7 +845,43 @@ export default function ReelsPage() {
     };
 
     setComments((prev) => [nextComment, ...prev]);
+    setReels((prev) =>
+      prev.map((reel) =>
+        reel.id === activeReel.id ? { ...reel, comments: reel.comments + 1 } : reel
+      )
+    );
     setCommentDraft("");
+
+    const { error: commentInsertError } = await supabase.from("reel_comments").insert([
+      {
+        reel_id: activeReel.id,
+        user_id: currentUserId,
+        content: trimmed,
+      },
+    ]);
+
+    if (commentInsertError) {
+      console.error("Reel comment insert error:", commentInsertError.message);
+      alert(commentInsertError.message || "Could not save reel comment.");
+      await fetchReels();
+      return;
+    }
+
+    const { error: reelUpdateError } = await supabase
+      .from("reels")
+      .update({ comments: Math.max((activeReel.comments || 0) + 1, 0) })
+      .eq("id", activeReel.id);
+
+    if (reelUpdateError) {
+      console.error("Reel comments count update error:", reelUpdateError.message);
+    }
+
+    await insertReelNotification({
+      userId: activeReel.user_id,
+      actorId: currentUserId,
+      type: "reel_comment",
+      message: "commented on your reel.",
+    });
   };
 
   const handleShareToFeed = () => {

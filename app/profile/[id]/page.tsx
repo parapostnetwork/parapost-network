@@ -29,6 +29,13 @@ type Post = {
   user_id: string;
 };
 
+type Reel = {
+  id: string;
+  video_url: string | null;
+  user_id: string;
+  created_at?: string | null;
+};
+
 type CountMap = Record<string, number>;
 type ToggleMap = Record<string, boolean>;
 
@@ -84,6 +91,7 @@ export default function ProfilePage() {
   const [viewerEmail, setViewerEmail] = useState("");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [reels, setReels] = useState<Reel[]>([]);
   const [likeCounts, setLikeCounts] = useState<CountMap>({});
   const [userLikes, setUserLikes] = useState<ToggleMap>({});
   const [followersCount, setFollowersCount] = useState(0);
@@ -127,6 +135,7 @@ export default function ProfilePage() {
       profileResult,
       postsResult,
       likesResult,
+      reelsResult,
       followersResult,
       outgoingRequestResult,
       incomingRequestResult,
@@ -143,6 +152,11 @@ export default function ProfilePage() {
         .eq("user_id", profileId)
         .order("created_at", { ascending: false }),
       supabase.from("likes").select("post_id, user_id"),
+      supabase
+        .from("reels")
+        .select("id, video_url, user_id, created_at")
+        .eq("user_id", profileId)
+        .order("created_at", { ascending: false }),
       supabase.from("followers").select("follower_id, following_id"),
       nextViewerId && profileId && nextViewerId !== profileId
         ? supabase
@@ -178,6 +192,7 @@ export default function ProfilePage() {
       setErrorMessage(profileResult.error.message || "Unable to load profile.");
       setProfile(null);
       setPosts([]);
+      setReels([]);
       setLoading(false);
       return;
     }
@@ -189,6 +204,12 @@ export default function ProfilePage() {
       setPosts([]);
     } else {
       setPosts((postsResult.data as Post[]) || []);
+    }
+
+    if (reelsResult.error) {
+      setReels([]);
+    } else {
+      setReels((reelsResult.data as Reel[]) || []);
     }
 
     const nextLikeCounts: CountMap = {};
@@ -754,18 +775,16 @@ export default function ProfilePage() {
                         <span style={statLabelStyle}>Posts</span>
                       </div>
                       <div style={statPillStyle}>
+                        <strong style={statNumberStyle}>{reels.length}</strong>
+                        <span style={statLabelStyle}>Reels</span>
+                      </div>
+                      <div style={statPillStyle}>
                         <strong style={statNumberStyle}>{followersCount}</strong>
                         <span style={statLabelStyle}>Followers</span>
                       </div>
                       <div style={statPillStyle}>
                         <strong style={statNumberStyle}>{followingCount}</strong>
                         <span style={statLabelStyle}>Following</span>
-                      </div>
-                      <div style={statPillStyle}>
-                        <strong style={statNumberStyle}>
-                          {Object.values(likeCounts).reduce((sum, count) => sum + count, 0)}
-                        </strong>
-                        <span style={statLabelStyle}>Likes</span>
                       </div>
                     </div>
 
@@ -913,9 +932,9 @@ export default function ProfilePage() {
             <div style={sideCardStyle}>
               <h3 style={{ marginTop: 0 }}>Parapost Reels</h3>
               <p style={{ color: "#d1d5db", lineHeight: 1.7, marginBottom: "12px" }}>
-                Best profile placement for launch: add a dedicated Reels strip under the main profile header later so creator content feels premium without pushing regular posts down too hard.
+                This profile keeps reels browsing separate from Explore Reels. The header Reels button opens the profile grid, and reels can then be opened into the profile-only viewer.
               </p>
-              <div style={pillMutedStyle}>Launch prep placement noted</div>
+              <div style={pillMutedStyle}>Profile-only reels flow active</div>
             </div>
           </aside>
         </div>

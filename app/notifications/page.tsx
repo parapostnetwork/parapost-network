@@ -5,11 +5,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+type NotificationType =
+  | "friend_request"
+  | "friend_accept"
+  | "post_like"
+  | "comment_like"
+  | "comment_reply"
+  | "reel_like"
+  | "reel_comment";
+
 type NotificationRow = {
   id: string;
   user_id: string;
   actor_id: string;
-  type: "friend_request" | "friend_accept" | "post_like" | "comment_like" | "comment_reply";
+  type: NotificationType;
   post_id: string | null;
   comment_id: string | null;
   friend_request_id: string | null;
@@ -132,7 +141,13 @@ export default function NotificationsPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications" },
-        async () => {
+        async (payload) => {
+          const incomingUserId =
+            (payload.new as { user_id?: string } | null)?.user_id ||
+            (payload.old as { user_id?: string } | null)?.user_id;
+
+          if (incomingUserId !== currentUserId) return;
+
           await fetchNotifications(currentUserId);
         }
       )
@@ -192,6 +207,9 @@ export default function NotificationsPage() {
   const getNotificationDestination = (notification: NotificationRow) => {
     if (notification.type === "friend_request") return "/friends/requests";
     if (notification.type === "friend_accept") return "/friends";
+    if (notification.type === "reel_like" || notification.type === "reel_comment") {
+      return "/reels";
+    }
     if (notification.post_id) return `/dashboard#post-${notification.post_id}`;
     if (notification.actor_id) return `/profile/${notification.actor_id}`;
     return "/notifications";
@@ -290,6 +308,9 @@ export default function NotificationsPage() {
   const getNotificationTargetLabel = (notification: NotificationRow) => {
     if (notification.type === "friend_request") return "Opens Friend Requests";
     if (notification.type === "friend_accept") return "Opens Friends List";
+    if (notification.type === "reel_like" || notification.type === "reel_comment") {
+      return "Opens Reels";
+    }
     if (notification.post_id) return "Opens related post";
     if (notification.actor_id) return "Opens profile";
     return "Open";
@@ -305,6 +326,14 @@ export default function NotificationsPage() {
 
     if (notification.type === "friend_accept") {
       return `${actorName} accepted your friend request.`;
+    }
+
+    if (notification.type === "reel_like") {
+      return `${actorName} liked your reel.`;
+    }
+
+    if (notification.type === "reel_comment") {
+      return `${actorName} commented on your reel.`;
     }
 
     if (notification.message) {
@@ -340,7 +369,7 @@ export default function NotificationsPage() {
             <div>
               <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800 }}>Notifications</h1>
               <p style={{ margin: "6px 0 0", color: "#9ca3af", fontSize: "14px" }}>
-                Friend requests open Friend Requests. Friend accepts open your Friends list.
+                Friend requests open Friend Requests. Friend accepts open your Friends list. Reel interactions open Reels.
               </p>
             </div>
 
@@ -384,7 +413,7 @@ export default function NotificationsPage() {
             >
               <h2 style={{ marginTop: 0, marginBottom: "8px", fontSize: "20px" }}>No notifications yet</h2>
               <p style={{ margin: 0, color: "#9ca3af", lineHeight: 1.6 }}>
-                When someone sends a friend request, accepts one, or interacts with your content, it will show up here.
+                When someone sends a friend request, accepts one, or interacts with your posts or reels, it will show up here.
               </p>
             </div>
           ) : (

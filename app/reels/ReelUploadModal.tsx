@@ -18,6 +18,7 @@ type UploadedReel = {
   title: string;
   creator: string;
   creatorName: string;
+  creatorAvatarUrl?: string;
   caption: string;
   video: string;
   poster: string;
@@ -25,6 +26,7 @@ type UploadedReel = {
   comments: number;
   favorites: number;
   shares: number;
+  createdAt?: string;
 };
 
 type ReelUploadModalProps = {
@@ -439,6 +441,7 @@ export default function ReelUploadModal({
   };
 
   const handleUpload = async () => {
+    if (isUploading) return;
     clearTransientMessages();
 
     if (!userId) {
@@ -458,6 +461,9 @@ export default function ReelUploadModal({
 
     setIsUploading(true);
 
+    let videoPath = "";
+    let posterPath = "";
+
     try {
       const extension = extractFileExtension(selectedVideo.name);
       const videoFileName = createFileName("reel-video", extension);
@@ -467,19 +473,30 @@ export default function ReelUploadModal({
       const posterBlob = await generatePosterFromFile(selectedVideo);
       setIsGeneratingPoster(false);
 
-      const videoPath = `${userId}/${videoFileName}`;
-      const posterPath = `${userId}/${posterFileName}`;
+      videoPath = `${userId}/${videoFileName}`;
+      posterPath = `${userId}/${posterFileName}`;
 
-      const { error: videoUploadError } = await supabase.storage
-        .from("reels")
-        .upload(videoPath, selectedVideo, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: selectedVideo.type || "video/mp4",
-        });
+      let finalVideoUploadError: { message?: string } | null = null;
 
-      if (videoUploadError) {
-        throw new Error(videoUploadError.message || "Video upload failed.");
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const { error } = await supabase.storage
+          .from("reels")
+          .upload(videoPath, selectedVideo, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: selectedVideo.type || "video/mp4",
+          });
+
+        if (!error) {
+          finalVideoUploadError = null;
+          break;
+        }
+
+        finalVideoUploadError = error;
+      }
+
+      if (finalVideoUploadError) {
+        throw new Error(finalVideoUploadError.message || "Video upload failed.");
       }
 
       const { error: posterUploadError } = await supabase.storage
@@ -501,6 +518,7 @@ export default function ReelUploadModal({
 
       const publicVideoUrl = videoPublic.publicUrl;
       const publicPosterUrl = posterPublic.publicUrl;
+      const createdAt = new Date().toISOString();
 
       const insertPayload = {
         user_id: userId,
@@ -510,6 +528,11 @@ export default function ReelUploadModal({
         video_url: publicVideoUrl,
         poster_url: publicPosterUrl,
         duration_seconds: Math.round(videoDuration),
+        likes: 0,
+        comments: 0,
+        favorites: 0,
+        shares: 0,
+        created_at: createdAt,
       };
 
       const { data: insertedReel, error: insertError } = await supabase
@@ -529,6 +552,7 @@ export default function ReelUploadModal({
         title: title.trim(),
         creator: creatorHandle,
         creatorName,
+        creatorAvatarUrl: profile?.avatar_url || undefined,
         caption: caption.trim(),
         video: publicVideoUrl,
         poster: publicPosterUrl,
@@ -536,14 +560,33 @@ export default function ReelUploadModal({
         comments: 0,
         favorites: 0,
         shares: 0,
+        createdAt,
       };
 
       onUploadSuccess(newReel);
+
+      window.setTimeout(() => {
+        window.dispatchEvent(new Event("reels-refresh"));
+      }, 300);
+
+      window.setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 200);
+
       setSuccessMessage("Reel uploaded successfully.");
       resetState();
       onClose();
     } catch (error) {
       console.error(error);
+
+      if (videoPath) {
+        await supabase.storage.from("reels").remove([videoPath]).catch(() => {});
+      }
+
+      if (posterPath) {
+        await supabase.storage.from("reel-posters").remove([posterPath]).catch(() => {});
+      }
+
       setErrorMessage(
         error instanceof Error ? error.message : "Something went wrong while uploading."
       );
