@@ -756,15 +756,6 @@ export default function ReelsPage() {
         return;
       }
 
-      const { error: reelUpdateError } = await supabase
-        .from("reels")
-        .update({ likes: Math.max((reel.likes || 0) + 1, 0) })
-        .eq("id", reelId);
-
-      if (reelUpdateError) {
-        console.error("Reel likes count update error:", reelUpdateError.message);
-      }
-
       await insertReelNotification({
         userId: reel.user_id,
         actorId: currentUserId,
@@ -785,14 +776,7 @@ export default function ReelsPage() {
         return;
       }
 
-      const { error: reelUpdateError } = await supabase
-        .from("reels")
-        .update({ likes: Math.max((reel.likes || 0) - 1, 0) })
-        .eq("id", reelId);
-
-      if (reelUpdateError) {
-        console.error("Reel likes count update error:", reelUpdateError.message);
-      }
+      // likes count is derived from reel_likes table
     }
   };
 
@@ -865,15 +849,6 @@ export default function ReelsPage() {
       alert(commentInsertError.message || "Could not save reel comment.");
       await fetchReels();
       return;
-    }
-
-    const { error: reelUpdateError } = await supabase
-      .from("reels")
-      .update({ comments: Math.max((activeReel.comments || 0) + 1, 0) })
-      .eq("id", activeReel.id);
-
-    if (reelUpdateError) {
-      console.error("Reel comments count update error:", reelUpdateError.message);
     }
 
     await insertReelNotification({
@@ -1158,7 +1133,7 @@ export default function ReelsPage() {
             const isFavorited = !!favoritedMap[reel.id];
             const isOwner = !!currentUserId && reel.user_id === currentUserId;
             const isFollowingCreator = !!followingMap[reel.creator_profile_id];
-            const displayedLikes = reel.likes + (isLiked ? 1 : 0);
+            const displayedLikes = reel.likes;
             const displayedFavorites = reel.favorites + (isFavorited ? 1 : 0);
             const displayedComments = comments.filter(
               (comment) => comment.reelId === reel.id
