@@ -33,6 +33,24 @@ type Post = {
   user_id: string;
 };
 
+type SharedReelItem = {
+  id: string;
+  reel_id: string;
+  user_id: string;
+  caption: string | null;
+  created_at: string;
+  reel_title: string;
+  reel_caption: string | null;
+  reel_video_url: string;
+  reel_poster_url: string | null;
+  reel_user_id: string;
+  creator_profile_id: string | null;
+};
+
+type MixedFeedItem =
+  | { type: "post"; id: string; created_at: string; post: Post }
+  | { type: "reel_share"; id: string; created_at: string; share: SharedReelItem };
+
 type NotificationRow = {
   id: string;
   user_id: string;
@@ -91,11 +109,257 @@ type ContextMenuState = {
 
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
 
+
+function isLikelyShortenedLink(hostname: string) {
+  const shortenerDomains = [
+    "bit.ly",
+    "tinyurl.com",
+    "t.co",
+    "goo.gl",
+    "ow.ly",
+    "buff.ly",
+    "cutt.ly",
+    "is.gd",
+    "s.id",
+    "rebrand.ly",
+    "lnkd.in",
+    "shorturl.at",
+    "tiny.cc",
+    "trib.al",
+    "amzn.to",
+    "youtu.be",
+  ];
+
+  return shortenerDomains.some(
+    (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+  );
+}
+
+function isBlockedLinkProtocol(href: string) {
+  const normalized = href.trim().toLowerCase();
+  return (
+    normalized.startsWith("javascript:") ||
+    normalized.startsWith("data:") ||
+    normalized.startsWith("vbscript:") ||
+    normalized.startsWith("file:")
+  );
+}
+
+function handleSafeExternalLinkClick(
+  event: React.MouseEvent<HTMLAnchorElement>,
+  href: string
+) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (isBlockedLinkProtocol(href)) {
+    alert("This link was blocked because it may be unsafe.");
+    return;
+  }
+
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(href);
+  } catch {
+    alert("This link could not be opened because it does not look valid.");
+    return;
+  }
+
+  const hostname = parsedUrl.hostname.replace(/^www\./, "");
+  const isShortened = isLikelyShortenedLink(hostname);
+
+  const message = isShortened
+    ? `Safety notice: this appears to be a shortened link (${hostname}). The final destination may be hidden. Only continue if you trust this link.\n\nOpen it anyway?`
+    : `You are leaving Parapost Network and opening:\n\n${hostname}\n\nOnly continue if you trust this site.`;
+
+  const confirmed = window.confirm(message);
+
+  if (!confirmed) return;
+
+  window.open(parsedUrl.toString(), "_blank", "noopener,noreferrer");
+}
+
+function renderLinkedText(text: string): ReactNode {
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, index) => {
+    if (!part.match(urlRegex)) {
+      return part;
+    }
+
+    const rawLabel = part;
+    const cleanLabel = rawLabel.replace(/[),.;!?]+$/, "");
+    const trailing = rawLabel.slice(cleanLabel.length);
+    const href = cleanLabel.startsWith("http") ? cleanLabel : `https://${cleanLabel}`;
+
+    if (isBlockedLinkProtocol(href)) {
+      return (
+        <span key={`${part}-${index}`} style={{ color: "#fca5a5", fontWeight: 800 }}>
+          [unsafe link blocked]{trailing}
+        </span>
+      );
+    }
+
+    return (
+      <span key={`${part}-${index}`}>
+        <a
+          href={href}
+          onClick={(event) => handleSafeExternalLinkClick(event, href)}
+          style={{
+            color: "#93c5fd",
+            fontWeight: 800,
+            textDecoration: "none",
+            wordBreak: "break-word",
+          }}
+          onMouseEnter={(event) => {
+            event.currentTarget.style.textDecoration = "underline";
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.textDecoration = "none";
+          }}
+        >
+          {cleanLabel}
+        </a>
+        {trailing}
+      </span>
+    );
+  });
+}
+
+
+type LinkPreviewData = {
+  href: string;
+  hostname: string;
+  label: string;
+  type: "youtube" | "website";
+  youtubeVideoId?: string;
+};
+
+function getYoutubeVideoId(url: URL) {
+  const host = url.hostname.replace(/^www\./, "");
+
+  if (host === "youtu.be") {
+    return url.pathname.replace("/", "").split(/[?&#]/)[0] || "";
+  }
+
+  if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com") {
+    if (url.pathname.startsWith("/watch")) {
+      return url.searchParams.get("v") || "";
+    }
+
+    if (url.pathname.startsWith("/shorts/")) {
+      return url.pathname.split("/shorts/")[1]?.split(/[?&#/]/)[0] || "";
+    }
+
+    if (url.pathname.startsWith("/embed/")) {
+      return url.pathname.split("/embed/")[1]?.split(/[?&#/]/)[0] || "";
+    }
+  }
+
+  return "";
+}
+
+function getFirstSafeLinkPreview(text: string): LinkPreviewData | null {
+  const match = text.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/i);
+  if (!match) return null;
+
+  const cleanLabel = match[0].replace(/[),.;!?]+$/, "");
+  const href = cleanLabel.startsWith("http") ? cleanLabel : `https://${cleanLabel}`;
+
+  if (isBlockedLinkProtocol(href)) return null;
+
+  try {
+    const parsedUrl = new URL(href);
+    const hostname = parsedUrl.hostname.replace(/^www\./, "");
+    const youtubeVideoId = getYoutubeVideoId(parsedUrl);
+
+    if (youtubeVideoId) {
+      return {
+        href: parsedUrl.toString(),
+        hostname,
+        label: "YouTube video",
+        type: "youtube",
+        youtubeVideoId,
+      };
+    }
+
+    return {
+      href: parsedUrl.toString(),
+      hostname,
+      label: hostname,
+      type: "website",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function LinkPreviewCard({ text }: { text: string }) {
+  const preview = getFirstSafeLinkPreview(text);
+
+  if (!preview) return null;
+
+  const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
+    preview.hostname
+  )}&sz=64`;
+
+  return (
+    <a
+      href={preview.href}
+      onClick={(event) => handleSafeExternalLinkClick(event, preview.href)}
+      style={linkPreviewCardStyle}
+    >
+      <div style={linkPreviewMediaStyle}>
+        {preview.type === "youtube" && preview.youtubeVideoId ? (
+          <>
+            <img
+              src={`https://img.youtube.com/vi/${preview.youtubeVideoId}/hqdefault.jpg`}
+              alt="YouTube preview"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+            <div style={linkPreviewPlayOverlayStyle}>▶</div>
+          </>
+        ) : (
+          <div style={linkPreviewFaviconWrapStyle}>
+            <img
+              src={faviconUrl}
+              alt=""
+              style={{
+                width: "44px",
+                height: "44px",
+                borderRadius: "12px",
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={linkPreviewEyebrowStyle}>
+          {preview.type === "youtube" ? "YouTube" : "External Website"}
+        </div>
+        <div style={linkPreviewTitleStyle}>
+          {preview.type === "youtube" ? "Watch video" : preview.label}
+        </div>
+        <div style={linkPreviewDomainStyle}>{preview.hostname}</div>
+      </div>
+    </a>
+  );
+}
+
 export default function DashboardPage() {
   const [content, setContent] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
   const [posts, setPosts] = useState<Post[]>([]);
+  const [sharedReelItems, setSharedReelItems] = useState<SharedReelItem[]>([]);
   const [commentsByPost, setCommentsByPost] = useState<CommentMap>({});
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
   const [commentInputs, setCommentInputs] = useState<InputMap>({});
@@ -345,6 +609,7 @@ export default function DashboardPage() {
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "reposts" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "shares" }, () => scheduleRealtimeRefresh(false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "comment_likes" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "comment_reports" }, () => scheduleRealtimeRefresh(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "user_blocks" }, () => scheduleRealtimeRefresh(false))
@@ -703,6 +968,77 @@ export default function DashboardPage() {
 
     setPosts(visiblePosts);
 
+    let visibleSharedReels: SharedReelItem[] = [];
+
+    const { data: reelSharesData, error: reelSharesError } = await supabase
+      .from("reel_shares")
+      .select("id, reel_id, user_id, caption, created_at")
+      .order("created_at", { ascending: false });
+
+    if (reelSharesError) {
+      console.error("Error fetching reel shares:", reelSharesError.message);
+      setSharedReelItems([]);
+    } else {
+      let visibleShareRows = (reelSharesData || []).filter((share) => !blockedIds.includes(share.user_id));
+
+      if (feedMode === "following" && userId) {
+        visibleShareRows = visibleShareRows.filter((share) => followedIds.includes(share.user_id));
+      }
+
+      const sharedReelIds = [
+        ...new Set(visibleShareRows.map((share) => share.reel_id).filter(Boolean)),
+      ];
+
+      if (sharedReelIds.length > 0) {
+        const { data: sharedReelRows, error: sharedReelsError } = await supabase
+          .from("reels")
+          .select("id, user_id, creator_profile_id, title, caption, video_url, poster_url")
+          .in("id", sharedReelIds);
+
+        if (sharedReelsError) {
+          console.error("Error fetching shared reels:", sharedReelsError.message);
+        } else {
+          const sharedReelMap = new Map<string, {
+            id: string;
+            user_id: string | null;
+            creator_profile_id: string | null;
+            title: string | null;
+            caption: string | null;
+            video_url: string | null;
+            poster_url: string | null;
+          }>();
+
+          for (const reel of sharedReelRows || []) {
+            sharedReelMap.set(reel.id, reel);
+          }
+
+          visibleSharedReels = visibleShareRows
+            .map((share) => {
+              const reel = sharedReelMap.get(share.reel_id);
+              if (!reel || !reel.video_url || !reel.user_id) return null;
+              if (blockedIds.includes(reel.user_id)) return null;
+
+              return {
+                id: share.id,
+                reel_id: share.reel_id,
+                user_id: share.user_id,
+                caption: share.caption || null,
+                created_at: share.created_at,
+                reel_title: reel.title || "Untitled Reel",
+                reel_caption: reel.caption || null,
+                reel_video_url: reel.video_url,
+                reel_poster_url: reel.poster_url || null,
+                reel_user_id: reel.user_id,
+                creator_profile_id: reel.creator_profile_id || null,
+              } satisfies SharedReelItem;
+            })
+            .filter(Boolean) as SharedReelItem[];
+        }
+      }
+
+      setSharedReelItems(visibleSharedReels);
+    }
+
     const visiblePostIds = visiblePosts.map((post) => post.id);
 
     const { data: commentsData, error: commentsError } = await supabase
@@ -832,6 +1168,9 @@ export default function DashboardPage() {
 
     const allUserIds = [
       ...visiblePosts.map((post) => post.user_id),
+      ...visibleSharedReels.map((share) => share.user_id),
+      ...visibleSharedReels.map((share) => share.reel_user_id),
+      ...visibleSharedReels.map((share) => share.creator_profile_id || ""),
       ...Object.values(groupedComments).flat().map((comment) => comment.user_id),
     ];
 
@@ -1081,6 +1420,26 @@ export default function DashboardPage() {
 
     setShareCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
     alert("Post link copied.");
+  };
+
+  const handleDeleteReelShare = async (shareId: string) => {
+    if (!currentUserId) return;
+
+    const confirmDelete = window.confirm("Remove this shared reel from your feed?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("reel_shares")
+      .delete()
+      .eq("id", shareId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      alert(`Remove shared reel error: ${error.message}`);
+      return;
+    }
+
+    setSharedReelItems((prev) => prev.filter((item) => item.id !== shareId));
   };
 
   const handleFollowToggle = async (targetUserId: string) => {
@@ -1592,6 +1951,23 @@ export default function DashboardPage() {
     return `${years}y ago`;
   }, []);
 
+  const mixedFeedItems = useMemo<MixedFeedItem[]>(() => {
+    return [
+      ...posts.map((post) => ({
+        type: "post" as const,
+        id: post.id,
+        created_at: post.created_at,
+        post,
+      })),
+      ...sharedReelItems.map((share) => ({
+        type: "reel_share" as const,
+        id: share.id,
+        created_at: share.created_at,
+        share,
+      })),
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [posts, sharedReelItems]);
+
   const currentFollowingCount = followedUserIds.length;
 
 
@@ -1962,7 +2338,7 @@ export default function DashboardPage() {
 
                 {fetchingPosts ? (
                   <p style={{ color: "#9ca3af" }}>Loading your feed...</p>
-                ) : posts.length === 0 ? (
+                ) : mixedFeedItems.length === 0 ? (
                   <p style={{ color: "#9ca3af" }}>
                     {feedMode === "following"
                       ? "No posts from followed accounts yet."
@@ -1970,7 +2346,199 @@ export default function DashboardPage() {
                   </p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    {posts.map((post) => {
+                    {mixedFeedItems.map((feedItem) => {
+                      if (feedItem.type === "reel_share") {
+                        const shared = feedItem.share;
+                        const sharerProfile = profilesMap[shared.user_id];
+                        const creatorProfile =
+                          profilesMap[shared.creator_profile_id || ""] || profilesMap[shared.reel_user_id];
+
+                        return (
+                          <div
+                            id={`reel-share-${shared.id}`}
+                            key={`reel-share-${shared.id}`}
+                            style={{
+                              background: "linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.035) 100%)",
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              borderRadius: "26px",
+                              padding: "16px",
+                              position: "relative",
+                              boxShadow: "0 10px 26px rgba(0,0,0,0.24)",
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {shared.user_id === currentUserId ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteReelShare(shared.id)}
+                                style={{
+                                  position: "absolute",
+                                  top: "14px",
+                                  right: "14px",
+                                  border: "1px solid rgba(255,255,255,0.12)",
+                                  background: "rgba(255,255,255,0.06)",
+                                  color: "#f9fafb",
+                                  borderRadius: "999px",
+                                  padding: "8px 11px",
+                                  fontSize: "12px",
+                                  fontWeight: 800,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Remove
+                              </button>
+                            ) : null}
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px", paddingRight: shared.user_id === currentUserId ? "82px" : 0 }}>
+                              <Link
+                                href={`/profile/${shared.user_id}`}
+                                style={{
+                                  width: "44px",
+                                  height: "44px",
+                                  borderRadius: "50%",
+                                  overflow: "hidden",
+                                  background: "#374151",
+                                  color: "#f9fafb",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  textDecoration: "none",
+                                  flexShrink: 0,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {sharerProfile?.avatar_url ? (
+                                  <img
+                                    src={sharerProfile.avatar_url}
+                                    alt="Profile"
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                  />
+                                ) : (
+                                  getInitial(sharerProfile?.full_name, sharerProfile?.username)
+                                )}
+                              </Link>
+
+                              <div style={{ minWidth: 0 }}>
+                                <Link
+                                  href={`/profile/${shared.user_id}`}
+                                  style={{ color: "#f9fafb", textDecoration: "none", fontWeight: 700 }}
+                                >
+                                  {sharerProfile?.full_name || sharerProfile?.username || "Parapost user"}
+                                </Link>
+                                <div style={{ color: "#9ca3af", fontSize: "13px", marginTop: "3px" }}>
+                                  shared a reel · {formatRelativeTime(shared.created_at)}
+                                </div>
+                              </div>
+                            </div>
+
+                            {shared.caption ? (
+                              <p style={{ color: "#f9fafb", lineHeight: 1.6, margin: "0 0 12px" }}>
+                                {shared.caption}
+                              </p>
+                            ) : null}
+
+                            <div
+                              style={{
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                borderRadius: "22px",
+                                background: "rgba(0,0,0,0.30)",
+                                padding: "12px",
+                              }}
+                            >
+                              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                                <Link
+                                  href={`/reels?reel=${shared.reel_id}`}
+                                  style={{
+                                    width: "clamp(142px, 34vw, 210px)",
+                                    aspectRatio: "9 / 16",
+                                    maxHeight: "360px",
+                                boxShadow: "0 14px 34px rgba(0,0,0,0.34)",
+                                    borderRadius: "18px",
+                                    overflow: "hidden",
+                                    position: "relative",
+                                    background: "#000",
+                                    display: "block",
+                                    flexShrink: 0,
+                                    boxShadow: "0 12px 28px rgba(0,0,0,0.34)",
+                                  }}
+                                >
+                                  <video
+                                    src={shared.reel_video_url}
+                                    poster={shared.reel_poster_url || undefined}
+                                    muted
+                                    playsInline
+                                    preload="metadata"
+                                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                  />
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      inset: 0,
+                                      background: "linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)",
+                                      display: "grid",
+                                      placeItems: "center",
+                                      color: "white",
+                                      fontSize: "32px",
+                                      textShadow: "0 6px 18px rgba(0,0,0,0.55)",
+                                    }}
+                                  >
+                                    ▶
+                                  </div>
+                                </Link>
+
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "6px",
+                                      color: "#d1d5db",
+                                      fontSize: "12px",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      borderRadius: "999px",
+                                      padding: "6px 9px",
+                                      background: "rgba(255,255,255,0.05)",
+                                      marginBottom: "10px",
+                                    }}
+                                  >
+                                    Parapost Reel
+                                  </div>
+
+                                  <h4 style={{ margin: "0 0 6px", color: "#fff", fontSize: "18px", lineHeight: 1.2 }}>
+                                    {shared.reel_title}
+                                  </h4>
+                                  <p style={{ color: "#9ca3af", fontSize: "13px", lineHeight: 1.5, margin: "0 0 12px" }}>
+                                    Original by {creatorProfile?.full_name || creatorProfile?.username || "Parapost creator"}
+                                  </p>
+
+                                  {shared.reel_caption ? (
+                                    <p
+                                      style={{
+                                        color: "#d1d5db",
+                                        fontSize: "13px",
+                                        lineHeight: 1.5,
+                                        margin: "0 0 14px",
+                                        display: "-webkit-box",
+                                        WebkitLineClamp: 3,
+                                        WebkitBoxOrient: "vertical",
+                                        overflow: "hidden",
+                                      }}
+                                    >
+                                      {shared.reel_caption}
+                                    </p>
+                                  ) : null}
+
+                                  <Link href={`/reels?reel=${shared.reel_id}`} style={primaryButtonStyle}>
+                                    ▶ View Reel
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const post = feedItem.post;
                       const liked = !!userLikes[post.id];
                       const reposted = !!userReposts[post.id];
                       const likeCount = likeCounts[post.id] || 0;
@@ -2200,16 +2768,20 @@ export default function DashboardPage() {
                           ) : (
                             <>
                               {post.content && (
-                                <p
-                                  style={{
-                                    margin: 0,
-                                    whiteSpace: "pre-wrap",
-                                    lineHeight: 1.6,
-                                    color: "#f9fafb",
-                                  }}
-                                >
-                                  {post.content}
-                                </p>
+                                <>
+                                  <p
+                                    style={{
+                                      margin: 0,
+                                      whiteSpace: "pre-wrap",
+                                      lineHeight: 1.6,
+                                      color: "#f9fafb",
+                                    }}
+                                  >
+                                    {renderLinkedText(post.content)}
+                                  </p>
+
+                                  <LinkPreviewCard text={post.content} />
+                                </>
                               )}
                             </>
                           )}
@@ -2222,7 +2794,7 @@ export default function DashboardPage() {
                                 width: "100%",
                                 maxHeight: "680px",
                                 marginTop: "12px",
-                                borderRadius: "18px",
+                                borderRadius: "22px",
                                 objectFit: "cover",
                                 boxShadow: "0 10px 28px rgba(0,0,0,0.30)",
                               }}
@@ -2487,7 +3059,7 @@ export default function DashboardPage() {
             >
               <h3 style={{ marginTop: 0 }}>Quick Stats</h3>
               <p style={{ color: "#d1d5db", marginBottom: "10px" }}>
-                Total posts: <strong style={{ color: "white" }}>{posts.length}</strong>
+                Total feed items: <strong style={{ color: "white" }}>{mixedFeedItems.length}</strong>
               </p>
               <p style={{ color: "#d1d5db", marginBottom: "10px" }}>
                 Total likes:{" "}
@@ -3415,3 +3987,164 @@ const activePillStyle: CSSProperties = {
   fontWeight: 700,
   cursor: "pointer",
 };
+
+
+const sharedReelBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  width: "fit-content",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#d1d5db",
+  padding: "7px 10px",
+  fontSize: "12px",
+  fontWeight: 800,
+  letterSpacing: "0.01em",
+};
+
+const sharedReelPreviewFrameStyle: CSSProperties = {
+  position: "relative",
+  overflow: "hidden",
+  borderRadius: "22px",
+  border: "1px solid rgba(255,255,255,0.11)",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.025) 100%)",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.34)",
+};
+
+const sharedReelPlayOverlayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "grid",
+  placeItems: "center",
+  pointerEvents: "none",
+  background:
+    "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.10) 45%, rgba(0,0,0,0.38) 100%)",
+};
+
+const sharedReelPlayButtonStyle: CSSProperties = {
+  width: "56px",
+  height: "56px",
+  borderRadius: "999px",
+  display: "grid",
+  placeItems: "center",
+  background: "rgba(255,255,255,0.92)",
+  color: "#000",
+  fontSize: "22px",
+  fontWeight: 900,
+  boxShadow: "0 10px 26px rgba(0,0,0,0.38)",
+};
+
+const sharedReelMetaStyle: CSSProperties = {
+  color: "#9ca3af",
+  fontSize: "13px",
+  lineHeight: 1.5,
+};
+
+const sharedReelActionLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "8px",
+  minHeight: "40px",
+  borderRadius: "999px",
+  background: "white",
+  color: "black",
+  border: "none",
+  padding: "9px 14px",
+  fontWeight: 900,
+  fontSize: "13px",
+  textDecoration: "none",
+  boxShadow: "0 8px 20px rgba(0,0,0,0.18)",
+};
+
+const sharedReelRemoveButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "40px",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fecaca",
+  border: "1px solid rgba(248,113,113,0.22)",
+  padding: "9px 14px",
+  fontWeight: 800,
+  fontSize: "13px",
+  cursor: "pointer",
+};
+
+
+const linkPreviewCardStyle: CSSProperties = {
+  marginTop: "12px",
+  display: "flex",
+  gap: "12px",
+  alignItems: "center",
+  borderRadius: "20px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(0,0,0,0.24)",
+  padding: "10px",
+  textDecoration: "none",
+  color: "white",
+  boxShadow: "0 10px 26px rgba(0,0,0,0.18)",
+};
+
+const linkPreviewMediaStyle: CSSProperties = {
+  width: "116px",
+  height: "74px",
+  borderRadius: "16px",
+  overflow: "hidden",
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  flexShrink: 0,
+  position: "relative",
+};
+
+const linkPreviewPlayOverlayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "grid",
+  placeItems: "center",
+  color: "white",
+  fontSize: "26px",
+  textShadow: "0 6px 18px rgba(0,0,0,0.65)",
+  background: "rgba(0,0,0,0.12)",
+};
+
+const linkPreviewFaviconWrapStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  placeItems: "center",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.025) 100%)",
+};
+
+const linkPreviewEyebrowStyle: CSSProperties = {
+  color: "#9ca3af",
+  fontSize: "12px",
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+  marginBottom: "4px",
+};
+
+const linkPreviewTitleStyle: CSSProperties = {
+  color: "#f9fafb",
+  fontSize: "15px",
+  fontWeight: 900,
+  lineHeight: 1.25,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const linkPreviewDomainStyle: CSSProperties = {
+  color: "#93c5fd",
+  fontSize: "13px",
+  marginTop: "4px",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+

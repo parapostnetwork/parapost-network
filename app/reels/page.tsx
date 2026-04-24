@@ -4,12 +4,15 @@ import {
   CSSProperties,
   MouseEvent as ReactMouseEvent,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import Link from "next/link";
 import ReelUploadModal from "./ReelUploadModal";
+import ReelCard from "@/components/reels/ReelCard";
+import ReelCommentsPanel from "@/components/reels/ReelCommentsPanel";
 import { supabase } from "@/lib/supabase";
 
 type ReelItem = {
@@ -36,6 +39,8 @@ type ReelComment = {
   author: string;
   text: string;
   time: string;
+  parentCommentId?: string | null;
+  replyToAuthor?: string | null;
 };
 
 type ReelLikeDbRow = {
@@ -57,6 +62,13 @@ type MenuState = {
   reelId: string;
   x: number;
   y: number;
+} | null;
+
+type CommentMenuState = {
+  commentId: string;
+  x: number;
+  y: number;
+  isReply?: boolean;
 } | null;
 
 type ReelDbRow = {
@@ -175,24 +187,6 @@ const overlayStyle: CSSProperties = {
   inset: 0,
   background: "rgba(0,0,0,0.64)",
   zIndex: 80,
-};
-
-const commentsSheetStyle: CSSProperties = {
-  position: "fixed",
-  left: "50%",
-  bottom: 0,
-  transform: "translateX(-50%)",
-  width: "min(880px, calc(100% - 18px))",
-  maxHeight: "82vh",
-  background: "#0b1020",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderBottom: "none",
-  borderRadius: "28px 28px 0 0",
-  zIndex: 90,
-  display: "flex",
-  flexDirection: "column",
-  boxShadow: "0 -16px 36px rgba(0,0,0,0.42)",
-  overflow: "hidden",
 };
 
 const modalWrapStyle: CSSProperties = {
@@ -324,6 +318,13 @@ function formatRelativeTime(value?: string | null) {
   return `${years}y ago`;
 }
 
+function getTargetReelIdFromUrl() {
+  if (typeof window === "undefined") return "";
+
+  const params = new URLSearchParams(window.location.search);
+  return params.get("reel") || window.location.hash.replace("#", "");
+}
+
 async function insertReelNotification({
   userId,
   actorId,
@@ -351,7 +352,7 @@ async function insertReelNotification({
   ]);
 
   if (error) {
-    console.error("Reel notification insert error:", error.message);
+    console.warn("Reel notification skipped:", error.message);
   }
 }
 
@@ -363,9 +364,17 @@ export default function ReelsPage() {
   const [shareBoostMap, setShareBoostMap] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<ReelComment[]>(initialComments);
   const [commentDraft, setCommentDraft] = useState("");
+  const [commentLikeMap, setCommentLikeMap] = useState<Record<string, number>>({});
+  const [commentLikedMap, setCommentLikedMap] = useState<Record<string, boolean>>({});
+  const [hiddenCommentMap, setHiddenCommentMap] = useState<Record<string, boolean>>({});
+  const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [commentMenu, setCommentMenu] = useState<CommentMenuState>(null);
+  const [commentLikeBurstId, setCommentLikeBurstId] = useState<string | null>(null);
   const [shareCaption, setShareCaption] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [targetReelId, setTargetReelId] = useState("");
   const [activeReelId, setActiveReelId] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -386,8 +395,13 @@ export default function ReelsPage() {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const heartTimeoutRef = useRef<number | null>(null);
+  const didPositionTargetReelRef = useRef(false);
+  const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const commentTouchTimeRef = useRef<Record<string, number>>({});
+  const commentLongPressTimeoutRef = useRef<number | null>(null);
+  const commentLikeBurstTimeoutRef = useRef<number | null>(null);
 
-  const fetchReels = async () => {
+  const fetchReels = async (preferredReelId = "") => {
     setIsFetchingReels(true);
 
     const {
@@ -496,6 +510,27 @@ export default function ReelsPage() {
         console.error("Error loading reel comments:", commentsError.message);
         setComments(initialComments);
       }
+
+      const { data: shareRows, error: shareRowsError } = await supabase
+        .from("reel_shares")
+        .select("reel_id")
+        .in("reel_id", reelIds);
+
+      if (!shareRowsError && shareRows) {
+        const shareCountMap: Record<string, number> = {};
+
+        (shareRows as { reel_id: string | null }[]).forEach((row) => {
+          if (!row.reel_id) return;
+          shareCountMap[row.reel_id] = (shareCountMap[row.reel_id] || 0) + 1;
+        });
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          shares: shareCountMap[reel.id] ?? reel.shares,
+        }));
+      } else if (shareRowsError) {
+        console.warn("Error loading reel share counts:", shareRowsError.message);
+      }
     } else {
       setComments(initialComments);
       setLikedMap({});
@@ -504,7 +539,13 @@ export default function ReelsPage() {
     setReels(mapped);
 
     if (mapped.length > 0) {
-      setActiveReelId((prev) => prev || mapped[0].id);
+      const preferredExists =
+        !!preferredReelId && mapped.some((reel) => reel.id === preferredReelId);
+
+      setActiveReelId((prev) => {
+        if (preferredExists) return preferredReelId;
+        return prev || mapped[0].id;
+      });
     } else {
       setActiveReelId("");
     }
@@ -513,7 +554,9 @@ export default function ReelsPage() {
   };
 
   useEffect(() => {
-    fetchReels();
+    const nextTargetReelId = getTargetReelIdFromUrl();
+    setTargetReelId(nextTargetReelId);
+    fetchReels(nextTargetReelId);
   }, []);
 
   useEffect(() => {
@@ -526,6 +569,9 @@ export default function ReelsPage() {
         await fetchReels();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "reel_comments" }, async () => {
+        await fetchReels();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, async () => {
         await fetchReels();
       })
       .subscribe();
@@ -542,8 +588,39 @@ export default function ReelsPage() {
     return () => window.removeEventListener("resize", setWidth);
   }, []);
 
+  useLayoutEffect(() => {
+    if (!targetReelId || reels.length === 0 || didPositionTargetReelRef.current) {
+      return;
+    }
+
+    if (!reels.some((reel) => reel.id === targetReelId)) {
+      return;
+    }
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const target = container.querySelector<HTMLElement>(
+      `[data-reel-id="${targetReelId}"]`
+    );
+
+    if (!target) return;
+
+    didPositionTargetReelRef.current = true;
+    setActiveReelId(targetReelId);
+
+    const previousScrollBehavior = container.style.scrollBehavior;
+    container.style.scrollBehavior = "auto";
+    target.scrollIntoView({ behavior: "auto", block: "start" });
+    container.style.scrollBehavior = previousScrollBehavior || "";
+  }, [targetReelId, reels]);
+
   useEffect(() => {
-    const closeMenu = () => setReelMenu(null);
+    const closeMenu = () => {
+      setReelMenu(null);
+      setCommentMenu(null);
+    };
+
     window.addEventListener("click", closeMenu);
     window.addEventListener("scroll", closeMenu);
     return () => {
@@ -553,13 +630,23 @@ export default function ReelsPage() {
   }, []);
 
   useEffect(() => {
+    if (!commentsOpen) return;
+
+    const focusTimer = window.setTimeout(() => {
+      commentInputRef.current?.focus();
+    }, 260);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [commentsOpen, activeReelId]);
+
+  useEffect(() => {
     reels.forEach((reel) => {
       const video = videoRefs.current[reel.id];
       if (!video) return;
 
       video.muted = muteAll;
 
-      if (reel.id === activeReelId && holdPausedId !== reel.id) {
+      if (reel.id === activeReelId && holdPausedId !== reel.id && !commentsOpen) {
         const playPromise = video.play();
         if (playPromise && typeof playPromise.catch === "function") {
           playPromise.catch(() => {});
@@ -568,12 +655,20 @@ export default function ReelsPage() {
         video.pause();
       }
     });
-  }, [activeReelId, reels, muteAll, holdPausedId]);
+  }, [activeReelId, reels, muteAll, holdPausedId, commentsOpen]);
 
   useEffect(() => {
     return () => {
       if (heartTimeoutRef.current) {
         window.clearTimeout(heartTimeoutRef.current);
+      }
+
+      if (commentLongPressTimeoutRef.current) {
+        window.clearTimeout(commentLongPressTimeoutRef.current);
+      }
+
+      if (commentLikeBurstTimeoutRef.current) {
+        window.clearTimeout(commentLikeBurstTimeoutRef.current);
       }
     };
   }, []);
@@ -639,8 +734,22 @@ export default function ReelsPage() {
   }, [reels, activeReelId]);
 
   const activeComments = useMemo(() => {
-    return comments.filter((comment) => comment.reelId === activeReelId);
-  }, [comments, activeReelId]);
+    return comments.filter(
+      (comment) =>
+        comment.reelId === activeReelId &&
+        !comment.parentCommentId &&
+        !hiddenCommentMap[comment.id]
+    );
+  }, [comments, activeReelId, hiddenCommentMap]);
+
+  const getVisibleRepliesForComment = (commentId: string) => {
+    return comments.filter(
+      (comment) =>
+        comment.reelId === activeReelId &&
+        comment.parentCommentId === commentId &&
+        !hiddenCommentMap[comment.id]
+    );
+  };
 
   const scrollToReel = (reelId: string) => {
     const container = scrollContainerRef.current;
@@ -654,6 +763,8 @@ export default function ReelsPage() {
   };
 
   const scrollToAdjacentReel = (direction: "prev" | "next") => {
+    if (commentsOpen) return;
+
     const currentIndex = reels.findIndex((reel) => reel.id === activeReelId);
     if (currentIndex === -1) return;
 
@@ -664,6 +775,8 @@ export default function ReelsPage() {
   };
 
   const updateActiveFromScroll = () => {
+    if (commentsOpen) return;
+
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -691,6 +804,8 @@ export default function ReelsPage() {
   };
 
   const handleTogglePlayPause = (reelId: string) => {
+    if (commentsOpen) return;
+
     const video = videoRefs.current[reelId];
     if (!video) return;
 
@@ -779,8 +894,6 @@ export default function ReelsPage() {
         await fetchReels();
         return;
       }
-
-      // likes count is derived from reel_likes table
     }
   };
 
@@ -855,12 +968,14 @@ export default function ReelsPage() {
       return;
     }
 
-    await insertReelNotification({
-      userId: activeReel.user_id,
-      actorId: currentUserId,
-      type: "reel_comment",
-      message: "commented on your reel.",
-    });
+    if (activeReel.user_id && activeReel.user_id !== currentUserId) {
+      await insertReelNotification({
+        userId: activeReel.user_id,
+        actorId: currentUserId,
+        type: "reel_comment",
+        message: "commented on your reel.",
+      });
+    }
   };
 
   const handleCommentInputKeyDown = (
@@ -872,21 +987,255 @@ export default function ReelsPage() {
     }
   };
 
-  const handleShareToFeed = () => {
-    if (!activeReel) return;
+  const handleCommentLikeToggle = (commentId: string, forceLike = false) => {
+    const nextLiked = forceLike ? true : !commentLikedMap[commentId];
 
-    setShareBoostMap((prev) => ({
+    if (forceLike && commentLikedMap[commentId]) {
+      setCommentLikeBurstId(commentId);
+      if (commentLikeBurstTimeoutRef.current) {
+        window.clearTimeout(commentLikeBurstTimeoutRef.current);
+      }
+      commentLikeBurstTimeoutRef.current = window.setTimeout(() => {
+        setCommentLikeBurstId(null);
+      }, 520);
+      return;
+    }
+
+    setCommentLikedMap((prev) => ({
       ...prev,
-      [activeReel.id]: (prev[activeReel.id] || 0) + 1,
+      [commentId]: nextLiked,
     }));
 
-    setShareMessage("Reel staged for feed sharing.");
-    setShareCaption("");
+    setCommentLikeMap((prev) => ({
+      ...prev,
+      [commentId]: Math.max((prev[commentId] || 0) + (nextLiked ? 1 : -1), 0),
+    }));
+
+    if (nextLiked) {
+      setCommentLikeBurstId(commentId);
+      if (commentLikeBurstTimeoutRef.current) {
+        window.clearTimeout(commentLikeBurstTimeoutRef.current);
+      }
+      commentLikeBurstTimeoutRef.current = window.setTimeout(() => {
+        setCommentLikeBurstId(null);
+      }, 520);
+    }
+  };
+
+  const handleStartCommentReply = (comment: ReelComment) => {
+    setReplyingToCommentId(comment.id);
+    setReplyDraft(`@${comment.author.replace(/^@+/, "")} `);
+  };
+
+  const handleCancelCommentReply = () => {
+    setReplyingToCommentId(null);
+    setReplyDraft("");
+  };
+
+  const handleSubmitCommentReply = async (parentComment: ReelComment) => {
+    const trimmed = replyDraft.trim();
+    if (!trimmed || !activeReel) return;
+
+    if (!currentUserId) {
+      alert("You must be logged in to reply to comments.");
+      return;
+    }
+
+    const nextReply: ReelComment = {
+      id: `reply-${Date.now()}`,
+      reelId: activeReel.id,
+      author: "@you",
+      text: trimmed,
+      time: "Just now",
+      parentCommentId: parentComment.id,
+      replyToAuthor: parentComment.author,
+    };
+
+    setComments((prev) => {
+      const parentIndex = prev.findIndex((comment) => comment.id === parentComment.id);
+      if (parentIndex === -1) return [nextReply, ...prev];
+
+      const next = [...prev];
+      next.splice(parentIndex + 1, 0, nextReply);
+      return next;
+    });
+    setReels((prev) =>
+      prev.map((reel) =>
+        reel.id === activeReel.id ? { ...reel, comments: reel.comments + 1 } : reel
+      )
+    );
+    setReplyingToCommentId(null);
+    setReplyDraft("");
+
+    const { error: commentInsertError } = await supabase.from("reel_comments").insert([
+      {
+        reel_id: activeReel.id,
+        user_id: currentUserId,
+        content: trimmed,
+      },
+    ]);
+
+    if (commentInsertError) {
+      console.error("Reel comment reply insert error:", commentInsertError.message);
+      alert(commentInsertError.message || "Could not save reel reply.");
+      await fetchReels();
+      return;
+    }
+
+    if (activeReel.user_id && activeReel.user_id !== currentUserId) {
+      await insertReelNotification({
+        userId: activeReel.user_id,
+        actorId: currentUserId,
+        type: "reel_comment",
+        message: "replied to a comment on your reel.",
+      });
+    }
+  };
+
+  const handleHideComment = (commentId: string) => {
+    setHiddenCommentMap((prev) => ({
+      ...prev,
+      [commentId]: true,
+    }));
+    setCommentMenu(null);
+  };
+
+  const handleDeleteLocalComment = (commentId: string) => {
+    setComments((prev) =>
+      prev.filter(
+        (comment) => comment.id !== commentId && comment.parentCommentId !== commentId
+      )
+    );
+    setCommentMenu(null);
+  };
+
+  const handleCopyCommentText = async (commentId: string) => {
+    const comment = comments.find((item) => item.id === commentId);
+    if (!comment) return;
+
+    try {
+      await navigator.clipboard.writeText(comment.text);
+      setShareMessage("Comment copied.");
+    } catch {
+      setShareMessage("Could not copy comment.");
+    }
+
+    setCommentMenu(null);
+    window.setTimeout(() => {
+      setShareMessage("");
+    }, 1800);
+  };
+
+  const handleReportComment = (commentId: string) => {
+    setCommentMenu(null);
+    alert("Report comment flow comes next when moderation is database-backed.");
+  };
+
+  const handleOpenCommentMenu = (
+    event: React.MouseEvent<HTMLElement>,
+    commentId: string,
+    isReply = false
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setCommentMenu({
+      commentId,
+      isReply,
+      x: clamp(event.clientX - 160, 12, window.innerWidth - 220),
+      y: clamp(event.clientY + 8, 12, window.innerHeight - 170),
+    });
+  };
+
+  const handleCommentTouchStart = (commentId: string, isReply = false) => {
+    if (commentLongPressTimeoutRef.current) {
+      window.clearTimeout(commentLongPressTimeoutRef.current);
+    }
+
+    commentLongPressTimeoutRef.current = window.setTimeout(() => {
+      setCommentMenu({
+        commentId,
+        isReply,
+        x: Math.max(12, Math.min(window.innerWidth - 220, window.innerWidth / 2 - 100)),
+        y: Math.max(80, Math.min(window.innerHeight - 190, window.innerHeight / 2)),
+      });
+    }, 520);
+  };
+
+  const handleCommentTouchEnd = (commentId: string) => {
+    if (commentLongPressTimeoutRef.current) {
+      window.clearTimeout(commentLongPressTimeoutRef.current);
+      commentLongPressTimeoutRef.current = null;
+    }
+
+    const now = Date.now();
+    const lastTouch = commentTouchTimeRef.current[commentId] || 0;
+
+    if (now - lastTouch < 320) {
+      handleCommentLikeToggle(commentId, true);
+      commentTouchTimeRef.current[commentId] = 0;
+      return;
+    }
+
+    commentTouchTimeRef.current[commentId] = now;
+  };
+
+  const handleShareToFeed = async () => {
+    if (!activeReel) return;
+
+    if (!currentUserId) {
+      alert("You must be logged in to share reels.");
+      return;
+    }
+
+    const trimmedCaption = shareCaption.trim();
+
+    setReels((prev) =>
+      prev.map((reel) =>
+        reel.id === activeReel.id
+          ? {
+              ...reel,
+              shares: reel.shares + 1,
+            }
+          : reel
+      )
+    );
+
+    setShareMessage("Sharing reel to your feed...");
     setShareOpen(false);
+
+    const { error: shareInsertError } = await supabase.from("reel_shares").insert([
+      {
+        reel_id: activeReel.id,
+        user_id: currentUserId,
+        caption: trimmedCaption || null,
+      },
+    ]);
+
+    if (shareInsertError) {
+      console.error("Reel share insert error:", shareInsertError.message);
+      alert(shareInsertError.message || "Could not share reel to your feed.");
+      await fetchReels();
+      return;
+    }
+
+    const { error: reelUpdateError } = await supabase
+      .from("reels")
+      .update({
+        shares: activeReel.shares + 1,
+      })
+      .eq("id", activeReel.id);
+
+    if (reelUpdateError) {
+      console.warn("Reel share count update skipped:", reelUpdateError.message);
+    }
+
+    setShareMessage("Shared to your feed.");
+    setShareCaption("");
 
     window.setTimeout(() => {
       setShareMessage("");
-    }, 2200);
+    }, 2600);
   };
 
   const handleOpenReelMenu = (
@@ -1047,11 +1396,13 @@ export default function ReelsPage() {
               border: "1px solid rgba(255,255,255,0.18)",
               background: "rgba(255,255,255,0.08)",
               color: "white",
-              cursor: "pointer",
+              cursor: commentsOpen ? "not-allowed" : "pointer",
               fontSize: "22px",
               backdropFilter: "blur(12px)",
+              opacity: commentsOpen ? 0.45 : 1,
             }}
             aria-label="Previous reel"
+            disabled={commentsOpen}
           >
             ↑
           </button>
@@ -1065,11 +1416,13 @@ export default function ReelsPage() {
               border: "1px solid rgba(255,255,255,0.18)",
               background: "rgba(255,255,255,0.08)",
               color: "white",
-              cursor: "pointer",
+              cursor: commentsOpen ? "not-allowed" : "pointer",
               fontSize: "22px",
               backdropFilter: "blur(12px)",
+              opacity: commentsOpen ? 0.45 : 1,
             }}
             aria-label="Next reel"
+            disabled={commentsOpen}
           >
             ↓
           </button>
@@ -1151,13 +1504,15 @@ export default function ReelsPage() {
             const displayedComments = comments.filter(
               (comment) => comment.reelId === reel.id
             ).length;
-            const displayedShares = reel.shares + (shareBoostMap[reel.id] || 0);
+            const displayedShares = reel.shares;
             const progress = progressMap[reel.id] || 0;
             const expanded = isCaptionExpanded(reel.id);
             const shortCaption =
               reel.caption.length > 100 && !expanded
                 ? `${reel.caption.slice(0, 100)}...`
                 : reel.caption;
+
+            const isActiveCommentsReel = commentsOpen && activeReelId === reel.id;
 
             return (
               <section
@@ -1169,20 +1524,12 @@ export default function ReelsPage() {
                   padding: `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
                 }}
               >
-                <div
-                  style={{
-                    position: "relative",
-                    width: stageMetrics.stageWidth,
-                    height: stageMetrics.stageHeight,
-                    maxWidth: "100%",
-                    overflow: "hidden",
-                    borderRadius: stageMetrics.borderRadius,
-                    background: "#000",
-                    boxShadow:
-                      viewportType === "mobile"
-                        ? "none"
-                        : "0 16px 44px rgba(0,0,0,0.46)",
-                  }}
+                <ReelCard
+                  width={stageMetrics.stageWidth}
+                  height={stageMetrics.stageHeight}
+                  borderRadius={stageMetrics.borderRadius}
+                  isDimmed={isActiveCommentsReel}
+                  isMobile={viewportType === "mobile"}
                 >
                   <div
                     style={{
@@ -1209,13 +1556,17 @@ export default function ReelsPage() {
                     onDoubleClick={() => handleDoubleTapLike(reel.id)}
                     onClick={() => handleTogglePlayPause(reel.id)}
                     onMouseDown={() => {
-                      if (viewportType === "desktop") {
+                      if (viewportType === "desktop" && !commentsOpen) {
                         setHoldPausedId(reel.id);
                         videoRefs.current[reel.id]?.pause();
                       }
                     }}
                     onMouseUp={() => {
-                      if (viewportType === "desktop" && holdPausedId === reel.id) {
+                      if (
+                        viewportType === "desktop" &&
+                        holdPausedId === reel.id &&
+                        !commentsOpen
+                      ) {
                         setHoldPausedId(null);
                         const playPromise = videoRefs.current[reel.id]?.play();
                         if (playPromise && typeof playPromise.catch === "function") {
@@ -1224,7 +1575,11 @@ export default function ReelsPage() {
                       }
                     }}
                     onMouseLeave={() => {
-                      if (viewportType === "desktop" && holdPausedId === reel.id) {
+                      if (
+                        viewportType === "desktop" &&
+                        holdPausedId === reel.id &&
+                        !commentsOpen
+                      ) {
                         setHoldPausedId(null);
                         const playPromise = videoRefs.current[reel.id]?.play();
                         if (playPromise && typeof playPromise.catch === "function") {
@@ -1233,11 +1588,13 @@ export default function ReelsPage() {
                       }
                     }}
                     onTouchStart={() => {
-                      setHoldPausedId(reel.id);
-                      videoRefs.current[reel.id]?.pause();
+                      if (!commentsOpen) {
+                        setHoldPausedId(reel.id);
+                        videoRefs.current[reel.id]?.pause();
+                      }
                     }}
                     onTouchEnd={() => {
-                      if (holdPausedId === reel.id) {
+                      if (holdPausedId === reel.id && !commentsOpen) {
                         setHoldPausedId(null);
                         const playPromise = videoRefs.current[reel.id]?.play();
                         if (playPromise && typeof playPromise.catch === "function") {
@@ -1248,7 +1605,7 @@ export default function ReelsPage() {
                     style={{
                       position: "absolute",
                       inset: 0,
-                      cursor: "pointer",
+                      cursor: commentsOpen ? "default" : "pointer",
                     }}
                   >
                     <video
@@ -1352,6 +1709,9 @@ export default function ReelsPage() {
                       flexDirection: "column",
                       gap: "10px",
                       alignItems: "center",
+                      opacity: isActiveCommentsReel ? 0.12 : 1,
+                      pointerEvents: isActiveCommentsReel ? "none" : "auto",
+                      transition: "opacity 180ms ease",
                     }}
                   >
                     {[
@@ -1437,6 +1797,9 @@ export default function ReelsPage() {
                       zIndex: 7,
                       display: "grid",
                       gap: "8px",
+                      opacity: isActiveCommentsReel ? 0.1 : 1,
+                      pointerEvents: isActiveCommentsReel ? "none" : "auto",
+                      transition: "opacity 180ms ease",
                     }}
                   >
                     <div
@@ -1599,7 +1962,45 @@ export default function ReelsPage() {
                       </div>
                     ) : null}
                   </div>
-                </div>
+
+                  {isActiveCommentsReel && (
+                    <ReelCommentsPanel
+                      isOpen={commentsOpen}
+                      onClose={() => setCommentsOpen(false)}
+                      reelTitle={reel.title}
+                      activeComments={activeComments}
+                      allComments={comments}
+                      activeReelId={activeReelId}
+                      currentUserId={currentUserId}
+                      activeReelOwnerId={activeReel?.user_id || ""}
+                      commentDraft={commentDraft}
+                      setCommentDraft={setCommentDraft}
+                      commentInputRef={commentInputRef}
+                      onCommentInputKeyDown={handleCommentInputKeyDown}
+                      onAddComment={handleAddComment}
+                      viewportType={viewportType}
+                      commentLikedMap={commentLikedMap}
+                      commentLikeMap={commentLikeMap}
+                      commentLikeBurstId={commentLikeBurstId}
+                      replyingToCommentId={replyingToCommentId}
+                      replyDraft={replyDraft}
+                      setReplyDraft={setReplyDraft}
+                      onCommentLikeToggle={handleCommentLikeToggle}
+                      onStartCommentReply={handleStartCommentReply}
+                      onCancelCommentReply={handleCancelCommentReply}
+                      onSubmitCommentReply={handleSubmitCommentReply}
+                      onHideComment={handleHideComment}
+                      onOpenCommentMenu={handleOpenCommentMenu}
+                      onCommentTouchStart={handleCommentTouchStart}
+                      onCommentTouchEnd={handleCommentTouchEnd}
+                      commentMenu={commentMenu}
+                      setCommentMenu={setCommentMenu}
+                      onCopyCommentText={handleCopyCommentText}
+                      onReportComment={handleReportComment}
+                      onDeleteLocalComment={handleDeleteLocalComment}
+                    />
+                  )}
+                </ReelCard>
               </section>
             );
           })}
@@ -1661,174 +2062,6 @@ export default function ReelsPage() {
         </div>
       )}
 
-      {commentsOpen && (
-        <>
-          <div style={overlayStyle} onClick={() => setCommentsOpen(false)} />
-          <div style={commentsSheetStyle}>
-            <div
-              style={{
-                padding: "14px 18px 10px",
-                borderBottom: "1px solid rgba(255,255,255,0.08)",
-                display: "grid",
-                gap: "12px",
-                background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.00) 100%)",
-              }}
-            >
-              <div
-                style={{
-                  width: "52px",
-                  height: "5px",
-                  borderRadius: "999px",
-                  background: "rgba(255,255,255,0.20)",
-                  justifySelf: "center",
-                }}
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: "22px" }}>Comments</div>
-                  <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
-                    {activeReel?.title}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      color: "#d1d5db",
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.10)",
-                      borderRadius: "999px",
-                      padding: "8px 12px",
-                    }}
-                  >
-                    {activeComments.length} comments
-                  </div>
-
-                  <button onClick={() => setCommentsOpen(false)} style={buttonStyle}>
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "18px",
-                display: "grid",
-                gap: "12px",
-              }}
-            >
-              {activeComments.length === 0 ? (
-                <div
-                  style={{
-                    border: "1px dashed rgba(255,255,255,0.12)",
-                    borderRadius: "22px",
-                    padding: "18px",
-                    color: "#9ca3af",
-                    background: "rgba(255,255,255,0.03)",
-                  }}
-                >
-                  No comments yet. Start the conversation.
-                </div>
-              ) : (
-                activeComments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "22px",
-                      padding: "14px 15px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "10px",
-                        marginBottom: "8px",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div style={{ fontWeight: 700 }}>{comment.author}</div>
-                      <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-                        {comment.time}
-                      </div>
-                    </div>
-                    <div style={{ color: "#e5e7eb", lineHeight: 1.6 }}>{comment.text}</div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div
-              style={{
-                padding: "14px 18px 18px",
-                borderTop: "1px solid rgba(255,255,255,0.08)",
-                display: "grid",
-                gap: "10px",
-                background: "#0b1020",
-              }}
-            >
-              <textarea
-                value={commentDraft}
-                onChange={(event) => setCommentDraft(event.target.value)}
-                onKeyDown={handleCommentInputKeyDown}
-                placeholder="Write a comment..."
-                rows={3}
-                style={{
-                  ...textAreaStyle,
-                  minHeight: viewportType === "mobile" ? "86px" : "96px",
-                }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: "10px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-                  Press Enter to post
-                </div>
-                <button
-                  onClick={handleAddComment}
-                  disabled={!commentDraft.trim()}
-                  style={{
-                    ...primaryButtonStyle,
-                    opacity: commentDraft.trim() ? 1 : 0.45,
-                    cursor: commentDraft.trim() ? "pointer" : "not-allowed",
-                  }}
-                >
-                  Post Comment
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
 
       {shareOpen && activeReel && (
         <>
