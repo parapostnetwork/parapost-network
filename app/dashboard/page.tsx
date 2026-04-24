@@ -2459,8 +2459,7 @@ export default function DashboardPage() {
                                     background: "#000",
                                     display: "block",
                                     flexShrink: 0,
-                                    boxShadow: "0 12px 28px rgba(0,0,0,0.34)",
-                                  }}
+                                    }}
                                 >
                                   <video
                                     src={shared.reel_video_url}
