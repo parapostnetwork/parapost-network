@@ -1067,12 +1067,39 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#07090d] text-white">
-      <div className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
-        <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
-          <aside style={sideCardStyle}>
-            <h2 style={{ marginTop: 0, fontSize: "24px" }}>Parapost Network</h2>
-            <p style={{ color: "#9ca3af", fontSize: "14px", marginTop: 0 }}>Profile view</p>
+    <div className="min-h-screen text-white" style={profilePageBackgroundStyle}>
+      <div className="xl:hidden" style={mobileTopBarStyle}>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          style={mobileCircleButtonStyle}
+          aria-label="Back to dashboard"
+        >
+          ‹
+        </button>
+
+        <div style={{ textAlign: "center", minWidth: 0 }}>
+          <div style={{ fontWeight: 950, letterSpacing: "0.04em" }}>PARAPOST</div>
+          <div style={{ color: "#a855f7", fontSize: "11px", letterSpacing: "0.32em", fontWeight: 900 }}>
+            NETWORK
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => router.push("/settings")}
+          style={mobileCircleButtonStyle}
+          aria-label="Profile options"
+        >
+          ⋯
+        </button>
+      </div>
+
+      <div className="mx-auto w-full px-3 py-4 sm:px-4 lg:px-6" style={{ maxWidth: "1680px", paddingBottom: "96px" }}>
+        <div className="grid grid-cols-1 gap-4 md:gap-5 xl:grid-cols-[240px_minmax(0,1fr)_340px]">
+          <aside className="hidden xl:block" style={sideCardStyle}>
+            <h2 style={{ marginTop: 0, fontSize: "24px", letterSpacing: "-0.03em" }}>PARAPOST</h2>
+            <p style={{ color: "#a855f7", fontSize: "13px", marginTop: 0, letterSpacing: "0.28em", fontWeight: 800 }}>NETWORK</p>
 
             <div
               style={{
@@ -1104,123 +1131,61 @@ export default function ProfilePage() {
           </aside>
 
           <section className="min-w-0">
-            <div className="mx-auto w-full max-w-3xl space-y-4 md:space-y-6">
-              <div style={mainCardStyle}>
-                <div
-                  className="flex flex-col md:flex-row"
-                  style={{
-                    display: "flex",
-                    gap: "18px",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "96px",
-                      height: "96px",
-                      flexShrink: 0,
-                    }}
-                  >
+            <div className="mx-auto w-full space-y-4 md:space-y-5" style={{ maxWidth: "980px" }}>
+              <div style={profileHeroShellStyle}>
+                <div style={profileCoverStyle}>
+                  <div style={profileCoverOverlayStyle} />
+                  {isOwnProfile ? (
+                    <button
+                      onClick={() => router.push(`/profile/${viewerId}/edit`)}
+                      style={editCoverButtonStyle}
+                    >
+                      ✎ Edit Cover
+                    </button>
+                  ) : null}
+                </div>
+
+                <div style={profileHeroContentStyle}>
+                  <div style={profileAvatarWrapStyle}>
                     {profile?.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt="Profile"
-                        style={{
-                          width: "96px",
-                          height: "96px",
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                          border: "2px solid rgba(255,255,255,0.10)",
-                        }}
-                      />
+                      <img src={profile.avatar_url} alt="Profile" style={profileAvatarStyle} />
                     ) : (
-                      <div
-                        style={{
-                          width: "96px",
-                          height: "96px",
-                          borderRadius: "50%",
-                          background: "#374151",
-                          color: "#f9fafb",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 700,
-                          fontSize: "30px",
-                          border: "2px solid rgba(255,255,255,0.10)",
-                        }}
-                      >
+                      <div style={profileAvatarFallbackStyle}>
                         {getInitial(profile?.full_name, profile?.username)}
                       </div>
                     )}
 
-                    {profile?.is_online ? (
-                      <span
-                        style={{
-                          position: "absolute",
-                          right: "6px",
-                          bottom: "6px",
-                          width: "16px",
-                          height: "16px",
-                          borderRadius: "50%",
-                          background: "#22c55e",
-                          border: "3px solid #07090d",
-                          boxShadow: "0 0 8px rgba(34,197,94,0.65)",
-                        }}
-                      />
+                    {profile?.is_online ? <span style={profileOnlineDotStyle} /> : null}
+
+                    {isOwnProfile ? (
+                      <button
+                        onClick={() => router.push(`/profile/${viewerId}/edit`)}
+                        style={avatarCameraButtonStyle}
+                        aria-label="Edit profile photo"
+                      >
+                        📷
+                      </button>
                     ) : null}
                   </div>
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      className="flex flex-col md:flex-row md:items-start md:justify-between"
-                      style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}
-                    >
-                      <div>
-                        <h1 style={{ margin: 0, fontSize: "30px", lineHeight: 1.1 }}>
+                  <div style={profileHeroInfoStyle}>
+                    <div style={profileHeroTopLineStyle}>
+                      <div style={{ minWidth: 0 }}>
+                        <h1 style={profileHeroNameStyle}>
                           {profile?.full_name || profile?.username || "Profile"}
+                          <span style={verifiedBadgeStyle}>✓</span>
                         </h1>
-                        <p
-                          style={{
-                            margin: "8px 0 0",
-                            color: "#9ca3af",
-                            fontSize: "15px",
-                          }}
-                        >
+                        <p style={profileHandleStyle}>
                           @{profile?.username || "no-username"}
+                          <span style={profileDotStyle}>•</span>
+                          {isOwnProfile ? "Your profile" : getFriendStatusLabel()}
                         </p>
-
-                        {!isOwnProfile && viewerId && (
-                          <div style={{ marginTop: "12px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                            <span style={getFriendStatusPillStyle(friendStatus)}>
-                              {getFriendStatusLabel()}
-                            </span>
-
-                            {friendStatus === "friends" && (
-                              <Link href="/friends" style={miniLinkStyle}>
-                                View Friends
-                              </Link>
-                            )}
-
-                            {friendStatus === "incoming_request" && (
-                              <Link href="/friends/requests" style={miniLinkStyle}>
-                                Open Requests
-                              </Link>
-                            )}
-                          </div>
-                        )}
                       </div>
 
-                      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      <div style={profileHeroActionsStyle}>
                         <Link
                           href={`/profile/${profileId}/reels`}
-                          style={{
-                            ...secondaryButtonStyle,
-                            textDecoration: "none",
-                            display: "inline-flex",
-                            alignItems: "center",
-                          }}
+                          style={profileGlassButtonStyle}
                         >
                           Reels
                         </Link>
@@ -1228,119 +1193,118 @@ export default function ProfilePage() {
                         {isOwnProfile ? (
                           <button
                             onClick={() => router.push(`/profile/${viewerId}/edit`)}
-                            style={secondaryButtonStyle}
+                            style={profilePrimaryButtonStyle}
                           >
-                            Edit profile
+                            Edit Profile
                           </button>
                         ) : viewerId ? (
                           <>
                             <button
                               onClick={handleFollowToggle}
                               disabled={followLoading}
-                              style={isFollowing ? secondaryButtonStyle : primaryButtonStyle}
+                              style={isFollowing ? profileGlassButtonStyle : profilePrimaryButtonStyle}
                             >
                               {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
                             </button>
 
                             {friendStatus === "none" ? (
-                              <button
-                                onClick={handleSendFriendRequest}
-                                disabled={friendLoading}
-                                style={secondaryButtonStyle}
-                              >
+                              <button onClick={handleSendFriendRequest} disabled={friendLoading} style={profileGlassButtonStyle}>
                                 {friendLoading ? "Saving..." : "Add Friend"}
                               </button>
                             ) : friendStatus === "outgoing_request" ? (
-                              <button
-                                onClick={handleCancelFriendRequest}
-                                disabled={friendLoading}
-                                style={secondaryButtonStyle}
-                              >
+                              <button onClick={handleCancelFriendRequest} disabled={friendLoading} style={profileGlassButtonStyle}>
                                 {friendLoading ? "Saving..." : "Requested"}
                               </button>
                             ) : friendStatus === "incoming_request" ? (
                               <>
-                                <button
-                                  onClick={handleAcceptFriendRequest}
-                                  disabled={friendLoading}
-                                  style={primaryButtonStyle}
-                                >
+                                <button onClick={handleAcceptFriendRequest} disabled={friendLoading} style={profilePrimaryButtonStyle}>
                                   {friendLoading ? "Saving..." : "Accept"}
                                 </button>
-                                <button
-                                  onClick={handleDeclineFriendRequest}
-                                  disabled={friendLoading}
-                                  style={secondaryButtonStyle}
-                                >
+                                <button onClick={handleDeclineFriendRequest} disabled={friendLoading} style={profileGlassButtonStyle}>
                                   {friendLoading ? "Saving..." : "Decline"}
                                 </button>
                               </>
                             ) : friendStatus === "friends" ? (
-                              <button
-                                onClick={handleRemoveFriend}
-                                disabled={friendLoading}
-                                style={secondaryButtonStyle}
-                              >
+                              <button onClick={handleRemoveFriend} disabled={friendLoading} style={profileGlassButtonStyle}>
                                 {friendLoading ? "Saving..." : "Friends"}
                               </button>
                             ) : null}
                           </>
                         ) : null}
+
+                        <button style={profileIconButtonStyle} aria-label="More profile actions">•••</button>
                       </div>
                     </div>
 
-                    {friendStatusMessage && (
-                      <div style={statusToastStyle}>
-                        {friendStatusMessage}
-                      </div>
-                    )}
+                    {friendStatusMessage ? <div style={statusToastStyle}>{friendStatusMessage}</div> : null}
 
-                    <p
-                      style={{
-                        margin: "14px 0 0",
-                        color: "#d1d5db",
-                        lineHeight: 1.7,
-                      }}
-                    >
-                      {profile?.bio || "No bio added yet."}
+                    <p style={profileBioStyle}>
+                      {profile?.bio || "No bio added yet. Add a short intro, your paranormal interests, and what you investigate."}
                     </p>
 
-                    <div
-                      className="grid grid-cols-2 md:grid-cols-4"
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-                        gap: "12px",
-                        marginTop: "18px",
-                      }}
-                    >
-                      <div style={statPillStyle}>
-                        <strong style={statNumberStyle}>{posts.length}</strong>
-                        <span style={statLabelStyle}>Posts</span>
-                      </div>
-                      <div style={statPillStyle}>
-                        <strong style={statNumberStyle}>{reels.length}</strong>
-                        <span style={statLabelStyle}>Reels</span>
-                      </div>
-                      <div style={statPillStyle}>
-                        <strong style={statNumberStyle}>{followersCount}</strong>
-                        <span style={statLabelStyle}>Followers</span>
-                      </div>
-                      <div style={statPillStyle}>
-                        <strong style={statNumberStyle}>{followingCount}</strong>
-                        <span style={statLabelStyle}>Following</span>
-                      </div>
+                    <div style={profileMetaRowStyle}>
+                      <span>📍 Toronto, Ontario</span>
+                      <span>🔗 parapostnetwork.com</span>
+                      <span>📅 Joined Parapost</span>
                     </div>
-
-                    {!loading && !errorMessage && profile && !isOwnProfile ? (
-                      <MutualFriendsPreviewCard
-                        currentUserId={viewerId}
-                        profileUserId={profileId}
-                      />
-                    ) : null}
                   </div>
                 </div>
+
+                <div style={profileStatsBarStyle}>
+                  <div style={profileStatItemStyle}>
+                    <strong style={profileStatNumberStyle}>{followersCount}</strong>
+                    <span style={profileStatLabelStyle}>Followers</span>
+                  </div>
+                  <div style={profileStatDividerStyle} />
+                  <div style={profileStatItemStyle}>
+                    <strong style={profileStatNumberStyle}>{followingCount}</strong>
+                    <span style={profileStatLabelStyle}>Following</span>
+                  </div>
+                  <div style={profileStatDividerStyle} />
+                  <div style={profileStatItemStyle}>
+                    <strong style={profileStatNumberStyle}>{posts.length}</strong>
+                    <span style={profileStatLabelStyle}>Posts</span>
+                  </div>
+                  <div style={profileStatDividerStyle} />
+                  <div style={profileStatItemStyle}>
+                    <strong style={profileStatNumberStyle}>{reels.length}</strong>
+                    <span style={profileStatLabelStyle}>Reels</span>
+                  </div>
+                </div>
+
+                <div style={profileStoriesRowStyle}>
+                  {[
+                    { label: "New", icon: "+" },
+                    { label: "Investigations", icon: "👻" },
+                    { label: "Ghost Hunts", icon: "🏚️" },
+                    { label: "Evidence", icon: "🎙️" },
+                    { label: "Gear", icon: "📷" },
+                  ].map((story) => (
+                    <div key={story.label} style={profileStoryItemStyle}>
+                      <div style={profileStoryCircleStyle}>{story.icon}</div>
+                      <span style={profileStoryLabelStyle}>{story.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={profileTabsStyle}>
+                  {["Posts", "About", "Reels", "Photos", "Videos", "Events"].map((tab, index) => (
+                    <button
+                      key={tab}
+                      style={index === 0 ? profileActiveTabStyle : profileTabStyle}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {!loading && !errorMessage && profile && !isOwnProfile ? (
+                  <div style={{ padding: "0 14px 14px" }}>
+                    <MutualFriendsPreviewCard currentUserId={viewerId} profileUserId={profileId} />
+                  </div>
+                ) : null}
               </div>
+
 
               {isOwnProfile ? (
                 <div style={mainCardStyle}>
@@ -1802,32 +1766,179 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <aside style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <div style={sideCardStyle}>
-              <h3 style={{ marginTop: 0 }}>Profile Summary</h3>
-              <p style={{ color: "#d1d5db", marginBottom: "10px" }}>
-                Viewer: <strong style={{ color: "white" }}>{viewerEmail || "Guest"}</strong>
-              </p>
-              <p style={{ color: "#d1d5db", marginBottom: "10px" }}>
-                Status: <strong style={{ color: "white" }}>{profile?.is_online ? "Online" : "Offline"}</strong>
-              </p>
-              {!isOwnProfile && viewerId && (
-                <p style={{ color: "#d1d5db", marginBottom: 0 }}>
-                  Friend Status: <strong style={{ color: "white" }}>{getFriendStatusLabel()}</strong>
-                </p>
-              )}
+          <aside className="hidden xl:flex" style={rightRailStyle}>
+            <div style={rightPanelCardStyle}>
+              <div style={rightPanelHeaderStyle}>
+                <h3 style={rightPanelTitleStyle}>Profile Strength</h3>
+                <span style={miniPurpleLinkStyle}>Great Job</span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                <div style={profileStrengthRingStyle}>
+                  <span style={{ fontSize: "20px", fontWeight: 900 }}>85%</span>
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: "#67e8f9", fontWeight: 900, marginBottom: "4px" }}>
+                    Strong Profile
+                  </div>
+                  <p style={rightPanelTextStyle}>
+                    Keep your bio, links, reels, and posts active to attract more followers.
+                  </p>
+                </div>
+              </div>
+
+              {isOwnProfile ? (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/profile/${viewerId}/edit`)}
+                  style={wideGlassButtonStyle}
+                >
+                  Improve Profile
+                </button>
+              ) : null}
             </div>
 
-            <div style={sideCardStyle}>
-              <h3 style={{ marginTop: 0 }}>Parapost Reels</h3>
-              <p style={{ color: "#d1d5db", lineHeight: 1.7, marginBottom: "12px" }}>
-                This profile keeps reels browsing separate from Explore Reels. The header Reels button opens the profile grid, and reels can then be opened into the profile-only viewer.
-              </p>
-              <div style={pillMutedStyle}>Profile-only reels flow active</div>
+            <div style={rightPanelCardStyle}>
+              <div style={rightPanelHeaderStyle}>
+                <h3 style={rightPanelTitleStyle}>Achievements</h3>
+                <span style={miniPurpleLinkStyle}>See all</span>
+              </div>
+
+              <div style={achievementGridStyle}>
+                <div style={achievementItemStyle}>
+                  <div style={{ ...achievementIconStyle, borderColor: "rgba(168,85,247,0.60)", color: "#c084fc" }}>👻</div>
+                  <strong>Investigator</strong>
+                  <span>Level 10</span>
+                </div>
+
+                <div style={achievementItemStyle}>
+                  <div style={{ ...achievementIconStyle, borderColor: "rgba(34,211,238,0.60)", color: "#67e8f9" }}>📘</div>
+                  <strong>Case Solver</strong>
+                  <span>Level 7</span>
+                </div>
+
+                <div style={achievementItemStyle}>
+                  <div style={{ ...achievementIconStyle, borderColor: "rgba(34,197,94,0.60)", color: "#86efac" }}>🛡</div>
+                  <strong>Truth Seeker</strong>
+                  <span>Level 6</span>
+                </div>
+
+                <div style={achievementItemStyle}>
+                  <div style={{ ...achievementIconStyle, borderColor: "rgba(248,113,113,0.60)", color: "#fca5a5" }}>🎥</div>
+                  <strong>Evidence Finder</strong>
+                  <span>Level 5</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={rightPanelCardStyle}>
+              <div style={rightPanelHeaderStyle}>
+                <h3 style={rightPanelTitleStyle}>My Badges</h3>
+                <span style={miniPurpleLinkStyle}>12 total</span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "9px", flexWrap: "wrap" }}>
+                {["👻", "🧭", "🏆", "🔴", "🧿"].map((badge, index) => (
+                  <div key={index} style={badgeBubbleStyle}>
+                    {badge}
+                  </div>
+                ))}
+                <div style={{ ...badgeBubbleStyle, color: "#d1d5db", background: "rgba(255,255,255,0.06)" }}>
+                  +8
+                </div>
+              </div>
+            </div>
+
+            <div style={rightPanelCardStyle}>
+              <div style={rightPanelHeaderStyle}>
+                <h3 style={rightPanelTitleStyle}>Recent Visitors</h3>
+                <span style={miniPurpleLinkStyle}>See all</span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {[profile, profile, profile, null, null].map((visitor, index) => (
+                  <div key={index} style={visitorAvatarStyle}>
+                    {visitor?.avatar_url ? (
+                      <img
+                        src={visitor.avatar_url}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+                      />
+                    ) : (
+                      <span>{index === 4 ? "👻" : getInitial(profile?.full_name, profile?.username)}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={rightPanelCardStyle}>
+              <div style={rightPanelHeaderStyle}>
+                <h3 style={rightPanelTitleStyle}>Profile Activity</h3>
+                <span style={profile?.is_online ? onlineStatusPillStyle : offlineStatusPillStyle}>
+                  {profile?.is_online ? "Online" : "Offline"}
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gap: "10px" }}>
+                <div style={activityRowStyle}>
+                  <span>Posts</span>
+                  <strong>{posts.length}</strong>
+                </div>
+                <div style={activityRowStyle}>
+                  <span>Reels</span>
+                  <strong>{reels.length}</strong>
+                </div>
+                <div style={activityRowStyle}>
+                  <span>Followers</span>
+                  <strong>{followersCount}</strong>
+                </div>
+                {!isOwnProfile && viewerId ? (
+                  <div style={activityRowStyle}>
+                    <span>Friend Status</span>
+                    <strong>{getFriendStatusLabel()}</strong>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </aside>
         </div>
       </div>
+
+      <nav className="xl:hidden" style={mobileBottomNavStyle}>
+        <Link href="/dashboard" style={mobileBottomNavItemStyle}>
+          <span style={mobileBottomNavIconStyle}>⌂</span>
+          <span>Home</span>
+        </Link>
+
+        <Link href="/reels" style={mobileBottomNavItemStyle}>
+          <span style={mobileBottomNavIconStyle}>▣</span>
+          <span>Reels</span>
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => {
+            const composer = document.getElementById("profile-composer");
+            composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+          style={mobileCreateButtonStyle}
+          aria-label="Create post"
+        >
+          +
+        </button>
+
+        <Link href="/messages" style={mobileBottomNavItemStyle}>
+          <span style={mobileBottomNavIconStyle}>☏</span>
+          <span>Messages</span>
+        </Link>
+
+        <Link href={`/profile/${viewerId || profileId}`} style={mobileBottomNavItemActiveStyle}>
+          <span style={mobileBottomNavIconStyle}>●</span>
+          <span>Profile</span>
+        </Link>
+      </nav>
     </div>
   );
 }
@@ -1893,7 +2004,7 @@ function getFriendStatusPillStyle(friendStatus: FriendRequestStatus): CSSPropert
 }
 
 const mainCardStyle: CSSProperties = {
-  background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.04) 100%)",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.025) 100%)",
   borderRadius: "28px",
   padding: "18px",
   border: "1px solid rgba(255,255,255,0.10)",
@@ -1902,7 +2013,7 @@ const mainCardStyle: CSSProperties = {
 };
 
 const sideCardStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
+  background: "rgba(255,255,255,0.035)",
   borderRadius: "28px",
   padding: "20px",
   border: "1px solid rgba(255,255,255,0.10)",
@@ -1911,11 +2022,13 @@ const sideCardStyle: CSSProperties = {
 };
 
 const postCardStyle: CSSProperties = {
-  background: "linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.035) 100%)",
-  border: "1px solid rgba(255,255,255,0.12)",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.060) 0%, rgba(255,255,255,0.032) 100%)",
+  border: "1px solid rgba(255,255,255,0.115)",
   borderRadius: "26px",
   padding: "16px",
-  boxShadow: "0 10px 26px rgba(0,0,0,0.24)",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.24)",
+  backdropFilter: "blur(12px)",
 };
 
 const navItemStyle: CSSProperties = {
@@ -2292,5 +2405,614 @@ const linkPreviewDomainStyle: CSSProperties = {
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
+};
+
+
+
+const profilePageBackgroundStyle: CSSProperties = {
+  background:
+    "radial-gradient(circle at 50% 0%, rgba(126,34,206,0.20) 0%, rgba(7,9,13,0.82) 34%, #05070b 72%), linear-gradient(180deg, #080a10 0%, #05070b 100%)",
+};
+
+const profileHeroShellStyle: CSSProperties = {
+  position: "relative",
+  overflow: "hidden",
+  borderRadius: "30px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.032) 100%)",
+  boxShadow: "0 20px 60px rgba(0,0,0,0.36)",
+  backdropFilter: "blur(16px)",
+};
+
+const profileCoverStyle: CSSProperties = {
+  position: "relative",
+  height: "clamp(190px, 24vw, 300px)",
+  background:
+    "radial-gradient(circle at 50% 30%, rgba(168,85,247,0.62) 0%, rgba(88,28,135,0.35) 28%, rgba(3,7,18,0.78) 58%), linear-gradient(135deg, #0f1020 0%, #16162a 44%, #05070b 100%)",
+  overflow: "hidden",
+};
+
+const profileCoverOverlayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  background:
+    "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.12) 45%, rgba(5,7,11,0.96) 100%)",
+};
+
+const editCoverButtonStyle: CSSProperties = {
+  position: "absolute",
+  top: "16px",
+  right: "16px",
+  zIndex: 2,
+  border: "1px solid rgba(255,255,255,0.13)",
+  background: "rgba(0,0,0,0.44)",
+  color: "white",
+  borderRadius: "14px",
+  padding: "9px 12px",
+  cursor: "pointer",
+  fontWeight: 800,
+  backdropFilter: "blur(10px)",
+};
+
+const profileHeroContentStyle: CSSProperties = {
+  position: "relative",
+  marginTop: "-82px",
+  padding: "0 18px 18px",
+  display: "flex",
+  gap: "22px",
+  alignItems: "flex-end",
+  flexWrap: "wrap",
+};
+
+const profileAvatarWrapStyle: CSSProperties = {
+  position: "relative",
+  width: "clamp(132px, 16vw, 184px)",
+  height: "clamp(132px, 16vw, 184px)",
+  borderRadius: "50%",
+  padding: "5px",
+  background:
+    "linear-gradient(135deg, rgba(168,85,247,1) 0%, rgba(59,130,246,0.95) 50%, rgba(236,72,153,0.9) 100%)",
+  boxShadow: "0 0 34px rgba(168,85,247,0.42)",
+  flexShrink: 0,
+};
+
+const profileAvatarStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  borderRadius: "50%",
+  objectFit: "cover",
+  border: "4px solid #07090d",
+};
+
+const profileAvatarFallbackStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  borderRadius: "50%",
+  background: "#374151",
+  color: "#f9fafb",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 900,
+  fontSize: "42px",
+  border: "4px solid #07090d",
+};
+
+const profileOnlineDotStyle: CSSProperties = {
+  position: "absolute",
+  right: "18px",
+  bottom: "18px",
+  width: "17px",
+  height: "17px",
+  borderRadius: "50%",
+  background: "#22c55e",
+  border: "3px solid #07090d",
+  boxShadow: "0 0 10px rgba(34,197,94,0.75)",
+};
+
+const avatarCameraButtonStyle: CSSProperties = {
+  position: "absolute",
+  right: "0px",
+  bottom: "18px",
+  width: "40px",
+  height: "40px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(0,0,0,0.62)",
+  color: "white",
+  cursor: "pointer",
+  display: "grid",
+  placeItems: "center",
+};
+
+const profileHeroInfoStyle: CSSProperties = {
+  flex: 1,
+  minWidth: "280px",
+  paddingBottom: "10px",
+};
+
+const profileHeroTopLineStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "16px",
+  flexWrap: "wrap",
+};
+
+const profileHeroNameStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "clamp(30px, 4vw, 48px)",
+  lineHeight: 1.02,
+  letterSpacing: "-0.055em",
+  color: "#fff",
+};
+
+const verifiedBadgeStyle: CSSProperties = {
+  display: "inline-grid",
+  placeItems: "center",
+  width: "23px",
+  height: "23px",
+  marginLeft: "10px",
+  borderRadius: "999px",
+  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+  color: "white",
+  fontSize: "14px",
+  verticalAlign: "middle",
+};
+
+const profileHandleStyle: CSSProperties = {
+  margin: "8px 0 0",
+  color: "#aeb3c2",
+  fontSize: "14px",
+};
+
+const profileDotStyle: CSSProperties = {
+  margin: "0 8px",
+  color: "#6b7280",
+};
+
+const profileHeroActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: "10px",
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const profilePrimaryButtonStyle: CSSProperties = {
+  background: "linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)",
+  color: "white",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: "14px",
+  padding: "11px 16px",
+  fontWeight: 900,
+  cursor: "pointer",
+  minHeight: "42px",
+  textDecoration: "none",
+  boxShadow: "0 10px 26px rgba(126,34,206,0.28)",
+};
+
+const profileGlassButtonStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.055)",
+  color: "white",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: "14px",
+  padding: "11px 16px",
+  fontWeight: 800,
+  cursor: "pointer",
+  minHeight: "42px",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+};
+
+const profileIconButtonStyle: CSSProperties = {
+  width: "42px",
+  height: "42px",
+  borderRadius: "14px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.055)",
+  color: "white",
+  cursor: "pointer",
+};
+
+const profileBioStyle: CSSProperties = {
+  margin: "12px 0 0",
+  color: "#e5e7eb",
+  lineHeight: 1.6,
+  maxWidth: "760px",
+};
+
+const profileMetaRowStyle: CSSProperties = {
+  marginTop: "12px",
+  display: "flex",
+  gap: "14px",
+  flexWrap: "wrap",
+  color: "#aeb3c2",
+  fontSize: "13px",
+};
+
+const profileStatsBarStyle: CSSProperties = {
+  margin: "0 14px 14px",
+  display: "grid",
+  gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr",
+  alignItems: "center",
+  borderRadius: "22px",
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(0,0,0,0.24)",
+  padding: "16px 10px",
+};
+
+const profileStatItemStyle: CSSProperties = {
+  display: "grid",
+  justifyItems: "center",
+  gap: "4px",
+};
+
+const profileStatNumberStyle: CSSProperties = {
+  color: "#ffffff",
+  fontSize: "22px",
+  lineHeight: 1,
+};
+
+const profileStatLabelStyle: CSSProperties = {
+  color: "#9ca3af",
+  fontSize: "12px",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const profileStatDividerStyle: CSSProperties = {
+  width: "1px",
+  height: "34px",
+  background: "rgba(255,255,255,0.09)",
+};
+
+const profileStoriesRowStyle: CSSProperties = {
+  margin: "0 14px 14px",
+  display: "flex",
+  gap: "16px",
+  overflowX: "auto",
+  padding: "14px",
+  borderRadius: "22px",
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(0,0,0,0.18)",
+};
+
+const profileStoryItemStyle: CSSProperties = {
+  display: "grid",
+  justifyItems: "center",
+  gap: "8px",
+  minWidth: "86px",
+};
+
+const profileStoryCircleStyle: CSSProperties = {
+  width: "66px",
+  height: "66px",
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  border: "2px solid rgba(168,85,247,0.75)",
+  background: "rgba(255,255,255,0.04)",
+  boxShadow: "0 0 22px rgba(168,85,247,0.18)",
+  fontSize: "23px",
+};
+
+const profileStoryLabelStyle: CSSProperties = {
+  color: "#d1d5db",
+  fontSize: "12px",
+  fontWeight: 700,
+  whiteSpace: "nowrap",
+};
+
+const profileTabsStyle: CSSProperties = {
+  display: "flex",
+  gap: "4px",
+  overflowX: "auto",
+  padding: "0 14px 14px",
+};
+
+const profileTabStyle: CSSProperties = {
+  background: "transparent",
+  color: "#aeb3c2",
+  border: "none",
+  borderBottom: "2px solid transparent",
+  padding: "13px 18px",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const profileActiveTabStyle: CSSProperties = {
+  ...profileTabStyle,
+  color: "#c084fc",
+  borderBottom: "2px solid #a855f7",
+};
+
+
+
+const rightRailStyle: CSSProperties = {
+  flexDirection: "column",
+  gap: "14px",
+  position: "sticky",
+  top: "16px",
+  height: "fit-content",
+};
+
+const rightPanelCardStyle: CSSProperties = {
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.035) 100%)",
+  borderRadius: "24px",
+  padding: "16px",
+  border: "1px solid rgba(255,255,255,0.105)",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.24)",
+  backdropFilter: "blur(14px)",
+};
+
+const rightPanelHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  marginBottom: "14px",
+};
+
+const rightPanelTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "16px",
+  fontWeight: 900,
+  letterSpacing: "-0.02em",
+  color: "#f9fafb",
+};
+
+const rightPanelTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#aeb6c3",
+  fontSize: "13px",
+  lineHeight: 1.5,
+};
+
+const miniPurpleLinkStyle: CSSProperties = {
+  color: "#c084fc",
+  fontSize: "12px",
+  fontWeight: 850,
+  whiteSpace: "nowrap",
+};
+
+const profileStrengthRingStyle: CSSProperties = {
+  width: "76px",
+  height: "76px",
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  flexShrink: 0,
+  color: "#ffffff",
+  background:
+    "radial-gradient(circle at center, rgba(168,85,247,0.12) 0%, rgba(8,10,16,0.96) 62%), conic-gradient(from 0deg, #7c3aed 0deg, #a855f7 306deg, rgba(255,255,255,0.10) 306deg)",
+  boxShadow: "0 0 24px rgba(168,85,247,0.25)",
+  border: "1px solid rgba(255,255,255,0.10)",
+};
+
+const wideGlassButtonStyle: CSSProperties = {
+  width: "100%",
+  marginTop: "14px",
+  minHeight: "40px",
+  borderRadius: "14px",
+  background: "rgba(255,255,255,0.045)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  color: "#f9fafb",
+  fontWeight: 850,
+  cursor: "pointer",
+};
+
+const achievementGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "10px",
+};
+
+const achievementItemStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: "5px",
+  textAlign: "center",
+  color: "#d1d5db",
+  fontSize: "10px",
+  lineHeight: 1.2,
+};
+
+const achievementIconStyle: CSSProperties = {
+  width: "50px",
+  height: "50px",
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  fontSize: "21px",
+  background: "rgba(255,255,255,0.045)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  boxShadow: "0 0 18px rgba(168,85,247,0.12)",
+};
+
+const badgeBubbleStyle: CSSProperties = {
+  width: "42px",
+  height: "42px",
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  fontSize: "18px",
+  background: "rgba(168,85,247,0.12)",
+  border: "1px solid rgba(168,85,247,0.42)",
+  boxShadow: "0 0 18px rgba(168,85,247,0.16)",
+};
+
+const visitorAvatarStyle: CSSProperties = {
+  width: "44px",
+  height: "44px",
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  color: "#f9fafb",
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(168,85,247,0.42)",
+  overflow: "hidden",
+  fontWeight: 900,
+};
+
+const activityRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  padding: "10px 12px",
+  borderRadius: "14px",
+  background: "rgba(255,255,255,0.035)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  color: "#cbd5e1",
+  fontSize: "13px",
+};
+
+const onlineStatusPillStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  background: "rgba(34,197,94,0.12)",
+  color: "#86efac",
+  border: "1px solid rgba(34,197,94,0.25)",
+  fontSize: "11px",
+  fontWeight: 900,
+};
+
+const offlineStatusPillStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  background: "rgba(255,255,255,0.04)",
+  color: "#cbd5e1",
+  border: "1px solid rgba(255,255,255,0.10)",
+  fontSize: "11px",
+  fontWeight: 900,
+};
+
+
+
+const mobileTopBarStyle: CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 60,
+  minHeight: "72px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "12px 16px",
+  background:
+    "linear-gradient(180deg, rgba(5,7,12,0.96) 0%, rgba(5,7,12,0.80) 100%)",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  backdropFilter: "blur(18px)",
+};
+
+const mobileCircleButtonStyle: CSSProperties = {
+  width: "42px",
+  height: "42px",
+  borderRadius: "50%",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.045)",
+  color: "#f9fafb",
+  display: "grid",
+  placeItems: "center",
+  fontSize: "25px",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const mobileBottomNavStyle: CSSProperties = {
+  position: "fixed",
+  left: "10px",
+  right: "10px",
+  bottom: "10px",
+  zIndex: 80,
+  minHeight: "76px",
+  borderRadius: "28px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background:
+    "linear-gradient(180deg, rgba(12,14,24,0.96) 0%, rgba(5,7,12,0.98) 100%)",
+  boxShadow: "0 -12px 34px rgba(0,0,0,0.40), 0 0 28px rgba(124,58,237,0.14)",
+  backdropFilter: "blur(20px)",
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 74px 1fr 1fr",
+  alignItems: "center",
+  padding: "8px 10px calc(8px + env(safe-area-inset-bottom, 0px))",
+};
+
+const mobileBottomNavItemStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "4px",
+  color: "#d1d5db",
+  textDecoration: "none",
+  fontSize: "11px",
+  fontWeight: 800,
+};
+
+const mobileBottomNavItemActiveStyle: CSSProperties = {
+  ...mobileBottomNavItemStyle,
+  color: "#c084fc",
+  textShadow: "0 0 16px rgba(168,85,247,0.5)",
+};
+
+const mobileBottomNavIconStyle: CSSProperties = {
+  fontSize: "22px",
+  lineHeight: 1,
+};
+
+const mobileCreateButtonStyle: CSSProperties = {
+  width: "62px",
+  height: "62px",
+  borderRadius: "50%",
+  border: "3px solid rgba(255,255,255,0.88)",
+  background:
+    "linear-gradient(135deg, #ffffff 0%, #ffffff 42%, #a855f7 43%, #ec4899 100%)",
+  color: "#05070a",
+  fontSize: "38px",
+  fontWeight: 900,
+  display: "grid",
+  placeItems: "center",
+  boxShadow: "0 0 26px rgba(168,85,247,0.50)",
+  cursor: "pointer",
+};
+
+
+
+const premiumSectionLabelStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+  borderRadius: "999px",
+  background: "rgba(168,85,247,0.10)",
+  border: "1px solid rgba(168,85,247,0.24)",
+  color: "#d8b4fe",
+  padding: "7px 11px",
+  fontSize: "12px",
+  fontWeight: 900,
+  letterSpacing: "0.02em",
+};
+
+const softDividerStyle: CSSProperties = {
+  height: "1px",
+  width: "100%",
+  background:
+    "linear-gradient(90deg, rgba(255,255,255,0.00) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.00) 100%)",
+};
+
+const profileGlowLineStyle: CSSProperties = {
+  height: "3px",
+  width: "100%",
+  borderRadius: "999px",
+  background:
+    "linear-gradient(90deg, rgba(168,85,247,0.00) 0%, rgba(168,85,247,0.72) 45%, rgba(34,211,238,0.58) 72%, rgba(34,211,238,0.00) 100%)",
+  boxShadow: "0 0 22px rgba(168,85,247,0.28)",
 };
 
