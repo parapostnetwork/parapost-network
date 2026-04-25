@@ -344,7 +344,7 @@ async function insertReelNotification({
   ]);
 
   if (error) {
-    console.error("Reel notification insert error:", error.message);
+    console.warn("Reel notification skipped:", error.message);
   }
 }
 
@@ -368,6 +368,7 @@ export default function ProfileReelsViewerPage() {
   const [shareMessage, setShareMessage] = useState("");
   const [activeReelId, setActiveReelId] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [lockedCommentReelId, setLockedCommentReelId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [muteAll, setMuteAll] = useState(true);
   const [expandedCaptions, setExpandedCaptions] = useState<Record<string, boolean>>({});
@@ -544,6 +545,15 @@ export default function ProfileReelsViewerPage() {
       setLikedMap({});
     }
 
+    const initialTarget = initialTargetReelIdRef.current;
+    if (initialTarget && mapped.some((reel) => reel.id === initialTarget)) {
+      const targetReel = mapped.find((reel) => reel.id === initialTarget);
+      mapped = [
+        ...(targetReel ? [targetReel] : []),
+        ...mapped.filter((reel) => reel.id !== initialTarget),
+      ];
+    }
+
     setReels(mapped);
 
     if (mapped.length > 0) {
@@ -610,7 +620,7 @@ export default function ProfileReelsViewerPage() {
 
       video.muted = muteAll;
 
-      if (reel.id === activeReelId && holdPausedId !== reel.id) {
+      if (reel.id === activeReelId && holdPausedId !== reel.id && !commentsOpen) {
         const playPromise = video.play();
         if (playPromise && typeof playPromise.catch === "function") {
           playPromise.catch(() => {});
@@ -619,15 +629,16 @@ export default function ProfileReelsViewerPage() {
         video.pause();
       }
     });
-  }, [activeReelId, reels, muteAll, holdPausedId]);
+  }, [activeReelId, reels, muteAll, holdPausedId, commentsOpen]);
 
   useEffect(() => {
     if (!isFetchingReels && activeReelId && !hasInitialScrolledRef.current) {
-      const target = initialTargetReelIdRef.current || activeReelId;
-      window.setTimeout(() => {
-        scrollToReel(target);
-        hasInitialScrolledRef.current = true;
-      }, 140);
+      hasInitialScrolledRef.current = true;
+
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.scrollTop = 0;
+      }
     }
   }, [isFetchingReels, activeReelId]);
 
@@ -699,22 +710,61 @@ export default function ProfileReelsViewerPage() {
     return reels.find((reel) => reel.id === activeReelId) || reels[0];
   }, [reels, activeReelId]);
 
-  const activeComments = useMemo(() => {
-    return comments.filter((comment) => comment.reelId === activeReelId);
-  }, [comments, activeReelId]);
+  const commentReelId = lockedCommentReelId || activeReelId;
 
-  const scrollToReel = (reelId: string) => {
+  const commentReel = useMemo(() => {
+    return reels.find((reel) => reel.id === commentReelId) || activeReel;
+  }, [reels, commentReelId, activeReel]);
+
+  const activeComments = useMemo(() => {
+    return comments.filter((comment) => comment.reelId === commentReelId);
+  }, [comments, commentReelId]);
+
+  const openCommentsForReel = (reelId: string) => {
+    setActiveReelId(reelId);
+    setLockedCommentReelId(reelId);
+    setCommentsOpen(true);
+
+    const video = videoRefs.current[reelId];
+    if (video) {
+      video.pause();
+    }
+  };
+
+  const closeComments = () => {
+    const resumeReelId = lockedCommentReelId || activeReelId;
+
+    setCommentsOpen(false);
+    setLockedCommentReelId("");
+    setCommentDraft("");
+
+    window.setTimeout(() => {
+      const video = videoRefs.current[resumeReelId];
+      if (video) {
+        const playPromise = video.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {});
+        }
+      }
+    }, 80);
+  };
+
+  const scrollToReel = (reelId: string, behavior: ScrollBehavior = "smooth") => {
+    if (commentsOpen) return;
+
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const target = container.querySelector<HTMLElement>(`[data-reel-id="${reelId}"]`);
     if (!target) return;
 
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.scrollIntoView({ behavior, block: "start" });
     setActiveReelId(reelId);
   };
 
   const scrollToAdjacentReel = (direction: "prev" | "next") => {
+    if (commentsOpen) return;
+
     const currentIndex = reels.findIndex((reel) => reel.id === activeReelId);
     if (currentIndex === -1) return;
 
@@ -725,6 +775,8 @@ export default function ProfileReelsViewerPage() {
   };
 
   const updateActiveFromScroll = () => {
+    if (commentsOpen) return;
+
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -750,6 +802,8 @@ export default function ProfileReelsViewerPage() {
   };
 
   const handleTogglePlayPause = (reelId: string) => {
+    if (commentsOpen) return;
+
     const video = videoRefs.current[reelId];
     if (!video) return;
 
@@ -897,7 +951,8 @@ export default function ProfileReelsViewerPage() {
 
   const handleAddComment = async () => {
     const trimmed = commentDraft.trim();
-    if (!trimmed || !activeReel) return;
+    const targetReel = commentReel;
+    if (!trimmed || !targetReel) return;
 
     if (!currentUserId) {
       alert("You must be logged in to comment on reels.");
@@ -906,7 +961,7 @@ export default function ProfileReelsViewerPage() {
 
     const nextComment: ReelComment = {
       id: `comment-${Date.now()}`,
-      reelId: activeReel.id,
+      reelId: targetReel.id,
       author: currentUserId === profileId ? "@you" : formatHandle(profile?.username),
       text: trimmed,
       time: "Just now",
@@ -915,14 +970,14 @@ export default function ProfileReelsViewerPage() {
     setComments((prev) => [nextComment, ...prev]);
     setReels((prev) =>
       prev.map((reel) =>
-        reel.id === activeReel.id ? { ...reel, comments: reel.comments + 1 } : reel
+        reel.id === targetReel.id ? { ...reel, comments: reel.comments + 1 } : reel
       )
     );
     setCommentDraft("");
 
     const { error: commentInsertError } = await supabase.from("reel_comments").insert([
       {
-        reel_id: activeReel.id,
+        reel_id: targetReel.id,
         user_id: currentUserId,
         content: trimmed,
       },
@@ -936,11 +991,13 @@ export default function ProfileReelsViewerPage() {
     }
 
     await insertReelNotification({
-      userId: activeReel.user_id,
+      userId: targetReel.user_id,
       actorId: currentUserId,
       type: "reel_comment",
       message: "commented on your reel.",
     });
+
+    closeComments();
   };
 
   const handleShareToFeed = () => {
@@ -1063,19 +1120,26 @@ export default function ProfileReelsViewerPage() {
     "Profile";
 
   return (
-    <div style={pageStyle}>
-      <div style={topBarStyle}>
-        <div style={topBarInnerStyle}>
-          <div style={{ paddingTop: `${stageMetrics.topHeaderPad}px` }}>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "26px",
-                lineHeight: 1.05,
-                textShadow: "0 2px 12px rgba(0,0,0,0.45)",
-              }}
-            >
-              {creatorName} Reels
+  <div
+    style={{
+      ...pageStyle,
+      background: "#07090d",
+      minHeight: "100vh",
+      overflow: "hidden",
+    }}
+  >
+    <div style={topBarStyle}>
+      <div style={topBarInnerStyle}>
+        <div style={{ paddingTop: `${stageMetrics.topHeaderPad}px` }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "26px",
+              lineHeight: 1.05,
+              textShadow: "0 2px 12px rgba(0,0,0,0.45)",
+            }}
+          >
+            {creatorName} Reels
             </h1>
           </div>
 
@@ -1117,6 +1181,7 @@ export default function ProfileReelsViewerPage() {
         >
           <button
             onClick={() => scrollToAdjacentReel("prev")}
+            disabled={commentsOpen}
             style={{
               width: "56px",
               height: "56px",
@@ -1124,7 +1189,8 @@ export default function ProfileReelsViewerPage() {
               border: "1px solid rgba(255,255,255,0.18)",
               background: "rgba(255,255,255,0.08)",
               color: "white",
-              cursor: "pointer",
+              cursor: commentsOpen ? "not-allowed" : "pointer",
+              opacity: commentsOpen ? 0.45 : 1,
               fontSize: "22px",
               backdropFilter: "blur(12px)",
             }}
@@ -1135,6 +1201,7 @@ export default function ProfileReelsViewerPage() {
 
           <button
             onClick={() => scrollToAdjacentReel("next")}
+            disabled={commentsOpen}
             style={{
               width: "56px",
               height: "56px",
@@ -1142,7 +1209,8 @@ export default function ProfileReelsViewerPage() {
               border: "1px solid rgba(255,255,255,0.18)",
               background: "rgba(255,255,255,0.08)",
               color: "white",
-              cursor: "pointer",
+              cursor: commentsOpen ? "not-allowed" : "pointer",
+              opacity: commentsOpen ? 0.45 : 1,
               fontSize: "22px",
               backdropFilter: "blur(12px)",
             }}
@@ -1211,9 +1279,16 @@ export default function ProfileReelsViewerPage() {
         </div>
       ) : (
         <div
-          ref={scrollContainerRef}
-          style={scrollContainerStyle}
-          onScroll={updateActiveFromScroll}
+         ref={scrollContainerRef}
+         style={{
+           ...scrollContainerStyle,
+           overflowY: commentsOpen ? "hidden" : "auto",
+           scrollBehavior: commentsOpen ? "auto" : "smooth",
+           overscrollBehavior: "contain",
+           background: "#07090d",
+           scrollSnapType: "y mandatory",
+         }}
+         onScroll={commentsOpen ? undefined : updateActiveFromScroll} 
         >
           {reels.map((reel) => {
             const isLiked = !!likedMap[reel.id];
@@ -1232,6 +1307,7 @@ export default function ProfileReelsViewerPage() {
               reel.caption.length > 100 && !expanded
                 ? `${reel.caption.slice(0, 100)}...`
                 : reel.caption;
+            const isActiveCommentsReel = commentsOpen && commentReelId === reel.id;
 
             return (
               <section
@@ -1256,6 +1332,9 @@ export default function ProfileReelsViewerPage() {
                       viewportType === "mobile"
                         ? "none"
                         : "0 16px 44px rgba(0,0,0,0.46)",
+                    transform: isActiveCommentsReel ? "scale(0.985)" : "scale(1)",
+                    filter: isActiveCommentsReel ? "brightness(0.78)" : "brightness(1)",
+                    transition: "transform 220ms ease, filter 220ms ease",
                   }}
                 >
                   <div
@@ -1283,13 +1362,13 @@ export default function ProfileReelsViewerPage() {
                     onDoubleClick={() => handleDoubleTapLike(reel.id)}
                     onClick={() => handleTogglePlayPause(reel.id)}
                     onMouseDown={() => {
-                      if (viewportType === "desktop") {
+                      if (viewportType === "desktop" && !commentsOpen) {
                         setHoldPausedId(reel.id);
                         videoRefs.current[reel.id]?.pause();
                       }
                     }}
                     onMouseUp={() => {
-                      if (viewportType === "desktop" && holdPausedId === reel.id) {
+                      if (viewportType === "desktop" && holdPausedId === reel.id && !commentsOpen) {
                         setHoldPausedId(null);
                         const playPromise = videoRefs.current[reel.id]?.play();
                         if (playPromise && typeof playPromise.catch === "function") {
@@ -1298,7 +1377,7 @@ export default function ProfileReelsViewerPage() {
                       }
                     }}
                     onMouseLeave={() => {
-                      if (viewportType === "desktop" && holdPausedId === reel.id) {
+                      if (viewportType === "desktop" && holdPausedId === reel.id && !commentsOpen) {
                         setHoldPausedId(null);
                         const playPromise = videoRefs.current[reel.id]?.play();
                         if (playPromise && typeof playPromise.catch === "function") {
@@ -1307,11 +1386,13 @@ export default function ProfileReelsViewerPage() {
                       }
                     }}
                     onTouchStart={() => {
-                      setHoldPausedId(reel.id);
-                      videoRefs.current[reel.id]?.pause();
+                      if (!commentsOpen) {
+                        setHoldPausedId(reel.id);
+                        videoRefs.current[reel.id]?.pause();
+                      }
                     }}
                     onTouchEnd={() => {
-                      if (holdPausedId === reel.id) {
+                      if (holdPausedId === reel.id && !commentsOpen) {
                         setHoldPausedId(null);
                         const playPromise = videoRefs.current[reel.id]?.play();
                         if (playPromise && typeof playPromise.catch === "function") {
@@ -1322,7 +1403,7 @@ export default function ProfileReelsViewerPage() {
                     style={{
                       position: "absolute",
                       inset: 0,
-                      cursor: "pointer",
+                      cursor: commentsOpen ? "default" : "pointer",
                     }}
                   >
                     <video
@@ -1426,6 +1507,9 @@ export default function ProfileReelsViewerPage() {
                       flexDirection: "column",
                       gap: "10px",
                       alignItems: "center",
+                      opacity: isActiveCommentsReel ? 0.12 : 1,
+                      pointerEvents: isActiveCommentsReel ? "none" : "auto",
+                      transition: "opacity 180ms ease",
                     }}
                   >
                     {[
@@ -1438,8 +1522,7 @@ export default function ProfileReelsViewerPage() {
                         symbol: "💬",
                         label: displayedComments,
                         action: () => {
-                          setActiveReelId(reel.id);
-                          setCommentsOpen(true);
+                          openCommentsForReel(reel.id);
                         },
                       },
                       {
@@ -1511,6 +1594,9 @@ export default function ProfileReelsViewerPage() {
                       zIndex: 7,
                       display: "grid",
                       gap: "8px",
+                      opacity: isActiveCommentsReel ? 0.1 : 1,
+                      pointerEvents: isActiveCommentsReel ? "none" : "auto",
+                      transition: "opacity 180ms ease",
                     }}
                   >
                     <div
@@ -1643,8 +1729,7 @@ export default function ProfileReelsViewerPage() {
 
                       <button
                         onClick={() => {
-                          setActiveReelId(reel.id);
-                          setCommentsOpen(true);
+                          openCommentsForReel(reel.id);
                         }}
                         style={buttonStyle}
                       >
@@ -1735,105 +1820,249 @@ export default function ProfileReelsViewerPage() {
         </div>
       )}
 
-      {commentsOpen && (
-        <>
-          <div style={overlayStyle} onClick={() => setCommentsOpen(false)} />
-          <div style={drawerStyle}>
-            <div
+      {commentsOpen && commentReel && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 90,
+            display: "grid",
+            placeItems: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              position: "relative",
+              width: stageMetrics.stageWidth,
+              height: stageMetrics.stageHeight,
+              maxWidth: "100%",
+              borderRadius: stageMetrics.borderRadius,
+              overflow: "hidden",
+              pointerEvents: "auto",
+            }}
+          >
+            <button
+              type="button"
+              onClick={closeComments}
+              aria-label="Close comments"
               style={{
-                padding: "18px",
-                borderBottom: "1px solid rgba(255,255,255,0.08)",
+                position: "absolute",
+                inset: 0,
+                border: "none",
+                padding: 0,
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.06) 38%, rgba(0,0,0,0.30) 72%, rgba(0,0,0,0.52) 100%)",
+                cursor: "default",
+              }}
+            />
+
+            <div
+              role="dialog"
+              aria-label="Reel comments"
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: "52%",
+                minHeight: "280px",
+                maxHeight: "56%",
+                borderTopLeftRadius: "24px",
+                borderTopRightRadius: "24px",
+                background:
+                  "linear-gradient(180deg, rgba(20,20,24,0.985) 0%, rgba(11,11,14,0.99) 100%)",
+                borderTop: "1px solid rgba(255,255,255,0.09)",
+                boxShadow: "0 -12px 32px rgba(0,0,0,0.42)",
+                overflow: "hidden",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "10px",
+                flexDirection: "column",
+                backdropFilter: "blur(16px)",
               }}
             >
-              <div>
-                <div style={{ fontWeight: 800, fontSize: "20px" }}>Comments</div>
-                <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
-                  {activeReel?.title}
+              <div
+                style={{
+                  padding: "10px 14px 12px",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: "34px",
+                    height: "4px",
+                    borderRadius: "999px",
+                    background: "rgba(255,255,255,0.26)",
+                    margin: "0 auto 10px",
+                  }}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: "16px", fontWeight: 850 }}>
+                      Comments
+                    </div>
+                    <div
+                      style={{
+                        marginTop: "4px",
+                        fontSize: "12px",
+                        color: "rgba(255,255,255,0.62)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {activeComments.length} comment{activeComments.length === 1 ? "" : "s"} · {commentReel.title}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeComments}
+                    aria-label="Close comments"
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "999px",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "rgba(255,255,255,0.065)",
+                      color: "#ffffff",
+                      cursor: "pointer",
+                      fontSize: "17px",
+                    }}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
 
-              <button onClick={() => setCommentsOpen(false)} style={buttonStyle}>
-                Close
-              </button>
-            </div>
-
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "18px",
-                display: "grid",
-                gap: "12px",
-              }}
-            >
-              {activeComments.length === 0 ? (
-                <div
-                  style={{
-                    border: "1px dashed rgba(255,255,255,0.12)",
-                    borderRadius: "22px",
-                    padding: "16px",
-                    color: "#9ca3af",
-                  }}
-                >
-                  No comments yet.
-                </div>
-              ) : (
-                activeComments.map((comment) => (
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: "auto",
+                  overscrollBehavior: "contain",
+                  padding: "12px",
+                  display: "grid",
+                  alignContent: "start",
+                  gap: "10px",
+                }}
+              >
+                {activeComments.length === 0 ? (
                   <div
-                    key={comment.id}
                     style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "22px",
-                      padding: "14px",
+                      border: "1px dashed rgba(255,255,255,0.12)",
+                      borderRadius: "18px",
+                      padding: "16px",
+                      color: "#9ca3af",
+                      background: "rgba(255,255,255,0.03)",
                     }}
                   >
+                    No comments yet. Start the conversation.
+                  </div>
+                ) : (
+                  activeComments.map((comment) => (
                     <div
+                      key={comment.id}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "10px",
-                        marginBottom: "8px",
+                        background: "rgba(255,255,255,0.045)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: "18px",
+                        padding: "12px 13px",
                       }}
                     >
-                      <div style={{ fontWeight: 700 }}>{comment.author}</div>
-                      <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-                        {comment.time}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          marginBottom: "7px",
+                        }}
+                      >
+                        <div style={{ fontWeight: 800, fontSize: "14px" }}>
+                          {comment.author}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#9ca3af" }}>
+                          {comment.time}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#e5e7eb",
+                          lineHeight: 1.55,
+                          fontSize: "14px",
+                        }}
+                      >
+                        {comment.text}
                       </div>
                     </div>
-                    <div style={{ color: "#e5e7eb", lineHeight: 1.6 }}>{comment.text}</div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
 
-            <div
-              style={{
-                padding: "18px",
-                borderTop: "1px solid rgba(255,255,255,0.08)",
-                display: "grid",
-                gap: "10px",
-              }}
-            >
-              <input
-                value={commentDraft}
-                onChange={(event) => setCommentDraft(event.target.value)}
-                placeholder="Write a comment..."
-                style={inputStyle}
-              />
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button onClick={handleAddComment} style={primaryButtonStyle}>
-                  Post Comment
-                </button>
+              <div
+                style={{
+                  padding: "10px 12px calc(12px + env(safe-area-inset-bottom, 0px))",
+                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  background:
+                    "linear-gradient(180deg, rgba(15,15,18,0.94) 0%, rgba(9,9,12,0.98) 100%)",
+                  flexShrink: 0,
+                  display: "grid",
+                  gap: "8px",
+                }}
+              >
+                <textarea
+                  value={commentDraft}
+                  onChange={(event) => setCommentDraft(event.target.value)}
+                  placeholder="Write a comment..."
+                  rows={2}
+                  style={{
+                    ...textAreaStyle,
+                    minHeight: "72px",
+                    maxHeight: "110px",
+                    borderRadius: "16px",
+                    padding: "12px 14px",
+                  }}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ fontSize: "12px", color: "#9ca3af" }}>
+                    Video is paused while commenting
+                  </div>
+
+                  <button
+                    onClick={handleAddComment}
+                    disabled={!commentDraft.trim()}
+                    style={{
+                      ...primaryButtonStyle,
+                      opacity: commentDraft.trim() ? 1 : 0.45,
+                      cursor: commentDraft.trim() ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    Post Comment
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {shareOpen && activeReel && (

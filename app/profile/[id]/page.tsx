@@ -1066,34 +1066,73 @@ export default function ProfilePage() {
     return "Not Friends Yet";
   };
 
-  return (
-    <div className="min-h-screen text-white" style={profilePageBackgroundStyle}>
-      <div className="xl:hidden" style={mobileTopBarStyle}>
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard")}
-          style={mobileCircleButtonStyle}
-          aria-label="Back to dashboard"
-        >
-          ‹
-        </button>
+return (
+  <div
+    className="min-h-screen text-white profile-polish-surface"
+   style={{
+     ...profilePageBackgroundStyle,
+     backgroundColor: "#07090d",
+     minHeight: "100vh",
+     overscrollBehavior: "none",
+     overflowX: "hidden",
+     animation: "profileFadeIn 220ms ease-out",
+   }}
+  >
+    <style>{`
+      .profile-polish-surface button {
+        transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+      }
 
-        <div style={{ textAlign: "center", minWidth: 0 }}>
-          <div style={{ fontWeight: 950, letterSpacing: "0.04em" }}>PARAPOST</div>
-          <div style={{ color: "#a855f7", fontSize: "11px", letterSpacing: "0.32em", fontWeight: 900 }}>
-            NETWORK
-          </div>
+      .profile-polish-surface button:not(:disabled):hover {
+        transform: translateY(-1px);
+        filter: brightness(1.08);
+      }
+
+      .profile-polish-surface button:not(:disabled):active {
+        transform: scale(0.98);
+      }
+
+      .profile-polish-surface a {
+        transition: transform 160ms ease, filter 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      }
+    `}</style>
+
+    {/* Mobile Top Bar */}
+    <div className="xl:hidden" style={mobileTopBarStyle}>
+      <button
+        type="button"
+        onClick={() => router.push("/dashboard")}
+        style={mobileCircleButtonStyle}
+        aria-label="Back to dashboard"
+      >
+        ‹
+      </button>
+
+      <div style={{ textAlign: "center", minWidth: 0 }}>
+        <div style={{ fontWeight: 950, letterSpacing: "0.04em" }}>
+          PARAPOST
         </div>
-
-        <button
-          type="button"
-          onClick={() => router.push("/settings")}
-          style={mobileCircleButtonStyle}
-          aria-label="Profile options"
+        <div
+          style={{
+            color: "#a855f7",
+            fontSize: "11px",
+            letterSpacing: "0.32em",
+            fontWeight: 900,
+          }}
         >
-          ⋯
-        </button>
+          NETWORK
+        </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => router.push("/settings")}
+        style={mobileCircleButtonStyle}
+        aria-label="Profile options"
+      >
+        ⋯
+      </button>
+    </div>
 
       <div className="mx-auto w-full px-3 py-4 sm:px-4 lg:px-6" style={{ maxWidth: "1680px", paddingBottom: "96px" }}>
         <div className="grid grid-cols-1 gap-4 md:gap-5 xl:grid-cols-[240px_minmax(0,1fr)_340px]">
@@ -1461,14 +1500,14 @@ export default function ProfilePage() {
                   </Link>
                 </div>
 
-                {loading ? (
-                  <p style={{ color: "#9ca3af", marginBottom: 0 }}>Loading profile...</p>
-                ) : errorMessage ? (
+                {errorMessage ? (
                   <div style={messageBoxStyle}>{errorMessage}</div>
                 ) : !profile ? (
                   <div style={messageBoxStyle}>This profile could not be found.</div>
                 ) : profileFeedItems.length === 0 ? (
-                  <p style={{ color: "#9ca3af", marginBottom: 0 }}>No posts shared yet.</p>
+                  <p style={{ color: "#9ca3af", marginBottom: 0 }}>
+                    No posts shared yet.
+                   </p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                     {profileFeedItems.map((item) => {
@@ -1480,7 +1519,20 @@ export default function ProfilePage() {
                         const creatorHandle = item.originalCreator?.username || "creator";
 
                         return (
-                          <div key={item.id} style={postCardStyle}>
+                          <div
+                            key={item.id}
+                            style={{ ...postCardStyle, position: "relative" }}
+                            onMouseEnter={(event) => {
+                              event.currentTarget.style.transform = "translateY(-2px)";
+                              event.currentTarget.style.borderColor = "rgba(168,85,247,0.28)";
+                              event.currentTarget.style.boxShadow = "0 18px 42px rgba(0,0,0,0.30)";
+                            }}
+                            onMouseLeave={(event) => {
+                              event.currentTarget.style.transform = "translateY(0)";
+                              event.currentTarget.style.borderColor = "rgba(255,255,255,0.115)";
+                              event.currentTarget.style.boxShadow = "0 14px 34px rgba(0,0,0,0.24)";
+                            }}
+                          >
                             <div
                               style={{
                                 marginBottom: "12px",
@@ -1636,18 +1688,31 @@ export default function ProfilePage() {
                       const isEditingPost = editingPostId === post.id;
 
                       return (
-                        <div key={post.id} style={{ ...postCardStyle, position: "relative" }}>
-                          <div
-                            style={{
-                              marginBottom: "12px",
-                              display: "flex",
-                              alignItems: "flex-start",
-                              justifyContent: "space-between",
-                              gap: "12px",
-                              flexWrap: "wrap",
-                              paddingRight: isPostOwner ? "42px" : 0,
-                            }}
-                          >
+                        <div
+                          key={post.id}
+                          style={{ ...postCardStyle, position: "relative" }}
+                          onMouseEnter={(event) => {
+                          event.currentTarget.style.transform = "translateY(-2px)";
+                          event.currentTarget.style.borderColor = "rgba(168,85,247,0.28)";
+                          event.currentTarget.style.boxShadow = "0 18px 42px rgba(0,0,0,0.30)";
+                        }}
+                        onMouseLeave={(event) => {
+                          event.currentTarget.style.transform = "translateY(0)";
+                          event.currentTarget.style.borderColor = "rgba(255,255,255,0.115)";
+                          event.currentTarget.style.boxShadow = "0 14px 34px rgba(0,0,0,0.24)";
+                        }}
+                     >
+                        <div
+                          style={{
+                            marginBottom: "12px",
+                            display: "flex",
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            gap: "12px",
+                            flexWrap: "wrap",
+                            paddingRight: isPostOwner ? "42px" : 0,
+                          }}
+                        >
                             <div>
                               <div style={{ fontWeight: 600, color: "#f9fafb" }}>
                                 {profile.full_name || profile.username || "Unnamed User"}
@@ -2010,6 +2075,7 @@ const mainCardStyle: CSSProperties = {
   border: "1px solid rgba(255,255,255,0.10)",
   backdropFilter: "blur(10px)",
   boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
+  transition: "border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease",
 };
 
 const sideCardStyle: CSSProperties = {
@@ -2029,6 +2095,7 @@ const postCardStyle: CSSProperties = {
   padding: "16px",
   boxShadow: "0 14px 34px rgba(0,0,0,0.24)",
   backdropFilter: "blur(12px)",
+  transition: "all 180ms ease",
 };
 
 const navItemStyle: CSSProperties = {
@@ -2055,6 +2122,7 @@ const primaryButtonStyle: CSSProperties = {
   fontWeight: 700,
   cursor: "pointer",
   minHeight: "42px",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const secondaryButtonStyle: CSSProperties = {
@@ -2066,6 +2134,7 @@ const secondaryButtonStyle: CSSProperties = {
   fontWeight: 600,
   cursor: "pointer",
   minHeight: "42px",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const miniLinkStyle: CSSProperties = {
@@ -2103,6 +2172,7 @@ const actionButtonStyle: CSSProperties = {
   padding: "10px 14px",
   cursor: "pointer",
   minHeight: "42px",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const statPillStyle: CSSProperties = {
@@ -2211,6 +2281,7 @@ const dotsButtonStyle: CSSProperties = {
   lineHeight: 1,
   display: "grid",
   placeItems: "center",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const postMenuStyle: CSSProperties = {
@@ -2590,6 +2661,7 @@ const profilePrimaryButtonStyle: CSSProperties = {
   minHeight: "42px",
   textDecoration: "none",
   boxShadow: "0 10px 26px rgba(126,34,206,0.28)",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const profileGlassButtonStyle: CSSProperties = {
@@ -2604,6 +2676,7 @@ const profileGlassButtonStyle: CSSProperties = {
   textDecoration: "none",
   display: "inline-flex",
   alignItems: "center",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const profileIconButtonStyle: CSSProperties = {
@@ -2614,6 +2687,7 @@ const profileIconButtonStyle: CSSProperties = {
   background: "rgba(255,255,255,0.055)",
   color: "white",
   cursor: "pointer",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const profileBioStyle: CSSProperties = {
@@ -2802,6 +2876,7 @@ const wideGlassButtonStyle: CSSProperties = {
   color: "#f9fafb",
   fontWeight: 850,
   cursor: "pointer",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const achievementGridStyle: CSSProperties = {
