@@ -11,6 +11,7 @@ import {
   removeFriend,
 } from "@/lib/friends";
 import MutualFriendsPreviewCard from "@/components/profile/MutualFriendsPreviewCard";
+import ProfileAboutSection from "@/components/profile/ProfileAboutSection";
 
 type ProfileRow = {
   id: string;
@@ -19,6 +20,14 @@ type ProfileRow = {
   bio: string | null;
   avatar_url: string | null;
   is_online?: boolean | null;
+  location?: string | null;
+  website?: string | null;
+  occupation?: string | null;
+  paranormal_focus?: string | null;
+  experience_years?: string | null;
+  equipment?: string | null;
+  favorite_locations?: string | null;
+  availability?: string | null;
 };
 
 type Post = {
@@ -382,6 +391,8 @@ export default function ProfilePage() {
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingPostContent, setEditingPostContent] = useState("");
 
+  const [activeProfileTab, setActiveProfileTab] = useState("Posts");
+
   const profilePostFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isOwnProfile = !!viewerId && viewerId === profileId;
@@ -434,7 +445,22 @@ export default function ProfilePage() {
     ] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, username, full_name, bio, avatar_url, is_online")
+        .select(`
+          id,
+          username,
+          full_name,
+          bio,
+          avatar_url,
+          is_online,
+          location,
+          website,
+          occupation,
+          paranormal_focus,
+          experience_years,
+          equipment,
+          favorite_locations,
+          availability
+        `)
         .eq("id", profileId)
         .maybeSingle(),
       supabase
@@ -1073,8 +1099,11 @@ return (
      ...profilePageBackgroundStyle,
      backgroundColor: "#07090d",
      minHeight: "100vh",
-     overscrollBehavior: "none",
+     height: "auto",
      overflowX: "hidden",
+     overflowY: "auto",
+     WebkitOverflowScrolling: "touch",
+     overscrollBehaviorY: "auto",
      animation: "profileFadeIn 220ms ease-out",
    }}
   >
@@ -1094,6 +1123,16 @@ return (
 
       .profile-polish-surface a {
         transition: transform 160ms ease, filter 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      }
+
+      @media (max-width: 720px) {
+        .profile-polish-surface .profile-tabs-desktop {
+          display: none !important;
+        }
+
+        .profile-polish-surface select[aria-label="Choose profile section"] {
+          display: block !important;
+        }
       }
     `}</style>
 
@@ -1326,15 +1365,39 @@ return (
                   ))}
                 </div>
 
-                <div style={profileTabsStyle}>
-                  {["Posts", "About", "Reels", "Photos", "Videos", "Events"].map((tab, index) => (
-                    <button
-                      key={tab}
-                      style={index === 0 ? profileActiveTabStyle : profileTabStyle}
-                    >
+                <div style={profileTabsShellStyle}>
+                  <div className="profile-tabs-desktop" style={profileTabsStyle}>
+                    {["Posts", "About", "Reels", "Photos", "Videos", "Groups", "Events"].map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() =>
+                          setActiveProfileTab((prev) => (prev === tab ? "Posts" : tab))
+                        }
+                        style={activeProfileTab === tab ? profileActiveTabStyle : profileTabStyle}
+                        aria-pressed={activeProfileTab === tab}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+
+                <select
+                  value={activeProfileTab}
+                  onChange={(event) =>
+                    setActiveProfileTab((prev) =>
+                      prev === event.target.value ? "Posts" : event.target.value
+                    )
+                  }
+                  style={profileMobileTabSelectStyle}
+                  aria-label="Choose profile section"
+                >
+                  {["Posts", "About", "Reels", "Photos", "Videos", "Groups", "Events"].map((tab) => (
+                    <option key={tab} value={tab}>
                       {tab}
-                    </button>
+                    </option>
                   ))}
+                </select>  
                 </div>
 
                 {!loading && !errorMessage && profile && !isOwnProfile ? (
@@ -1345,7 +1408,61 @@ return (
               </div>
 
 
-              {isOwnProfile ? (
+              {activeProfileTab === "About" && (
+                <div style={mainCardStyle}>
+                  <ProfileAboutSection
+                    profile={profile}
+                    isOwnProfile={isOwnProfile}
+                    onUpdate={loadPage}
+                  />
+                </div>
+              )}
+
+              {activeProfileTab === "Reels" ? (
+                <div style={mainCardStyle}>
+                  <div style={aboutHeaderStyle}>
+                    <div>
+                      <h3 style={aboutTitleStyle}>Profile Reels</h3>
+                      <p style={aboutSubtitleStyle}>
+                        Short paranormal videos shared by this profile.
+                      </p>
+                    </div>
+                    <Link href={`/profile/${profileId}/reels`} style={{ ...primaryButtonStyle, textDecoration: "none" }}>
+                      Open Reels
+                    </Link>
+                  </div>
+
+                  {reels.length === 0 ? (
+                    <div style={aboutComingSoonStyle}>
+                      <strong>No reels yet</strong>
+                      <span>When this profile uploads reels, they will show here.</span>
+                    </div>
+                  ) : (
+                    <div style={miniReelGridStyle}>
+                      {reels.slice(0, 6).map((reel) => (
+                        <Link key={reel.id} href={`/profile/${profileId}/reels/view?reelId=${reel.id}`} style={miniReelTileStyle}>
+                          {reel.video_url ? (
+                            <video src={reel.video_url} muted playsInline preload="metadata" style={miniReelVideoStyle} />
+                          ) : (
+                            <span>Reel unavailable</span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {!["Posts", "About", "Reels"].includes(activeProfileTab) ? (
+                <div style={mainCardStyle}>
+                  <div style={aboutComingSoonStyle}>
+                    <strong>{activeProfileTab}</strong>
+                    <span>This profile section is set up and ready for the next build step.</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {activeProfileTab === "Posts" && isOwnProfile ? (
                 <div style={mainCardStyle}>
                   <div
                     style={{
@@ -1476,8 +1593,9 @@ return (
                 </div>
               ) : null}
 
-              <div style={mainCardStyle}>
-                <div
+              {activeProfileTab === "Posts" ? (
+                <div style={mainCardStyle}>
+                  <div
                   className="flex flex-col sm:flex-row sm:items-center sm:justify-between"
                   style={{
                     display: "flex",
@@ -1827,7 +1945,8 @@ return (
                     })}
                   </div>
                 )}
-              </div>
+                </div>
+              ) : null}
             </div>
           </section>
 
@@ -2779,11 +2898,14 @@ const profileStoryLabelStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+const profileTabsShellStyle: CSSProperties = {
+  padding: "0 14px 14px",
+};
+
 const profileTabsStyle: CSSProperties = {
   display: "flex",
   gap: "4px",
   overflowX: "auto",
-  padding: "0 14px 14px",
 };
 
 const profileTabStyle: CSSProperties = {
@@ -2800,6 +2922,163 @@ const profileActiveTabStyle: CSSProperties = {
   ...profileTabStyle,
   color: "#c084fc",
   borderBottom: "2px solid #a855f7",
+};
+
+const profileMobileTabSelectStyle: CSSProperties = {
+  display: "none",
+  width: "100%",
+  minHeight: "46px",
+  marginTop: "10px",
+  borderRadius: "16px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(8,10,16,0.94)",
+  color: "#f9fafb",
+  padding: "0 14px",
+  fontWeight: 800,
+  outline: "none",
+};
+
+const aboutHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "12px",
+  flexWrap: "wrap",
+  marginBottom: "16px",
+};
+
+const aboutTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "22px",
+  letterSpacing: "-0.03em",
+};
+
+const aboutSubtitleStyle: CSSProperties = {
+  margin: "6px 0 0",
+  color: "#9ca3af",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const aboutSectionTabsStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  marginBottom: "16px",
+};
+
+const aboutSectionTabStyle: CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.045)",
+  color: "#d1d5db",
+  borderRadius: "999px",
+  padding: "9px 13px",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const aboutSectionTabActiveStyle: CSSProperties = {
+  ...aboutSectionTabStyle,
+  color: "#ffffff",
+  border: "1px solid rgba(168,85,247,0.42)",
+  background: "linear-gradient(135deg, rgba(168,85,247,0.28), rgba(34,211,238,0.10))",
+};
+
+const introGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "12px",
+};
+
+const introCardStyle: CSSProperties = {
+  display: "flex",
+  gap: "12px",
+  alignItems: "flex-start",
+  padding: "14px",
+  borderRadius: "20px",
+  border: "1px solid rgba(255,255,255,0.09)",
+  background: "rgba(255,255,255,0.04)",
+};
+
+const introIconStyle: CSSProperties = {
+  width: "40px",
+  height: "40px",
+  borderRadius: "14px",
+  display: "grid",
+  placeItems: "center",
+  background: "rgba(168,85,247,0.12)",
+  border: "1px solid rgba(168,85,247,0.24)",
+  flexShrink: 0,
+};
+
+const introLabelStyle: CSSProperties = {
+  color: "#f9fafb",
+  fontWeight: 900,
+  marginBottom: "4px",
+};
+
+const introTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#cbd5e1",
+  fontSize: "13px",
+  lineHeight: 1.7,
+};
+
+const tagRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const profileTagStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "7px 10px",
+  background: "rgba(255,255,255,0.055)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  color: "#e5e7eb",
+  fontSize: "12px",
+  fontWeight: 800,
+};
+
+const aboutComingSoonStyle: CSSProperties = {
+  minHeight: "150px",
+  display: "grid",
+  placeItems: "center",
+  textAlign: "center",
+  gap: "8px",
+  color: "#9ca3af",
+  border: "1px dashed rgba(255,255,255,0.14)",
+  borderRadius: "22px",
+  background: "rgba(255,255,255,0.025)",
+  padding: "18px",
+};
+
+const miniReelGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
+  gap: "12px",
+};
+
+const miniReelTileStyle: CSSProperties = {
+  position: "relative",
+  minHeight: "230px",
+  overflow: "hidden",
+  borderRadius: "20px",
+  background: "#05070a",
+  border: "1px solid rgba(255,255,255,0.10)",
+  color: "#9ca3af",
+  textDecoration: "none",
+  display: "grid",
+  placeItems: "center",
+};
+
+const miniReelVideoStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  display: "block",
 };
 
 

@@ -23,6 +23,7 @@ type CommentMenuState = {
 type ViewportType = "mobile" | "tablet" | "desktop";
 
 type ReelCommentsPanelProps = {
+  isOpen?: boolean;
   isOpen: boolean;
   onClose: () => void;
   reelTitle: string;
@@ -123,6 +124,7 @@ function getVisibleRepliesForComment(
 }
 
 export default function ReelCommentsPanel({
+  isOpen = true,
   isOpen,
   onClose,
   reelTitle,
@@ -157,6 +159,7 @@ export default function ReelCommentsPanel({
   onReportComment,
   onDeleteLocalComment,
 }: ReelCommentsPanelProps) {
+  if (!isOpen) return null;
   const canModerateComments = !!activeReelOwnerId && activeReelOwnerId === currentUserId;
 
   return (

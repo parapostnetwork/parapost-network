@@ -195,10 +195,10 @@ export default function EditProfilePage() {
     const cleanedBio = bio.trim();
 
     const { error } = await supabase.from("profiles").upsert({
-      id: currentUserId,
-      username: cleanedUsername || "",
-      full_name: cleanedFullName || "",
-      bio: cleanedBio || "",
+     id: currentUserId,
+     username: cleanedUsername || "",
+     full_name: cleanedFullName || "",
+     bio: (cleanedBio || "").replace(/<[^>]*>/g, ""),
     });
 
     if (error) {
