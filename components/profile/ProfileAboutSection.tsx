@@ -1,602 +1,875 @@
 "use client";
 
-import { CSSProperties, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
-type SocialLink = {
-  id: string;
-  label: string;
-  url: string;
+type AboutTab =
+  | "intro"
+  | "category"
+  | "personal"
+  | "links"
+  | "work"
+  | "education"
+  | "interests"
+  | "contact";
+
+type ProfileLink = {
+  id?: string;
+  label?: string;
+  title?: string;
+  url?: string;
+};
+
+type SavedAboutPayload = {
+  about_intro: string;
+  category: string;
+  location: string;
+  hometown: string;
+  relationship_status: string;
+  occupation: string;
+  company: string;
+  education: string;
+  website: string;
+  email: string;
+  phone: string;
+  interests: string[];
+  profile_links: ProfileLink[];
+};
+
+type ProfileAboutData = {
+  id?: string;
+  full_name?: string | null;
+  username?: string | null;
+  bio?: string | null;
+  about?: string | null;
+  about_intro?: string | null;
+
+  category?: string | null;
+  profile_category?: string | null;
+
+  location?: string | null;
+  hometown?: string | null;
+  relationship_status?: string | null;
+
+  occupation?: string | null;
+  company?: string | null;
+  workplace?: string | null;
+  work?: string | null;
+
+  school?: string | null;
+  education?: string | null;
+
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+
+  interests?: string[] | string | null;
+  profile_links?: ProfileLink[] | string | null;
+  links?: ProfileLink[] | string | null;
 };
 
 type ProfileAboutSectionProps = {
-  profile: any;
-  isOwnProfile: boolean;
-  onUpdate: () => void | Promise<void>;
+  profile?: ProfileAboutData | null;
+  isOwnProfile?: boolean;
+  isEditing?: boolean;
+  saving?: boolean;
+  onSave?: (payload: SavedAboutPayload) => Promise<void> | void;
 };
 
-const LINK_PRESETS = [
-  "Facebook",
-  "Instagram",
-  "TikTok",
-  "YouTube",
-  "X",
-  "Threads",
-  "Website",
-  "Podcast",
-  "Paraflix",
-  "Other",
+const MAX_LINKS = 10;
+
+const tabs: { id: AboutTab; label: string }[] = [
+  { id: "intro", label: "Intro" },
+  { id: "category", label: "Category" },
+  { id: "personal", label: "Personal details" },
+  { id: "links", label: "Links" },
+  { id: "work", label: "Work" },
+  { id: "education", label: "Education" },
+  { id: "interests", label: "Interests" },
+  { id: "contact", label: "Contact info" },
 ];
 
-function makeId() {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function getStorageKey(profile?: ProfileAboutData | null) {
+  const stableId =
+    profile?.id ||
+    profile?.username ||
+    profile?.full_name ||
+    "current-profile";
+
+  return `parapost-profile-about:${stableId}`;
 }
 
-function normalizeLinks(value: unknown): SocialLink[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((item: any) => ({
-      id: String(item?.id || makeId()),
-      label: String(item?.label || "Website"),
-      url: String(item?.url || ""),
-    }))
-    .filter((item) => item.label || item.url);
+function normalizeUrl(value: string) {
+  const clean = value.trim();
+  if (!clean) return "";
+  if (clean.startsWith("http://") || clean.startsWith("https://")) return clean;
+  return `https://${clean}`;
 }
 
-function cleanExternalUrl(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
+function getHostname(value: string) {
+  try {
+    return new URL(normalizeUrl(value)).hostname.replace(/^www\./, "");
+  } catch {
+    return value;
+  }
+}
 
-  if (
-    trimmed.toLowerCase().startsWith("javascript:") ||
-    trimmed.toLowerCase().startsWith("data:") ||
-    trimmed.toLowerCase().startsWith("vbscript:")
-  ) {
-    return "";
+function safeParseLinks(value: ProfileAboutData["profile_links"]): ProfileLink[] {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item && typeof item === "object")
+      .map((item, index) => ({
+        id: item.id || `link-${index}`,
+        label: item.label || item.title || getHostname(item.url || ""),
+        url: item.url || "",
+      }))
+      .filter((item) => item.url)
+      .slice(0, MAX_LINKS);
   }
 
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return safeParseLinks(parsed);
+    } catch {
+      return value
+        .split("\n")
+        .map((url, index) => ({
+          id: `link-${index}`,
+          label: getHostname(url),
+          url,
+        }))
+        .filter((item) => item.url.trim())
+        .slice(0, MAX_LINKS);
+    }
   }
 
-  return `https://${trimmed}`;
+  return [];
+}
+
+function safeParseInterests(value: ProfileAboutData["interests"]): string[] {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean).slice(0, 20);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return safeParseInterests(parsed);
+    } catch {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 20);
+    }
+  }
+
+  return [];
+}
+
+function getSavedLocalPayload(profile?: ProfileAboutData | null): Partial<SavedAboutPayload> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(getStorageKey(profile));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as Partial<SavedAboutPayload>;
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalPayload(profile: ProfileAboutData | null | undefined, payload: SavedAboutPayload) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(getStorageKey(profile), JSON.stringify(payload));
+  } catch {
+    // If localStorage is blocked, the onSave path can still save.
+  }
+}
+
+function buildInitialPayload(
+  profile?: ProfileAboutData | null,
+  initialInterests: string[] = [],
+  initialLinks: ProfileLink[] = []
+): SavedAboutPayload {
+  const local = getSavedLocalPayload(profile);
+
+  return {
+    about_intro:
+      local.about_intro ??
+      profile?.about_intro ??
+      profile?.about ??
+      profile?.bio ??
+      "",
+    category:
+      local.category ??
+      profile?.category ??
+      profile?.profile_category ??
+      "",
+    location:
+      local.location ??
+      profile?.location ??
+      "",
+    hometown:
+      local.hometown ??
+      profile?.hometown ??
+      "",
+    relationship_status:
+      local.relationship_status ??
+      profile?.relationship_status ??
+      "",
+    occupation:
+      local.occupation ??
+      profile?.occupation ??
+      profile?.work ??
+      "",
+    company:
+      local.company ??
+      profile?.company ??
+      profile?.workplace ??
+      "",
+    education:
+      local.education ??
+      profile?.education ??
+      profile?.school ??
+      "",
+    website:
+      local.website ??
+      profile?.website ??
+      "",
+    email:
+      local.email ??
+      profile?.email ??
+      "",
+    phone:
+      local.phone ??
+      profile?.phone ??
+      "",
+    interests:
+      Array.isArray(local.interests) && local.interests.length > 0
+        ? local.interests
+        : initialInterests,
+    profile_links:
+      Array.isArray(local.profile_links) && local.profile_links.length > 0
+        ? local.profile_links
+        : initialLinks,
+  };
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-6 text-sm font-medium text-slate-500">
+      {text}
+    </div>
+  );
+}
+
+function DetailLine({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value?: string | null;
+}) {
+  if (!value?.trim()) return null;
+
+  return (
+    <div className="flex items-start gap-3 rounded-2xl px-1 py-2">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-base">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          {label}
+        </p>
+        <p className="mt-0.5 break-words text-[15px] font-semibold leading-6 text-slate-200">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </span>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm font-medium text-white outline-none transition placeholder:text-slate-600 focus:border-blue-400/70 focus:ring-4 focus:ring-blue-400/10"
+      />
+    </label>
+  );
 }
 
 export default function ProfileAboutSection({
   profile,
-  isOwnProfile,
-  onUpdate,
+  isOwnProfile = false,
+  isEditing = false,
+  saving = false,
+  onSave,
 }: ProfileAboutSectionProps) {
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-
   const initialLinks = useMemo(
-    () => normalizeLinks(profile?.social_links),
-    [profile?.social_links]
+    () => safeParseLinks(profile?.profile_links || profile?.links || null),
+    [profile?.profile_links, profile?.links]
   );
 
-  const [form, setForm] = useState({
-    bio: profile?.bio || "",
-    location: profile?.location || "",
-    website: profile?.website || "",
-    occupation: profile?.occupation || "",
-    paranormal_focus: profile?.paranormal_focus || "",
-    experience_years: profile?.experience_years || "",
-    equipment: profile?.equipment || "",
-    favorite_locations: profile?.favorite_locations || "",
-    availability: profile?.availability || "",
-    social_links: initialLinks,
-  });
+  const initialInterests = useMemo(
+    () => safeParseInterests(profile?.interests || null),
+    [profile?.interests]
+  );
+
+  const initialPayload = useMemo(
+    () => buildInitialPayload(profile, initialInterests, initialLinks),
+    [profile, initialInterests, initialLinks]
+  );
+
+  const [activeTab, setActiveTab] = useState<AboutTab>("intro");
+  const [editing, setEditing] = useState(isEditing);
+  const [localSaving, setLocalSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+
+  const [aboutIntro, setAboutIntro] = useState(initialPayload.about_intro);
+  const [category, setCategory] = useState(initialPayload.category);
+  const [location, setLocation] = useState(initialPayload.location);
+  const [hometown, setHometown] = useState(initialPayload.hometown);
+  const [relationshipStatus, setRelationshipStatus] = useState(
+    initialPayload.relationship_status
+  );
+  const [occupation, setOccupation] = useState(initialPayload.occupation);
+  const [company, setCompany] = useState(initialPayload.company);
+  const [education, setEducation] = useState(initialPayload.education);
+  const [website, setWebsite] = useState(initialPayload.website);
+  const [email, setEmail] = useState(initialPayload.email);
+  const [phone, setPhone] = useState(initialPayload.phone);
+  const [interestsText, setInterestsText] = useState(initialPayload.interests.join(", "));
+  const [links, setLinks] = useState<ProfileLink[]>(initialPayload.profile_links);
 
   useEffect(() => {
-    setForm({
-      bio: profile?.bio || "",
-      location: profile?.location || "",
-      website: profile?.website || "",
-      occupation: profile?.occupation || "",
-      paranormal_focus: profile?.paranormal_focus || "",
-      experience_years: profile?.experience_years || "",
-      equipment: profile?.equipment || "",
-      favorite_locations: profile?.favorite_locations || "",
-      availability: profile?.availability || "",
-      social_links: normalizeLinks(profile?.social_links),
-    });
-  }, [profile]);
+    setAboutIntro(initialPayload.about_intro);
+    setCategory(initialPayload.category);
+    setLocation(initialPayload.location);
+    setHometown(initialPayload.hometown);
+    setRelationshipStatus(initialPayload.relationship_status);
+    setOccupation(initialPayload.occupation);
+    setCompany(initialPayload.company);
+    setEducation(initialPayload.education);
+    setWebsite(initialPayload.website);
+    setEmail(initialPayload.email);
+    setPhone(initialPayload.phone);
+    setInterestsText(initialPayload.interests.join(", "));
+    setLinks(initialPayload.profile_links);
+  }, [initialPayload]);
 
-  const updateField = (key: keyof typeof form, value: any) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const addSocialLink = () => {
-    setForm((prev) => ({
-      ...prev,
-      social_links: [
-        ...prev.social_links,
-        {
-          id: makeId(),
-          label: "Website",
-          url: "",
-        },
-      ],
-    }));
-  };
-
-  const updateSocialLink = (
-    id: string,
-    key: keyof SocialLink,
-    value: string
-  ) => {
-    setForm((prev) => ({
-      ...prev,
-      social_links: prev.social_links.map((link) =>
-        link.id === id ? { ...link, [key]: value } : link
-      ),
-    }));
-  };
-
-  const removeSocialLink = (id: string) => {
-    setForm((prev) => ({
-      ...prev,
-      social_links: prev.social_links.filter((link) => link.id !== id),
-    }));
-  };
-
-  const saveAbout = async () => {
-    if (!profile?.id || !isOwnProfile) return;
-
-    setSaving(true);
-
-    const socialLinks = form.social_links
-      .map((link) => ({
-        id: link.id,
-        label: link.label.trim() || "Website",
-        url: cleanExternalUrl(link.url),
-      }))
-      .filter((link) => link.url);
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        bio: form.bio.trim(),
-        location: form.location.trim(),
-        website: form.website.trim(),
-        occupation: form.occupation.trim(),
-        paranormal_focus: form.paranormal_focus.trim(),
-        experience_years: form.experience_years.trim(),
-        equipment: form.equipment.trim(),
-        favorite_locations: form.favorite_locations.trim(),
-        availability: form.availability.trim(),
-        social_links: socialLinks,
-      })
-      .eq("id", profile.id);
-
-    setSaving(false);
-
-    if (error) {
-      alert(`About save error: ${error.message}`);
-      return;
-    }
-
-    setEditing(false);
-    await onUpdate();
-  };
-
-  const textField = (
-    label: string,
-    key: keyof typeof form,
-    placeholder: string,
-    multiline = false
-  ) => (
-    <div style={fieldWrapStyle}>
-      <div style={fieldLabelStyle}>{label}</div>
-
-      {editing ? (
-        multiline ? (
-          <textarea
-            value={String(form[key] || "")}
-            onChange={(event) => updateField(key, event.target.value)}
-            placeholder={placeholder}
-            rows={4}
-            style={textAreaStyle}
-          />
-        ) : (
-          <input
-            value={String(form[key] || "")}
-            onChange={(event) => updateField(key, event.target.value)}
-            placeholder={placeholder}
-            style={inputStyle}
-          />
-        )
-      ) : (
-        <div style={fieldValueStyle}>{String(form[key] || "Not added yet")}</div>
-      )}
-    </div>
+  const interests = useMemo(
+    () =>
+      interestsText
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 20),
+    [interestsText]
   );
 
-  return (
-    <div style={aboutShellStyle}>
-      <div style={aboutHeaderStyle}>
+  const displayLinks = links
+    .filter((link) => link.url?.trim())
+    .slice(0, MAX_LINKS);
+
+  function updateLink(index: number, key: "label" | "url", value: string) {
+    setLinks((current) =>
+      current.map((link, itemIndex) =>
+        itemIndex === index ? { ...link, [key]: value } : link
+      )
+    );
+  }
+
+  function addLink() {
+    if (links.length >= MAX_LINKS) return;
+
+    setLinks((current) => [
+      ...current,
+      {
+        id: `link-${Date.now()}`,
+        label: "",
+        url: "",
+      },
+    ]);
+  }
+
+  function removeLink(index: number) {
+    setLinks((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function buildPayload(): SavedAboutPayload {
+    const cleanedLinks = links
+      .map((link, index) => {
+        const url = normalizeUrl(link.url || "");
+        return {
+          id: link.id || `link-${index}`,
+          label: (link.label || getHostname(url)).trim(),
+          url,
+        };
+      })
+      .filter((link) => link.url)
+      .slice(0, MAX_LINKS);
+
+    return {
+      about_intro: aboutIntro.trim(),
+      category: category.trim(),
+      location: location.trim(),
+      hometown: hometown.trim(),
+      relationship_status: relationshipStatus.trim(),
+      occupation: occupation.trim(),
+      company: company.trim(),
+      education: education.trim(),
+      website: website.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      interests,
+      profile_links: cleanedLinks,
+    };
+  }
+
+  async function handleSave() {
+    const payload = buildPayload();
+
+    setLocalSaving(true);
+    setSaveMessage("");
+
+    try {
+      saveLocalPayload(profile, payload);
+      await onSave?.(payload);
+
+      setLinks(payload.profile_links);
+      setAboutIntro(payload.about_intro);
+      setCategory(payload.category);
+      setLocation(payload.location);
+      setHometown(payload.hometown);
+      setRelationshipStatus(payload.relationship_status);
+      setOccupation(payload.occupation);
+      setCompany(payload.company);
+      setEducation(payload.education);
+      setWebsite(payload.website);
+      setEmail(payload.email);
+      setPhone(payload.phone);
+      setInterestsText(payload.interests.join(", "));
+
+      setEditing(false);
+      setSaveMessage("Saved");
+      window.setTimeout(() => setSaveMessage(""), 2200);
+    } catch (error) {
+      saveLocalPayload(profile, payload);
+      setSaveMessage("Saved locally. Database save needs wiring on the profile page.");
+      setEditing(false);
+    } finally {
+      setLocalSaving(false);
+    }
+  }
+
+  function renderContent() {
+    if (activeTab === "intro") {
+      return (
         <div>
-          <div style={eyebrowStyle}>Profile About</div>
-          <h3 style={titleStyle}>About</h3>
-          <p style={subtitleStyle}>
-            Share who you are, what you investigate, where people can find you,
-            and your paranormal background.
-          </p>
+          <h3 className="text-lg font-bold text-white">Bio</h3>
+
+          {editing ? (
+            <textarea
+              value={aboutIntro}
+              onChange={(event) => setAboutIntro(event.target.value)}
+              rows={6}
+              maxLength={1200}
+              placeholder="Write a short profile intro..."
+              className="mt-5 min-h-[180px] w-full resize-none rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-[15px] leading-7 text-white outline-none transition placeholder:text-slate-600 focus:border-blue-400/70 focus:ring-4 focus:ring-blue-400/10"
+            />
+          ) : aboutIntro.trim() ? (
+            <p className="mt-5 whitespace-pre-line text-[15px] font-semibold leading-7 text-slate-200">
+              {aboutIntro}
+            </p>
+          ) : (
+            <EmptyState text="No bio has been added yet." />
+          )}
+
+          <div className="mt-8">
+            <h4 className="text-base font-bold text-white">Pinned details</h4>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-semibold text-slate-300">
+              {occupation ? <span>💼 {occupation}</span> : null}
+              {location ? <span>📍 {location}</span> : null}
+              {company ? <span>🏢 {company}</span> : null}
+              {!occupation && !location && !company ? (
+                <span className="text-slate-500">No pinned details yet.</span>
+              ) : null}
+            </div>
+          </div>
         </div>
+      );
+    }
 
-        {isOwnProfile ? (
-          <div style={buttonRowStyle}>
-            {editing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setEditing(false)}
-                  disabled={saving}
-                  style={secondaryButtonStyle}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={saveAbout}
-                  disabled={saving}
-                  style={primaryButtonStyle}
-                >
-                  {saving ? "Saving..." : "Save About"}
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                style={primaryButtonStyle}
-              >
-                Edit About
-              </button>
-            )}
-          </div>
-        ) : null}
-      </div>
+    if (activeTab === "category") {
+      return (
+        <div>
+          <h3 className="text-lg font-bold text-white">Category</h3>
 
-      <div style={sectionGridStyle}>
-        <section style={sectionCardStyle}>
-          <div style={sectionHeaderStyle}>
-            <span style={sectionIconStyle}>👤</span>
-            <div>
-              <h4 style={sectionTitleStyle}>Intro</h4>
-              <p style={sectionSubtitleStyle}>Basic profile information.</p>
+          {editing ? (
+            <div className="mt-5">
+              <Field
+                label="Profile category"
+                value={category}
+                onChange={setCategory}
+                placeholder="Content creator, paranormal researcher, actor..."
+              />
             </div>
-          </div>
-
-          {textField("Bio / Story", "bio", "Tell people about yourself...", true)}
-          {textField("Location", "location", "Toronto, Ontario")}
-          {textField("Occupation / Role", "occupation", "Paranormal investigator, medium, creator...")}
-        </section>
-
-        <section style={sectionCardStyle}>
-          <div style={sectionHeaderStyle}>
-            <span style={sectionIconStyle}>👻</span>
-            <div>
-              <h4 style={sectionTitleStyle}>Paranormal Profile</h4>
-              <p style={sectionSubtitleStyle}>Your paranormal interests and background.</p>
+          ) : category.trim() ? (
+            <div className="mt-5">
+              <DetailLine icon="🏷️" label="Category" value={category} />
             </div>
-          </div>
+          ) : (
+            <EmptyState text="No category has been added yet." />
+          )}
+        </div>
+      );
+    }
 
-          {textField("Paranormal Focus", "paranormal_focus", "Ghost hunting, mediumship, UFOs, cryptids...", true)}
-          {textField("Experience", "experience_years", "12 years, beginner, professional...")}
-          {textField("Equipment", "equipment", "Spirit box, REM pod, cameras, recorders...", true)}
-        </section>
+    if (activeTab === "personal") {
+      return (
+        <div>
+          <h3 className="text-lg font-bold text-white">Personal details</h3>
 
-        <section style={sectionCardStyle}>
-          <div style={sectionHeaderStyle}>
-            <span style={sectionIconStyle}>🏚️</span>
-            <div>
-              <h4 style={sectionTitleStyle}>Investigation Details</h4>
-              <p style={sectionSubtitleStyle}>Places, availability, and investigation style.</p>
+          {editing ? (
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <Field label="Lives in" value={location} onChange={setLocation} placeholder="Toronto, Ontario" />
+              <Field label="Hometown" value={hometown} onChange={setHometown} placeholder="Your hometown" />
+              <Field label="Relationship status" value={relationshipStatus} onChange={setRelationshipStatus} placeholder="Optional" />
             </div>
-          </div>
+          ) : location || hometown || relationshipStatus ? (
+            <div className="mt-5 grid gap-3">
+              <DetailLine icon="📍" label="Lives in" value={location} />
+              <DetailLine icon="🏠" label="From" value={hometown} />
+              <DetailLine icon="💬" label="Status" value={relationshipStatus} />
+            </div>
+          ) : (
+            <EmptyState text="No personal details have been added yet." />
+          )}
+        </div>
+      );
+    }
 
-          {textField("Favorite Locations", "favorite_locations", "Haunted locations, asylums, historic sites...", true)}
-          {textField("Availability", "availability", "Available for investigations, collabs, interviews...")}
-        </section>
-
-        <section style={sectionCardStyle}>
-          <div style={sectionHeaderStyle}>
-            <span style={sectionIconStyle}>🔗</span>
+    if (activeTab === "links") {
+      return (
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h4 style={sectionTitleStyle}>Links & Socials</h4>
-              <p style={sectionSubtitleStyle}>
-                Add Facebook, Instagram, TikTok, websites, podcasts, and more.
+              <h3 className="text-lg font-bold text-white">Links</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Add up to {MAX_LINKS} social media or website links.
               </p>
             </div>
+
+            {editing ? (
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-300">
+                {links.length}/{MAX_LINKS}
+              </span>
+            ) : null}
           </div>
 
           {editing ? (
-            <div style={{ display: "grid", gap: "12px" }}>
-              {form.social_links.length === 0 ? (
-                <div style={emptyBoxStyle}>No links added yet.</div>
-              ) : null}
-
-              {form.social_links.map((link) => (
-                <div key={link.id} style={linkEditorRowStyle}>
-                  <select
-                    value={link.label}
-                    onChange={(event) =>
-                      updateSocialLink(link.id, "label", event.target.value)
-                    }
-                    style={selectStyle}
-                  >
-                    {LINK_PRESETS.map((preset) => (
-                      <option key={preset} value={preset}>
-                        {preset}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    value={link.url}
-                    onChange={(event) =>
-                      updateSocialLink(link.id, "url", event.target.value)
-                    }
-                    placeholder="https://..."
-                    style={inputStyle}
-                  />
+            <div className="mt-5 space-y-3">
+              {links.map((link, index) => (
+                <div key={link.id || index} className="rounded-2xl border border-white/10 bg-slate-950/60 p-3">
+                  <div className="grid gap-2 md:grid-cols-[0.8fr_1.2fr]">
+                    <input
+                      value={link.label || ""}
+                      onChange={(event) => updateLink(index, "label", event.target.value)}
+                      placeholder="Instagram, YouTube, Website..."
+                      className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-400/70"
+                    />
+                    <input
+                      value={link.url || ""}
+                      onChange={(event) => updateLink(index, "url", event.target.value)}
+                      placeholder="https://example.com"
+                      className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-400/70"
+                    />
+                  </div>
 
                   <button
                     type="button"
-                    onClick={() => removeSocialLink(link.id)}
-                    style={dangerButtonStyle}
+                    onClick={() => removeLink(index)}
+                    className="mt-2 text-xs font-bold text-rose-300 transition hover:text-rose-200"
                   >
                     Remove
                   </button>
                 </div>
               ))}
 
-              <button type="button" onClick={addSocialLink} style={addLinkButtonStyle}>
-                + Add another link
-              </button>
+              {links.length < MAX_LINKS ? (
+                <button
+                  type="button"
+                  onClick={addLink}
+                  className="w-full rounded-2xl border border-dashed border-blue-400/40 bg-blue-500/10 px-4 py-3 text-sm font-bold text-blue-200 transition hover:border-blue-300 hover:bg-blue-500/15"
+                >
+                  Add Link
+                </button>
+              ) : null}
             </div>
-          ) : form.social_links.length > 0 ? (
-            <div style={linkButtonGridStyle}>
-              {form.social_links.map((link) => {
-                const safeUrl = cleanExternalUrl(link.url);
-                if (!safeUrl) return null;
-
-                return (
-                  <a
-                    key={link.id}
-                    href={safeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={socialButtonStyle}
-                  >
-                    {link.label}
-                  </a>
-                );
-              })}
+          ) : displayLinks.length > 0 ? (
+            <div className="mt-5 grid gap-3">
+              {displayLinks.map((link, index) => (
+                <Link
+                  key={link.id || `${link.url}-${index}`}
+                  href={normalizeUrl(link.url || "")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 transition hover:border-blue-400/50 hover:bg-blue-500/10"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-slate-100">
+                      {link.label || getHostname(link.url || "")}
+                    </span>
+                    <span className="block truncate text-xs font-medium text-slate-500 group-hover:text-blue-200">
+                      {getHostname(link.url || "")}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs font-black text-blue-300">
+                    Open
+                  </span>
+                </Link>
+              ))}
             </div>
           ) : (
-            <div style={emptyBoxStyle}>No links added yet.</div>
+            <EmptyState text="No links have been added yet." />
           )}
-        </section>
+        </div>
+      );
+    }
+
+    if (activeTab === "work") {
+      return (
+        <div>
+          <h3 className="text-lg font-bold text-white">Work</h3>
+
+          {editing ? (
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <Field label="Occupation" value={occupation} onChange={setOccupation} placeholder="Actor, creator, researcher..." />
+              <Field label="Company / organization" value={company} onChange={setCompany} placeholder="Parapost Network Central" />
+            </div>
+          ) : occupation || company ? (
+            <div className="mt-5 grid gap-3">
+              <DetailLine icon="💼" label="Occupation" value={occupation} />
+              <DetailLine icon="🏢" label="Company" value={company} />
+            </div>
+          ) : (
+            <EmptyState text="No work details have been added yet." />
+          )}
+        </div>
+      );
+    }
+
+    if (activeTab === "education") {
+      return (
+        <div>
+          <h3 className="text-lg font-bold text-white">Education</h3>
+
+          {editing ? (
+            <div className="mt-5">
+              <Field label="Education" value={education} onChange={setEducation} placeholder="School, training, certifications..." />
+            </div>
+          ) : education.trim() ? (
+            <div className="mt-5">
+              <DetailLine icon="🎓" label="Education" value={education} />
+            </div>
+          ) : (
+            <EmptyState text="No education details have been added yet." />
+          )}
+        </div>
+      );
+    }
+
+    if (activeTab === "interests") {
+      return (
+        <div>
+          <h3 className="text-lg font-bold text-white">Interests</h3>
+
+          {editing ? (
+            <div className="mt-5">
+              <label className="block">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                  Interests
+                </span>
+                <input
+                  value={interestsText}
+                  onChange={(event) => setInterestsText(event.target.value)}
+                  placeholder="Paranormal, investigations, filmmaking..."
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm font-medium text-white outline-none placeholder:text-slate-600 focus:border-blue-400/70 focus:ring-4 focus:ring-blue-400/10"
+                />
+              </label>
+              <p className="mt-2 text-xs text-slate-500">Separate each interest with a comma.</p>
+            </div>
+          ) : interests.length > 0 ? (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {interests.map((interest) => (
+                <span key={interest} className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-slate-200">
+                  {interest}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="No interests have been added yet." />
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <h3 className="text-lg font-bold text-white">Contact info</h3>
+
+        {editing ? (
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <Field label="Website" value={website} onChange={setWebsite} placeholder="https://yourwebsite.com" />
+            <Field label="Email" value={email} onChange={setEmail} placeholder="name@email.com" />
+            <Field label="Phone" value={phone} onChange={setPhone} placeholder="Optional" />
+          </div>
+        ) : website || email || phone ? (
+          <div className="mt-5 grid gap-3">
+            {website ? (
+              <Link
+                href={normalizeUrl(website)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-bold text-blue-300 transition hover:border-blue-400/50 hover:bg-blue-500/10"
+              >
+                🌐 {getHostname(website)}
+              </Link>
+            ) : null}
+            <DetailLine icon="✉️" label="Email" value={email} />
+            <DetailLine icon="☎️" label="Phone" value={phone} />
+          </div>
+        ) : (
+          <EmptyState text="No contact info has been added yet." />
+        )}
       </div>
-    </div>
+    );
+  }
+
+  const isSavingNow = saving || localSaving;
+
+  return (
+    <section className="w-full">
+      <div className="overflow-hidden rounded-[18px] border border-white/10 bg-[#202223] shadow-2xl shadow-black/20">
+        <div className="grid min-h-[560px] lg:grid-cols-[288px_1fr]">
+          <aside className="border-b border-white/10 bg-[#202223] p-4 lg:border-b-0 lg:border-r">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-xl font-black tracking-tight text-slate-100">
+                About
+              </h2>
+
+              {isOwnProfile ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaveMessage("");
+                    setEditing((value) => !value);
+                  }}
+                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-slate-200 transition hover:bg-white/15"
+                >
+                  {editing ? "Close" : "Edit"}
+                </button>
+              ) : null}
+            </div>
+
+            <select
+              value={activeTab}
+              onChange={(event) => setActiveTab(event.target.value as AboutTab)}
+              className="mb-4 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-3 text-sm font-bold text-white outline-none focus:border-blue-400/70 lg:hidden"
+            >
+              {tabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+
+            <nav className="hidden space-y-1 lg:block">
+              {tabs.map((tab) => {
+                const active = activeTab === tab.id;
+
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={[
+                      "w-full rounded-md px-4 py-3 text-left text-sm font-bold transition",
+                      active
+                        ? "bg-blue-500/25 text-blue-300"
+                        : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-200",
+                    ].join(" ")}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+
+          <main className="bg-[#202223] p-4 md:p-6">
+            <div className="min-h-[420px]">{renderContent()}</div>
+
+            {saveMessage ? (
+              <p className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-bold text-emerald-200">
+                {saveMessage}
+              </p>
+            ) : null}
+
+            {editing ? (
+              <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaveMessage("");
+                    setEditing(false);
+                  }}
+                  className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSavingNow}
+                  className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-black text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingNow ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            ) : null}
+          </main>
+        </div>
+      </div>
+    </section>
   );
 }
-
-const aboutShellStyle: CSSProperties = {
-  width: "100%",
-  display: "grid",
-  gap: "18px",
-};
-
-const aboutHeaderStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "14px",
-  alignItems: "flex-start",
-  flexWrap: "wrap",
-};
-
-const eyebrowStyle: CSSProperties = {
-  color: "#a78bfa",
-  fontSize: "12px",
-  fontWeight: 900,
-  letterSpacing: "0.18em",
-  textTransform: "uppercase",
-  marginBottom: "6px",
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  color: "#f9fafb",
-  fontSize: "24px",
-  fontWeight: 950,
-  letterSpacing: "-0.03em",
-};
-
-const subtitleStyle: CSSProperties = {
-  margin: "8px 0 0",
-  color: "#9ca3af",
-  fontSize: "14px",
-  lineHeight: 1.6,
-  maxWidth: "680px",
-};
-
-const buttonRowStyle: CSSProperties = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const primaryButtonStyle: CSSProperties = {
-  background: "white",
-  color: "black",
-  border: "none",
-  borderRadius: "999px",
-  padding: "10px 16px",
-  minHeight: "42px",
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const secondaryButtonStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
-  color: "white",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "999px",
-  padding: "10px 16px",
-  minHeight: "42px",
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
-const sectionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  gap: "14px",
-};
-
-const sectionCardStyle: CSSProperties = {
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.060) 0%, rgba(255,255,255,0.032) 100%)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: "24px",
-  padding: "16px",
-  boxShadow: "0 14px 34px rgba(0,0,0,0.22)",
-  minWidth: 0,
-};
-
-const sectionHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "16px",
-};
-
-const sectionIconStyle: CSSProperties = {
-  width: "42px",
-  height: "42px",
-  borderRadius: "15px",
-  display: "grid",
-  placeItems: "center",
-  background: "rgba(168,85,247,0.12)",
-  border: "1px solid rgba(168,85,247,0.24)",
-  fontSize: "20px",
-};
-
-const sectionTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "#f9fafb",
-  fontSize: "16px",
-  fontWeight: 950,
-};
-
-const sectionSubtitleStyle: CSSProperties = {
-  margin: "4px 0 0",
-  color: "#9ca3af",
-  fontSize: "12px",
-  lineHeight: 1.5,
-};
-
-const fieldWrapStyle: CSSProperties = {
-  display: "grid",
-  gap: "6px",
-  marginBottom: "12px",
-};
-
-const fieldLabelStyle: CSSProperties = {
-  color: "#a78bfa",
-  fontSize: "12px",
-  fontWeight: 900,
-};
-
-const fieldValueStyle: CSSProperties = {
-  color: "#f9fafb",
-  fontSize: "14px",
-  lineHeight: 1.65,
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
-};
-
-const inputStyle: CSSProperties = {
-  width: "100%",
-  background: "rgba(0,0,0,0.28)",
-  color: "#f9fafb",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "14px",
-  padding: "11px 12px",
-  outline: "none",
-  fontSize: "14px",
-};
-
-const textAreaStyle: CSSProperties = {
-  ...inputStyle,
-  resize: "vertical",
-  minHeight: "110px",
-  lineHeight: 1.6,
-};
-
-const selectStyle: CSSProperties = {
-  ...inputStyle,
-  minWidth: "130px",
-};
-
-const emptyBoxStyle: CSSProperties = {
-  border: "1px dashed rgba(255,255,255,0.16)",
-  borderRadius: "16px",
-  padding: "13px",
-  color: "#9ca3af",
-  fontSize: "13px",
-};
-
-const linkEditorRowStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "150px minmax(0, 1fr) auto",
-  gap: "10px",
-  alignItems: "center",
-};
-
-const dangerButtonStyle: CSSProperties = {
-  background: "rgba(239,68,68,0.10)",
-  color: "#fca5a5",
-  border: "1px solid rgba(239,68,68,0.24)",
-  borderRadius: "999px",
-  padding: "10px 12px",
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const addLinkButtonStyle: CSSProperties = {
-  background: "rgba(168,85,247,0.12)",
-  color: "#e9d5ff",
-  border: "1px solid rgba(168,85,247,0.28)",
-  borderRadius: "999px",
-  padding: "11px 14px",
-  fontWeight: 900,
-  cursor: "pointer",
-  width: "fit-content",
-};
-
-const linkButtonGridStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "10px",
-};
-
-const socialButtonStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minHeight: "40px",
-  padding: "0 14px",
-  borderRadius: "999px",
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  color: "#f9fafb",
-  textDecoration: "none",
-  fontWeight: 900,
-  fontSize: "13px",
-};

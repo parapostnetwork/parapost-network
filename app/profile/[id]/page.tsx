@@ -397,6 +397,46 @@ export default function ProfilePage() {
 
   const isOwnProfile = !!viewerId && viewerId === profileId;
 
+  // ✅ 🔥 ADD THIS FUNCTION RIGHT HERE
+  const handleSaveProfileAbout = async (payload: any) => {
+    if (!viewerId || !isOwnProfile) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        about_intro: payload.about_intro,
+        category: payload.category,
+        location: payload.location,
+        hometown: payload.hometown,
+        relationship_status: payload.relationship_status,
+        occupation: payload.occupation,
+        company: payload.company,
+        education: payload.education,
+        website: payload.website,
+        email: payload.email,
+        phone: payload.phone,
+        interests: payload.interests,
+        profile_links: payload.profile_links,
+      })
+      .eq("id", viewerId);
+
+    if (error) {
+      console.error("SAVE ERROR:", error);
+      alert("Save failed: " + error.message);
+      return;
+    }
+
+    // 🔥 Prevent UI from disappearing after save
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            ...payload,
+          }
+        : prev
+    );
+  };
+
   const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
     return [
       ...posts.map((post) => ({ ...post, feedKind: "post" as const })),
@@ -1413,7 +1453,7 @@ return (
                   <ProfileAboutSection
                     profile={profile}
                     isOwnProfile={isOwnProfile}
-                    onUpdate={loadPage}
+                    onSave={handleSaveProfileAbout}
                   />
                 </div>
               )}
