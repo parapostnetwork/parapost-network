@@ -514,22 +514,55 @@ export default function ProfileAboutSection({
             <EmptyState text="No bio has been added yet." />
           )}
 
-          <div className="mt-8">
-            <h4 className="text-base font-semibold text-white tracking-tight">Pinned details</h4>
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-semibold text-slate-300">
-              {occupation ? <span>💼 {occupation}</span> : null}
-              {location ? <span>📍 {location}</span> : null}
-              {company ? <span>🏢 {company}</span> : null}
-              {!occupation && !location && !company ? (
-                <span className="text-slate-500">No pinned details yet.</span>
-              ) : null}
-            </div>
-          </div>
+         <div className="mt-8">
+  <h4 className="text-base font-semibold text-white tracking-tight">
+    Pinned details
+  </h4>
+
+  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    {occupation ? (
+      <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+        <span className="text-lg">💼</span>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Role</p>
+          <p className="text-sm font-semibold text-white">{occupation}</p>
+        </div>
+      </div>
+    ) : null}
+
+    {location ? (
+      <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+        <span className="text-lg">📍</span>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Location</p>
+          <p className="text-sm font-semibold text-white">{location}</p>
+        </div>
+      </div>
+    ) : null}
+
+    {company ? (
+      <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+        <span className="text-lg">🏢</span>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Organization
+          </p>
+          <p className="text-sm font-semibold text-white">{company}</p>
+        </div>
+      </div>
+    ) : null}
+  </div>
+
+  {!occupation && !location && !company ? (
+    <p className="mt-4 text-sm text-slate-500">No pinned details yet.</p>
+  ) : null}
+</div>
+
         </div>
       );
     }
 
-    if (activeTab === "category") {
+      if (activeTab === "category") {
       return (
         <div>
           <h3 className="text-lg font-semibold text-white tracking-tight">Category</h3>

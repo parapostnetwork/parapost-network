@@ -1643,10 +1643,10 @@ return (
                       justifyContent: "space-between",
                       alignItems: "center",
                       gap: "12px",
-                      flexWrap: "wrap",
+                      flexWrap: "wrap" as const,
                       marginTop: "12px",
                     }}
-                  >
+           >
                     <p style={{ margin: 0, color: "#6b7280", fontSize: "13px" }}>
                       This will appear on your profile and in the homepage feed.
                     </p>
