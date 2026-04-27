@@ -485,22 +485,33 @@ export default function ProfilePage() {
     ] = await Promise.all([
       supabase
         .from("profiles")
-        .select(`
-          id,
-          username,
-          full_name,
-          bio,
-          avatar_url,
-          is_online,
-          location,
-          website,
-          occupation,
-          paranormal_focus,
-          experience_years,
-          equipment,
-          favorite_locations,
-          availability
-        `)
+       .select(`
+  id,
+  username,
+  full_name,
+  bio,
+  avatar_url,
+  is_online,
+  location,
+  website,
+  occupation,
+  paranormal_focus,
+  experience_years,
+  equipment,
+  favorite_locations,
+  availability,
+
+  about_intro,
+  category,
+  hometown,
+  relationship_status,
+  company,
+  education,
+  email,
+  phone,
+  interests,
+  profile_links
+`) 
         .eq("id", profileId)
         .maybeSingle(),
       supabase
@@ -1361,10 +1372,28 @@ return (
                     </p>
 
                     <div style={profileMetaRowStyle}>
-                      <span>📍 Toronto, Ontario</span>
-                      <span>🔗 parapostnetwork.com</span>
+                      {profile?.location ? <span>📍 {profile.location}</span> : null}
+
+                      {profile?.website ? (
+                        <a
+                          href={
+                            profile.website.startsWith("http")
+                              ? profile.website
+                              : `https://${profile.website}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ textDecoration: "none", color: "#c084fc", fontWeight: 600 }}
+                  >
+                         🔗{" "}
+                         {profile.website
+                            .replace(/^https?:\/\//, "")
+                            .replace(/^www\./, "")}
+                         </a>
+                       ) : null}
+
                       <span>📅 Joined Parapost</span>
-                    </div>
+                      </div>
                   </div>
                 </div>
 
@@ -2762,12 +2791,13 @@ const profileHeroInfoStyle: CSSProperties = {
   paddingBottom: "10px",
 };
 
-const profileHeroTopLineStyle: CSSProperties = {
+const profileHeroTopLineStyle = {
   display: "flex",
-  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: "16px",
+  alignItems: "flex-start",
+  gap: "18px",
   flexWrap: "wrap",
+  marginBottom: "10px",
 };
 
 const profileHeroNameStyle: CSSProperties = {
@@ -2809,33 +2839,29 @@ const profileHeroActionsStyle: CSSProperties = {
   flexWrap: "wrap",
 };
 
-const profilePrimaryButtonStyle: CSSProperties = {
-  background: "linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)",
-  color: "white",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "14px",
-  padding: "11px 16px",
-  fontWeight: 900,
+const profilePrimaryButtonStyle = {
+  background: "linear-gradient(135deg,#a855f7,#7c3aed)",
+  color: "#fff",
+  border: "none",
+  borderRadius: "999px",
+  padding: "10px 18px",
+  fontWeight: 700,
+  fontSize: "13px",
   cursor: "pointer",
-  minHeight: "42px",
-  textDecoration: "none",
-  boxShadow: "0 10px 26px rgba(126,34,206,0.28)",
-  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+  boxShadow: "0 6px 18px rgba(168,85,247,0.35)",
+  transition: "all 0.2s ease",
 };
 
-const profileGlassButtonStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.055)",
-  color: "white",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "14px",
-  padding: "11px 16px",
-  fontWeight: 800,
+const profileGlassButtonStyle = {
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.14)",
+  color: "#f9fafb",
+  borderRadius: "999px",
+  padding: "10px 16px",
+  fontWeight: 600,
+  fontSize: "13px",
   cursor: "pointer",
-  minHeight: "42px",
-  textDecoration: "none",
-  display: "inline-flex",
-  alignItems: "center",
-  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+  backdropFilter: "blur(10px)",
 };
 
 const profileIconButtonStyle: CSSProperties = {
@@ -2944,7 +2970,11 @@ const profileTabsShellStyle: CSSProperties = {
 
 const profileTabsStyle: CSSProperties = {
   display: "flex",
-  gap: "4px",
+  gap: "6px",
+  padding: "6px",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.08)",
   overflowX: "auto",
 };
 
@@ -2960,8 +2990,10 @@ const profileTabStyle: CSSProperties = {
 
 const profileActiveTabStyle: CSSProperties = {
   ...profileTabStyle,
-  color: "#c084fc",
-  borderBottom: "2px solid #a855f7",
+  background: "linear-gradient(135deg,#a855f7,#7c3aed)",
+  color: "#ffffff",
+  borderBottom: "2px solid transparent",
+  borderRadius: "999px",
 };
 
 const profileMobileTabSelectStyle: CSSProperties = {

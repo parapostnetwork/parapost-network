@@ -78,15 +78,15 @@ type ProfileAboutSectionProps = {
 
 const MAX_LINKS = 10;
 
-const tabs: { id: AboutTab; label: string }[] = [
-  { id: "intro", label: "Intro" },
-  { id: "category", label: "Category" },
-  { id: "personal", label: "Personal details" },
-  { id: "links", label: "Links" },
-  { id: "work", label: "Work" },
-  { id: "education", label: "Education" },
-  { id: "interests", label: "Interests" },
-  { id: "contact", label: "Contact info" },
+const tabs: { id: AboutTab; label: string; icon: string }[] = [
+  { id: "intro", label: "Intro", icon: "👤" },
+  { id: "category", label: "Category", icon: "🏷️" },
+  { id: "personal", label: "Personal details", icon: "📍" },
+  { id: "links", label: "Links", icon: "🔗" },
+  { id: "work", label: "Work", icon: "💼" },
+  { id: "education", label: "Education", icon: "🎓" },
+  { id: "interests", label: "Interests", icon: "⭐" },
+  { id: "contact", label: "Contact info", icon: "☎️" },
 ];
 
 function getStorageKey(profile?: ProfileAboutData | null) {
@@ -495,7 +495,7 @@ export default function ProfileAboutSection({
     if (activeTab === "intro") {
       return (
         <div>
-          <h3 className="text-lg font-bold text-white">Bio</h3>
+          <h3 className="text-lg font-semibold text-white tracking-tight">Bio</h3>
 
           {editing ? (
             <textarea
@@ -515,7 +515,7 @@ export default function ProfileAboutSection({
           )}
 
           <div className="mt-8">
-            <h4 className="text-base font-bold text-white">Pinned details</h4>
+            <h4 className="text-base font-semibold text-white tracking-tight">Pinned details</h4>
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-semibold text-slate-300">
               {occupation ? <span>💼 {occupation}</span> : null}
               {location ? <span>📍 {location}</span> : null}
@@ -532,7 +532,7 @@ export default function ProfileAboutSection({
     if (activeTab === "category") {
       return (
         <div>
-          <h3 className="text-lg font-bold text-white">Category</h3>
+          <h3 className="text-lg font-semibold text-white tracking-tight">Category</h3>
 
           {editing ? (
             <div className="mt-5">
@@ -557,7 +557,7 @@ export default function ProfileAboutSection({
     if (activeTab === "personal") {
       return (
         <div>
-          <h3 className="text-lg font-bold text-white">Personal details</h3>
+          <h3 className="text-lg font-semibold text-white tracking-tight">Personal details</h3>
 
           {editing ? (
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -583,7 +583,7 @@ export default function ProfileAboutSection({
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-bold text-white">Links</h3>
+              <h3 className="text-lg font-semibold text-white tracking-tight">Links</h3>
               <p className="mt-1 text-sm text-slate-500">
                 Add up to {MAX_LINKS} social media or website links.
               </p>
@@ -669,7 +669,7 @@ export default function ProfileAboutSection({
     if (activeTab === "work") {
       return (
         <div>
-          <h3 className="text-lg font-bold text-white">Work</h3>
+          <h3 className="text-lg font-semibold text-white tracking-tight">Work</h3>
 
           {editing ? (
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -691,7 +691,7 @@ export default function ProfileAboutSection({
     if (activeTab === "education") {
       return (
         <div>
-          <h3 className="text-lg font-bold text-white">Education</h3>
+          <h3 className="text-lg font-semibold text-white tracking-tight">Education</h3>
 
           {editing ? (
             <div className="mt-5">
@@ -711,7 +711,7 @@ export default function ProfileAboutSection({
     if (activeTab === "interests") {
       return (
         <div>
-          <h3 className="text-lg font-bold text-white">Interests</h3>
+          <h3 className="text-lg font-semibold text-white tracking-tight">Interests</h3>
 
           {editing ? (
             <div className="mt-5">
@@ -745,7 +745,7 @@ export default function ProfileAboutSection({
 
     return (
       <div>
-        <h3 className="text-lg font-bold text-white">Contact info</h3>
+        <h3 className="text-lg font-semibold text-white tracking-tight">Contact info</h3>
 
         {editing ? (
           <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -794,7 +794,7 @@ export default function ProfileAboutSection({
                     setSaveMessage("");
                     setEditing((value) => !value);
                   }}
-                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-slate-200 transition hover:bg-white/15"
+                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/15 transition"
                 >
                   {editing ? "Close" : "Edit"}
                 </button>
@@ -808,7 +808,7 @@ export default function ProfileAboutSection({
             >
               {tabs.map((tab) => (
                 <option key={tab.id} value={tab.id}>
-                  {tab.label}
+                  {tab.icon} {tab.label}
                 </option>
               ))}
             </select>
@@ -825,11 +825,14 @@ export default function ProfileAboutSection({
                     className={[
                       "w-full rounded-md px-4 py-3 text-left text-sm font-bold transition",
                       active
-                        ? "bg-blue-500/25 text-blue-300"
-                        : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-200",
+                        ? "bg-blue-500/30 text-blue-200 border-l-2 border-blue-400 pl-3"
+                        : "text-slate-400 hover:bg-white/[0.06] hover:text-white",
                     ].join(" ")}
                   >
-                    {tab.label}
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </div>
                   </button>
                 );
               })}
