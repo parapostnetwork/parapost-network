@@ -2791,7 +2791,7 @@ const profileHeroInfoStyle: CSSProperties = {
   paddingBottom: "10px",
 };
 
-const profileHeroTopLineStyle = {
+const profileHeroTopLineStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
@@ -2839,7 +2839,7 @@ const profileHeroActionsStyle: CSSProperties = {
   flexWrap: "wrap",
 };
 
-const profilePrimaryButtonStyle = {
+const profilePrimaryButtonStyle: React.CSSProperties = {
   background: "linear-gradient(135deg,#a855f7,#7c3aed)",
   color: "#fff",
   border: "none",
@@ -2852,7 +2852,7 @@ const profilePrimaryButtonStyle = {
   transition: "all 0.2s ease",
 };
 
-const profileGlassButtonStyle = {
+const profileGlassButtonStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.06)",
   border: "1px solid rgba(255,255,255,0.14)",
   color: "#f9fafb",
