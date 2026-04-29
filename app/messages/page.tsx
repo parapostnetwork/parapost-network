@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  Suspense,
   useRef,
   useState,
 } from "react";
@@ -107,7 +108,30 @@ function getProfileName(profile?: ProfileRow | null) {
   return profile?.full_name || profile?.username || "Parapost Member";
 }
 
-export default function MessagesPage() {
+export default function MessagesPageWrapper() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            background: "#05070a",
+            color: "white",
+            display: "grid",
+            placeItems: "center",
+            fontWeight: 900,
+          }}
+        >
+          Loading Parachat...
+        </div>
+      }
+    >
+      <MessagesPage />
+    </Suspense>
+  );
+}
+
+function MessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
