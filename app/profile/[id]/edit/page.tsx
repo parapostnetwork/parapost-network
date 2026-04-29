@@ -13,6 +13,8 @@ type ProfileRow = {
   is_online?: boolean | null;
 };
 
+const BIO_MAX_LENGTH = 175;
+
 const pageShellStyle: CSSProperties = {
   minHeight: "100vh",
   background: "#07090d",
@@ -26,7 +28,8 @@ const containerStyle: CSSProperties = {
 };
 
 const cardStyle: CSSProperties = {
-  background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.04) 100%)",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.04) 100%)",
   borderRadius: "28px",
   padding: "20px",
   border: "1px solid rgba(255,255,255,0.10)",
@@ -61,6 +64,16 @@ const labelStyle: CSSProperties = {
   letterSpacing: "0.02em",
 };
 
+const helperRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "10px",
+  marginTop: "6px",
+  color: "#9ca3af",
+  fontSize: "12px",
+};
+
 const primaryButtonStyle: CSSProperties = {
   background: "white",
   color: "#07090d",
@@ -88,6 +101,10 @@ function getInitial(name?: string | null, username?: string | null) {
   return value.charAt(0).toUpperCase();
 }
 
+function cleanText(value: string) {
+  return value.trim().replace(/<[^>]*>/g, "");
+}
+
 export default function EditProfilePage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [email, setEmail] = useState("");
@@ -99,6 +116,7 @@ export default function EditProfilePage() {
   const [fullName, setFullName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -133,7 +151,7 @@ export default function EditProfilePage() {
 
       setUsername(profile?.username || "");
       setFullName(profile?.full_name || "");
-      setBio(profile?.bio || "");
+      setBio((profile?.bio || "").slice(0, BIO_MAX_LENGTH));
       setAvatarUrl(profile?.avatar_url || "");
       setLoading(false);
     };
@@ -160,7 +178,10 @@ export default function EditProfilePage() {
       return;
     }
 
-    const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
+    const { data: publicUrlData } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(fileName);
+
     const nextAvatarUrl = publicUrlData.publicUrl;
 
     const { error: updateError } = await supabase
@@ -179,8 +200,8 @@ export default function EditProfilePage() {
     setStatusMessage("Avatar updated.");
   };
 
-  const handleSave = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (event: FormEvent) => {
+    event.preventDefault();
 
     if (!currentUserId) {
       setStatusMessage("You need to be logged in to save changes.");
@@ -190,15 +211,15 @@ export default function EditProfilePage() {
     setSaving(true);
     setStatusMessage("");
 
-    const cleanedUsername = username.trim();
-    const cleanedFullName = fullName.trim();
-    const cleanedBio = bio.trim();
+    const cleanedUsername = cleanText(username);
+    const cleanedFullName = cleanText(fullName);
+    const cleanedBio = cleanText(bio).slice(0, BIO_MAX_LENGTH);
 
     const { error } = await supabase.from("profiles").upsert({
-     id: currentUserId,
-     username: cleanedUsername || "",
-     full_name: cleanedFullName || "",
-     bio: (cleanedBio || "").replace(/<[^>]*>/g, ""),
+      id: currentUserId,
+      username: cleanedUsername || "",
+      full_name: cleanedFullName || "",
+      bio: cleanedBio || "",
     });
 
     if (error) {
@@ -207,6 +228,7 @@ export default function EditProfilePage() {
       return;
     }
 
+    setBio(cleanedBio);
     setSaving(false);
     setStatusMessage("Profile updated successfully.");
   };
@@ -238,9 +260,20 @@ export default function EditProfilePage() {
                 >
                   Parapost Network
                 </p>
-                <h1 style={{ margin: "0 0 8px", fontSize: "30px", lineHeight: 1.1 }}>Edit Profile</h1>
+
+                <h1
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: "30px",
+                    lineHeight: 1.1,
+                  }}
+                >
+                  Edit Profile
+                </h1>
+
                 <p style={{ margin: 0, color: "#9ca3af", fontSize: "14px" }}>
-                  Update your public profile details so your dashboard, profile, and notifications stay consistent.
+                  Update your public profile details so your dashboard, profile,
+                  and notifications stay consistent.
                 </p>
               </div>
 
@@ -252,10 +285,17 @@ export default function EditProfilePage() {
                   flexWrap: "wrap",
                 }}
               >
-                <Link href="/dashboard" style={{ ...secondaryButtonStyle, textDecoration: "none" }}>
+                <Link
+                  href="/dashboard"
+                  style={{ ...secondaryButtonStyle, textDecoration: "none" }}
+                >
                   Back to Dashboard
                 </Link>
-                <Link href={currentUserId ? `/profile/${currentUserId}` : "/dashboard"} style={{ ...secondaryButtonStyle, textDecoration: "none" }}>
+
+                <Link
+                  href={currentUserId ? `/profile/${currentUserId}` : "/dashboard"}
+                  style={{ ...secondaryButtonStyle, textDecoration: "none" }}
+                >
                   View Profile
                 </Link>
               </div>
@@ -289,9 +329,14 @@ export default function EditProfilePage() {
           >
             <div style={cardStyle}>
               {loading ? (
-                <p style={{ margin: 0, color: "#9ca3af" }}>Loading profile...</p>
+                <p style={{ margin: 0, color: "#9ca3af" }}>
+                  Loading profile...
+                </p>
               ) : (
-                <form onSubmit={handleSave} style={{ display: "grid", gap: "18px" }}>
+                <form
+                  onSubmit={handleSave}
+                  style={{ display: "grid", gap: "18px" }}
+                >
                   <div
                     style={{
                       display: "flex",
@@ -332,22 +377,35 @@ export default function EditProfilePage() {
                     </div>
 
                     <div style={{ display: "grid", gap: "10px" }}>
-                      <div style={{ color: "#d1d5db", fontWeight: 600 }}>Profile photo</div>
-                      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      <div style={{ color: "#d1d5db", fontWeight: 600 }}>
+                        Profile photo
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           style={secondaryButtonStyle}
+                          disabled={uploadingAvatar}
                         >
                           {uploadingAvatar ? "Uploading..." : "Upload Avatar"}
                         </button>
                       </div>
+
                       <input
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
                         style={{ display: "none" }}
-                        onChange={(e) => handleAvatarUpload(e.target.files?.[0] || null)}
+                        onChange={(event) =>
+                          handleAvatarUpload(event.target.files?.[0] || null)
+                        }
                       />
                     </div>
                   </div>
@@ -356,11 +414,12 @@ export default function EditProfilePage() {
                     <label htmlFor="username" style={labelStyle}>
                       Username
                     </label>
+
                     <input
                       id="username"
                       type="text"
                       value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      onChange={(event) => setUsername(event.target.value)}
                       placeholder="Enter your username"
                       style={inputStyle}
                     />
@@ -370,11 +429,12 @@ export default function EditProfilePage() {
                     <label htmlFor="fullName" style={labelStyle}>
                       Full Name
                     </label>
+
                     <input
                       id="fullName"
                       type="text"
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      onChange={(event) => setFullName(event.target.value)}
                       placeholder="Enter your full name"
                       style={inputStyle}
                     />
@@ -384,13 +444,20 @@ export default function EditProfilePage() {
                     <label htmlFor="bio" style={labelStyle}>
                       Bio
                     </label>
+
                     <textarea
                       id="bio"
                       value={bio}
-                      onChange={(e) => setBio(e.target.value)}
+                      onChange={(event) => setBio(event.target.value)}
+                      maxLength={BIO_MAX_LENGTH}
                       placeholder="Tell the Parapost community a little about yourself..."
                       style={textareaStyle}
                     />
+
+                    <div style={helperRowStyle}>
+                      <span>Keep it short and clear for your public profile.</span>
+                      <span>{bio.length}/{BIO_MAX_LENGTH}</span>
+                    </div>
                   </div>
 
                   {statusMessage ? (
@@ -407,8 +474,22 @@ export default function EditProfilePage() {
                     </div>
                   ) : null}
 
-                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                    <button type="submit" disabled={saving} style={primaryButtonStyle}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      style={{
+                        ...primaryButtonStyle,
+                        opacity: saving ? 0.7 : 1,
+                        cursor: saving ? "not-allowed" : "pointer",
+                      }}
+                    >
                       {saving ? "Saving..." : "Save Changes"}
                     </button>
 
@@ -424,13 +505,26 @@ export default function EditProfilePage() {
             </div>
 
             <div style={cardStyle}>
-              <h3 style={{ marginTop: 0, marginBottom: "10px" }}>Profile Notes</h3>
-              <div style={{ display: "grid", gap: "10px", color: "#9ca3af", lineHeight: 1.7 }}>
+              <h3 style={{ marginTop: 0, marginBottom: "10px" }}>
+                Profile Notes
+              </h3>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: "10px",
+                  color: "#9ca3af",
+                  lineHeight: 1.7,
+                }}
+              >
                 <p style={{ margin: 0 }}>
-                  This page updates your basic public profile information directly from the signed-in account.
+                  This page updates your basic public profile information directly
+                  from the signed-in account.
                 </p>
+
                 <p style={{ margin: 0 }}>
-                  It is designed as a safe route to remove the Edit Profile 404 and keep launch prep moving.
+                  Bio is limited to {BIO_MAX_LENGTH} characters to keep profile
+                  headers clean and consistent across desktop, tablet, and mobile.
                 </p>
               </div>
             </div>

@@ -2006,7 +2006,12 @@ export default function DashboardPage() {
                 Parapost Reels
               </Link>
 
-              <div style={navItemStyle}>Messages</div>
+             <Link
+               href="/messages"
+               style={{ ...navItemStyle, display: "block", textDecoration: "none", color: "white" }}
+             >
+               💬 Parachat
+             </Link> 
 
               <Link
   href="/friends"

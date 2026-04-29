@@ -436,23 +436,56 @@ export default function ProfilePage() {
         : prev
     );
   };
+ 
+ const handleMessageUser = async () => {
+  if (!profileId || !viewerId || profileId === viewerId) return;
 
-  const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
-    return [
-      ...posts.map((post) => ({ ...post, feedKind: "post" as const })),
-      ...sharedReelPosts.map((share) => ({ ...share, feedKind: "reel_share" as const })),
-    ].sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  try {
+    const { data, error } = await supabase.rpc(
+      "get_or_create_direct_conversation",
+      {
+        other_user_id: profileId,
+      }
     );
-  }, [posts, sharedReelPosts]);
 
-  const showFriendStatus = useCallback((message: string) => {
-    setFriendStatusMessage(message);
-    window.setTimeout(() => {
-      setFriendStatusMessage("");
-    }, 2500);
-  }, []);
+    if (error || !data) {
+      console.error("Message error:", error);
+      alert("Could not start conversation");
+      return;
+    }
+
+    // ✅ Open Parachat hub with selected conversation
+    router.push(`/messages?conversation=${data}`);
+
+  } catch (err) {
+    console.error("Unexpected message error:", err);
+    alert("Something went wrong starting the chat");
+  }
+};
+
+const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
+  return [
+    ...posts.map((post) => ({ ...post, feedKind: "post" as const })),
+    ...sharedReelPosts.map((share) => ({
+      ...share,
+      feedKind: "reel_share" as const,
+    })),
+  ].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() -
+      new Date(a.created_at).getTime()
+  );
+}, [posts, sharedReelPosts]);
+
+const showFriendStatus = useCallback((message: string) => {
+  setFriendStatusMessage(message);
+
+  const timer = window.setTimeout(() => {
+    setFriendStatusMessage("");
+  }, 2500);
+
+  return () => clearTimeout(timer);
+}, []);
 
   const loadPage = useCallback(async () => {
     if (!profileId) {
@@ -1216,7 +1249,7 @@ return (
 
       <button
         type="button"
-        onClick={() => router.push("/settings")}
+        onClick={() => router.push("/dashboard")}
         style={mobileCircleButtonStyle}
         aria-label="Profile options"
       >
@@ -1319,47 +1352,76 @@ return (
                           Reels
                         </Link>
 
-                        {isOwnProfile ? (
-                          <button
-                            onClick={() => router.push(`/profile/${viewerId}/edit`)}
-                            style={profilePrimaryButtonStyle}
-                          >
-                            Edit Profile
-                          </button>
-                        ) : viewerId ? (
-                          <>
-                            <button
-                              onClick={handleFollowToggle}
-                              disabled={followLoading}
-                              style={isFollowing ? profileGlassButtonStyle : profilePrimaryButtonStyle}
-                            >
-                              {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
-                            </button>
+    {isOwnProfile ? (
+  <button
+    onClick={() => router.push(`/profile/${viewerId}/edit`)}
+    style={profilePrimaryButtonStyle}
+  >
+    Edit Profile
+  </button>
+) : viewerId ? (
+  <>
+    <button
+      onClick={handleMessageUser}
+      style={profilePrimaryButtonStyle}
+    >
+      Message
+    </button>
 
-                            {friendStatus === "none" ? (
-                              <button onClick={handleSendFriendRequest} disabled={friendLoading} style={profileGlassButtonStyle}>
-                                {friendLoading ? "Saving..." : "Add Friend"}
-                              </button>
-                            ) : friendStatus === "outgoing_request" ? (
-                              <button onClick={handleCancelFriendRequest} disabled={friendLoading} style={profileGlassButtonStyle}>
-                                {friendLoading ? "Saving..." : "Requested"}
-                              </button>
-                            ) : friendStatus === "incoming_request" ? (
-                              <>
-                                <button onClick={handleAcceptFriendRequest} disabled={friendLoading} style={profilePrimaryButtonStyle}>
-                                  {friendLoading ? "Saving..." : "Accept"}
-                                </button>
-                                <button onClick={handleDeclineFriendRequest} disabled={friendLoading} style={profileGlassButtonStyle}>
-                                  {friendLoading ? "Saving..." : "Decline"}
-                                </button>
-                              </>
-                            ) : friendStatus === "friends" ? (
-                              <button onClick={handleRemoveFriend} disabled={friendLoading} style={profileGlassButtonStyle}>
-                                {friendLoading ? "Saving..." : "Friends"}
-                              </button>
-                            ) : null}
-                          </>
-                        ) : null}
+    <button
+      onClick={handleFollowToggle}
+      disabled={followLoading}
+      style={isFollowing ? profileGlassButtonStyle : profilePrimaryButtonStyle}
+    >
+      {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
+    </button>
+
+    {friendStatus === "none" ? (
+      <button
+        onClick={handleSendFriendRequest}
+        disabled={friendLoading}
+        style={profileGlassButtonStyle}
+      >
+        {friendLoading ? "Saving..." : "Add Friend"}
+      </button>
+    ) : friendStatus === "outgoing_request" ? (
+      <button
+        onClick={handleCancelFriendRequest}
+        disabled={friendLoading}
+        style={profileGlassButtonStyle}
+      >
+        {friendLoading ? "Saving..." : "Requested"}
+      </button>
+    ) : friendStatus === "incoming_request" ? (
+      <>
+        <button
+          onClick={handleAcceptFriendRequest}
+          disabled={friendLoading}
+          style={profilePrimaryButtonStyle}
+        >
+          {friendLoading ? "Saving..." : "Accept"}
+        </button>
+
+        <button
+          onClick={handleDeclineFriendRequest}
+          disabled={friendLoading}
+          style={profileGlassButtonStyle}
+        >
+          {friendLoading ? "Saving..." : "Decline"}
+        </button>
+      </>
+    ) : friendStatus === "friends" ? (
+      <button
+        onClick={handleRemoveFriend}
+        disabled={friendLoading}
+        style={profileGlassButtonStyle}
+      >
+        {friendLoading ? "Saving..." : "Friends"}
+      </button>
+    ) : null}
+  </>
+) : null}
+ 
 
                         <button style={profileIconButtonStyle} aria-label="More profile actions">•••</button>
                       </div>
@@ -2182,10 +2244,10 @@ return (
           +
         </button>
 
-        <Link href="/messages" style={mobileBottomNavItemStyle}>
-          <span style={mobileBottomNavIconStyle}>☏</span>
-          <span>Messages</span>
-        </Link>
+       <button type="button" style={mobileBottomNavItemStyle}>
+         <span style={mobileBottomNavIconStyle}>☏</span>
+         <span>Messages</span>
+       </button>
 
         <Link href={`/profile/${viewerId || profileId}`} style={mobileBottomNavItemActiveStyle}>
           <span style={mobileBottomNavIconStyle}>●</span>
