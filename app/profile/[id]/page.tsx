@@ -1708,16 +1708,7 @@ return (
         </div>
       </div>
 
-      {isOwnProfile ? (
-        <button
-          type="button"
-          onClick={() => setProfileActionsOpen(true)}
-          style={mobileCircleButtonStyle}
-          aria-label="Profile options"
-        >
-          ⋯
-        </button>
-      ) : null}
+
     </div>
 
       <div className="profile-page-shell mx-auto w-full px-3 py-4 sm:px-4 lg:px-6" style={{ maxWidth: "1680px", paddingBottom: "96px" }}>
