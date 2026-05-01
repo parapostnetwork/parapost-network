@@ -72,9 +72,50 @@ export default function ProfilePhotosSection({
   const profileName = getProfileName(profile);
 
   return (
-    <section className="w-full">
-      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#202223] via-[#17191d] to-[#111318] shadow-2xl shadow-black/30">
-        <div className="border-b border-white/10 bg-white/[0.025] px-4 py-4 md:px-6">
+    <section className="profile-photos-smooth w-full">
+      <style>{`
+        @media (max-width: 720px) {
+          .profile-photos-smooth > div {
+            border-radius: 0 !important;
+            border-left: 0 !important;
+            border-right: 0 !important;
+            box-shadow: none !important;
+            background: #111318 !important;
+          }
+
+          .profile-photos-header {
+            padding: 16px 14px !important;
+          }
+
+          .profile-photos-body {
+            display: block !important;
+            padding: 0 !important;
+          }
+
+          .profile-photos-sidebar {
+            display: none !important;
+          }
+
+          .profile-photos-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 1px !important;
+          }
+
+          .profile-photo-tile {
+            border-radius: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
+          }
+
+          .profile-photo-empty {
+            border-radius: 0 !important;
+            border-left: 0 !important;
+            border-right: 0 !important;
+          }
+        }
+      `}</style>
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#202223] via-[#17191d] to-[#111318] shadow-2xl shadow-black/30">
+        <div className="profile-photos-header border-b border-white/10 bg-white/[0.025] px-4 py-4 md:px-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-purple-200/80">
@@ -100,10 +141,10 @@ export default function ProfilePhotosSection({
           </div>
         </div>
 
-        <div className="grid gap-4 p-4 md:grid-cols-[240px_1fr] md:p-5">
-          <aside className="rounded-3xl border border-white/10 bg-black/15 p-4">
+        <div className="profile-photos-body grid gap-4 p-4 md:grid-cols-[240px_1fr] md:p-5">
+          <aside className="profile-photos-sidebar rounded-2xl border border-white/10 bg-black/15 p-4">
             <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
                   Posted
                 </p>
@@ -112,7 +153,7 @@ export default function ProfilePhotosSection({
                 </p>
               </div>
 
-              <div className="rounded-3xl border border-purple-400/20 bg-purple-500/10 p-4">
+              <div className="rounded-2xl border border-purple-400/20 bg-purple-500/10 p-4">
                 <p className="text-sm font-black text-purple-100">
                   Auto photo album
                 </p>
@@ -123,16 +164,16 @@ export default function ProfilePhotosSection({
               </div>
             </div>
 
-            <p className="mt-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4 text-xs font-semibold leading-5 text-slate-500">
+            <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs font-semibold leading-5 text-slate-500">
               Saved Photos will be added later as a special feature.
             </p>
           </aside>
 
           <main className="min-w-0">
             {postedPhotos.length === 0 ? (
-              <div className="grid min-h-[320px] place-items-center rounded-3xl border border-dashed border-white/10 bg-white/[0.025] p-8 text-center">
+              <div className="profile-photo-empty grid min-h-[320px] place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-8 text-center">
                 <div>
-                  <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-3xl bg-purple-500/15 text-2xl">
+                  <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-purple-500/15 text-2xl">
                     📷
                   </div>
                   <h3 className="text-xl font-black text-white">
@@ -145,11 +186,11 @@ export default function ProfilePhotosSection({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 xl:grid-cols-4">
+              <div className="profile-photos-grid grid grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 xl:grid-cols-4">
                 {postedPhotos.map((photo) => (
                   <article
                     key={photo.id}
-                    className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black shadow-xl shadow-black/15"
+                    className="profile-photo-tile group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-black shadow-lg shadow-black/15"
                   >
                     <button
                       type="button"
@@ -185,7 +226,7 @@ export default function ProfilePhotosSection({
           onClick={() => setSelectedPhoto(null)}
         >
           <div
-            className="relative w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/10 bg-[#111318] shadow-2xl shadow-black"
+            className="relative w-full max-w-5xl overflow-hidden rounded-2xl border border-white/10 bg-[#111318] shadow-2xl shadow-black"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">

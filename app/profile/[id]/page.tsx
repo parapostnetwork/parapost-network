@@ -394,6 +394,7 @@ export default function ProfilePage() {
   const [editingPostContent, setEditingPostContent] = useState("");
 
   const [activeProfileTab, setActiveProfileTab] = useState("Posts");
+  const [profileActionsOpen, setProfileActionsOpen] = useState(false);
 
   const profilePostFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1192,9 +1193,34 @@ const showFriendStatus = useCallback((message: string) => {
     }, 80);
   };
 
+  const handleCopyProfileLink = async () => {
+    const href =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/profile/${profileId}`
+        : `/profile/${profileId}`;
+
+    try {
+      await navigator.clipboard.writeText(href);
+      showFriendStatus("Profile link copied.");
+    } catch {
+      window.prompt("Copy this profile link:", href);
+    }
+
+    setProfileActionsOpen(false);
+  };
+
+  const handleOpenProfileSection = (tab: string) => {
+    setActiveProfileTab(tab);
+    setProfileActionsOpen(false);
+
+    window.setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 80);
+  };
+
 return (
   <div
-    className="min-h-screen text-white profile-polish-surface"
+    className="min-h-screen text-white profile-polish-surface profile-mobile-first-polish"
    style={{
      ...profilePageBackgroundStyle,
      backgroundColor: "#07090d",
@@ -1208,72 +1234,337 @@ return (
    }}
   >
     <style>{`
+      .profile-mobile-first-polish {
+        --pp-line: rgba(255,255,255,0.085);
+        --pp-line-strong: rgba(255,255,255,0.14);
+        --pp-surface: rgba(18,20,25,0.92);
+        --pp-surface-soft: rgba(255,255,255,0.045);
+        --pp-purple: #a855f7;
+      }
+
       .profile-polish-surface button {
-        transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+        transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
       }
 
       .profile-polish-surface button:not(:disabled):hover {
         transform: translateY(-1px);
-        filter: brightness(1.08);
+        filter: brightness(1.06);
       }
 
       .profile-polish-surface button:not(:disabled):active {
-        transform: scale(0.98);
+        transform: scale(0.985);
       }
 
       .profile-polish-surface a {
-        transition: transform 160ms ease, filter 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+        transition: transform 140ms ease, filter 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+      }
+
+      .profile-mobile-first-polish small {
+        display: block;
+        color: #7c8597;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.35;
+        margin-top: 2px;
+      }
+
+      .profile-mobile-first-polish strong {
+        font-weight: 900;
+      }
+
+      .profile-desktop-action-menu-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      @media (min-width: 721px) {
+        .profile-hero-shell {
+          overflow: visible !important;
+        }
+
+        .profile-desktop-action-menu {
+          max-height: 340px !important;
+          overflow-y: auto !important;
+          overscroll-behavior: contain !important;
+        }
+      }
+
+      .profile-desktop-action-menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 10px);
+        z-index: 5000;
+      }
+
+      .profile-desktop-action-menu::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .profile-desktop-action-menu::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.035);
+        border-radius: 999px;
+      }
+
+      .profile-desktop-action-menu::-webkit-scrollbar-thumb {
+        background: rgba(168,85,247,0.45);
+        border-radius: 999px;
+      }
+
+      .profile-mobile-action-overlay {
+        touch-action: none;
+      }
+
+      .profile-mobile-action-overlay > div {
+        touch-action: pan-y;
+      }
+
+      @media (min-width: 721px) {
+        .profile-mobile-action-overlay {
+          display: none !important;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .profile-desktop-action-menu-wrap {
+          display: contents;
+        }
+
+        .profile-desktop-action-menu {
+          display: none !important;
+        }
+      }
+
+
+      .profile-composer-smooth {
+        overflow: hidden;
+      }
+
+      .profile-composer-textarea {
+        font-family: inherit;
+      }
+
+      .profile-feed-stack {
+        gap: 14px !important;
+      }
+
+      .profile-feed-card {
+        overflow: hidden;
+      }
+
+      .profile-feed-card p {
+        font-size: 15px;
+        letter-spacing: -0.01em;
+      }
+
+      .profile-post-image {
+        transition: transform 220ms ease, filter 220ms ease;
+      }
+
+      .profile-feed-card:hover .profile-post-image {
+        filter: brightness(1.03);
+      }
+
+      .profile-shared-reel-card {
+        transition: border-color 160ms ease, background 160ms ease;
+      }
+
+      @media (min-width: 721px) and (max-width: 1180px) {
+        .profile-page-shell {
+          padding-left: 16px !important;
+          padding-right: 16px !important;
+        }
+
+        .profile-layout-grid {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+
+        .profile-center-column {
+          max-width: 920px !important;
+          margin: 0 auto !important;
+          width: 100% !important;
+        }
+
+        .profile-feed-stack {
+          gap: 16px !important;
+        }
       }
 
       @media (max-width: 980px) {
         .profile-hero-shell {
-          border-radius: 26px !important;
+          border-radius: 20px !important;
         }
 
         .profile-hero-content {
-          align-items: center !important;
-          justify-content: center !important;
-          text-align: center !important;
+          align-items: flex-start !important;
+          justify-content: flex-start !important;
+          text-align: left !important;
           gap: 14px !important;
-          padding-left: 14px !important;
-          padding-right: 14px !important;
+          padding-left: 18px !important;
+          padding-right: 18px !important;
         }
 
         .profile-hero-info {
-          min-width: 100% !important;
+          min-width: 0 !important;
+          width: 100% !important;
           padding-bottom: 0 !important;
         }
 
         .profile-hero-topline {
-          justify-content: center !important;
+          justify-content: flex-start !important;
           gap: 14px !important;
         }
 
         .profile-hero-actions {
           width: 100% !important;
-          justify-content: center !important;
-          gap: 8px !important;
+          justify-content: flex-start !important;
+          gap: 10px !important;
         }
 
         .profile-hero-actions a,
         .profile-hero-actions button {
           min-height: 42px !important;
+          border-radius: 13px !important;
         }
       }
 
       @media (max-width: 720px) {
-        .profile-polish-surface .profile-tabs-desktop {
-          display: none !important;
+        .profile-page-shell {
+          max-width: none !important;
+          padding-top: 0 !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          padding-bottom: 92px !important;
+        }
+
+        .profile-layout-grid {
+          gap: 0 !important;
+        }
+
+        .profile-center-column,
+        .profile-stream-stack {
+          max-width: none !important;
+          width: 100% !important;
+        }
+
+        .profile-stream-stack {
+          gap: 0 !important;
         }
 
         .profile-polish-surface select[aria-label="Choose profile section"] {
-          display: block !important;
+          display: none !important;
+        }
+
+        .profile-polish-surface .profile-tabs-desktop {
+          display: flex !important;
+        }
+
+        .profile-hero-shell {
+          border-radius: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          background: linear-gradient(180deg, rgba(19,22,29,0.96), rgba(11,13,18,0.98)) !important;
+          box-shadow: none !important;
+        }
+
+        .profile-hero-content {
+          margin-top: -58px !important;
+          padding: 0 18px 16px !important;
+          gap: 12px !important;
+        }
+
+        .profile-hero-topline {
+          width: 100% !important;
+          align-items: flex-start !important;
+        }
+
+        .profile-hero-actions {
+          display: grid !important;
+          grid-template-columns: 1fr 1fr auto !important;
+          max-width: none !important;
+          margin-top: 14px !important;
+        }
+
+        .profile-hero-actions a,
+        .profile-hero-actions button {
+          width: 100% !important;
+          justify-content: center !important;
+          box-shadow: none !important;
+        }
+
+        .profile-hero-actions button[aria-label="More profile actions"] {
+          grid-column: auto !important;
+          width: 44px !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+
+
+        .profile-feed-section-card {
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+
+        .profile-feed-section-card > div:first-child {
+          padding-left: 14px !important;
+          padding-right: 14px !important;
+          margin-bottom: 12px !important;
+        }
+
+        .profile-composer-smooth {
+          padding: 16px 14px !important;
+        }
+
+        .profile-composer-textarea {
+          min-height: 108px !important;
+          border-radius: 14px !important;
+          background: #0f1116 !important;
+          border-color: rgba(255,255,255,0.08) !important;
+        }
+
+        .profile-composer-media-box {
+          border-radius: 14px !important;
+          background: rgba(255,255,255,0.025) !important;
+        }
+
+        .profile-feed-stack {
+          gap: 8px !important;
+        }
+
+        .profile-feed-card {
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          border-top: 1px solid rgba(255,255,255,0.07) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.045) !important;
+        }
+
+        .profile-post-image {
+          border-radius: 0 !important;
+          margin-left: -14px !important;
+          margin-right: -14px !important;
+          width: calc(100% + 28px) !important;
+          max-width: none !important;
+          max-height: none !important;
+        }
+
+        .profile-shared-reel-card {
+          border-radius: 0 !important;
+          margin-left: -14px !important;
+          margin-right: -14px !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
         }
 
         .profile-stats-bar {
-          grid-template-columns: 1fr 1fr !important;
-          gap: 10px !important;
-          padding: 12px !important;
+          margin: 0 !important;
+          border-radius: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          background: #111318 !important;
+          grid-template-columns: repeat(4, 1fr) !important;
+          gap: 0 !important;
+          padding: 14px 6px !important;
+          box-shadow: none !important;
         }
 
         .profile-stats-bar > div:nth-child(even) {
@@ -1281,48 +1572,111 @@ return (
         }
 
         .profile-stories-row {
-          gap: 10px !important;
-          padding: 12px !important;
+          margin: 0 !important;
+          border-radius: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          background: #111318 !important;
+          padding: 14px 14px 16px !important;
+          gap: 14px !important;
         }
 
         .profile-tabs-shell {
           position: sticky !important;
-          top: 68px !important;
+          top: 64px !important;
           z-index: 20 !important;
-          background: linear-gradient(180deg, rgba(7,9,13,0.96), rgba(7,9,13,0.76)) !important;
+          background: rgba(15,17,22,0.98) !important;
           backdrop-filter: blur(14px) !important;
           -webkit-backdrop-filter: blur(14px) !important;
-          border-top: 1px solid rgba(255,255,255,0.06) !important;
-          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-          padding: 10px 12px !important;
+          border-top: 1px solid rgba(255,255,255,0.065) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.065) !important;
+          padding: 0 !important;
         }
-      }
 
-      @media (max-width: 640px) {
-        .profile-polish-surface article {
+        .profile-tabs-desktop {
+          border: 0 !important;
+          border-radius: 0 !important;
+          background: transparent !important;
+          box-shadow: none !important;
+          padding: 8px 14px !important;
+          gap: 20px !important;
+          overflow-x: auto !important;
+          scrollbar-width: none !important;
+        }
+
+        .profile-tabs-desktop::-webkit-scrollbar {
+          display: none !important;
+        }
+
+        .profile-tabs-desktop button {
+          min-width: auto !important;
+          border-radius: 10px !important;
+          border-width: 0 0 2px 0 !important;
+          border-style: solid !important;
+          border-color: transparent !important;
+          background: transparent !important;
+          box-shadow: none !important;
+          color: #9ca3af !important;
+          padding: 11px 0 !important;
+          font-size: 15px !important;
+        }
+
+        .profile-tabs-desktop button[aria-pressed="true"] {
+          color: #ffffff !important;
+          border-bottom-color: #a855f7 !important;
+          background: rgba(168,85,247,0.08) !important;
+          padding-left: 10px !important;
+          padding-right: 10px !important;
+        }
+
+        .profile-content-card {
+          margin: 0 !important;
+          border-radius: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          border-top: 1px solid rgba(255,255,255,0.075) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.045) !important;
+          box-shadow: none !important;
+          background: #111318 !important;
+          padding: 16px 14px !important;
+        }
+
+        .profile-composer-card {
+          background: #15171b !important;
+        }
+
+        .profile-feed-card {
+          margin-left: -14px !important;
+          margin-right: -14px !important;
+          border-radius: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          box-shadow: none !important;
           padding: 14px !important;
-          border-radius: 24px !important;
+          background: #17191d !important;
+        }
+
+        .profile-feed-card img {
+          border-radius: 0 !important;
+          margin-left: -14px !important;
+          width: calc(100% + 28px) !important;
+          max-width: none !important;
         }
       }
 
       @media (max-width: 520px) {
         .profile-hero-content {
-          margin-top: -66px !important;
+          margin-top: -52px !important;
         }
 
         .profile-hero-actions {
-          display: grid !important;
           grid-template-columns: 1fr 1fr !important;
         }
 
         .profile-hero-actions a,
         .profile-hero-actions button {
-          width: 100% !important;
-          justify-content: center !important;
-        }
-
-        .profile-hero-actions button[aria-label="More profile actions"] {
-          grid-column: span 2 !important;
+          min-height: 44px !important;
+          font-size: 13px !important;
         }
       }
     `}</style>
@@ -1354,18 +1708,20 @@ return (
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => router.push("/dashboard")}
-        style={mobileCircleButtonStyle}
-        aria-label="Profile options"
-      >
-        ⋯
-      </button>
+      {isOwnProfile ? (
+        <button
+          type="button"
+          onClick={() => setProfileActionsOpen(true)}
+          style={mobileCircleButtonStyle}
+          aria-label="Profile options"
+        >
+          ⋯
+        </button>
+      ) : null}
     </div>
 
-      <div className="mx-auto w-full px-3 py-4 sm:px-4 lg:px-6" style={{ maxWidth: "1680px", paddingBottom: "96px" }}>
-        <div className="grid grid-cols-1 gap-4 md:gap-5 xl:grid-cols-[240px_minmax(0,1fr)_340px]">
+      <div className="profile-page-shell mx-auto w-full px-3 py-4 sm:px-4 lg:px-6" style={{ maxWidth: "1680px", paddingBottom: "96px" }}>
+        <div className="profile-layout-grid grid grid-cols-1 gap-4 md:gap-5 xl:grid-cols-[240px_minmax(0,1fr)_340px]">
           <aside className="hidden xl:block" style={sideCardStyle}>
             <h2 style={{ marginTop: 0, fontSize: "24px", letterSpacing: "-0.03em" }}>PARAPOST</h2>
             <p style={{ color: "#a855f7", fontSize: "13px", marginTop: 0, letterSpacing: "0.28em", fontWeight: 800 }}>NETWORK</p>
@@ -1402,8 +1758,8 @@ return (
            </div>
            </aside>   
 
-          <section className="min-w-0">
-            <div className="mx-auto w-full space-y-4 md:space-y-5" style={{ maxWidth: "980px" }}>
+          <section className="profile-center-column min-w-0">
+            <div className="profile-stream-stack mx-auto w-full space-y-4 md:space-y-5" style={{ maxWidth: "980px" }}>
               <div className="profile-hero-shell" style={profileHeroShellStyle}>
                 <div style={profileCoverStyle}>
                   <div style={profileCoverOverlayStyle} />
@@ -1455,92 +1811,192 @@ return (
                       </div>
 
                       <div className="profile-hero-actions" style={profileHeroActionsStyle}>
-                        <Link
-                          href={`/profile/${profileId}/reels`}
-                          style={profileGlassButtonStyle}
+                        {!isOwnProfile && viewerId ? (
+                          <>
+                            {friendStatus === "none" ? (
+                              <button
+                                type="button"
+                                onClick={handleSendFriendRequest}
+                                disabled={friendLoading}
+                                style={profilePrimaryButtonStyle}
+                              >
+                                {friendLoading ? "Saving..." : "Add Friend"}
+                              </button>
+                            ) : friendStatus === "outgoing_request" ? (
+                              <button
+                                type="button"
+                                onClick={handleCancelFriendRequest}
+                                disabled={friendLoading}
+                                style={profileGlassButtonStyle}
+                              >
+                                {friendLoading ? "Saving..." : "Requested"}
+                              </button>
+                            ) : friendStatus === "incoming_request" ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={handleAcceptFriendRequest}
+                                  disabled={friendLoading}
+                                  style={profilePrimaryButtonStyle}
+                                >
+                                  {friendLoading ? "Saving..." : "Accept"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={handleDeclineFriendRequest}
+                                  disabled={friendLoading}
+                                  style={profileGlassButtonStyle}
+                                >
+                                  {friendLoading ? "Saving..." : "Decline"}
+                                </button>
+                              </>
+                            ) : friendStatus === "friends" ? (
+                              <button
+                                type="button"
+                                onClick={handleRemoveFriend}
+                                disabled={friendLoading}
+                                style={profileGlassButtonStyle}
+                              >
+                                {friendLoading ? "Saving..." : "Friends"}
+                              </button>
+                            ) : null}
+
+                            <button
+                              type="button"
+                              onClick={handleMessageUser}
+                              style={profilePrimaryButtonStyle}
+                            >
+                              Parachat
+                            </button>
+                          </>
+                        ) : null}
+                        {isOwnProfile ? (
+
+<div
+                          className="profile-desktop-action-menu-wrap"
+                          onClick={(event) => event.stopPropagation()}
                         >
-                          Reels
-                        </Link>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setProfileActionsOpen((value) => !value)
+                            }
+                            style={profileIconButtonStyle}
+                            aria-label="More profile actions"
+                          >
+                            •••
+                          </button>
 
-    {isOwnProfile ? (
-  <button
-    onClick={() => router.push(`/profile/${viewerId}/edit`)}
-    style={profilePrimaryButtonStyle}
-  >
-    Edit Profile
-  </button>
-) : viewerId ? (
-  <>
-    <button
-      onClick={handleMessageUser}
-      style={profilePrimaryButtonStyle}
-    >
-      Message
-    </button>
+                          {profileActionsOpen ? (
+                            <div
+                              className="profile-desktop-action-menu"
+                              style={profileDesktopActionMenuStyle}
+                            >
+                              <div style={profileDesktopActionMenuHeaderStyle}>
+                                <p style={profileActionEyebrowStyle}>
+                                  Profile options
+                                </p>
+                                <strong>
+                                  {profile?.full_name ||
+                                    profile?.username ||
+                                    "Profile"}
+                                </strong>
+                              </div>
 
-    <button
-      onClick={handleFollowToggle}
-      disabled={followLoading}
-      style={isFollowing ? profileGlassButtonStyle : profilePrimaryButtonStyle}
-    >
-      {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
-    </button>
+                              {isOwnProfile ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProfileActionsOpen(false);
+                                    router.push(`/profile/${viewerId}/edit`);
+                                  }}
+                                  style={profileDesktopActionItemStyle}
+                                >
+                                  <span style={profileActionIconStyle}>✎</span>
+                                  <span>
+                                    <strong>Edit profile</strong>
+                                    <small>Edit avatar, bio, and profile details</small>
+                                  </span>
+                                </button>
+                              ) : null}
 
-    {friendStatus === "none" ? (
-      <button
-        onClick={handleSendFriendRequest}
-        disabled={friendLoading}
-        style={profileGlassButtonStyle}
-      >
-        {friendLoading ? "Saving..." : "Add Friend"}
-      </button>
-    ) : friendStatus === "outgoing_request" ? (
-      <button
-        onClick={handleCancelFriendRequest}
-        disabled={friendLoading}
-        style={profileGlassButtonStyle}
-      >
-        {friendLoading ? "Saving..." : "Requested"}
-      </button>
-    ) : friendStatus === "incoming_request" ? (
-      <>
-        <button
-          onClick={handleAcceptFriendRequest}
-          disabled={friendLoading}
-          style={profilePrimaryButtonStyle}
-        >
-          {friendLoading ? "Saving..." : "Accept"}
-        </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenProfileSection("Posts")}
+                                style={profileDesktopActionItemStyle}
+                              >
+                                <span style={profileActionIconStyle}>▤</span>
+                                <span>
+                                  <strong>View posts</strong>
+                                  <small>Go to profile feed</small>
+                                </span>
+                              </button>
 
-        <button
-          onClick={handleDeclineFriendRequest}
-          disabled={friendLoading}
-          style={profileGlassButtonStyle}
-        >
-          {friendLoading ? "Saving..." : "Decline"}
-        </button>
-      </>
-    ) : friendStatus === "friends" ? (
-      <button
-        onClick={handleRemoveFriend}
-        disabled={friendLoading}
-        style={profileGlassButtonStyle}
-      >
-        {friendLoading ? "Saving..." : "Friends"}
-      </button>
-    ) : null}
-  </>
-) : null}
- 
+                              <button
+                                type="button"
+                                onClick={() => handleOpenProfileSection("Photos")}
+                                style={profileDesktopActionItemStyle}
+                              >
+                                <span style={profileActionIconStyle}>▧</span>
+                                <span>
+                                  <strong>View photos</strong>
+                                  <small>Open photo grid</small>
+                                </span>
+                              </button>
 
-                        <button style={profileIconButtonStyle} aria-label="More profile actions">•••</button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProfileActionsOpen(false);
+                                  router.push(`/profile/${profileId}/reels`);
+                                }}
+                                style={profileDesktopActionItemStyle}
+                              >
+                                <span style={profileActionIconStyle}>▣</span>
+                                <span>
+                                  <strong>Open reels</strong>
+                                  <small>View short videos</small>
+                                </span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleCopyProfileLink}
+                                style={profileDesktopActionItemStyle}
+                              >
+                                <span style={profileActionIconStyle}>↗</span>
+                                <span>
+                                  <strong>Copy profile link</strong>
+                                  <small>Share this profile</small>
+                                </span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProfileActionsOpen(false);
+                                  router.push("/dashboard");
+                                }}
+                                style={profileDesktopActionItemStyle}
+                              >
+                                <span style={profileActionIconStyle}>⌂</span>
+                                <span>
+                                  <strong>Back to feed</strong>
+                                  <small>Return to homepage feed</small>
+                                </span>
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                        ) : null}
                       </div>
                     </div>
 
                     {friendStatusMessage ? <div style={statusToastStyle}>{friendStatusMessage}</div> : null}
 
                     <p style={profileBioStyle}>
-                      {profile?.bio || "No bio added yet. Add a short intro, your paranormal interests, and what you investigate."}
+                      {profile?.bio || "No bio added yet. Add a short intro, your interests, and what you share on Parapost."}
                     </p>
 
                     <div style={profileMetaRowStyle}>
@@ -1594,10 +2050,10 @@ return (
                 <div className="profile-stories-row" style={profileStoriesRowStyle}>
                   {[
                     { label: "New", icon: "+" },
-                    { label: "Investigations", icon: "👻" },
-                    { label: "Ghost Hunts", icon: "🏚️" },
-                    { label: "Evidence", icon: "🎙️" },
-                    { label: "Gear", icon: "📷" },
+                    { label: "Photos", icon: "▧" },
+                    { label: "Reels", icon: "▣" },
+                    { label: "Events", icon: "◇" },
+                    { label: "Interests", icon: "✦" },
                   ].map((story) => (
                     <div key={story.label} style={profileStoryItemStyle}>
                       <div style={profileStoryCircleStyle}>{story.icon}</div>
@@ -1608,7 +2064,7 @@ return (
 
                 <div className="profile-tabs-shell" style={profileTabsShellStyle}>
                   <div className="profile-tabs-desktop" style={profileTabsStyle}>
-                    {["Posts", "About", "Reels", "Photos", "Videos", "Groups", "Events"].map((tab) => (
+                    {["Posts", "About", "Reels", "Photos", "Events"].map((tab) => (
                       <button
                         key={tab}
                         type="button"
@@ -1633,7 +2089,7 @@ return (
                   style={profileMobileTabSelectStyle}
                   aria-label="Choose profile section"
                 >
-                  {["Posts", "About", "Reels", "Photos", "Videos", "Groups", "Events"].map((tab) => (
+                  {["Posts", "About", "Reels", "Photos", "Events"].map((tab) => (
                     <option key={tab} value={tab}>
                       {tab}
                     </option>
@@ -1650,7 +2106,7 @@ return (
 
 
               {activeProfileTab === "About" && (
-                <div style={mainCardStyle}>
+                <div className="profile-content-card" style={mainCardStyle}>
                   <ProfileAboutSection
                     profile={profile}
                     isOwnProfile={isOwnProfile}
@@ -1660,12 +2116,12 @@ return (
               )}
 
               {activeProfileTab === "Reels" ? (
-                <div style={mainCardStyle}>
+                <div className="profile-content-card" style={mainCardStyle}>
                   <div style={aboutHeaderStyle}>
                     <div>
                       <h3 style={aboutTitleStyle}>Profile Reels</h3>
                       <p style={aboutSubtitleStyle}>
-                        Short paranormal videos shared by this profile.
+                        Short videos shared by this profile.
                       </p>
                     </div>
                     <Link href={`/profile/${profileId}/reels`} style={{ ...primaryButtonStyle, textDecoration: "none" }}>
@@ -1676,7 +2132,7 @@ return (
                   {reels.length === 0 ? (
                     <div style={aboutComingSoonStyle}>
                       <strong>No reels yet</strong>
-                      <span>When this profile uploads reels, they will show here.</span>
+                      <span>When this profile shares reels, they will show here.</span>
                     </div>
                   ) : (
                     <div style={miniReelGridStyle}>
@@ -1695,7 +2151,7 @@ return (
               ) : null}
 
               {activeProfileTab === "Photos" ? (
-                <div style={mainCardStyle}>
+                <div className="profile-content-card" style={mainCardStyle}>
                   <ProfilePhotosSection
                     profileId={profileId}
                     viewerId={viewerId}
@@ -1707,7 +2163,7 @@ return (
               ) : null}
 
               {!["Posts", "About", "Reels", "Photos"].includes(activeProfileTab) ? (
-                <div style={mainCardStyle}>
+                <div className="profile-content-card" style={mainCardStyle}>
                   <div style={aboutComingSoonStyle}>
                     <strong>{activeProfileTab}</strong>
                     <span>This profile section is set up and ready for the next build step.</span>
@@ -1716,7 +2172,7 @@ return (
               ) : null}
 
               {activeProfileTab === "Posts" && isOwnProfile ? (
-                <div id="profile-composer" style={mainCardStyle}>
+                <div id="profile-composer" className="profile-content-card profile-composer-card profile-composer-smooth" style={mainCardStyle}>
                   <div style={profileComposerHeaderStyle}>
                     <div style={profileComposerIconStyle}>＋</div>
 
@@ -1733,14 +2189,15 @@ return (
                   </div>
 
                   <textarea
+                    className="profile-composer-textarea"
                     value={profilePostContent}
                     onChange={(event) => setProfilePostContent(event.target.value)}
-                    placeholder="Share an update, experience, evidence, link, or thought..."
+                    placeholder="Share an update, photo, link, thought, or moment..."
                     rows={4}
                     style={profilePostTextAreaStyle}
                   />
 
-                  <div style={profilePostMediaBoxStyle}>
+                  <div className="profile-composer-media-box" style={profilePostMediaBoxStyle}>
                     <div
                       style={{
                         display: "flex",
@@ -1827,7 +2284,7 @@ return (
               ) : null}
 
               {activeProfileTab === "Posts" ? (
-                <div style={mainCardStyle}>
+                <div className="profile-content-card profile-feed-section-card" style={mainCardStyle}>
                   <div style={feedHeaderStyle}>
                     <div style={feedTitleBlockStyle}>
                       <span style={feedEyebrowStyle}>Timeline</span>
@@ -1878,7 +2335,7 @@ return (
                               key={item.id}
                               style={{ ...postCardStyle, position: "relative" }}
                               onMouseEnter={(event) => {
-                                event.currentTarget.style.transform = "translateY(-2px)";
+                                event.currentTarget.style.transform = "translateY(-1px)";
                                 event.currentTarget.style.borderColor = "rgba(168,85,247,0.30)";
                                 event.currentTarget.style.boxShadow = "0 22px 52px rgba(0,0,0,0.34)";
                               }}
@@ -1920,7 +2377,7 @@ return (
                                 <p style={postContentStyle}>{renderLinkedText(item.caption)}</p>
                               ) : null}
 
-                              <div style={sharedReelCardStyle}>
+                              <div className="profile-shared-reel-card" style={sharedReelCardStyle}>
                                 <Link
                                   href={`/reels?reel=${item.reel_id}`}
                                   style={sharedReelPreviewStyle}
@@ -2008,7 +2465,7 @@ return (
                             key={post.id}
                             style={{ ...postCardStyle, position: "relative" }}
                             onMouseEnter={(event) => {
-                              event.currentTarget.style.transform = "translateY(-2px)";
+                              event.currentTarget.style.transform = "translateY(-1px)";
                               event.currentTarget.style.borderColor = "rgba(168,85,247,0.30)";
                               event.currentTarget.style.boxShadow = "0 22px 52px rgba(0,0,0,0.34)";
                             }}
@@ -2138,7 +2595,7 @@ return (
                     Strong Profile
                   </div>
                   <p style={rightPanelTextStyle}>
-                    Keep your bio, links, reels, and posts active to attract more followers.
+                    Keep your bio, links, reels, and posts active to help people discover your profile.
                   </p>
                 </div>
               </div>
@@ -2260,6 +2717,124 @@ return (
           </aside>
         </div>
       </div>
+      {profileActionsOpen && isOwnProfile ? (
+        <div
+          className="profile-mobile-action-overlay"
+          style={profileActionOverlayStyle}
+          onClick={() => setProfileActionsOpen(false)}
+        >
+          <div
+            style={profileActionSheetStyle}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={profileActionGrabberStyle} />
+
+            <div style={profileActionHeaderStyle}>
+              <div>
+                <p style={profileActionEyebrowStyle}>Profile options</p>
+                <h3 style={profileActionTitleStyle}>
+                  {profile?.full_name || profile?.username || "Profile"}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setProfileActionsOpen(false)}
+                style={profileActionCloseStyle}
+                aria-label="Close profile options"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={profileActionGridStyle}>
+              {isOwnProfile ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileActionsOpen(false);
+                    router.push(`/profile/${viewerId}/edit`);
+                  }}
+                  style={profileActionItemStyle}
+                >
+                  <span style={profileActionIconStyle}>✎</span>
+                  <span>
+                    <strong>Edit profile</strong>
+                    <small>Update avatar, bio, and details</small>
+                  </span>
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => handleOpenProfileSection("Posts")}
+                style={profileActionItemStyle}
+              >
+                <span style={profileActionIconStyle}>▤</span>
+                <span>
+                  <strong>View posts</strong>
+                  <small>Go back to the profile feed</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleOpenProfileSection("Photos")}
+                style={profileActionItemStyle}
+              >
+                <span style={profileActionIconStyle}>▧</span>
+                <span>
+                  <strong>View photos</strong>
+                  <small>Open this profile’s photo grid</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileActionsOpen(false);
+                  router.push(`/profile/${profileId}/reels`);
+                }}
+                style={profileActionItemStyle}
+              >
+                <span style={profileActionIconStyle}>▣</span>
+                <span>
+                  <strong>Open reels</strong>
+                  <small>View this profile’s short videos</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyProfileLink}
+                style={profileActionItemStyle}
+              >
+                <span style={profileActionIconStyle}>↗</span>
+                <span>
+                  <strong>Copy profile link</strong>
+                  <small>Share this profile outside Parapost</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileActionsOpen(false);
+                  router.push("/dashboard");
+                }}
+                style={profileActionItemStyle}
+              >
+                <span style={profileActionIconStyle}>⌂</span>
+                <span>
+                  <strong>Back to feed</strong>
+                  <small>Return to the main Parapost feed</small>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <BottomNav
         currentUserId={viewerId}
         activeItem="profile"
@@ -2331,35 +2906,35 @@ function getFriendStatusPillStyle(friendStatus: FriendRequestStatus): CSSPropert
 
 const mainCardStyle: CSSProperties = {
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.058) 0%, rgba(255,255,255,0.026) 100%)",
-  borderRadius: "30px",
+    "linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.024) 100%)",
+  borderRadius: "18px",
   padding: "18px",
-  border: "1px solid rgba(255,255,255,0.105)",
-  backdropFilter: "blur(14px)",
-  WebkitBackdropFilter: "blur(14px)",
-  boxShadow: "0 18px 46px rgba(0,0,0,0.28)",
-  transition: "border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease",
+  border: "1px solid rgba(255,255,255,0.09)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.22)",
+  transition: "border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease",
 };
 
 const sideCardStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.035)",
-  borderRadius: "28px",
-  padding: "20px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
+  background: "rgba(255,255,255,0.028)",
+  borderRadius: "18px",
+  padding: "18px",
+  border: "1px solid rgba(255,255,255,0.085)",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.16)",
   height: "fit-content",
 };
 
 const postCardStyle: CSSProperties = {
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.070) 0%, rgba(255,255,255,0.032) 100%)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "28px",
+    "linear-gradient(180deg, rgba(255,255,255,0.052) 0%, rgba(255,255,255,0.026) 100%)",
+  border: "1px solid rgba(255,255,255,0.095)",
+  borderRadius: "18px",
   padding: "18px",
-  boxShadow: "0 16px 40px rgba(0,0,0,0.26)",
-  backdropFilter: "blur(14px)",
-  WebkitBackdropFilter: "blur(14px)",
-  transition: "transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.22)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  transition: "transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease",
 };
 
 const profileComposerHeaderStyle: CSSProperties = {
@@ -2977,6 +3552,152 @@ const linkPreviewDomainStyle: CSSProperties = {
 
 
 
+const profileDesktopActionMenuStyle: CSSProperties = {
+  width: "340px",
+  maxHeight: "340px",
+  overflowY: "auto",
+  overscrollBehavior: "contain",
+  scrollbarWidth: "thin",
+  borderRadius: "16px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background:
+    "linear-gradient(180deg, rgba(24,27,34,0.98), rgba(12,14,19,0.98))",
+  boxShadow: "0 22px 70px rgba(0,0,0,0.50)",
+  padding: "8px",
+  paddingBottom: "12px",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+};
+
+const profileDesktopActionMenuHeaderStyle: CSSProperties = {
+  padding: "10px 10px 12px",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  marginBottom: "6px",
+};
+
+const profileDesktopActionItemStyle: CSSProperties = {
+  width: "100%",
+  border: "1px solid transparent",
+  background: "transparent",
+  color: "#ffffff",
+  borderRadius: "12px",
+  padding: "10px",
+  display: "grid",
+  gridTemplateColumns: "38px minmax(0, 1fr)",
+  alignItems: "center",
+  gap: "10px",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const profileActionOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 2147483646,
+  background: "rgba(0,0,0,0.62)",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  padding: "14px",
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
+};
+
+const profileActionSheetStyle: CSSProperties = {
+  width: "100%",
+  maxWidth: "560px",
+  maxHeight: "82vh",
+  overflowY: "auto",
+  overscrollBehavior: "contain",
+  WebkitOverflowScrolling: "touch",
+  borderRadius: "22px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background:
+    "linear-gradient(180deg, rgba(24,27,34,0.98), rgba(12,14,19,0.98))",
+  boxShadow: "0 30px 90px rgba(0,0,0,0.62)",
+  padding: "10px",
+};
+
+const profileActionGrabberStyle: CSSProperties = {
+  width: "42px",
+  height: "4px",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.18)",
+  margin: "4px auto 12px",
+};
+
+const profileActionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "14px",
+  padding: "6px 6px 12px",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+};
+
+const profileActionEyebrowStyle: CSSProperties = {
+  margin: 0,
+  color: "#a78bfa",
+  fontSize: "11px",
+  fontWeight: 900,
+  letterSpacing: "0.18em",
+  textTransform: "uppercase",
+};
+
+const profileActionTitleStyle: CSSProperties = {
+  margin: "3px 0 0",
+  color: "#ffffff",
+  fontSize: "18px",
+  fontWeight: 950,
+  letterSpacing: "-0.03em",
+};
+
+const profileActionCloseStyle: CSSProperties = {
+  width: "40px",
+  height: "40px",
+  borderRadius: "12px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#ffffff",
+  fontSize: "24px",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const profileActionGridStyle: CSSProperties = {
+  display: "grid",
+  gap: "6px",
+  paddingTop: "10px",
+};
+
+const profileActionItemStyle: CSSProperties = {
+  width: "100%",
+  border: "1px solid transparent",
+  background: "transparent",
+  color: "#ffffff",
+  borderRadius: "14px",
+  padding: "12px",
+  display: "grid",
+  gridTemplateColumns: "42px minmax(0, 1fr)",
+  alignItems: "center",
+  gap: "12px",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const profileActionIconStyle: CSSProperties = {
+  width: "42px",
+  height: "42px",
+  borderRadius: "13px",
+  display: "grid",
+  placeItems: "center",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(168,85,247,0.14)",
+  color: "#d8b4fe",
+  fontSize: "18px",
+  fontWeight: 950,
+};
+
 const profilePageBackgroundStyle: CSSProperties = {
   background:
     "radial-gradient(circle at 50% 0%, rgba(126,34,206,0.20) 0%, rgba(7,9,13,0.82) 34%, #05070b 72%), linear-gradient(180deg, #080a10 0%, #05070b 100%)",
@@ -2985,12 +3706,12 @@ const profilePageBackgroundStyle: CSSProperties = {
 const profileHeroShellStyle: CSSProperties = {
   position: "relative",
   overflow: "hidden",
-  borderRadius: "34px",
-  border: "1px solid rgba(255,255,255,0.115)",
+  borderRadius: "22px",
+  border: "1px solid rgba(255,255,255,0.10)",
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.078) 0%, rgba(255,255,255,0.032) 100%)",
-  boxShadow: "0 26px 80px rgba(0,0,0,0.42)",
-  backdropFilter: "blur(18px)",
+    "linear-gradient(180deg, rgba(255,255,255,0.060) 0%, rgba(255,255,255,0.026) 100%)",
+  boxShadow: "0 18px 48px rgba(0,0,0,0.34)",
+  backdropFilter: "blur(14px)",
 };
 
 const profileCoverStyle: CSSProperties = {
@@ -3154,16 +3875,16 @@ const profilePrimaryButtonStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "linear-gradient(135deg,#a855f7,#7c3aed)",
+  background: "linear-gradient(135deg,#9333ea,#7c3aed)",
   color: "#fff",
   border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: "999px",
+  borderRadius: "14px",
   padding: "11px 18px",
-  fontWeight: 900,
+  fontWeight: 850,
   fontSize: "13px",
   cursor: "pointer",
-  boxShadow: "0 10px 26px rgba(168,85,247,0.38)",
-  transition: "all 0.2s ease",
+  boxShadow: "0 8px 18px rgba(124,58,237,0.26)",
+  transition: "all 0.18s ease",
   whiteSpace: "nowrap",
 };
 
@@ -3171,16 +3892,16 @@ const profileGlassButtonStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "rgba(255,255,255,0.075)",
-  border: "1px solid rgba(255,255,255,0.15)",
+  background: "rgba(255,255,255,0.060)",
+  border: "1px solid rgba(255,255,255,0.12)",
   color: "#f9fafb",
-  borderRadius: "999px",
+  borderRadius: "14px",
   padding: "11px 16px",
-  fontWeight: 850,
+  fontWeight: 800,
   fontSize: "13px",
   cursor: "pointer",
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
   whiteSpace: "nowrap",
 };
 
@@ -3216,10 +3937,10 @@ const profileStatsBarStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr",
   alignItems: "center",
-  borderRadius: "22px",
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(0,0,0,0.24)",
-  padding: "16px 10px",
+  borderRadius: "16px",
+  border: "1px solid rgba(255,255,255,0.075)",
+  background: "rgba(0,0,0,0.20)",
+  padding: "15px 10px",
 };
 
 const profileStatItemStyle: CSSProperties = {
@@ -3253,9 +3974,9 @@ const profileStoriesRowStyle: CSSProperties = {
   gap: "16px",
   overflowX: "auto",
   padding: "14px",
-  borderRadius: "22px",
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(0,0,0,0.18)",
+  borderRadius: "16px",
+  border: "1px solid rgba(255,255,255,0.075)",
+  background: "rgba(0,0,0,0.16)",
 };
 
 const profileStoryItemStyle: CSSProperties = {
@@ -3290,13 +4011,13 @@ const profileTabsShellStyle: CSSProperties = {
 
 const profileTabsStyle: CSSProperties = {
   display: "flex",
-  gap: "7px",
-  padding: "7px",
-  borderRadius: "999px",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04))",
-  border: "1px solid rgba(255,255,255,0.095)",
+  gap: "6px",
+  padding: "6px",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.032))",
+  border: "1px solid rgba(255,255,255,0.085)",
   overflowX: "auto",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.045)",
 };
 
 const profileTabStyle: CSSProperties = {
@@ -3311,28 +4032,28 @@ const profileTabStyle: CSSProperties = {
   borderRightColor: "transparent",
   borderBottomColor: "transparent",
   borderLeftColor: "transparent",
-  padding: "12px 18px",
-  fontWeight: 900,
+  padding: "11px 16px",
+  fontWeight: 850,
   cursor: "pointer",
-  borderRadius: "999px",
+  borderRadius: "12px",
   whiteSpace: "nowrap",
 };
 
 const profileActiveTabStyle: CSSProperties = {
   ...profileTabStyle,
-  background: "linear-gradient(135deg,#a855f7,#7c3aed)",
+  background: "rgba(168,85,247,0.16)",
   color: "#ffffff",
   borderTopWidth: "1px",
   borderRightWidth: "1px",
   borderBottomWidth: "2px",
   borderLeftWidth: "1px",
   borderStyle: "solid",
-  borderTopColor: "rgba(255,255,255,0.15)",
-  borderRightColor: "rgba(255,255,255,0.15)",
-  borderBottomColor: "transparent",
-  borderLeftColor: "rgba(255,255,255,0.15)",
-  borderRadius: "999px",
-  boxShadow: "0 10px 24px rgba(124,58,237,0.32)",
+  borderTopColor: "rgba(168,85,247,0.22)",
+  borderRightColor: "rgba(168,85,247,0.22)",
+  borderBottomColor: "#a855f7",
+  borderLeftColor: "rgba(168,85,247,0.22)",
+  borderRadius: "12px",
+  boxShadow: "none",
 };
 
 const profileMobileTabSelectStyle: CSSProperties = {
