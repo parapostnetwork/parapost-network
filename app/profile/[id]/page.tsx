@@ -12,6 +12,7 @@ import {
 } from "@/lib/friends";
 import MutualFriendsPreviewCard from "@/components/profile/MutualFriendsPreviewCard";
 import ProfileAboutSection from "@/components/profile/ProfileAboutSection";
+import ProfilePhotosSection from "@/components/profile/ProfilePhotosSection";
 import BottomNav from "@/components/BottomNav";
 
 type ProfileRow = {
@@ -1297,6 +1298,13 @@ return (
         }
       }
 
+      @media (max-width: 640px) {
+        .profile-polish-surface article {
+          padding: 14px !important;
+          border-radius: 24px !important;
+        }
+      }
+
       @media (max-width: 520px) {
         .profile-hero-content {
           margin-top: -66px !important;
@@ -1686,7 +1694,19 @@ return (
                 </div>
               ) : null}
 
-              {!["Posts", "About", "Reels"].includes(activeProfileTab) ? (
+              {activeProfileTab === "Photos" ? (
+                <div style={mainCardStyle}>
+                  <ProfilePhotosSection
+                    profileId={profileId}
+                    viewerId={viewerId}
+                    profile={profile}
+                    posts={posts}
+                    isOwnProfile={isOwnProfile}
+                  />
+                </div>
+              ) : null}
+
+              {!["Posts", "About", "Reels", "Photos"].includes(activeProfileTab) ? (
                 <div style={mainCardStyle}>
                   <div style={aboutComingSoonStyle}>
                     <strong>{activeProfileTab}</strong>
@@ -1697,35 +1717,19 @@ return (
 
               {activeProfileTab === "Posts" && isOwnProfile ? (
                 <div id="profile-composer" style={mainCardStyle}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: "12px",
-                      marginBottom: "12px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div>
-                      <h3 style={{ marginTop: 0, marginBottom: "4px" }}>Create a Post</h3>
-                      <p style={{ margin: 0, color: "#9ca3af", fontSize: "13px" }}>
-                        Post to your profile and the homepage feed.
+                  <div style={profileComposerHeaderStyle}>
+                    <div style={profileComposerIconStyle}>＋</div>
+
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <h3 style={{ margin: 0, color: "#ffffff", fontSize: "20px", letterSpacing: "-0.04em" }}>
+                        Create a Post
+                      </h3>
+                      <p style={{ margin: "5px 0 0", color: "#9ca3af", fontSize: "13px", lineHeight: 1.55 }}>
+                        Share an update to your profile and the homepage feed.
                       </p>
                     </div>
 
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        color: "#d1d5db",
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        borderRadius: "999px",
-                        padding: "6px 10px",
-                      }}
-                    >
-                      Profile post
-                    </span>
+                    <span style={profileComposerBadgeStyle}>Profile post</span>
                   </div>
 
                   <textarea
@@ -1744,14 +1748,14 @@ return (
                         justifyContent: "space-between",
                         gap: "12px",
                         flexWrap: "wrap",
-                        marginBottom: profilePostImagePreviewUrl ? "12px" : "0px",
+                        marginBottom: profilePostImagePreviewUrl ? "14px" : "0px",
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: "14px", fontWeight: 700, color: "#f9fafb", marginBottom: "4px" }}>
+                        <div style={{ fontSize: "14px", fontWeight: 900, color: "#f9fafb", marginBottom: "4px" }}>
                           Add media
                         </div>
-                        <p style={{ margin: 0, fontSize: "13px", color: "#9ca3af" }}>
+                        <p style={{ margin: 0, fontSize: "13px", color: "#9ca3af", lineHeight: 1.45 }}>
                           Optional image for your profile post.
                         </p>
                       </div>
@@ -1791,34 +1795,30 @@ return (
                         alt="Selected preview"
                         style={{
                           width: "100%",
-                          maxHeight: "320px",
+                          maxHeight: "360px",
                           objectFit: "cover",
-                          borderRadius: "18px",
-                          border: "1px solid rgba(255,255,255,0.10)",
+                          borderRadius: "22px",
+                          border: "1px solid rgba(255,255,255,0.12)",
                           display: "block",
+                          boxShadow: "0 16px 36px rgba(0,0,0,0.30)",
                         }}
                       />
                     ) : null}
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "12px",
-                      flexWrap: "wrap" as const,
-                      marginTop: "12px",
-                    }}
-           >
-                    <p style={{ margin: 0, color: "#6b7280", fontSize: "13px" }}>
-                      This will appear on your profile and in the homepage feed.
+                  <div style={profileComposerFooterStyle}>
+                    <p style={{ margin: 0, color: "#6b7280", fontSize: "13px", lineHeight: 1.55 }}>
+                      This post will appear on this profile and in the homepage feed.
                     </p>
 
                     <button
                       onClick={handleCreateProfilePost}
                       disabled={profilePostLoading}
-                      style={primaryButtonStyle}
+                      style={{
+                        ...primaryButtonStyle,
+                        opacity: profilePostLoading ? 0.7 : 1,
+                        cursor: profilePostLoading ? "not-allowed" : "pointer",
+                      }}
                     >
                       {profilePostLoading ? "Posting..." : "Publish post"}
                     </button>
@@ -1828,356 +1828,294 @@ return (
 
               {activeProfileTab === "Posts" ? (
                 <div style={mainCardStyle}>
-                  <div
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between"
-                  style={{
-                    display: "flex",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <div>
-                    <h3 style={{ marginTop: 0, marginBottom: "4px" }}>Profile Feed</h3>
-                    <p style={{ margin: 0, color: "#9ca3af", fontSize: "13px" }}>
-                      Posts shared by this investigator.
-                    </p>
-                  </div>
-                  <Link
-                    href="/dashboard"
-                    style={{ ...secondaryButtonStyle, textDecoration: "none" }}
-                  >
-                    Back to feed
-                  </Link>
-                </div>
+                  <div style={feedHeaderStyle}>
+                    <div style={feedTitleBlockStyle}>
+                      <span style={feedEyebrowStyle}>Timeline</span>
+                      <h3 style={{ margin: 0, color: "#ffffff", fontSize: "22px", letterSpacing: "-0.045em" }}>
+                        Profile Feed
+                      </h3>
+                      <p style={{ margin: "5px 0 0", color: "#9ca3af", fontSize: "13px", lineHeight: 1.55 }}>
+                        Posts, updates, and shared reels from this profile.
+                      </p>
+                    </div>
 
-                {errorMessage ? (
-                  <div style={messageBoxStyle}>{errorMessage}</div>
-                ) : !profile ? (
-                  <div style={messageBoxStyle}>This profile could not be found.</div>
-                ) : profileFeedItems.length === 0 ? (
-                  <p style={{ color: "#9ca3af", marginBottom: 0 }}>
-                    No posts shared yet.
-                   </p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    {profileFeedItems.map((item) => {
-                      if (item.feedKind === "reel_share") {
-                        const creatorName =
-                          item.originalCreator?.full_name ||
-                          item.originalCreator?.username ||
-                          "Original creator";
-                        const creatorHandle = item.originalCreator?.username || "creator";
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={feedCountPillStyle}>{posts.length} Posts</span>
+                      <span style={feedCountPillStyle}>{sharedReelPosts.length} Reel Shares</span>
+                      <Link
+                        href="/dashboard"
+                        style={{ ...secondaryButtonStyle, textDecoration: "none" }}
+                      >
+                        Back to feed
+                      </Link>
+                    </div>
+                  </div>
+
+                  {errorMessage ? (
+                    <div style={messageBoxStyle}>{errorMessage}</div>
+                  ) : !profile ? (
+                    <div style={messageBoxStyle}>This profile could not be found.</div>
+                  ) : profileFeedItems.length === 0 ? (
+                    <div style={feedEmptyStateStyle}>
+                      <div style={{ fontSize: "34px", marginBottom: "8px" }}>✦</div>
+                      <strong style={{ color: "#ffffff", fontSize: "18px" }}>No posts shared yet</strong>
+                      <span style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6 }}>
+                        When this profile shares posts or reels, they will appear here.
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={feedStackStyle}>
+                      {profileFeedItems.map((item) => {
+                        if (item.feedKind === "reel_share") {
+                          const creatorName =
+                            item.originalCreator?.full_name ||
+                            item.originalCreator?.username ||
+                            "Original creator";
+                          const creatorHandle = item.originalCreator?.username || "creator";
+
+                          return (
+                            <article
+                              key={item.id}
+                              style={{ ...postCardStyle, position: "relative" }}
+                              onMouseEnter={(event) => {
+                                event.currentTarget.style.transform = "translateY(-2px)";
+                                event.currentTarget.style.borderColor = "rgba(168,85,247,0.30)";
+                                event.currentTarget.style.boxShadow = "0 22px 52px rgba(0,0,0,0.34)";
+                              }}
+                              onMouseLeave={(event) => {
+                                event.currentTarget.style.transform = "translateY(0)";
+                                event.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+                                event.currentTarget.style.boxShadow = "0 16px 40px rgba(0,0,0,0.26)";
+                              }}
+                            >
+                              <header style={postHeaderStyle}>
+                                <div style={postAuthorAvatarStyle}>
+                                  {profile.avatar_url ? (
+                                    <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                  ) : (
+                                    <span style={postAuthorFallbackStyle}>{getInitial(profile.full_name, profile.username)}</span>
+                                  )}
+                                </div>
+
+                                <div style={postAuthorTextStyle}>
+                                  <strong style={postAuthorNameStyle}>
+                                    {profile.full_name || profile.username || "Unnamed User"}
+                                  </strong>
+                                  <span style={postMetaStyle}>
+                                    @{profile.username || "no-username"} shared a reel · {formatTimeAgo(item.created_at)}
+                                  </span>
+                                </div>
+
+                                {isOwnProfile ? (
+                                  <button
+                                    onClick={() => handleRemoveSharedReel(item.id)}
+                                    style={sharedReelRemoveButtonStyle}
+                                  >
+                                    Remove
+                                  </button>
+                                ) : null}
+                              </header>
+
+                              {item.caption ? (
+                                <p style={postContentStyle}>{renderLinkedText(item.caption)}</p>
+                              ) : null}
+
+                              <div style={sharedReelCardStyle}>
+                                <Link
+                                  href={`/reels?reel=${item.reel_id}`}
+                                  style={sharedReelPreviewStyle}
+                                  aria-label="View shared reel"
+                                >
+                                  {item.reel?.video_url ? (
+                                    <video
+                                      src={item.reel.video_url}
+                                      poster={item.reel.poster_url || undefined}
+                                      muted
+                                      playsInline
+                                      preload="metadata"
+                                      style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "cover",
+                                        display: "block",
+                                        background: "#000",
+                                      }}
+                                    />
+                                  ) : (
+                                    <div
+                                      style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        color: "#9ca3af",
+                                        background: "#05070a",
+                                        textAlign: "center",
+                                        padding: "12px",
+                                      }}
+                                    >
+                                      Reel unavailable
+                                    </div>
+                                  )}
+
+                                  <div style={sharedReelPlayOverlayStyle}>
+                                    <span style={sharedReelPlayButtonStyle}>▶</span>
+                                  </div>
+                                </Link>
+
+                                <div style={{ flex: 1, minWidth: "210px" }}>
+                                  <div style={sharedReelBadgeStyle}>Parapost Reel</div>
+
+                                  <h4
+                                    style={{
+                                      margin: "12px 0 7px",
+                                      color: "#f9fafb",
+                                      fontSize: "20px",
+                                      lineHeight: 1.22,
+                                      letterSpacing: "-0.035em",
+                                    }}
+                                  >
+                                    {item.reel?.title || "Parapost Reel"}
+                                  </h4>
+
+                                  <p style={sharedReelMetaStyle}>
+                                    Original by {creatorName} @{creatorHandle}
+                                  </p>
+
+                                  {item.reel?.caption ? (
+                                    <p style={{ ...sharedReelMetaStyle, marginTop: "8px" }}>
+                                      {item.reel.caption}
+                                    </p>
+                                  ) : null}
+
+                                  <Link href={`/reels?reel=${item.reel_id}`} style={sharedReelActionLinkStyle}>
+                                    View Reel
+                                  </Link>
+                                </div>
+                              </div>
+                            </article>
+                          );
+                        }
+
+                        const post = item;
+                        const liked = !!userLikes[post.id];
+                        const likeCount = likeCounts[post.id] || 0;
+                        const isPostOwner = viewerId === post.user_id;
+                        const isEditingPost = editingPostId === post.id;
 
                         return (
-                          <div
-                            key={item.id}
+                          <article
+                            key={post.id}
                             style={{ ...postCardStyle, position: "relative" }}
                             onMouseEnter={(event) => {
                               event.currentTarget.style.transform = "translateY(-2px)";
-                              event.currentTarget.style.borderColor = "rgba(168,85,247,0.28)";
-                              event.currentTarget.style.boxShadow = "0 18px 42px rgba(0,0,0,0.30)";
+                              event.currentTarget.style.borderColor = "rgba(168,85,247,0.30)";
+                              event.currentTarget.style.boxShadow = "0 22px 52px rgba(0,0,0,0.34)";
                             }}
                             onMouseLeave={(event) => {
                               event.currentTarget.style.transform = "translateY(0)";
-                              event.currentTarget.style.borderColor = "rgba(255,255,255,0.115)";
-                              event.currentTarget.style.boxShadow = "0 14px 34px rgba(0,0,0,0.24)";
+                              event.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+                              event.currentTarget.style.boxShadow = "0 16px 40px rgba(0,0,0,0.26)";
                             }}
                           >
-                            <div
-                              style={{
-                                marginBottom: "12px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                gap: "12px",
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              <div>
-                                <div style={{ fontWeight: 600, color: "#f9fafb" }}>
-                                  {profile.full_name || profile.username || "Unnamed User"}
-                                </div>
-                                <div style={{ fontSize: "13px", color: "#9ca3af" }}>
-                                  @{profile.username || "no-username"} shared a reel · {formatTimeAgo(item.created_at)}
-                                </div>
-                              </div>
-
-                              {isOwnProfile ? (
-                                <button
-                                  onClick={() => handleRemoveSharedReel(item.id)}
-                                  style={secondaryButtonStyle}
-                                >
-                                  Remove
-                                </button>
-                              ) : null}
-                            </div>
-
-                            {item.caption ? (
-                              <p
-                                style={{
-                                  margin: "0 0 12px",
-                                  whiteSpace: "pre-wrap",
-                                  lineHeight: 1.7,
-                                  color: "#f9fafb",
-                                }}
-                              >
-                                {renderLinkedText(item.caption)}
-                              </p>
-                            ) : null}
-
-                            <div style={sharedReelCardStyle}>
-                              <Link
-                                href={`/reels?reel=${item.reel_id}`}
-                                style={sharedReelPreviewStyle}
-                              >
-                                {item.reel?.video_url ? (
-                                  <video
-                                    src={item.reel.video_url}
-                                    poster={item.reel.poster_url || undefined}
-                                    muted
-                                    playsInline
-                                    preload="metadata"
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      objectFit: "cover",
-                                      display: "block",
-                                      background: "#000",
-                                    }}
-                                  />
+                            <header style={postHeaderStyle}>
+                              <div style={postAuthorAvatarStyle}>
+                                {profile.avatar_url ? (
+                                  <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                 ) : (
-                                  <div
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      display: "grid",
-                                      placeItems: "center",
-                                      color: "#9ca3af",
-                                      background: "#05070a",
-                                      textAlign: "center",
-                                      padding: "12px",
-                                    }}
-                                  >
-                                    Reel unavailable
-                                  </div>
+                                  <span style={postAuthorFallbackStyle}>{getInitial(profile.full_name, profile.username)}</span>
                                 )}
+                              </div>
 
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    inset: 0,
-                                    background:
-                                      "linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    color: "white",
-                                    fontSize: "32px",
-                                    textShadow: "0 6px 18px rgba(0,0,0,0.55)",
-                                  }}
-                                >
-                                  ▶
+                              <div style={postAuthorTextStyle}>
+                                <strong style={postAuthorNameStyle}>
+                                  {profile.full_name || profile.username || "Unnamed User"}
+                                </strong>
+                                <span style={postMetaStyle}>
+                                  @{profile.username || "no-username"} · {formatTimeAgo(post.created_at)}
+                                </span>
+                              </div>
+
+                              {isPostOwner ? (
+                                <div style={{ position: "relative", flexShrink: 0 }}>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      setOpenPostMenuId((prev) => (prev === post.id ? null : post.id));
+                                    }}
+                                    style={dotsButtonStyle}
+                                    aria-label="Open post menu"
+                                  >
+                                    ⋯
+                                  </button>
+
+                                  {openPostMenuId === post.id ? (
+                                    <div style={postMenuStyle} onClick={(event) => event.stopPropagation()}>
+                                      <button style={menuItemStyle} onClick={() => handleStartEditPost(post)}>
+                                        Edit post
+                                      </button>
+                                      <button
+                                        style={{ ...menuItemStyle, color: "#fca5a5", borderBottomColor: "transparent" }}
+                                        onClick={() => handleDeletePost(post.id)}
+                                      >
+                                        Delete post
+                                      </button>
+                                    </div>
+                                  ) : null}
                                 </div>
-                              </Link>
+                              ) : null}
+                            </header>
 
-                              <div style={{ flex: 1, minWidth: "180px" }}>
-                                <div
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "6px",
-                                    color: "#d1d5db",
-                                    fontSize: "12px",
-                                    border: "1px solid rgba(255,255,255,0.10)",
-                                    borderRadius: "999px",
-                                    padding: "6px 9px",
-                                    background: "rgba(255,255,255,0.05)",
-                                    marginBottom: "10px",
-                                  }}
-                                >
-                                  Parapost Reel
+                            {isEditingPost ? (
+                              <div style={{ display: "grid", gap: "12px", marginTop: "14px" }}>
+                                <textarea
+                                  value={editingPostContent}
+                                  onChange={(event) => setEditingPostContent(event.target.value)}
+                                  rows={4}
+                                  style={profilePostTextAreaStyle}
+                                />
+
+                                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap" }}>
+                                  <button type="button" onClick={handleCancelPostEdit} style={secondaryButtonStyle}>
+                                    Cancel
+                                  </button>
+                                  <button type="button" onClick={() => handleSavePostEdit(post.id)} style={primaryButtonStyle}>
+                                    Save changes
+                                  </button>
                                 </div>
-
-                                <h4
-                                  style={{
-                                    margin: "0 0 6px",
-                                    color: "#f9fafb",
-                                    fontSize: "18px",
-                                    lineHeight: 1.25,
-                                  }}
-                                >
-                                  {item.reel?.title || "Parapost Reel"}
-                                </h4>
-
-                                <p
-                                  style={{
-                                    margin: "0 0 12px",
-                                    color: "#9ca3af",
-                                    fontSize: "13px",
-                                    lineHeight: 1.6,
-                                  }}
-                                >
-                                  Original by {creatorName} @{creatorHandle}
-                                </p>
-
-                                <Link
-                                  href={`/reels?reel=${item.reel_id}`}
-                                  style={{ ...primaryButtonStyle, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
-                                >
-                                  ▶ View Reel
-                                </Link>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      const post = item;
-                      const liked = !!userLikes[post.id];
-                      const likeCount = likeCounts[post.id] || 0;
-                      const isPostOwner = viewerId === post.user_id;
-                      const isEditingPost = editingPostId === post.id;
-
-                      return (
-                        <div
-                          key={post.id}
-                          style={{ ...postCardStyle, position: "relative" }}
-                          onMouseEnter={(event) => {
-                          event.currentTarget.style.transform = "translateY(-2px)";
-                          event.currentTarget.style.borderColor = "rgba(168,85,247,0.28)";
-                          event.currentTarget.style.boxShadow = "0 18px 42px rgba(0,0,0,0.30)";
-                        }}
-                        onMouseLeave={(event) => {
-                          event.currentTarget.style.transform = "translateY(0)";
-                          event.currentTarget.style.borderColor = "rgba(255,255,255,0.115)";
-                          event.currentTarget.style.boxShadow = "0 14px 34px rgba(0,0,0,0.24)";
-                        }}
-                     >
-                        <div
-                          style={{
-                            marginBottom: "12px",
-                            display: "flex",
-                            alignItems: "flex-start",
-                            justifyContent: "space-between",
-                            gap: "12px",
-                            flexWrap: "wrap",
-                            paddingRight: isPostOwner ? "42px" : 0,
-                          }}
-                        >
-                            <div>
-                              <div style={{ fontWeight: 600, color: "#f9fafb" }}>
-                                {profile.full_name || profile.username || "Unnamed User"}
-                              </div>
-                              <div style={{ fontSize: "13px", color: "#9ca3af" }}>
-                                @{profile.username || "no-username"} · {formatTimeAgo(post.created_at)}
-                              </div>
-                            </div>
-
-                            {isPostOwner ? (
-                              <div style={{ position: "absolute", top: "14px", right: "14px" }}>
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    setOpenPostMenuId((prev) => (prev === post.id ? null : post.id));
-                                  }}
-                                  style={dotsButtonStyle}
-                                  aria-label="Open post menu"
-                                >
-                                  ⋯
-                                </button>
-
-                                {openPostMenuId === post.id ? (
-                                  <div style={postMenuStyle} onClick={(event) => event.stopPropagation()}>
-                                    <button style={menuItemStyle} onClick={() => handleStartEditPost(post)}>
-                                      Edit post
-                                    </button>
-                                    <button
-                                      style={{ ...menuItemStyle, color: "#fca5a5", borderBottom: "none" }}
-                                      onClick={() => handleDeletePost(post.id)}
-                                    >
-                                      Delete post
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
+                            ) : post.content ? (
+                              <>
+                                <p style={postContentStyle}>{renderLinkedText(post.content)}</p>
+                                <LinkPreviewCard text={post.content} />
+                              </>
                             ) : null}
-                          </div>
 
-                          {isEditingPost ? (
-                            <div style={{ display: "grid", gap: "10px" }}>
-                              <textarea
-                                value={editingPostContent}
-                                onChange={(event) => setEditingPostContent(event.target.value)}
-                                rows={4}
-                                style={profilePostTextAreaStyle}
-                              />
+                            {post.image_url ? (
+                              <img src={post.image_url} alt="Post" style={postImageStyle} />
+                            ) : null}
 
-                              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap" }}>
-                                <button type="button" onClick={handleCancelPostEdit} style={secondaryButtonStyle}>
-                                  Cancel
-                                </button>
-                                <button type="button" onClick={() => handleSavePostEdit(post.id)} style={primaryButtonStyle}>
-                                  Save changes
-                                </button>
-                              </div>
-                            </div>
-                          ) : post.content ? (
-                            <>
-                              <p
-                                style={{
-                                  margin: 0,
-                                  whiteSpace: "pre-wrap",
-                                  lineHeight: 1.7,
-                                  color: "#f9fafb",
-                                }}
+                            <div style={postActionsRowStyle}>
+                              <button
+                                onClick={() => handleLikeToggle(post.id)}
+                                style={liked ? postLikeButtonActiveStyle : actionButtonStyle}
+                                aria-pressed={liked}
                               >
-                                {renderLinkedText(post.content)}
-                              </p>
+                                <span>{liked ? "♥" : "♡"}</span>
+                                <span>{likeCount}</span>
+                              </button>
 
-                              <LinkPreviewCard text={post.content} />
-                            </>
-                          ) : null}
-
-                          {post.image_url && (
-                            <img
-                              src={post.image_url}
-                              alt="Post"
-                              style={{
-                                width: "100%",
-                                maxHeight: "680px",
-                                marginTop: "12px",
-                                borderRadius: "22px",
-                                objectFit: "cover",
-                                display: "block",
-                                boxShadow: "0 10px 28px rgba(0,0,0,0.30)",
-                              }}
-                            />
-                          )}
-
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "12px",
-                              marginTop: "18px",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <button
-                              onClick={() => handleLikeToggle(post.id)}
-                              style={actionButtonStyle}
-                            >
-                              <span>{liked ? "♥" : "♡"}</span>
-                              <span>{likeCount}</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                              <span style={postSubtleMetaPillStyle}>
+                                Profile update
+                              </span>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -2392,12 +2330,14 @@ function getFriendStatusPillStyle(friendStatus: FriendRequestStatus): CSSPropert
 }
 
 const mainCardStyle: CSSProperties = {
-  background: "linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.025) 100%)",
-  borderRadius: "28px",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.058) 0%, rgba(255,255,255,0.026) 100%)",
+  borderRadius: "30px",
   padding: "18px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  backdropFilter: "blur(10px)",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
+  border: "1px solid rgba(255,255,255,0.105)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  boxShadow: "0 18px 46px rgba(0,0,0,0.28)",
   transition: "border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease",
 };
 
@@ -2412,13 +2352,233 @@ const sideCardStyle: CSSProperties = {
 
 const postCardStyle: CSSProperties = {
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.060) 0%, rgba(255,255,255,0.032) 100%)",
-  border: "1px solid rgba(255,255,255,0.115)",
+    "linear-gradient(180deg, rgba(255,255,255,0.070) 0%, rgba(255,255,255,0.032) 100%)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: "28px",
+  padding: "18px",
+  boxShadow: "0 16px 40px rgba(0,0,0,0.26)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  transition: "transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
+};
+
+const profileComposerHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "13px",
+  flexWrap: "wrap",
+  marginBottom: "14px",
+};
+
+const profileComposerIconStyle: CSSProperties = {
+  width: "44px",
+  height: "44px",
+  borderRadius: "18px",
+  display: "grid",
+  placeItems: "center",
+  flexShrink: 0,
+  background: "linear-gradient(135deg, #a855f7, #7c3aed)",
+  color: "#ffffff",
+  fontSize: "25px",
+  fontWeight: 950,
+  boxShadow: "0 14px 30px rgba(168,85,247,0.28)",
+};
+
+const profileComposerBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "32px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#d1d5db",
+  padding: "7px 11px",
+  fontSize: "12px",
+  fontWeight: 900,
+};
+
+const profileComposerFooterStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "12px",
+  flexWrap: "wrap",
+  marginTop: "14px",
+};
+
+const feedHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "14px",
+  flexWrap: "wrap",
+  marginBottom: "16px",
+};
+
+const feedTitleBlockStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const feedEyebrowStyle: CSSProperties = {
+  display: "inline-flex",
+  width: "fit-content",
+  marginBottom: "6px",
+  color: "#c084fc",
+  fontSize: "11px",
+  fontWeight: 950,
+  letterSpacing: "0.18em",
+  textTransform: "uppercase",
+};
+
+const feedCountPillStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "36px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.055)",
+  color: "#d1d5db",
+  padding: "8px 12px",
+  fontSize: "12px",
+  fontWeight: 900,
+};
+
+const feedStackStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "18px",
+};
+
+const feedEmptyStateStyle: CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  gap: "4px",
+  minHeight: "220px",
   borderRadius: "26px",
-  padding: "16px",
-  boxShadow: "0 14px 34px rgba(0,0,0,0.24)",
-  backdropFilter: "blur(12px)",
-  transition: "all 180ms ease",
+  border: "1px dashed rgba(255,255,255,0.16)",
+  background: "rgba(255,255,255,0.035)",
+  textAlign: "center",
+  padding: "28px 18px",
+};
+
+const postHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  marginBottom: "14px",
+};
+
+const postAuthorAvatarStyle: CSSProperties = {
+  width: "48px",
+  height: "48px",
+  borderRadius: "50%",
+  overflow: "hidden",
+  flexShrink: 0,
+  border: "2px solid rgba(168,85,247,0.50)",
+  background: "#05070a",
+  boxShadow: "0 10px 24px rgba(0,0,0,0.26)",
+};
+
+const postAuthorFallbackStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  placeItems: "center",
+  background: "linear-gradient(135deg, #7c3aed, #111827)",
+  color: "#ffffff",
+  fontWeight: 950,
+};
+
+const postAuthorTextStyle: CSSProperties = {
+  minWidth: 0,
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  gap: "3px",
+};
+
+const postAuthorNameStyle: CSSProperties = {
+  color: "#f9fafb",
+  fontWeight: 950,
+  fontSize: "15px",
+  lineHeight: 1.2,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const postMetaStyle: CSSProperties = {
+  color: "#9ca3af",
+  fontSize: "13px",
+  fontWeight: 700,
+  lineHeight: 1.25,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const postContentStyle: CSSProperties = {
+  margin: "0 0 2px",
+  whiteSpace: "pre-wrap",
+  lineHeight: 1.75,
+  color: "#f9fafb",
+  fontSize: "15px",
+  fontWeight: 500,
+};
+
+const postImageStyle: CSSProperties = {
+  width: "100%",
+  maxHeight: "720px",
+  marginTop: "14px",
+  borderRadius: "24px",
+  objectFit: "cover",
+  display: "block",
+  border: "1px solid rgba(255,255,255,0.10)",
+  boxShadow: "0 16px 36px rgba(0,0,0,0.34)",
+};
+
+const postActionsRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  marginTop: "18px",
+  paddingTop: "14px",
+  borderTop: "1px solid rgba(255,255,255,0.075)",
+  flexWrap: "wrap",
+};
+
+const postLikeButtonActiveStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "8px",
+  borderRadius: "999px",
+  border: "1px solid rgba(236,72,153,0.35)",
+  background: "rgba(236,72,153,0.14)",
+  color: "#fbcfe8",
+  padding: "10px 15px",
+  cursor: "pointer",
+  minHeight: "42px",
+  fontWeight: 900,
+  boxShadow: "0 10px 24px rgba(236,72,153,0.14)",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease",
+};
+
+const postSubtleMetaPillStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: "34px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.035)",
+  color: "#8b949e",
+  padding: "7px 11px",
+  fontSize: "12px",
+  fontWeight: 850,
 };
 
 const navItemStyle: CSSProperties = {
@@ -2487,15 +2647,17 @@ const statusToastStyle: CSSProperties = {
 const actionButtonStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
+  justifyContent: "center",
   gap: "8px",
   borderRadius: "999px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.055)",
   color: "#f9fafb",
-  padding: "10px 14px",
+  padding: "10px 15px",
   cursor: "pointer",
   minHeight: "42px",
-  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+  fontWeight: 900,
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease",
 };
 
 const statPillStyle: CSSProperties = {
@@ -2533,26 +2695,28 @@ const pillMutedStyle: CSSProperties = {
 };
 
 const sharedReelCardStyle: CSSProperties = {
-  marginTop: "12px",
+  marginTop: "14px",
   display: "flex",
-  gap: "12px",
+  gap: "16px",
   alignItems: "center",
   flexWrap: "wrap",
-  borderRadius: "22px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(0,0,0,0.30)",
-  padding: "12px",
+  borderRadius: "26px",
+  border: "1px solid rgba(168,85,247,0.20)",
+  background:
+    "linear-gradient(135deg, rgba(168,85,247,0.13), rgba(0,0,0,0.34) 48%, rgba(34,211,238,0.08))",
+  padding: "14px",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
 };
 
 const sharedReelPreviewStyle: CSSProperties = {
-  width: "clamp(142px, 34vw, 210px)",
+  width: "clamp(148px, 34vw, 220px)",
   aspectRatio: "9 / 16",
-  maxHeight: "360px",
-  borderRadius: "18px",
+  maxHeight: "370px",
+  borderRadius: "22px",
   overflow: "hidden",
-  border: "1px solid rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.12)",
   background: "#000",
-  boxShadow: "0 12px 28px rgba(0,0,0,0.34)",
+  boxShadow: "0 16px 36px rgba(0,0,0,0.38)",
   flexShrink: 0,
   position: "relative",
   display: "block",
@@ -2560,24 +2724,25 @@ const sharedReelPreviewStyle: CSSProperties = {
 
 const profilePostTextAreaStyle: CSSProperties = {
   width: "100%",
-  background: "rgba(255,255,255,0.04)",
+  background: "rgba(3,7,18,0.50)",
   color: "white",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: "20px",
-  padding: "14px 16px",
-  fontSize: "14px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: "24px",
+  padding: "16px 18px",
+  fontSize: "15px",
   outline: "none",
   resize: "vertical",
   fontFamily: "inherit",
-  lineHeight: 1.6,
+  lineHeight: 1.65,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
 };
 
 const profilePostMediaBoxStyle: CSSProperties = {
-  marginTop: "10px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: "22px",
-  background: "rgba(255,255,255,0.03)",
-  padding: "14px",
+  marginTop: "12px",
+  border: "1px solid rgba(255,255,255,0.11)",
+  borderRadius: "24px",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.022))",
+  padding: "15px",
 };
 
 const profilePostDangerButtonStyle: CSSProperties = {
@@ -2593,44 +2758,53 @@ const profilePostDangerButtonStyle: CSSProperties = {
 
 
 const dotsButtonStyle: CSSProperties = {
-  width: "34px",
-  height: "34px",
+  width: "38px",
+  height: "38px",
   borderRadius: "999px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.07)",
   color: "#f9fafb",
   cursor: "pointer",
   fontSize: "20px",
   lineHeight: 1,
   display: "grid",
   placeItems: "center",
-  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+  transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease",
 };
 
 const postMenuStyle: CSSProperties = {
   position: "absolute",
-  top: "40px",
+  top: "44px",
   right: 0,
   zIndex: 20,
-  minWidth: "170px",
-  background: "#0b1020",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "16px",
+  minWidth: "176px",
+  background: "rgba(8,12,20,0.98)",
+  border: "1px solid rgba(255,255,255,0.13)",
+  borderRadius: "18px",
   overflow: "hidden",
-  boxShadow: "0 18px 34px rgba(0,0,0,0.34)",
+  boxShadow: "0 20px 40px rgba(0,0,0,0.42)",
+  backdropFilter: "blur(16px)",
+  WebkitBackdropFilter: "blur(16px)",
 };
 
 const menuItemStyle: CSSProperties = {
   width: "100%",
   background: "transparent",
   color: "#f9fafb",
-  border: "none",
-  borderBottom: "1px solid rgba(255,255,255,0.07)",
+  borderTopWidth: 0,
+  borderRightWidth: 0,
+  borderBottomWidth: "1px",
+  borderLeftWidth: 0,
+  borderStyle: "solid",
+  borderTopColor: "transparent",
+  borderRightColor: "transparent",
+  borderBottomColor: "rgba(255,255,255,0.07)",
+  borderLeftColor: "transparent",
   padding: "12px 14px",
   textAlign: "left",
   cursor: "pointer",
   fontSize: "14px",
-  fontWeight: 700,
+  fontWeight: 800,
 };
 
 const messageBoxStyle: CSSProperties = {
@@ -2729,26 +2903,26 @@ const sharedReelRemoveButtonStyle: CSSProperties = {
 
 
 const linkPreviewCardStyle: CSSProperties = {
-  marginTop: "12px",
+  marginTop: "14px",
   display: "flex",
-  gap: "12px",
+  gap: "13px",
   alignItems: "center",
-  borderRadius: "20px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(0,0,0,0.24)",
-  padding: "10px",
+  borderRadius: "24px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "linear-gradient(135deg, rgba(255,255,255,0.055), rgba(0,0,0,0.28))",
+  padding: "12px",
   textDecoration: "none",
   color: "white",
-  boxShadow: "0 10px 26px rgba(0,0,0,0.18)",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.20)",
 };
 
 const linkPreviewMediaStyle: CSSProperties = {
-  width: "116px",
-  height: "74px",
-  borderRadius: "16px",
+  width: "126px",
+  height: "80px",
+  borderRadius: "18px",
   overflow: "hidden",
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.055)",
+  border: "1px solid rgba(255,255,255,0.10)",
   flexShrink: 0,
   position: "relative",
 };
