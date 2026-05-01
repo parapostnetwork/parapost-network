@@ -12,6 +12,7 @@ import {
 } from "@/lib/friends";
 import MutualFriendsPreviewCard from "@/components/profile/MutualFriendsPreviewCard";
 import ProfileAboutSection from "@/components/profile/ProfileAboutSection";
+import BottomNav from "@/components/BottomNav";
 
 type ProfileRow = {
   id: string;
@@ -1176,6 +1177,20 @@ const showFriendStatus = useCallback((message: string) => {
     return "Not Friends Yet";
   };
 
+  const handleMobileCreatePostClick = () => {
+    if (!isOwnProfile) {
+      router.push("/dashboard?createPost=1");
+      return;
+    }
+
+    setActiveProfileTab("Posts");
+
+    window.setTimeout(() => {
+      const composer = document.getElementById("profile-composer");
+      composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  };
+
 return (
   <div
     className="min-h-screen text-white profile-polish-surface"
@@ -1209,6 +1224,42 @@ return (
         transition: transform 160ms ease, filter 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
       }
 
+      @media (max-width: 980px) {
+        .profile-hero-shell {
+          border-radius: 26px !important;
+        }
+
+        .profile-hero-content {
+          align-items: center !important;
+          justify-content: center !important;
+          text-align: center !important;
+          gap: 14px !important;
+          padding-left: 14px !important;
+          padding-right: 14px !important;
+        }
+
+        .profile-hero-info {
+          min-width: 100% !important;
+          padding-bottom: 0 !important;
+        }
+
+        .profile-hero-topline {
+          justify-content: center !important;
+          gap: 14px !important;
+        }
+
+        .profile-hero-actions {
+          width: 100% !important;
+          justify-content: center !important;
+          gap: 8px !important;
+        }
+
+        .profile-hero-actions a,
+        .profile-hero-actions button {
+          min-height: 42px !important;
+        }
+      }
+
       @media (max-width: 720px) {
         .profile-polish-surface .profile-tabs-desktop {
           display: none !important;
@@ -1216,6 +1267,54 @@ return (
 
         .profile-polish-surface select[aria-label="Choose profile section"] {
           display: block !important;
+        }
+
+        .profile-stats-bar {
+          grid-template-columns: 1fr 1fr !important;
+          gap: 10px !important;
+          padding: 12px !important;
+        }
+
+        .profile-stats-bar > div:nth-child(even) {
+          display: none !important;
+        }
+
+        .profile-stories-row {
+          gap: 10px !important;
+          padding: 12px !important;
+        }
+
+        .profile-tabs-shell {
+          position: sticky !important;
+          top: 68px !important;
+          z-index: 20 !important;
+          background: linear-gradient(180deg, rgba(7,9,13,0.96), rgba(7,9,13,0.76)) !important;
+          backdrop-filter: blur(14px) !important;
+          -webkit-backdrop-filter: blur(14px) !important;
+          border-top: 1px solid rgba(255,255,255,0.06) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+          padding: 10px 12px !important;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .profile-hero-content {
+          margin-top: -66px !important;
+        }
+
+        .profile-hero-actions {
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        .profile-hero-actions a,
+        .profile-hero-actions button {
+          width: 100% !important;
+          justify-content: center !important;
+        }
+
+        .profile-hero-actions button[aria-label="More profile actions"] {
+          grid-column: span 2 !important;
         }
       }
     `}</style>
@@ -1286,15 +1385,18 @@ return (
               </Link>
               <Link href="/notifications" style={navItemLinkStyle}>
                 Notifications
-              </Link>
-              <div style={navItemStyle}>Messages</div>
-              <div style={navItemStyle}>Settings</div>
-            </div>
-          </aside>
+             </Link>
+           <Link href="/messages" style={navItemLinkStyle}>
+            Parachat
+           </Link>
+
+           <div style={navItemStyle}>Settings</div>
+           </div>
+           </aside>   
 
           <section className="min-w-0">
             <div className="mx-auto w-full space-y-4 md:space-y-5" style={{ maxWidth: "980px" }}>
-              <div style={profileHeroShellStyle}>
+              <div className="profile-hero-shell" style={profileHeroShellStyle}>
                 <div style={profileCoverStyle}>
                   <div style={profileCoverOverlayStyle} />
                   {isOwnProfile ? (
@@ -1307,7 +1409,7 @@ return (
                   ) : null}
                 </div>
 
-                <div style={profileHeroContentStyle}>
+                <div className="profile-hero-content" style={profileHeroContentStyle}>
                   <div style={profileAvatarWrapStyle}>
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="Profile" style={profileAvatarStyle} />
@@ -1330,8 +1432,8 @@ return (
                     ) : null}
                   </div>
 
-                  <div style={profileHeroInfoStyle}>
-                    <div style={profileHeroTopLineStyle}>
+                  <div className="profile-hero-info" style={profileHeroInfoStyle}>
+                    <div className="profile-hero-topline" style={profileHeroTopLineStyle}>
                       <div style={{ minWidth: 0 }}>
                         <h1 style={profileHeroNameStyle}>
                           {profile?.full_name || profile?.username || "Profile"}
@@ -1344,7 +1446,7 @@ return (
                         </p>
                       </div>
 
-                      <div style={profileHeroActionsStyle}>
+                      <div className="profile-hero-actions" style={profileHeroActionsStyle}>
                         <Link
                           href={`/profile/${profileId}/reels`}
                           style={profileGlassButtonStyle}
@@ -1459,7 +1561,7 @@ return (
                   </div>
                 </div>
 
-                <div style={profileStatsBarStyle}>
+                <div className="profile-stats-bar" style={profileStatsBarStyle}>
                   <div style={profileStatItemStyle}>
                     <strong style={profileStatNumberStyle}>{followersCount}</strong>
                     <span style={profileStatLabelStyle}>Followers</span>
@@ -1481,7 +1583,7 @@ return (
                   </div>
                 </div>
 
-                <div style={profileStoriesRowStyle}>
+                <div className="profile-stories-row" style={profileStoriesRowStyle}>
                   {[
                     { label: "New", icon: "+" },
                     { label: "Investigations", icon: "👻" },
@@ -1496,7 +1598,7 @@ return (
                   ))}
                 </div>
 
-                <div style={profileTabsShellStyle}>
+                <div className="profile-tabs-shell" style={profileTabsShellStyle}>
                   <div className="profile-tabs-desktop" style={profileTabsStyle}>
                     {["Posts", "About", "Reels", "Photos", "Videos", "Groups", "Events"].map((tab) => (
                       <button
@@ -1594,7 +1696,7 @@ return (
               ) : null}
 
               {activeProfileTab === "Posts" && isOwnProfile ? (
-                <div style={mainCardStyle}>
+                <div id="profile-composer" style={mainCardStyle}>
                   <div
                     style={{
                       display: "flex",
@@ -2220,43 +2322,14 @@ return (
           </aside>
         </div>
       </div>
-
-      <nav className="xl:hidden" style={mobileBottomNavStyle}>
-        <Link href="/dashboard" style={mobileBottomNavItemStyle}>
-          <span style={mobileBottomNavIconStyle}>⌂</span>
-          <span>Home</span>
-        </Link>
-
-        <Link href="/reels" style={mobileBottomNavItemStyle}>
-          <span style={mobileBottomNavIconStyle}>▣</span>
-          <span>Reels</span>
-        </Link>
-
-        <button
-          type="button"
-          onClick={() => {
-            const composer = document.getElementById("profile-composer");
-            composer?.scrollIntoView({ behavior: "smooth", block: "center" });
-          }}
-          style={mobileCreateButtonStyle}
-          aria-label="Create post"
-        >
-          +
-        </button>
-
-       <button type="button" style={mobileBottomNavItemStyle}>
-         <span style={mobileBottomNavIconStyle}>☏</span>
-         <span>Messages</span>
-       </button>
-
-        <Link href={`/profile/${viewerId || profileId}`} style={mobileBottomNavItemActiveStyle}>
-          <span style={mobileBottomNavIconStyle}>●</span>
-          <span>Profile</span>
-        </Link>
-      </nav>
+      <BottomNav
+        currentUserId={viewerId}
+        activeItem="profile"
+        onCreatePost={handleMobileCreatePostClick}
+      />
     </div>
   );
-}
+}   
 
 function getFriendStatusPillStyle(friendStatus: FriendRequestStatus): CSSProperties {
   if (friendStatus === "friends") {
@@ -2738,12 +2811,12 @@ const profilePageBackgroundStyle: CSSProperties = {
 const profileHeroShellStyle: CSSProperties = {
   position: "relative",
   overflow: "hidden",
-  borderRadius: "30px",
-  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: "34px",
+  border: "1px solid rgba(255,255,255,0.115)",
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.032) 100%)",
-  boxShadow: "0 20px 60px rgba(0,0,0,0.36)",
-  backdropFilter: "blur(16px)",
+    "linear-gradient(180deg, rgba(255,255,255,0.078) 0%, rgba(255,255,255,0.032) 100%)",
+  boxShadow: "0 26px 80px rgba(0,0,0,0.42)",
+  backdropFilter: "blur(18px)",
 };
 
 const profileCoverStyle: CSSProperties = {
@@ -2778,10 +2851,10 @@ const editCoverButtonStyle: CSSProperties = {
 
 const profileHeroContentStyle: CSSProperties = {
   position: "relative",
-  marginTop: "-82px",
-  padding: "0 18px 18px",
+  marginTop: "-86px",
+  padding: "0 20px 20px",
   display: "flex",
-  gap: "22px",
+  gap: "24px",
   alignItems: "flex-end",
   flexWrap: "wrap",
 };
@@ -2849,8 +2922,8 @@ const avatarCameraButtonStyle: CSSProperties = {
 
 const profileHeroInfoStyle: CSSProperties = {
   flex: 1,
-  minWidth: "280px",
-  paddingBottom: "10px",
+  minWidth: "300px",
+  paddingBottom: "12px",
 };
 
 const profileHeroTopLineStyle: CSSProperties = {
@@ -2859,7 +2932,7 @@ const profileHeroTopLineStyle: CSSProperties = {
   alignItems: "flex-start",
   gap: "18px",
   flexWrap: "wrap",
-  marginBottom: "10px",
+  marginBottom: "12px",
 };
 
 const profileHeroNameStyle: CSSProperties = {
@@ -2898,32 +2971,43 @@ const profileHeroActionsStyle: CSSProperties = {
   display: "flex",
   gap: "10px",
   alignItems: "center",
+  justifyContent: "flex-end",
   flexWrap: "wrap",
+  maxWidth: "520px",
 };
 
 const profilePrimaryButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   background: "linear-gradient(135deg,#a855f7,#7c3aed)",
   color: "#fff",
-  border: "none",
+  border: "1px solid rgba(255,255,255,0.10)",
   borderRadius: "999px",
-  padding: "10px 18px",
-  fontWeight: 700,
+  padding: "11px 18px",
+  fontWeight: 900,
   fontSize: "13px",
   cursor: "pointer",
-  boxShadow: "0 6px 18px rgba(168,85,247,0.35)",
+  boxShadow: "0 10px 26px rgba(168,85,247,0.38)",
   transition: "all 0.2s ease",
+  whiteSpace: "nowrap",
 };
 
 const profileGlassButtonStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.14)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,255,255,0.075)",
+  border: "1px solid rgba(255,255,255,0.15)",
   color: "#f9fafb",
   borderRadius: "999px",
-  padding: "10px 16px",
-  fontWeight: 600,
+  padding: "11px 16px",
+  fontWeight: 850,
   fontSize: "13px",
   cursor: "pointer",
-  backdropFilter: "blur(10px)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  whiteSpace: "nowrap",
 };
 
 const profileIconButtonStyle: CSSProperties = {
@@ -3032,44 +3116,64 @@ const profileTabsShellStyle: CSSProperties = {
 
 const profileTabsStyle: CSSProperties = {
   display: "flex",
-  gap: "6px",
-  padding: "6px",
+  gap: "7px",
+  padding: "7px",
   borderRadius: "999px",
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04))",
+  border: "1px solid rgba(255,255,255,0.095)",
   overflowX: "auto",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
 };
 
 const profileTabStyle: CSSProperties = {
   background: "transparent",
   color: "#aeb3c2",
-  border: "none",
-  borderBottom: "2px solid transparent",
-  padding: "13px 18px",
-  fontWeight: 800,
+  borderTopWidth: "1px",
+  borderRightWidth: "1px",
+  borderBottomWidth: "2px",
+  borderLeftWidth: "1px",
+  borderStyle: "solid",
+  borderTopColor: "transparent",
+  borderRightColor: "transparent",
+  borderBottomColor: "transparent",
+  borderLeftColor: "transparent",
+  padding: "12px 18px",
+  fontWeight: 900,
   cursor: "pointer",
+  borderRadius: "999px",
+  whiteSpace: "nowrap",
 };
 
 const profileActiveTabStyle: CSSProperties = {
   ...profileTabStyle,
   background: "linear-gradient(135deg,#a855f7,#7c3aed)",
   color: "#ffffff",
-  borderBottom: "2px solid transparent",
+  borderTopWidth: "1px",
+  borderRightWidth: "1px",
+  borderBottomWidth: "2px",
+  borderLeftWidth: "1px",
+  borderStyle: "solid",
+  borderTopColor: "rgba(255,255,255,0.15)",
+  borderRightColor: "rgba(255,255,255,0.15)",
+  borderBottomColor: "transparent",
+  borderLeftColor: "rgba(255,255,255,0.15)",
   borderRadius: "999px",
+  boxShadow: "0 10px 24px rgba(124,58,237,0.32)",
 };
 
 const profileMobileTabSelectStyle: CSSProperties = {
   display: "none",
   width: "100%",
-  minHeight: "46px",
-  marginTop: "10px",
-  borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(8,10,16,0.94)",
+  minHeight: "48px",
+  marginTop: "0",
+  borderRadius: "18px",
+  border: "1px solid rgba(168,85,247,0.28)",
+  background: "rgba(8,10,16,0.96)",
   color: "#f9fafb",
   padding: "0 14px",
-  fontWeight: 800,
+  fontWeight: 900,
   outline: "none",
+  boxShadow: "0 12px 26px rgba(0,0,0,0.24)",
 };
 
 const aboutHeaderStyle: CSSProperties = {
