@@ -1291,6 +1291,70 @@ return (
         transition: transform 140ms ease, filter 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
       }
 
+      .profile-avatar-wrap,
+      .profile-mobile-avatar-shell-real {
+        isolation: isolate;
+      }
+
+      .profile-avatar-wrap img,
+      .profile-avatar-wrap > div,
+      .profile-mobile-avatar-image-real,
+      .profile-mobile-avatar-fallback-real {
+        position: relative;
+        z-index: 1;
+      }
+
+      .profile-avatar-online-ring {
+        background: linear-gradient(135deg, rgba(168,85,247,1), rgba(34,211,238,0.96), rgba(124,58,237,0.92)) !important;
+        box-shadow:
+          0 0 0 1px rgba(216,180,254,0.22),
+          0 0 24px rgba(168,85,247,0.38),
+          0 0 44px rgba(34,211,238,0.18) !important;
+      }
+
+      .profile-avatar-online-ring::after {
+        content: "";
+        position: absolute;
+        inset: -7px;
+        border-radius: 999px;
+        border: 2px solid rgba(34,211,238,0.42);
+        box-shadow:
+          0 0 18px rgba(168,85,247,0.38),
+          0 0 34px rgba(34,211,238,0.20);
+        pointer-events: none;
+        z-index: 0;
+        animation: profileAvatarOnlineGlow 2.8s ease-in-out infinite;
+      }
+
+      .profile-avatar-offline-ring {
+        background: linear-gradient(135deg, rgba(168,85,247,0.72), rgba(59,130,246,0.52), rgba(236,72,153,0.42)) !important;
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.08),
+          0 0 18px rgba(168,85,247,0.18) !important;
+      }
+
+      .profile-avatar-online-ring button,
+      .profile-avatar-offline-ring button {
+        position: absolute;
+        z-index: 3;
+      }
+
+      .profile-avatar-edit-button {
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+      }
+
+      @keyframes profileAvatarOnlineGlow {
+        0%, 100% {
+          opacity: 0.55;
+          transform: scale(0.985);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.025);
+        }
+      }
+
       .profile-mobile-first-polish small {
         display: block;
         color: #7c8597;
@@ -1903,29 +1967,26 @@ return (
         }
 
         .profile-mobile-online-dot-real {
-          position: absolute !important;
-          right: 10px !important;
-          bottom: 10px !important;
-          width: 18px !important;
-          height: 18px !important;
-          border-radius: 50% !important;
-          background: #22c55e !important;
-          border: 3px solid #07090d !important;
+          display: none !important;
         }
 
         .profile-mobile-camera-real {
           position: absolute !important;
-          right: -2px !important;
-          bottom: 2px !important;
-          width: 34px !important;
-          height: 34px !important;
+          right: -1px !important;
+          bottom: 3px !important;
+          width: 36px !important;
+          height: 36px !important;
           display: grid !important;
           place-items: center !important;
-          border-radius: 12px !important;
-          border: 1px solid rgba(255,255,255,0.15) !important;
-          background: rgba(13,15,22,0.82) !important;
+          border-radius: 14px !important;
+          border: 1px solid rgba(216,180,254,0.38) !important;
+          background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(168,85,247,0.26)) !important;
           color: #ffffff !important;
-          font-size: 15px !important;
+          font-size: 16px !important;
+          font-weight: 950 !important;
+          box-shadow: 0 10px 24px rgba(0,0,0,0.32), 0 0 18px rgba(168,85,247,0.24) !important;
+          backdrop-filter: blur(14px) !important;
+          -webkit-backdrop-filter: blur(14px) !important;
         }
 
         .profile-mobile-identity-real {
@@ -2541,209 +2602,6 @@ return (
   }
 }
 
-
-
-      /* Advanced mobile profile polish pass - header, tabs, stats, and feed cards */
-      @media (max-width: 720px) {
-        .profile-mobile-first-polish .profile-cover-zone {
-          height: 146px !important;
-          background:
-            radial-gradient(circle at 44% 10%, rgba(168,85,247,0.50) 0%, rgba(88,28,135,0.22) 34%, rgba(5,7,11,0.94) 72%),
-            linear-gradient(135deg, #0b0d14 0%, #151225 48%, #05070b 100%) !important;
-        }
-
-        .profile-mobile-first-polish .profile-hero-shell {
-          background: #0d1017 !important;
-          border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-        }
-
-        .profile-mobile-first-polish .profile-hero-content {
-          margin-top: -46px !important;
-          padding: 0 16px 16px !important;
-          background: linear-gradient(180deg, rgba(7,9,14,0) 0%, rgba(11,13,19,0.96) 28%, rgba(13,15,22,1) 100%) !important;
-        }
-
-        .profile-mobile-first-polish .profile-avatar-wrap {
-          width: 96px !important;
-          height: 96px !important;
-          min-width: 96px !important;
-          margin-bottom: 11px !important;
-          box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 12px 30px rgba(0,0,0,0.36), 0 0 18px rgba(168,85,247,0.18) !important;
-        }
-
-        .profile-mobile-first-polish .profile-avatar-wrap img,
-        .profile-mobile-first-polish .profile-avatar-wrap > div {
-          border-color: #0b0d14 !important;
-        }
-
-        .profile-mobile-first-polish .profile-hero-topline {
-          gap: 7px !important;
-        }
-
-        .profile-mobile-first-polish .profile-hero-topline h1 {
-          font-size: clamp(26px, 7.4vw, 34px) !important;
-          line-height: 1.06 !important;
-          letter-spacing: -0.052em !important;
-        }
-
-        .profile-mobile-first-polish .profile-hero-topline p {
-          color: #a8afbf !important;
-          font-size: 13px !important;
-          line-height: 1.32 !important;
-        }
-
-        .profile-mobile-first-polish .profile-hero-info > p {
-          margin-top: 11px !important;
-          color: #dce1eb !important;
-          font-size: 14px !important;
-          line-height: 1.52 !important;
-          letter-spacing: -0.01em !important;
-        }
-
-        .profile-mobile-meta-action-row {
-          margin-top: 12px !important;
-          grid-template-columns: minmax(0, 1fr) 50px !important;
-          align-items: center !important;
-          gap: 12px !important;
-        }
-
-        .profile-mobile-first-polish .profile-meta-row {
-          gap: 7px !important;
-          color: #a8afbf !important;
-          font-size: 13px !important;
-          line-height: 1.32 !important;
-        }
-
-        .profile-mobile-inline-more {
-          width: 50px !important;
-          height: 44px !important;
-          border-radius: 15px !important;
-          background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04)) !important;
-          border-color: rgba(255,255,255,0.13) !important;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
-        }
-
-        .profile-mobile-first-polish .profile-stats-bar {
-          background: #10131a !important;
-          padding: 12px 4px !important;
-          border-top: 1px solid rgba(255,255,255,0.08) !important;
-          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
-        }
-
-        .profile-mobile-first-polish .profile-stats-bar strong {
-          font-size: 18px !important;
-          letter-spacing: -0.025em !important;
-        }
-
-        .profile-mobile-first-polish .profile-stats-bar span {
-          font-size: 10px !important;
-          letter-spacing: 0.08em !important;
-        }
-
-        .profile-mobile-first-polish .profile-stories-row {
-          padding: 10px 12px 12px !important;
-          gap: 10px !important;
-          background: #10131a !important;
-        }
-
-        .profile-mobile-first-polish .profile-story-circle,
-        .profile-mobile-first-polish .profile-stories-row > div > div:first-child {
-          width: 52px !important;
-          height: 52px !important;
-          border-radius: 15px !important;
-          border-color: rgba(168,85,247,0.45) !important;
-          background: rgba(168,85,247,0.08) !important;
-        }
-
-        .profile-mobile-first-polish .profile-tabs-shell {
-          position: sticky !important;
-          top: 0 !important;
-          z-index: 50 !important;
-          background: rgba(16,19,26,0.98) !important;
-          box-shadow: 0 10px 24px rgba(0,0,0,0.18) !important;
-        }
-
-        .profile-mobile-first-polish .profile-tabs-desktop {
-          padding: 6px 14px 0 !important;
-          gap: 18px !important;
-        }
-
-        .profile-mobile-first-polish .profile-tabs-desktop button {
-          font-size: 14px !important;
-          font-weight: 900 !important;
-          letter-spacing: -0.01em !important;
-          padding-top: 10px !important;
-          padding-bottom: 11px !important;
-        }
-
-        .profile-mobile-first-polish .profile-tabs-desktop button[aria-pressed="true"] {
-          color: #ffffff !important;
-          border-bottom-color: #a855f7 !important;
-          background: transparent !important;
-          padding-left: 0 !important;
-          padding-right: 0 !important;
-        }
-
-        .profile-mobile-first-polish .profile-feed-section-card > div:first-child {
-          padding: 14px 14px 12px !important;
-          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-          margin-bottom: 0 !important;
-        }
-
-        .profile-mobile-first-polish .profile-feed-card {
-          padding: 14px !important;
-          background: #15181f !important;
-          border-top: 1px solid rgba(255,255,255,0.07) !important;
-          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-        }
-
-        .profile-mobile-first-polish .profile-feed-card p {
-          font-size: 14px !important;
-          line-height: 1.64 !important;
-          color: #f1f5f9 !important;
-        }
-
-        .profile-mobile-first-polish .profile-post-image {
-          margin-top: 12px !important;
-          border-radius: 0 !important;
-          margin-left: -14px !important;
-          width: calc(100% + 28px) !important;
-          max-width: none !important;
-          box-shadow: none !important;
-        }
-
-        .profile-mobile-action-sheet {
-          max-height: calc(100dvh - 72px) !important;
-        }
-
-        .profile-mobile-action-list {
-          max-height: min(68dvh, 520px) !important;
-        }
-      }
-
-      @media (max-width: 420px) {
-        .profile-mobile-first-polish .profile-cover-zone {
-          height: 138px !important;
-        }
-
-        .profile-mobile-first-polish .profile-hero-content {
-          margin-top: -44px !important;
-          padding-left: 14px !important;
-          padding-right: 14px !important;
-        }
-
-        .profile-mobile-first-polish .profile-avatar-wrap {
-          width: 90px !important;
-          height: 90px !important;
-          min-width: 90px !important;
-        }
-
-        .profile-mobile-first-polish .profile-hero-topline h1 {
-          font-size: clamp(25px, 7.7vw, 32px) !important;
-        }
-      }
-
-
     `}</style>
 
     {/* Mobile Top Bar */}
@@ -2830,7 +2688,7 @@ return (
                 </div>
 
                 <div className="profile-mobile-header-real">
-                  <div className="profile-mobile-avatar-shell-real">
+                  <div className={`profile-mobile-avatar-shell-real ${profile?.is_online ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}>
                     {profile?.avatar_url ? (
                       <img
                         src={profile.avatar_url}
@@ -2843,18 +2701,15 @@ return (
                       </div>
                     )}
 
-                    {profile?.is_online ? (
-                      <span className="profile-mobile-online-dot-real" />
-                    ) : null}
-
                     {isOwnProfile ? (
                       <button
                         type="button"
                         onClick={() => router.push(`/profile/${viewerId}/edit`)}
                         className="profile-mobile-camera-real"
-                        aria-label="Edit profile photo"
+                        aria-label="Edit profile"
+                        title="Edit profile"
                       >
-                        📷
+                        ✎
                       </button>
                     ) : null}
                   </div>
@@ -2990,7 +2845,7 @@ return (
                 </div>
 
                 <div className="profile-hero-content" style={profileHeroContentStyle}>
-                  <div className="profile-avatar-wrap" style={profileAvatarWrapStyle}>
+                  <div className={`profile-avatar-wrap ${profile?.is_online ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="Profile" style={profileAvatarStyle} />
                     ) : (
@@ -2999,15 +2854,15 @@ return (
                       </div>
                     )}
 
-                    {profile?.is_online ? <span style={profileOnlineDotStyle} /> : null}
-
                     {isOwnProfile ? (
                       <button
                         onClick={() => router.push(`/profile/${viewerId}/edit`)}
+                        className="profile-avatar-edit-button"
                         style={avatarCameraButtonStyle}
-                        aria-label="Edit profile photo"
+                        aria-label="Edit profile"
+                        title="Edit profile"
                       >
-                        📷
+                        ✎
                       </button>
                     ) : null}
                   </div>
@@ -3561,7 +3416,7 @@ return (
                       </span>
                     </div>
                   ) : (
-                    <div className="profile-feed-stack" style={feedStackStyle}>
+                    <div style={feedStackStyle}>
                       {profileFeedItems.map((item) => {
                         if (item.feedKind === "reel_share") {
                           const creatorName =
@@ -3573,7 +3428,6 @@ return (
                           return (
                             <article
                               key={item.id}
-                              className="profile-feed-card"
                               style={{ ...postCardStyle, position: "relative" }}
                               onMouseEnter={(event) => {
                                 event.currentTarget.style.transform = "translateY(-1px)";
@@ -3704,7 +3558,6 @@ return (
                         return (
                           <article
                             key={post.id}
-                            className="profile-feed-card"
                             style={{ ...postCardStyle, position: "relative" }}
                             onMouseEnter={(event) => {
                               event.currentTarget.style.transform = "translateY(-1px)";
@@ -3793,12 +3646,7 @@ return (
                             ) : null}
 
                             {post.image_url ? (
-                              <img
-                              src={post.image_url}
-                              alt="Post"
-                              className="profile-post-image"
-                              style={postImageStyle}
-                            />
+                              <img src={post.image_url} alt="Post" style={postImageStyle} />
                             ) : null}
 
                             <div style={postActionsRowStyle}>
@@ -5053,31 +4901,26 @@ const profileAvatarFallbackStyle: CSSProperties = {
   border: "4px solid #07090d",
 };
 
-const profileOnlineDotStyle: CSSProperties = {
-  position: "absolute",
-  right: "18px",
-  bottom: "18px",
-  width: "17px",
-  height: "17px",
-  borderRadius: "50%",
-  background: "#22c55e",
-  border: "3px solid #07090d",
-  boxShadow: "0 0 10px rgba(34,197,94,0.75)",
-};
 
 const avatarCameraButtonStyle: CSSProperties = {
   position: "absolute",
-  right: "0px",
-  bottom: "18px",
-  width: "40px",
-  height: "40px",
-  borderRadius: "999px",
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "rgba(0,0,0,0.62)",
+  right: "4px",
+  bottom: "14px",
+  width: "38px",
+  height: "38px",
+  borderRadius: "14px",
+  border: "1px solid rgba(216,180,254,0.38)",
+  background: "linear-gradient(135deg, rgba(255,255,255,0.16), rgba(168,85,247,0.26))",
   color: "white",
   cursor: "pointer",
   display: "grid",
   placeItems: "center",
+  fontSize: "17px",
+  fontWeight: 950,
+  lineHeight: 1,
+  boxShadow: "0 10px 24px rgba(0,0,0,0.32), 0 0 18px rgba(168,85,247,0.24)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
 };
 
 const profileHeroInfoStyle: CSSProperties = {
