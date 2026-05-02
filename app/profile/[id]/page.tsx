@@ -2505,7 +2505,7 @@ return (
     .profile-mobile-action-overlay {
     position: fixed !important;
     inset: 0 !important;
-    z-index: 2147483646 !important;
+    z-index: 2147483647 !important;
     display: flex !important;
     align-items: flex-end !important;
     justify-content: center !important;
@@ -2528,7 +2528,7 @@ return (
   .profile-mobile-action-list {
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    max-height: calc(100dvh - 210px) !important;
+    max-height: min(52dvh, 360px) !important;
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y !important;
@@ -3875,11 +3875,13 @@ return (
         </div>
       ) : null}
 
-      <BottomNav
+      {!profileActionsOpen ? (
+        <BottomNav
         currentUserId={viewerId}
         activeItem="profile"
         onCreatePost={handleMobileCreatePostClick}
       />
+    ) : null}
     </div>
   );
 }   
@@ -4633,7 +4635,7 @@ const profileDesktopActionItemStyle: CSSProperties = {
 const profileActionOverlayStyle: CSSProperties = {
   position: "fixed",
   inset: 0,
-  zIndex: 2147483646,
+  zIndex: 2147483647,
   background: "rgba(0,0,0,0.62)",
   display: "flex",
   alignItems: "flex-end",
@@ -4716,7 +4718,7 @@ const profileActionGridStyle: CSSProperties = {
   paddingTop: "10px",
   overflowY: "auto",
   overflowX: "hidden",
-  maxHeight: "calc(100dvh - 210px)",
+  maxHeight: "min(52dvh, 360px)",
   overscrollBehavior: "contain",
   WebkitOverflowScrolling: "touch",
   touchAction: "pan-y",
