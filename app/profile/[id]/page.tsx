@@ -2386,6 +2386,89 @@ return (
         }
       }
 
+
+      @media (max-width: 720px) {
+        .profile-mobile-first-polish .profile-stream-stack {
+          gap: 0 !important;
+          background: #111318 !important;
+        }
+
+        .profile-mobile-first-polish .profile-stream-stack > :not([hidden]) ~ :not([hidden]) {
+          --tw-space-y-reverse: 0 !important;
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-shell {
+          margin-bottom: 0 !important;
+          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+        }
+
+        .profile-mobile-first-polish .profile-content-card,
+        .profile-mobile-first-polish .profile-composer-card,
+        .profile-mobile-first-polish .profile-feed-section-card {
+          margin-top: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-composer-card,
+        .profile-mobile-first-polish .profile-feed-section-card {
+          border-top: 0 !important;
+        }
+      }
+
+
+      @media (max-width: 720px) {
+        .profile-mobile-first-polish .profile-tabs-shell {
+          background: #111318 !important;
+          box-shadow: none !important;
+          border-top: 1px solid rgba(255,255,255,0.07) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop {
+          background: #111318 !important;
+          box-shadow: none !important;
+          padding-bottom: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop button {
+          background: transparent !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          border: 0 !important;
+          border-bottom: 3px solid transparent !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          margin-bottom: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop button[aria-selected="true"],
+        .profile-mobile-first-polish .profile-tabs-desktop button[data-active="true"] {
+          background: transparent !important;
+          box-shadow: none !important;
+          border-bottom-color: #a855f7 !important;
+          color: #ffffff !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop button:hover {
+          background: transparent !important;
+          box-shadow: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-shell::after,
+        .profile-mobile-first-polish .profile-tabs-desktop::after,
+        .profile-mobile-first-polish .profile-tabs-desktop button::after {
+          display: none !important;
+          content: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-content-card,
+        .profile-mobile-first-polish .profile-composer-card,
+        .profile-mobile-first-polish .profile-feed-section-card {
+          border-top-color: rgba(255,255,255,0.07) !important;
+        }
+      }
+
     `}</style>
 
     {/* Mobile Top Bar */}
@@ -2592,10 +2675,18 @@ return (
                     </div>
                   ) : null}
 
-                  {profile?.bio || isOwnProfile ? (
+                  {(profile?.bio &&
+                    !profile.bio
+                      .toLowerCase()
+                      .startsWith("no bio added yet")) ||
+                  isOwnProfile ? (
                     <p className="profile-mobile-bio-real">
-                      {profile?.bio ||
-                        "No bio added yet. Add a short intro, your interests, and what you share on Parapost."}
+                      {profile?.bio &&
+                      !profile.bio
+                        .toLowerCase()
+                        .startsWith("no bio added yet")
+                        ? profile.bio
+                        : "No bio added yet. Add a short intro, your interests, and what you share on Parapost."}
                     </p>
                   ) : null}
 
@@ -2845,10 +2936,18 @@ return (
 
                     {friendStatusMessage ? <div style={statusToastStyle}>{friendStatusMessage}</div> : null}
 
-                    {profile?.bio || isOwnProfile ? (
+                    {(profile?.bio &&
+                      !profile.bio
+                        .toLowerCase()
+                        .startsWith("no bio added yet")) ||
+                    isOwnProfile ? (
                       <p style={profileBioStyle}>
-                        {profile?.bio ||
-                          "No bio added yet. Add a short intro, your interests, and what you share on Parapost."}
+                        {profile?.bio &&
+                        !profile.bio
+                          .toLowerCase()
+                          .startsWith("no bio added yet")
+                          ? profile.bio
+                          : "No bio added yet. Add a short intro, your interests, and what you share on Parapost."}
                       </p>
                     ) : null}
 
@@ -3773,7 +3872,7 @@ function getFriendStatusPillStyle(friendStatus: FriendRequestStatus): CSSPropert
 const mainCardStyle: CSSProperties = {
   background:
     "linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.024) 100%)",
-  borderRadius: "18px",
+  borderRadius: "12px",
   padding: "18px",
   border: "1px solid rgba(255,255,255,0.09)",
   backdropFilter: "blur(12px)",
