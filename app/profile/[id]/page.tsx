@@ -1313,7 +1313,7 @@ return (
       }
 
       .profile-mobile-action-overlay {
-        touch-action: none;
+        touch-action: auto;
       }
 
       .profile-mobile-action-overlay > div {
@@ -2466,6 +2466,39 @@ return (
         .profile-mobile-first-polish .profile-composer-card,
         .profile-mobile-first-polish .profile-feed-section-card {
           border-top-color: rgba(255,255,255,0.07) !important;
+        }
+      }
+
+
+      @media (max-width: 720px) {
+        .profile-mobile-action-overlay {
+          position: fixed !important;
+          inset: 0 !important;
+          z-index: 2147483646 !important;
+          display: flex !important;
+          align-items: flex-end !important;
+          justify-content: center !important;
+          touch-action: auto !important;
+        }
+
+        .profile-mobile-action-sheet {
+          width: 100% !important;
+          max-height: min(78vh, 620px) !important;
+          overflow-y: auto !important;
+          overflow-x: hidden !important;
+          overscroll-behavior: contain !important;
+          -webkit-overflow-scrolling: touch !important;
+          touch-action: pan-y !important;
+          transform: translateZ(0) !important;
+        }
+
+        .profile-mobile-action-list {
+          padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+        }
+
+        .profile-mobile-action-sheet button {
+          min-height: 58px !important;
+          touch-action: manipulation !important;
         }
       }
 
@@ -3689,8 +3722,10 @@ return (
           onClick={() => setProfileActionsOpen(false)}
         >
           <div
+            className="profile-mobile-action-sheet"
             style={profileActionSheetStyle}
             onClick={(event) => event.stopPropagation()}
+            onTouchMove={(event) => event.stopPropagation()}
           >
             <div style={profileActionGrabberStyle} />
 
@@ -3712,7 +3747,7 @@ return (
               </button>
             </div>
 
-            <div style={profileActionGridStyle}>
+            <div className="profile-mobile-action-list" style={profileActionGridStyle}>
               {isOwnProfile ? (
                 <button
                   type="button"
@@ -4564,23 +4599,28 @@ const profileActionOverlayStyle: CSSProperties = {
   alignItems: "flex-end",
   justifyContent: "center",
   padding: "14px",
+  paddingBottom: "calc(14px + env(safe-area-inset-bottom))",
   backdropFilter: "blur(10px)",
   WebkitBackdropFilter: "blur(10px)",
+  touchAction: "auto",
 };
 
 const profileActionSheetStyle: CSSProperties = {
   width: "100%",
   maxWidth: "560px",
-  maxHeight: "82vh",
+  maxHeight: "min(78vh, 620px)",
   overflowY: "auto",
+  overflowX: "hidden",
   overscrollBehavior: "contain",
   WebkitOverflowScrolling: "touch",
-  borderRadius: "22px",
+  borderRadius: "20px",
   border: "1px solid rgba(255,255,255,0.10)",
   background:
     "linear-gradient(180deg, rgba(24,27,34,0.98), rgba(12,14,19,0.98))",
   boxShadow: "0 30px 90px rgba(0,0,0,0.62)",
   padding: "10px",
+  paddingBottom: "18px",
+  touchAction: "pan-y",
 };
 
 const profileActionGrabberStyle: CSSProperties = {
