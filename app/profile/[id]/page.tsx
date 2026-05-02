@@ -22,6 +22,7 @@ type ProfileRow = {
   bio: string | null;
   avatar_url: string | null;
   is_online?: boolean | null;
+  verified?: boolean | null;
   location?: string | null;
   website?: string | null;
   occupation?: string | null;
@@ -2281,6 +2282,110 @@ return (
         }
       }
 
+
+      @media (max-width: 720px) {
+        .profile-mobile-first-polish .profile-hero-content {
+          align-items: flex-start !important;
+          text-align: left !important;
+        }
+
+        .profile-mobile-first-polish .profile-avatar-wrap {
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-info {
+          text-align: left !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline {
+          align-items: flex-start !important;
+          text-align: left !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline h1 {
+          justify-content: flex-start !important;
+          text-align: left !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline p {
+          justify-content: flex-start !important;
+          text-align: left !important;
+        }
+
+        .profile-mobile-first-polish .profile-owner-actions {
+          display: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-public-actions {
+          max-width: 440px !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-info > p {
+          text-align: left !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          max-width: none !important;
+        }
+
+        .profile-mobile-meta-action-row {
+          width: 100% !important;
+          max-width: none !important;
+          display: grid !important;
+          grid-template-columns: minmax(0, 1fr) 52px !important;
+          align-items: end !important;
+          gap: 14px !important;
+          margin-top: 14px !important;
+        }
+
+        .profile-mobile-first-polish .profile-meta-row {
+          margin: 0 !important;
+          justify-items: start !important;
+          text-align: left !important;
+          max-width: none !important;
+          width: 100% !important;
+          gap: 9px !important;
+        }
+
+        .profile-mobile-first-polish .profile-meta-row span,
+        .profile-mobile-first-polish .profile-meta-row a {
+          text-align: left !important;
+          width: auto !important;
+        }
+
+        .profile-mobile-inline-more {
+          width: 50px !important;
+          height: 46px !important;
+          border-radius: 13px !important;
+          border: 1px solid rgba(255,255,255,0.12) !important;
+          background: rgba(255,255,255,0.055) !important;
+          color: #ffffff !important;
+          font-size: 16px !important;
+          font-weight: 900 !important;
+          letter-spacing: 0.12em !important;
+          cursor: pointer !important;
+          align-self: end !important;
+        }
+
+        .profile-mobile-first-polish .profile-mobile-meta-action-row + * {
+          margin-top: 0 !important;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .profile-mobile-meta-action-row {
+          grid-template-columns: minmax(0, 1fr) 48px !important;
+          gap: 10px !important;
+        }
+
+        .profile-mobile-inline-more {
+          width: 48px !important;
+          height: 44px !important;
+        }
+      }
+
     `}</style>
 
     {/* Mobile Top Bar */}
@@ -2747,29 +2852,42 @@ return (
                       </p>
                     ) : null}
 
-                    <div className="profile-meta-row" style={profileMetaRowStyle}>
-                      {profile?.location ? <span>📍 {profile.location}</span> : null}
+                    <div className="profile-mobile-meta-action-row">
+                      <div className="profile-meta-row" style={profileMetaRowStyle}>
+                        {profile?.location ? <span>📍 {profile.location}</span> : null}
 
-                      {profile?.website ? (
-                        <a
-                          href={
-                            profile.website.startsWith("http")
-                              ? profile.website
-                              : `https://${profile.website}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ textDecoration: "none", color: "#c084fc", fontWeight: 600 }}
-                  >
-                         🔗{" "}
-                         {profile.website
-                            .replace(/^https?:\/\//, "")
-                            .replace(/^www\./, "")}
-                         </a>
-                       ) : null}
+                        {profile?.website ? (
+                          <a
+                            href={
+                              profile.website.startsWith("http")
+                                ? profile.website
+                                : `https://${profile.website}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ textDecoration: "none", color: "#c084fc", fontWeight: 600 }}
+                          >
+                            🔗{" "}
+                            {profile.website
+                              .replace(/^https?:\/\//, "")
+                              .replace(/^www\./, "")}
+                          </a>
+                        ) : null}
 
-                      <span>📅 Joined Parapost</span>
+                        <span>📅 Joined Parapost</span>
                       </div>
+
+                      {isOwnProfile ? (
+                        <button
+                          type="button"
+                          onClick={() => setProfileActionsOpen(true)}
+                          className="profile-mobile-inline-more"
+                          aria-label="Profile options"
+                        >
+                          •••
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
