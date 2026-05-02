@@ -1434,7 +1434,7 @@ return (
           padding-top: 0 !important;
           padding-left: 0 !important;
           padding-right: 0 !important;
-          padding-bottom: 92px !important;
+          padding-bottom: 132px !important;
         }
 
         .profile-layout-grid {
@@ -1467,36 +1467,114 @@ return (
           box-shadow: none !important;
         }
 
+        .profile-cover-zone {
+          height: 174px !important;
+          overflow: hidden !important;
+        }
+
         .profile-hero-content {
-          margin-top: -58px !important;
-          padding: 0 18px 16px !important;
-          gap: 12px !important;
+          display: block !important;
+          margin-top: -54px !important;
+          padding: 0 18px 18px !important;
+          text-align: left !important;
+        }
+
+        .profile-avatar-wrap {
+          width: 112px !important;
+          height: 112px !important;
+          padding: 4px !important;
+          margin: 0 0 14px 0 !important;
+          box-shadow: 0 0 22px rgba(168,85,247,0.28) !important;
+        }
+
+        .profile-avatar-wrap img,
+        .profile-avatar-wrap > div {
+          border-width: 3px !important;
+        }
+
+        .profile-hero-info {
+          width: 100% !important;
+          min-width: 0 !important;
+          padding: 0 !important;
         }
 
         .profile-hero-topline {
           width: 100% !important;
+          display: flex !important;
+          flex-direction: column !important;
           align-items: flex-start !important;
+          gap: 12px !important;
+          margin-bottom: 0 !important;
+        }
+
+        .profile-hero-topline h1 {
+          font-size: clamp(30px, 8.2vw, 42px) !important;
+          line-height: 1.05 !important;
+          letter-spacing: -0.045em !important;
+          max-width: 100% !important;
+        }
+
+        .profile-hero-topline p {
+          font-size: 14px !important;
+          line-height: 1.35 !important;
         }
 
         .profile-hero-actions {
-          display: grid !important;
-          grid-template-columns: 1fr 1fr auto !important;
+          width: 100% !important;
           max-width: none !important;
-          margin-top: 14px !important;
+          margin-top: 4px !important;
+          gap: 10px !important;
         }
 
-        .profile-hero-actions a,
-        .profile-hero-actions button {
+        .profile-public-actions {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+
+        .profile-owner-actions {
+          display: flex !important;
+          justify-content: flex-start !important;
+          align-items: center !important;
+        }
+
+        .profile-public-actions button,
+        .profile-public-actions a {
           width: 100% !important;
+          min-height: 44px !important;
           justify-content: center !important;
+          box-shadow: none !important;
+          border-radius: 12px !important;
+        }
+
+        .profile-owner-actions button[aria-label="More profile actions"] {
+          width: 46px !important;
+          min-width: 46px !important;
+          height: 44px !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          border-radius: 12px !important;
           box-shadow: none !important;
         }
 
-        .profile-hero-actions button[aria-label="More profile actions"] {
-          grid-column: auto !important;
-          width: 44px !important;
-          padding-left: 0 !important;
-          padding-right: 0 !important;
+        .profile-hero-info > p {
+          width: 100% !important;
+          max-width: none !important;
+          margin-top: 14px !important;
+          font-size: 16px !important;
+          line-height: 1.58 !important;
+          color: #e6e8ee !important;
+        }
+
+        .profile-meta-row {
+          margin-top: 14px !important;
+          display: grid !important;
+          gap: 10px !important;
+          font-size: 14px !important;
+          line-height: 1.35 !important;
+        }
+
+        .profile-meta-row a {
+          overflow-wrap: anywhere !important;
         }
 
 
@@ -1577,8 +1655,15 @@ return (
           border-left: 0 !important;
           border-right: 0 !important;
           background: #111318 !important;
-          padding: 14px 14px 16px !important;
+          padding: 14px 14px 18px !important;
           gap: 14px !important;
+          border-top: 1px solid rgba(255,255,255,0.07) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+        }
+
+        .profile-story-circle {
+          border-radius: 16px !important;
+          box-shadow: none !important;
         }
 
         .profile-tabs-shell {
@@ -1665,12 +1750,23 @@ return (
       }
 
       @media (max-width: 520px) {
-        .profile-hero-content {
-          margin-top: -52px !important;
+        .profile-cover-zone {
+          height: 162px !important;
         }
 
-        .profile-hero-actions {
-          grid-template-columns: 1fr 1fr !important;
+        .profile-hero-content {
+          margin-top: -50px !important;
+          padding-left: 16px !important;
+          padding-right: 16px !important;
+        }
+
+        .profile-avatar-wrap {
+          width: 104px !important;
+          height: 104px !important;
+        }
+
+        .profile-public-actions {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         }
 
         .profile-hero-actions a,
@@ -1678,7 +1774,513 @@ return (
           min-height: 44px !important;
           font-size: 13px !important;
         }
+
+        .profile-stats-bar {
+          padding-top: 15px !important;
+          padding-bottom: 15px !important;
+        }
+
+        .profile-story-circle,
+        .profile-stories-row > div > div {
+          width: 66px !important;
+          height: 66px !important;
+        }
       }
+
+      @media (max-width: 720px) {
+        .profile-mobile-first-polish .profile-hero-content {
+          flex-wrap: nowrap !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-info {
+          display: block !important;
+        }
+
+        .profile-mobile-first-polish .profile-desktop-action-menu-wrap {
+          display: inline-flex !important;
+          position: relative !important;
+        }
+
+        .profile-mobile-first-polish .profile-owner-actions .profile-desktop-action-menu-wrap {
+          width: auto !important;
+        }
+
+        .profile-mobile-first-polish .profile-desktop-action-menu {
+          display: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-shell {
+          margin-bottom: 0 !important;
+        }
+      }
+
+
+      .profile-mobile-header-real {
+        display: none;
+      }
+
+      @media (max-width: 720px) {
+        .profile-hero-shell {
+          overflow: hidden !important;
+        }
+
+        .profile-cover-zone {
+          height: 170px !important;
+        }
+
+        .profile-hero-content {
+          display: none !important;
+        }
+
+        .profile-mobile-header-real {
+          display: block !important;
+          position: relative !important;
+          margin-top: -54px !important;
+          padding: 0 18px 22px !important;
+          background: linear-gradient(180deg, rgba(7,9,14,0) 0%, rgba(12,14,20,0.92) 22%, rgba(12,14,20,0.98) 100%) !important;
+          text-align: left !important;
+        }
+
+        .profile-mobile-avatar-shell-real {
+          position: relative !important;
+          width: 112px !important;
+          height: 112px !important;
+          border-radius: 50% !important;
+          padding: 4px !important;
+          background: linear-gradient(135deg, rgba(168,85,247,0.96), rgba(59,130,246,0.86)) !important;
+          box-shadow: 0 0 20px rgba(168,85,247,0.22) !important;
+          margin: 0 0 14px !important;
+        }
+
+        .profile-mobile-avatar-image-real,
+        .profile-mobile-avatar-fallback-real {
+          width: 100% !important;
+          height: 100% !important;
+          border-radius: 50% !important;
+          object-fit: cover !important;
+          border: 3px solid #07090d !important;
+        }
+
+        .profile-mobile-avatar-fallback-real {
+          display: grid !important;
+          place-items: center !important;
+          background: #374151 !important;
+          color: #ffffff !important;
+          font-size: 34px !important;
+          font-weight: 900 !important;
+        }
+
+        .profile-mobile-online-dot-real {
+          position: absolute !important;
+          right: 10px !important;
+          bottom: 10px !important;
+          width: 18px !important;
+          height: 18px !important;
+          border-radius: 50% !important;
+          background: #22c55e !important;
+          border: 3px solid #07090d !important;
+        }
+
+        .profile-mobile-camera-real {
+          position: absolute !important;
+          right: -2px !important;
+          bottom: 2px !important;
+          width: 34px !important;
+          height: 34px !important;
+          display: grid !important;
+          place-items: center !important;
+          border-radius: 12px !important;
+          border: 1px solid rgba(255,255,255,0.15) !important;
+          background: rgba(13,15,22,0.82) !important;
+          color: #ffffff !important;
+          font-size: 15px !important;
+        }
+
+        .profile-mobile-identity-real {
+          width: 100% !important;
+        }
+
+        .profile-mobile-identity-real h1 {
+          margin: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          color: #ffffff !important;
+          font-size: clamp(30px, 8.4vw, 40px) !important;
+          line-height: 1.05 !important;
+          letter-spacing: -0.045em !important;
+          white-space: normal !important;
+          overflow-wrap: anywhere !important;
+        }
+
+        .profile-mobile-identity-real h1 span {
+          width: 28px !important;
+          height: 28px !important;
+          flex: 0 0 auto !important;
+          display: grid !important;
+          place-items: center !important;
+          border-radius: 999px !important;
+          background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
+          color: #ffffff !important;
+          font-size: 17px !important;
+          line-height: 1 !important;
+        }
+
+        .profile-mobile-identity-real p {
+          margin: 9px 0 0 !important;
+          color: #aeb3c2 !important;
+          font-size: 15px !important;
+          line-height: 1.35 !important;
+          overflow-wrap: anywhere !important;
+        }
+
+        .profile-mobile-identity-real p span {
+          margin: 0 9px !important;
+          color: #6b7280 !important;
+        }
+
+        .profile-mobile-actions-real {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 10px !important;
+          margin-top: 16px !important;
+          width: 100% !important;
+        }
+
+        .profile-mobile-actions-real:has(.profile-mobile-owner-more-real) {
+          display: flex !important;
+          justify-content: flex-start !important;
+        }
+
+        .profile-mobile-primary-real,
+        .profile-mobile-secondary-real,
+        .profile-mobile-owner-more-real {
+          min-height: 46px !important;
+          border-radius: 13px !important;
+          font-size: 15px !important;
+          font-weight: 850 !important;
+          cursor: pointer !important;
+        }
+
+        .profile-mobile-primary-real {
+          border: 1px solid rgba(255,255,255,0.10) !important;
+          background: linear-gradient(135deg, #9333ea, #7c3aed) !important;
+          color: #ffffff !important;
+        }
+
+        .profile-mobile-secondary-real {
+          border: 1px solid rgba(255,255,255,0.12) !important;
+          background: rgba(255,255,255,0.055) !important;
+          color: #ffffff !important;
+        }
+
+        .profile-mobile-owner-more-real {
+          width: 48px !important;
+          border: 1px solid rgba(255,255,255,0.12) !important;
+          background: rgba(255,255,255,0.055) !important;
+          color: #ffffff !important;
+          letter-spacing: 0.12em !important;
+        }
+
+        .profile-mobile-status-real {
+          margin-top: 12px !important;
+          border: 1px solid rgba(168,85,247,0.22) !important;
+          background: rgba(168,85,247,0.12) !important;
+          color: #ede9fe !important;
+          border-radius: 12px !important;
+          padding: 10px 12px !important;
+          font-size: 13px !important;
+          font-weight: 800 !important;
+        }
+
+        .profile-mobile-bio-real {
+          margin: 17px 0 0 !important;
+          color: #e5e7eb !important;
+          font-size: 16px !important;
+          line-height: 1.58 !important;
+          letter-spacing: -0.01em !important;
+          width: 100% !important;
+        }
+
+        .profile-mobile-meta-real {
+          display: grid !important;
+          gap: 10px !important;
+          margin-top: 16px !important;
+          color: #aeb3c2 !important;
+          font-size: 14px !important;
+          line-height: 1.35 !important;
+        }
+
+        .profile-mobile-meta-real a {
+          color: #c084fc !important;
+          text-decoration: none !important;
+          font-weight: 800 !important;
+          overflow-wrap: anywhere !important;
+        }
+
+        .profile-stats-bar {
+          margin-top: 0 !important;
+        }
+
+        .profile-stories-row {
+          padding-bottom: 20px !important;
+        }
+
+        .profile-tabs-shell {
+          top: 0 !important;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .profile-mobile-header-real {
+          padding-left: 16px !important;
+          padding-right: 16px !important;
+        }
+
+        .profile-mobile-avatar-shell-real {
+          width: 104px !important;
+          height: 104px !important;
+        }
+
+        .profile-mobile-identity-real h1 {
+          font-size: clamp(28px, 8vw, 36px) !important;
+        }
+      }
+
+
+      @media (max-width: 720px) {
+        .profile-mobile-header-real {
+          display: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-shell {
+          overflow: hidden !important;
+          border-radius: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-cover-zone {
+          height: 136px !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-content {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: flex-start !important;
+          gap: 0 !important;
+          margin-top: -50px !important;
+          padding: 0 18px 18px !important;
+          text-align: center !important;
+          background: linear-gradient(180deg, rgba(7,9,14,0) 0%, rgba(12,14,20,0.92) 22%, rgba(12,14,20,0.98) 100%) !important;
+        }
+
+        .profile-mobile-first-polish .profile-avatar-wrap {
+          width: 102px !important;
+          height: 102px !important;
+          min-width: 102px !important;
+          padding: 4px !important;
+          margin: 0 auto 12px !important;
+          box-shadow: 0 0 16px rgba(168,85,247,0.18) !important;
+        }
+
+        .profile-mobile-first-polish .profile-avatar-wrap img,
+        .profile-mobile-first-polish .profile-avatar-wrap > div {
+          border-width: 3px !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-info {
+          width: 100% !important;
+          min-width: 0 !important;
+          display: block !important;
+          padding: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline {
+          width: 100% !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 10px !important;
+          margin: 0 !important;
+          text-align: center !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline h1 {
+          justify-content: center !important;
+          text-align: center !important;
+          font-size: clamp(28px, 8.2vw, 38px) !important;
+          line-height: 1.06 !important;
+          letter-spacing: -0.045em !important;
+          max-width: 100% !important;
+          white-space: normal !important;
+          overflow-wrap: anywhere !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline p {
+          justify-content: center !important;
+          text-align: center !important;
+          font-size: 14px !important;
+          line-height: 1.35 !important;
+          max-width: 100% !important;
+          overflow-wrap: anywhere !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-actions {
+          width: 100% !important;
+          max-width: 460px !important;
+          margin: 14px auto 0 !important;
+          gap: 10px !important;
+        }
+
+        .profile-mobile-first-polish .profile-public-actions {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+
+        .profile-mobile-first-polish .profile-owner-actions {
+          display: flex !important;
+          justify-content: center !important;
+          align-items: center !important;
+        }
+
+        .profile-mobile-first-polish .profile-public-actions button,
+        .profile-mobile-first-polish .profile-public-actions a {
+          width: 100% !important;
+          min-height: 44px !important;
+          justify-content: center !important;
+          border-radius: 12px !important;
+          box-shadow: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-owner-actions button[aria-label="More profile actions"] {
+          width: 48px !important;
+          min-width: 48px !important;
+          height: 44px !important;
+          border-radius: 12px !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-info > p {
+          width: 100% !important;
+          max-width: 560px !important;
+          margin: 14px auto 0 !important;
+          text-align: center !important;
+          font-size: 15px !important;
+          line-height: 1.52 !important;
+          color: #e5e7eb !important;
+        }
+
+        .profile-mobile-first-polish .profile-meta-row {
+          width: 100% !important;
+          max-width: 560px !important;
+          margin: 14px auto 0 !important;
+          display: grid !important;
+          justify-items: center !important;
+          gap: 9px !important;
+          text-align: center !important;
+          font-size: 13px !important;
+          line-height: 1.35 !important;
+        }
+
+        .profile-mobile-first-polish .profile-meta-row a {
+          overflow-wrap: anywhere !important;
+        }
+
+        .profile-mobile-first-polish .profile-stats-bar {
+          margin: 0 !important;
+          border-radius: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          background: #111318 !important;
+          grid-template-columns: repeat(4, 1fr) !important;
+          gap: 0 !important;
+          padding: 13px 4px !important;
+          box-shadow: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-stories-row {
+          margin: 0 !important;
+          border-radius: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          background: #111318 !important;
+          padding: 12px 14px 14px !important;
+          gap: 12px !important;
+          border-top: 1px solid rgba(255,255,255,0.07) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+        }
+
+        .profile-mobile-first-polish .profile-story-circle,
+        .profile-mobile-first-polish .profile-stories-row > div > div:first-child {
+          width: 58px !important;
+          height: 58px !important;
+          border-radius: 15px !important;
+          box-shadow: none !important;
+        }
+
+        .profile-mobile-first-polish .profile-stories-row span,
+        .profile-mobile-first-polish .profile-stories-row p {
+          font-size: 11px !important;
+          line-height: 1.2 !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-shell {
+          top: 0 !important;
+          margin-bottom: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop {
+          padding: 7px 14px !important;
+          gap: 18px !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop button {
+          font-size: 14px !important;
+          padding-top: 10px !important;
+          padding-bottom: 10px !important;
+        }
+
+        .profile-page-shell {
+          padding-bottom: 150px !important;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .profile-mobile-first-polish .profile-cover-zone {
+          height: 128px !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-content {
+          margin-top: -46px !important;
+          padding-left: 16px !important;
+          padding-right: 16px !important;
+        }
+
+        .profile-mobile-first-polish .profile-avatar-wrap {
+          width: 94px !important;
+          height: 94px !important;
+          min-width: 94px !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline h1 {
+          font-size: clamp(27px, 8vw, 34px) !important;
+        }
+
+        .profile-mobile-first-polish .profile-public-actions {
+          max-width: 100% !important;
+        }
+
+        .profile-mobile-first-polish .profile-story-circle,
+        .profile-mobile-first-polish .profile-stories-row > div > div:first-child {
+          width: 54px !important;
+          height: 54px !important;
+        }
+      }
+
     `}</style>
 
     {/* Mobile Top Bar */}
@@ -1752,7 +2354,7 @@ return (
           <section className="profile-center-column min-w-0">
             <div className="profile-stream-stack mx-auto w-full space-y-4 md:space-y-5" style={{ maxWidth: "980px" }}>
               <div className="profile-hero-shell" style={profileHeroShellStyle}>
-                <div style={profileCoverStyle}>
+                <div className="profile-cover-zone" style={profileCoverStyle}>
                   <div style={profileCoverOverlayStyle} />
                   {isOwnProfile ? (
                     <button
@@ -1764,8 +2366,160 @@ return (
                   ) : null}
                 </div>
 
+                <div className="profile-mobile-header-real">
+                  <div className="profile-mobile-avatar-shell-real">
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="Profile"
+                        className="profile-mobile-avatar-image-real"
+                      />
+                    ) : (
+                      <div className="profile-mobile-avatar-fallback-real">
+                        {getInitial(profile?.full_name, profile?.username)}
+                      </div>
+                    )}
+
+                    {profile?.is_online ? (
+                      <span className="profile-mobile-online-dot-real" />
+                    ) : null}
+
+                    {isOwnProfile ? (
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/profile/${viewerId}/edit`)}
+                        className="profile-mobile-camera-real"
+                        aria-label="Edit profile photo"
+                      >
+                        📷
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="profile-mobile-identity-real">
+                    <h1>
+                      {profile?.full_name || "Parapost Member"}
+                      {profile?.verified ? <span>✓</span> : null}
+                    </h1>
+
+                    <p>
+                      @{profile?.username || "no-username"}
+                      <span>•</span>
+                      {isOwnProfile ? "Your profile" : getFriendStatusLabel()}
+                    </p>
+                  </div>
+
+                  <div className="profile-mobile-actions-real">
+                    {isOwnProfile ? (
+                      <button
+                        type="button"
+                        onClick={() => setProfileActionsOpen(true)}
+                        className="profile-mobile-owner-more-real"
+                        aria-label="Profile options"
+                      >
+                        •••
+                      </button>
+                    ) : viewerId ? (
+                      <>
+                        {friendStatus === "none" ? (
+                          <button
+                            type="button"
+                            onClick={handleSendFriendRequest}
+                            disabled={friendLoading}
+                            className="profile-mobile-secondary-real"
+                          >
+                            {friendLoading ? "Saving..." : "Add Friend"}
+                          </button>
+                        ) : friendStatus === "outgoing_request" ? (
+                          <button
+                            type="button"
+                            onClick={handleCancelFriendRequest}
+                            disabled={friendLoading}
+                            className="profile-mobile-secondary-real"
+                          >
+                            {friendLoading ? "Saving..." : "Requested"}
+                          </button>
+                        ) : friendStatus === "incoming_request" ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleAcceptFriendRequest}
+                              disabled={friendLoading}
+                              className="profile-mobile-primary-real"
+                            >
+                              {friendLoading ? "Saving..." : "Accept"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleDeclineFriendRequest}
+                              disabled={friendLoading}
+                              className="profile-mobile-secondary-real"
+                            >
+                              {friendLoading ? "Saving..." : "Decline"}
+                            </button>
+                          </>
+                        ) : friendStatus === "friends" ? (
+                          <button
+                            type="button"
+                            onClick={handleRemoveFriend}
+                            disabled={friendLoading}
+                            className="profile-mobile-secondary-real"
+                          >
+                            {friendLoading ? "Saving..." : "Friends"}
+                          </button>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          onClick={handleMessageUser}
+                          className="profile-mobile-primary-real"
+                        >
+                          Parachat
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+
+                  {friendStatusMessage ? (
+                    <div className="profile-mobile-status-real">
+                      {friendStatusMessage}
+                    </div>
+                  ) : null}
+
+                  {profile?.bio || isOwnProfile ? (
+                    <p className="profile-mobile-bio-real">
+                      {profile?.bio ||
+                        "No bio added yet. Add a short intro, your interests, and what you share on Parapost."}
+                    </p>
+                  ) : null}
+
+                  <div className="profile-mobile-meta-real">
+                    {profile?.location ? <span>📍 {profile.location}</span> : null}
+
+                    {profile?.website ? (
+                      <a
+                        href={
+                          profile.website.startsWith("http")
+                            ? profile.website
+                            : `https://${profile.website}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        🔗{" "}
+                        {profile.website
+                          .replace(/^https?:\/\//, "")
+                          .replace(/^www\./, "")}
+                      </a>
+                    ) : null}
+
+                    <span>📅 Joined Parapost</span>
+                  </div>
+                </div>
+
                 <div className="profile-hero-content" style={profileHeroContentStyle}>
-                  <div style={profileAvatarWrapStyle}>
+                  <div className="profile-avatar-wrap" style={profileAvatarWrapStyle}>
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="Profile" style={profileAvatarStyle} />
                     ) : (
@@ -1801,7 +2555,7 @@ return (
                         </p>
                       </div>
 
-                      <div className="profile-hero-actions" style={profileHeroActionsStyle}>
+                      <div className={`profile-hero-actions ${isOwnProfile ? "profile-owner-actions" : "profile-public-actions"}`} style={profileHeroActionsStyle}>
                         {!isOwnProfile && viewerId ? (
                           <>
                             {friendStatus === "none" ? (
@@ -1986,11 +2740,14 @@ return (
 
                     {friendStatusMessage ? <div style={statusToastStyle}>{friendStatusMessage}</div> : null}
 
-                    <p style={profileBioStyle}>
-                      {profile?.bio || "No bio added yet. Add a short intro, your interests, and what you share on Parapost."}
-                    </p>
+                    {profile?.bio || isOwnProfile ? (
+                      <p style={profileBioStyle}>
+                        {profile?.bio ||
+                          "No bio added yet. Add a short intro, your interests, and what you share on Parapost."}
+                      </p>
+                    ) : null}
 
-                    <div style={profileMetaRowStyle}>
+                    <div className="profile-meta-row" style={profileMetaRowStyle}>
                       {profile?.location ? <span>📍 {profile.location}</span> : null}
 
                       {profile?.website ? (
@@ -2047,7 +2804,7 @@ return (
                     { label: "Interests", icon: "✦" },
                   ].map((story) => (
                     <div key={story.label} style={profileStoryItemStyle}>
-                      <div style={profileStoryCircleStyle}>{story.icon}</div>
+                      <div className="profile-story-circle" style={profileStoryCircleStyle}>{story.icon}</div>
                       <span style={profileStoryLabelStyle}>{story.label}</span>
                     </div>
                   ))}
