@@ -398,6 +398,7 @@ export default function ProfilePage() {
   const [profileActionsOpen, setProfileActionsOpen] = useState(false);
 
   const profilePostFileInputRef = useRef<HTMLInputElement | null>(null);
+  const profileActionSheetRef = useRef<HTMLDivElement | null>(null);
 
   const isOwnProfile = !!viewerId && viewerId === profileId;
 
@@ -715,13 +716,43 @@ const showFriendStatus = useCallback((message: string) => {
   }, [profileId]);
 
   useEffect(() => {
-    loadPage();
-  }, [loadPage]);
+  loadPage();
+}, [loadPage]);
 
-  useEffect(() => {
-    const handleGlobalClick = () => {
-      setOpenPostMenuId(null);
-    };
+useEffect(() => {
+  if (!profileActionsOpen || typeof window === "undefined") return;
+
+  const scrollY = window.scrollY;
+  const body = document.body;
+  const html = document.documentElement;
+
+  const previousBodyOverflow = body.style.overflow;
+  const previousBodyPosition = body.style.position;
+  const previousBodyTop = body.style.top;
+  const previousBodyWidth = body.style.width;
+  const previousHtmlOverflow = html.style.overflow;
+
+  body.style.overflow = "hidden";
+  html.style.overflow = "hidden";
+  body.style.position = "fixed";
+  body.style.top = `-${scrollY}px`;
+  body.style.width = "100%";
+
+  return () => {
+    body.style.overflow = previousBodyOverflow;
+    body.style.position = previousBodyPosition;
+    body.style.top = previousBodyTop;
+    body.style.width = previousBodyWidth;
+    html.style.overflow = previousHtmlOverflow;
+
+    window.scrollTo(0, scrollY);
+  };
+}, [profileActionsOpen]);
+
+useEffect(() => {
+  const handleGlobalClick = () => {
+    setOpenPostMenuId(null);
+  };
 
     window.addEventListener("click", handleGlobalClick);
     window.addEventListener("scroll", handleGlobalClick);
@@ -2471,36 +2502,44 @@ return (
 
 
       @media (max-width: 720px) {
-        .profile-mobile-action-overlay {
-          position: fixed !important;
-          inset: 0 !important;
-          z-index: 2147483646 !important;
-          display: flex !important;
-          align-items: flex-end !important;
-          justify-content: center !important;
-          touch-action: auto !important;
-        }
+    .profile-mobile-action-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483646 !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    touch-action: auto !important;
+  }
 
-        .profile-mobile-action-sheet {
-          width: 100% !important;
-          max-height: min(78vh, 620px) !important;
-          overflow-y: auto !important;
-          overflow-x: hidden !important;
-          overscroll-behavior: contain !important;
-          -webkit-overflow-scrolling: touch !important;
-          touch-action: pan-y !important;
-          transform: translateZ(0) !important;
-        }
+  .profile-mobile-action-sheet {
+    width: 100% !important;
+    max-height: calc(100dvh - 92px) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+    transform: translateZ(0) !important;
+  }
 
-        .profile-mobile-action-list {
-          padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
-        }
+  .profile-mobile-action-list {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    max-height: calc(100dvh - 210px) !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+    padding-bottom: calc(22px + env(safe-area-inset-bottom)) !important;
+  }
 
-        .profile-mobile-action-sheet button {
-          min-height: 58px !important;
-          touch-action: manipulation !important;
-        }
-      }
+  .profile-mobile-action-sheet button {
+    min-height: 58px !important;
+    touch-action: pan-y !important;
+  }
+}
 
     `}</style>
 
@@ -3722,10 +3761,11 @@ return (
           onClick={() => setProfileActionsOpen(false)}
         >
           <div
+            ref={profileActionSheetRef}
             className="profile-mobile-action-sheet"
             style={profileActionSheetStyle}
             onClick={(event) => event.stopPropagation()}
-            onTouchMove={(event) => event.stopPropagation()}
+            onWheel={(event) => event.stopPropagation()}
           >
             <div style={profileActionGrabberStyle} />
 
@@ -4608,9 +4648,10 @@ const profileActionOverlayStyle: CSSProperties = {
 const profileActionSheetStyle: CSSProperties = {
   width: "100%",
   maxWidth: "560px",
-  maxHeight: "min(78vh, 620px)",
-  overflowY: "auto",
-  overflowX: "hidden",
+  maxHeight: "calc(100dvh - 92px)",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
   overscrollBehavior: "contain",
   WebkitOverflowScrolling: "touch",
   borderRadius: "20px",
@@ -4673,6 +4714,13 @@ const profileActionGridStyle: CSSProperties = {
   display: "grid",
   gap: "6px",
   paddingTop: "10px",
+  overflowY: "auto",
+  overflowX: "hidden",
+  maxHeight: "calc(100dvh - 210px)",
+  overscrollBehavior: "contain",
+  WebkitOverflowScrolling: "touch",
+  touchAction: "pan-y",
+  paddingBottom: "calc(22px + env(safe-area-inset-bottom))",
 };
 
 const profileActionItemStyle: CSSProperties = {
