@@ -430,8 +430,7 @@ export default function Home() {
               </div>
 
               <p className="mt-4 px-2 text-center text-[11px] leading-5 text-zinc-600 sm:mt-5 sm:text-xs">
-                Parapost Network keeps the default purple and black identity while we
-                continue building the next generation social experience.
+                Parapost Network - the next generation social experience. 
               </p>
             </section>
           </div>
