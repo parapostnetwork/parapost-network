@@ -2528,7 +2528,7 @@ return (
   .profile-mobile-action-list {
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    max-height: min(52dvh, 360px) !important;
+    max-height: min(68dvh, 520px) !important;
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y !important;
@@ -4718,7 +4718,7 @@ const profileActionGridStyle: CSSProperties = {
   paddingTop: "10px",
   overflowY: "auto",
   overflowX: "hidden",
-  maxHeight: "min(52dvh, 360px)",
+  maxHeight: "min(68dvh, 520px)",
   overscrollBehavior: "contain",
   WebkitOverflowScrolling: "touch",
   touchAction: "pan-y",
