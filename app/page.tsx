@@ -1,19 +1,94 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type AuthMode = "signin" | "signup";
+
+function ParapostGhostLogo() {
+  return (
+    <svg
+      viewBox="0 0 120 120"
+      aria-hidden="true"
+      className="h-16 w-16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle
+        cx="60"
+        cy="60"
+        r="51"
+        stroke="white"
+        strokeWidth="8"
+        opacity="0.98"
+      />
+      <path
+        d="M34 93V47C34 31 45.5 20 60 20C74.5 20 86 31 86 47V93C86 99.5 78 102.5 73.7 97.7C71.2 94.9 70 91.2 70 87.5V82.8C70 77.4 65.7 73 60.3 73H59.7C54.3 73 50 77.4 50 82.8V87.5C50 91.2 48.8 94.9 46.3 97.7C42 102.5 34 99.5 34 93Z"
+        stroke="white"
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M50 50C50 44 45 39 40 38C36 42 34 47 36 52C38 57 44 58 48 55C49.4 53.9 50 52.1 50 50Z"
+        fill="white"
+      />
+      <path
+        d="M70 50C70 44 75 39 80 38C84 42 86 47 84 52C82 57 76 58 72 55C70.6 53.9 70 52.1 70 50Z"
+        fill="white"
+      />
+    </svg>
+  );
+}
+
 export default function Home() {
-  const [isLogin, setIsLogin] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+  const [authError, setAuthError] = useState("");
 
-  const handleAuth = async () => {
-    const cleanEmail = email.trim();
+  const isLogin = authMode === "signin";
+
+  const siteOrigin = useMemo(() => {
+    if (typeof window === "undefined") return "https://parapost.net";
+    return window.location.origin;
+  }, []);
+
+  const switchMode = (mode: AuthMode) => {
+    setAuthMode(mode);
+    setAuthMessage("");
+    setAuthError("");
+    setPassword("");
+    setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  const handleAuth = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    setAuthMessage("");
+    setAuthError("");
 
     if (!cleanEmail || !password) {
-      alert("Please enter your email and password.");
+      setAuthError("Please enter your email and password.");
+      return;
+    }
+
+    if (!isLogin && password.length < 6) {
+      setAuthError("Please use a password with at least 6 characters.");
+      return;
+    }
+
+    if (!isLogin && password !== confirmPassword) {
+      setAuthError("Your passwords do not match. Please check them and try again.");
       return;
     }
 
@@ -27,35 +102,65 @@ export default function Home() {
         });
 
         if (error) {
-          alert(error.message);
-          return;
-        }
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            emailRedirectTo: "https://parapost.net",
-          },
-        });
+          const lowerMessage = error.message.toLowerCase();
 
-        if (error) {
-          alert(error.message);
+          if (
+            lowerMessage.includes("invalid login credentials") ||
+            lowerMessage.includes("email not confirmed") ||
+            lowerMessage.includes("email")
+          ) {
+            setAuthError(
+              "We could not sign you in. Make sure your email is verified, then use the Sign In tab with the same email and password."
+            );
+            return;
+          }
+
+          setAuthError(error.message);
           return;
         }
 
-        if (!data.session) {
-          alert("Signup successful. Check your email to confirm your account.");
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          emailRedirectTo: siteOrigin,
+        },
+      });
+
+      if (error) {
+        const lowerMessage = error.message.toLowerCase();
+
+        if (lowerMessage.includes("already registered") || lowerMessage.includes("already")) {
+          setAuthError(
+            "This email may already have an account. Choose Sign In instead, especially if you already verified your email."
+          );
           return;
         }
+
+        setAuthError(error.message);
+        return;
+      }
+
+      if (!data.session) {
+        setAuthMode("signin");
+        setPassword("");
+        setConfirmPassword("");
+        setAuthMessage(
+          "Account created. Check your email and verify your account. After verifying, come back here and use Sign In."
+        );
+        return;
       }
 
       window.location.href = "/dashboard";
     } catch (err) {
       if (err instanceof Error) {
-        alert(err.message);
+        setAuthError(err.message);
       } else {
-        alert("Unexpected error during authentication.");
+        setAuthError("Unexpected error during authentication.");
       }
     } finally {
       setLoading(false);
@@ -63,10 +168,13 @@ export default function Home() {
   };
 
   const handleForgotPassword = async () => {
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    setAuthMessage("");
+    setAuthError("");
 
     if (!cleanEmail) {
-      alert("Please enter your email first.");
+      setAuthError("Please enter your email first, then tap Forgot Password again.");
       return;
     }
 
@@ -74,27 +182,27 @@ export default function Home() {
       setLoading(true);
 
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: "http://localhost:3000/reset-password",
+        redirectTo: `${siteOrigin}/reset-password`,
       });
 
       if (error) {
         const message = error.message.toLowerCase();
 
         if (message.includes("rate limit")) {
-          alert("Too many reset emails were sent. Please wait a few minutes and try again.");
+          setAuthError("Too many reset emails were sent. Please wait a few minutes and try again.");
           return;
         }
 
-        alert(error.message);
+        setAuthError(error.message);
         return;
       }
 
-      alert("Password reset email sent. Check your email.");
+      setAuthMessage("Password reset email sent. Check your email for the reset link.");
     } catch (err) {
       if (err instanceof Error) {
-        alert(err.message);
+        setAuthError(err.message);
       } else {
-        alert("Unexpected error sending reset email.");
+        setAuthError("Unexpected error sending reset email.");
       }
     } finally {
       setLoading(false);
@@ -102,64 +210,259 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-black text-white">
-      <div className="w-full max-w-md bg-zinc-900 p-8 rounded-2xl shadow-lg">
-        <h1 className="text-3xl font-bold text-purple-400 text-center">
-          Parapost Network
-        </h1>
-
-        <p className="text-center text-zinc-400 mt-2">
-          {isLogin ? "Login to your account" : "Join the paranormal community"}
-        </p>
-
-        <div className="mt-6 flex flex-col gap-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="p-3 rounded-lg bg-zinc-800 outline-none"
-            autoComplete="email"
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="p-3 rounded-lg bg-zinc-800 outline-none"
-            autoComplete={isLogin ? "current-password" : "new-password"}
-          />
-
-          {isLogin && (
-            <button
-              type="button"
-              onClick={handleForgotPassword}
-              disabled={loading}
-              className="self-end text-sm text-purple-400 hover:text-purple-300 disabled:opacity-60"
-            >
-              Forgot Password?
-            </button>
-          )}
-
-          <button
-            onClick={handleAuth}
-            disabled={loading}
-            className="bg-purple-500 hover:bg-purple-400 p-3 rounded-lg font-semibold disabled:opacity-60"
+    <main className="min-h-screen overflow-hidden bg-black text-white">
+      <div
+        className="flex min-h-screen items-center justify-center px-4 py-8"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 0%, rgba(168,85,247,0.30) 0%, rgba(7,9,13,0.84) 36%, #05070b 76%), linear-gradient(180deg, #090b11 0%, #05070b 100%)",
+        }}
+      >
+        <div className="grid w-full max-w-5xl grid-cols-1 items-stretch gap-5 lg:grid-cols-[1fr_460px]">
+          <section
+            className="hidden flex-col justify-between rounded-[32px] border border-white/10 p-8 shadow-2xl lg:flex"
+            style={{
+              background:
+                "linear-gradient(145deg, rgba(168,85,247,0.20), rgba(12,14,20,0.92) 42%, rgba(0,0,0,0.76))",
+              boxShadow: "0 30px 90px rgba(0,0,0,0.48)",
+            }}
           >
-            {loading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
-          </button>
-        </div>
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-purple-400/25 bg-purple-500/10 px-4 py-2 text-sm font-black text-purple-200">
+                Parapost Network
+              </div>
 
-        <div className="text-center mt-4 text-sm text-zinc-400">
-          {isLogin ? "Don’t have an account?" : "Already have an account?"}
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="ml-2 text-purple-400"
-            type="button"
+              <h1 className="mt-8 text-5xl font-black leading-[0.95] tracking-[-0.06em] text-white">
+                Share your world.
+                <br />
+                Connect your community.
+              </h1>
+
+              <p className="mt-5 max-w-xl text-base leading-7 text-zinc-300">
+                A dark, premium social network for posts, friends, reels, creators,
+                and communities. Paranormal-friendly, but open for everyone.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                ["Posts", "Share updates"],
+                ["Reels", "Short videos"],
+                ["Friends", "Build your circle"],
+              ].map(([title, text]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-white/[0.045] p-4"
+                >
+                  <strong className="block text-sm font-black text-white">{title}</strong>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-zinc-400">
+                    {text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section
+            className="rounded-[28px] border border-white/10 p-5 shadow-2xl sm:p-7"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(24,27,34,0.96), rgba(12,14,19,0.98))",
+              boxShadow: "0 30px 90px rgba(0,0,0,0.58)",
+            }}
           >
-            {isLogin ? "Sign Up" : "Login"}
-          </button>
+            <div className="text-center">
+              <div
+                className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[30px] border border-purple-300/25"
+                style={{
+                  background:
+                    "radial-gradient(circle at 50% 0%, rgba(168,85,247,0.55), rgba(124,58,237,0.20) 46%, rgba(255,255,255,0.04) 100%)",
+                  boxShadow: "0 0 38px rgba(168,85,247,0.36)",
+                }}
+              >
+               
+              <img
+                src="/parapost-icon-white.png"
+                alt="Parapost Network logo"
+                className="h-16 w-16 object-contain"
+                draggable={false}
+               />
+              </div>
+
+              <h2 className="text-3xl font-black tracking-[-0.04em] text-white">
+                Parapost Network
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                {isLogin
+                  ? "Welcome back. Sign in with your verified account."
+                  : "Create your account, then verify your email before signing in."}
+              </p>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 rounded-2xl border border-white/10 bg-black/30 p-1">
+              <button
+                type="button"
+                onClick={() => switchMode("signin")}
+                className={`min-h-12 rounded-xl text-sm font-black transition ${
+                  isLogin
+                    ? "bg-purple-500 text-white shadow-lg shadow-purple-950/30"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Sign In
+              </button>
+
+              <button
+                type="button"
+                onClick={() => switchMode("signup")}
+                className={`min-h-12 rounded-xl text-sm font-black transition ${
+                  !isLogin
+                    ? "bg-purple-500 text-white shadow-lg shadow-purple-950/30"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+
+            {authMessage ? (
+              <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm font-semibold leading-6 text-emerald-100">
+                {authMessage}
+              </div>
+            ) : null}
+
+            {authError ? (
+              <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm font-semibold leading-6 text-red-100">
+                {authError}
+              </div>
+            ) : null}
+
+            <form onSubmit={handleAuth} className="mt-6 flex flex-col gap-4">
+              <label className="grid gap-2">
+                <span className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Email
+                </span>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="min-h-14 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-white outline-none transition placeholder:text-zinc-600 focus:border-purple-400/60 focus:ring-4 focus:ring-purple-500/10"
+                  autoComplete="email"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Password
+                </span>
+
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder={isLogin ? "Enter your password" : "Create a password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="min-h-14 w-full rounded-2xl border border-white/10 bg-zinc-950/70 px-4 pr-20 text-white outline-none transition placeholder:text-zinc-600 focus:border-purple-400/60 focus:ring-4 focus:ring-purple-500/10"
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute right-2 top-1/2 min-h-10 -translate-y-1/2 rounded-xl px-3 text-xs font-black text-purple-300 hover:bg-white/5"
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </label>
+
+              {!isLogin ? (
+                <label className="grid gap-2">
+                  <span className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Confirm Password
+                  </span>
+
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Re-enter your password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      className="min-h-14 w-full rounded-2xl border border-white/10 bg-zinc-950/70 px-4 pr-20 text-white outline-none transition placeholder:text-zinc-600 focus:border-purple-400/60 focus:ring-4 focus:ring-purple-500/10"
+                      autoComplete="new-password"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((value) => !value)}
+                      className="absolute right-2 top-1/2 min-h-10 -translate-y-1/2 rounded-xl px-3 text-xs font-black text-purple-300 hover:bg-white/5"
+                    >
+                      {showConfirmPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </label>
+              ) : null}
+
+              {!isLogin ? (
+                <div className="rounded-2xl border border-purple-400/15 bg-purple-500/10 p-4 text-sm leading-6 text-purple-100">
+                  After creating your account, check your email to verify it. Once verified,
+                  return here and choose <strong>Sign In</strong>.
+                </div>
+              ) : null}
+
+              {isLogin ? (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  className="self-end text-sm font-bold text-purple-300 hover:text-purple-200 disabled:opacity-60"
+                >
+                  Forgot Password?
+                </button>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="min-h-14 rounded-2xl bg-purple-500 px-4 text-base font-black text-white shadow-lg shadow-purple-950/35 transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+              </button>
+            </form>
+
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-center text-sm leading-6 text-zinc-400">
+              {isLogin ? (
+                <>
+                  New to Parapost?{" "}
+                  <button
+                    type="button"
+                    onClick={() => switchMode("signup")}
+                    className="font-black text-purple-300 hover:text-purple-200"
+                  >
+                    Create an account
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already verified your email?{" "}
+                  <button
+                    type="button"
+                    onClick={() => switchMode("signin")}
+                    className="font-black text-purple-300 hover:text-purple-200"
+                  >
+                    Go to Sign In
+                  </button>
+                </>
+              )}
+            </div>
+
+            <p className="mt-5 text-center text-xs leading-5 text-zinc-600">
+              Parapost Network keeps the default purple and black identity while we continue
+              building the next generation social experience.
+            </p>
+          </section>
         </div>
       </div>
     </main>
