@@ -2541,6 +2541,209 @@ return (
   }
 }
 
+
+
+      /* Advanced mobile profile polish pass - header, tabs, stats, and feed cards */
+      @media (max-width: 720px) {
+        .profile-mobile-first-polish .profile-cover-zone {
+          height: 146px !important;
+          background:
+            radial-gradient(circle at 44% 10%, rgba(168,85,247,0.50) 0%, rgba(88,28,135,0.22) 34%, rgba(5,7,11,0.94) 72%),
+            linear-gradient(135deg, #0b0d14 0%, #151225 48%, #05070b 100%) !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-shell {
+          background: #0d1017 !important;
+          border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-content {
+          margin-top: -46px !important;
+          padding: 0 16px 16px !important;
+          background: linear-gradient(180deg, rgba(7,9,14,0) 0%, rgba(11,13,19,0.96) 28%, rgba(13,15,22,1) 100%) !important;
+        }
+
+        .profile-mobile-first-polish .profile-avatar-wrap {
+          width: 96px !important;
+          height: 96px !important;
+          min-width: 96px !important;
+          margin-bottom: 11px !important;
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 12px 30px rgba(0,0,0,0.36), 0 0 18px rgba(168,85,247,0.18) !important;
+        }
+
+        .profile-mobile-first-polish .profile-avatar-wrap img,
+        .profile-mobile-first-polish .profile-avatar-wrap > div {
+          border-color: #0b0d14 !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline {
+          gap: 7px !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline h1 {
+          font-size: clamp(26px, 7.4vw, 34px) !important;
+          line-height: 1.06 !important;
+          letter-spacing: -0.052em !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline p {
+          color: #a8afbf !important;
+          font-size: 13px !important;
+          line-height: 1.32 !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-info > p {
+          margin-top: 11px !important;
+          color: #dce1eb !important;
+          font-size: 14px !important;
+          line-height: 1.52 !important;
+          letter-spacing: -0.01em !important;
+        }
+
+        .profile-mobile-meta-action-row {
+          margin-top: 12px !important;
+          grid-template-columns: minmax(0, 1fr) 50px !important;
+          align-items: center !important;
+          gap: 12px !important;
+        }
+
+        .profile-mobile-first-polish .profile-meta-row {
+          gap: 7px !important;
+          color: #a8afbf !important;
+          font-size: 13px !important;
+          line-height: 1.32 !important;
+        }
+
+        .profile-mobile-inline-more {
+          width: 50px !important;
+          height: 44px !important;
+          border-radius: 15px !important;
+          background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04)) !important;
+          border-color: rgba(255,255,255,0.13) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }
+
+        .profile-mobile-first-polish .profile-stats-bar {
+          background: #10131a !important;
+          padding: 12px 4px !important;
+          border-top: 1px solid rgba(255,255,255,0.08) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+        }
+
+        .profile-mobile-first-polish .profile-stats-bar strong {
+          font-size: 18px !important;
+          letter-spacing: -0.025em !important;
+        }
+
+        .profile-mobile-first-polish .profile-stats-bar span {
+          font-size: 10px !important;
+          letter-spacing: 0.08em !important;
+        }
+
+        .profile-mobile-first-polish .profile-stories-row {
+          padding: 10px 12px 12px !important;
+          gap: 10px !important;
+          background: #10131a !important;
+        }
+
+        .profile-mobile-first-polish .profile-story-circle,
+        .profile-mobile-first-polish .profile-stories-row > div > div:first-child {
+          width: 52px !important;
+          height: 52px !important;
+          border-radius: 15px !important;
+          border-color: rgba(168,85,247,0.45) !important;
+          background: rgba(168,85,247,0.08) !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-shell {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 50 !important;
+          background: rgba(16,19,26,0.98) !important;
+          box-shadow: 0 10px 24px rgba(0,0,0,0.18) !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop {
+          padding: 6px 14px 0 !important;
+          gap: 18px !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop button {
+          font-size: 14px !important;
+          font-weight: 900 !important;
+          letter-spacing: -0.01em !important;
+          padding-top: 10px !important;
+          padding-bottom: 11px !important;
+        }
+
+        .profile-mobile-first-polish .profile-tabs-desktop button[aria-pressed="true"] {
+          color: #ffffff !important;
+          border-bottom-color: #a855f7 !important;
+          background: transparent !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-feed-section-card > div:first-child {
+          padding: 14px 14px 12px !important;
+          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+          margin-bottom: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-feed-card {
+          padding: 14px !important;
+          background: #15181f !important;
+          border-top: 1px solid rgba(255,255,255,0.07) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+        }
+
+        .profile-mobile-first-polish .profile-feed-card p {
+          font-size: 14px !important;
+          line-height: 1.64 !important;
+          color: #f1f5f9 !important;
+        }
+
+        .profile-mobile-first-polish .profile-post-image {
+          margin-top: 12px !important;
+          border-radius: 0 !important;
+          margin-left: -14px !important;
+          width: calc(100% + 28px) !important;
+          max-width: none !important;
+          box-shadow: none !important;
+        }
+
+        .profile-mobile-action-sheet {
+          max-height: calc(100dvh - 72px) !important;
+        }
+
+        .profile-mobile-action-list {
+          max-height: min(68dvh, 520px) !important;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .profile-mobile-first-polish .profile-cover-zone {
+          height: 138px !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-content {
+          margin-top: -44px !important;
+          padding-left: 14px !important;
+          padding-right: 14px !important;
+        }
+
+        .profile-mobile-first-polish .profile-avatar-wrap {
+          width: 90px !important;
+          height: 90px !important;
+          min-width: 90px !important;
+        }
+
+        .profile-mobile-first-polish .profile-hero-topline h1 {
+          font-size: clamp(25px, 7.7vw, 32px) !important;
+        }
+      }
+
+
     `}</style>
 
     {/* Mobile Top Bar */}
@@ -3358,7 +3561,7 @@ return (
                       </span>
                     </div>
                   ) : (
-                    <div style={feedStackStyle}>
+                    <div className="profile-feed-stack" style={feedStackStyle}>
                       {profileFeedItems.map((item) => {
                         if (item.feedKind === "reel_share") {
                           const creatorName =
@@ -3370,6 +3573,7 @@ return (
                           return (
                             <article
                               key={item.id}
+                              className="profile-feed-card"
                               style={{ ...postCardStyle, position: "relative" }}
                               onMouseEnter={(event) => {
                                 event.currentTarget.style.transform = "translateY(-1px)";
@@ -3500,6 +3704,7 @@ return (
                         return (
                           <article
                             key={post.id}
+                            className="profile-feed-card"
                             style={{ ...postCardStyle, position: "relative" }}
                             onMouseEnter={(event) => {
                               event.currentTarget.style.transform = "translateY(-1px)";
@@ -3588,7 +3793,12 @@ return (
                             ) : null}
 
                             {post.image_url ? (
-                              <img src={post.image_url} alt="Post" style={postImageStyle} />
+                              <img
+                              src={post.image_url}
+                              alt="Post"
+                              className="profile-post-image"
+                              style={postImageStyle}
+                            />
                             ) : null}
 
                             <div style={postActionsRowStyle}>
