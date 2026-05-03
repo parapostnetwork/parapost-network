@@ -5018,6 +5018,7 @@ const profileHeroTopLineStyle: CSSProperties = {
   gap: "18px",
   flexWrap: "wrap",
   marginBottom: "12px",
+  overflow: "visible",
 };
 
 const profileHeroNameStyle: CSSProperties = {
@@ -5042,9 +5043,17 @@ const verifiedBadgeStyle: CSSProperties = {
 };
 
 const profileHandleStyle: CSSProperties = {
-  margin: "8px 0 0",
+  margin: "10px 0 0",
   color: "#aeb3c2",
   fontSize: "14px",
+  lineHeight: "24px",
+  minHeight: "26px",
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  overflow: "visible",
+  paddingTop: "3px",
+  paddingBottom: "2px",
 };
 
 const profileDotStyle: CSSProperties = {
