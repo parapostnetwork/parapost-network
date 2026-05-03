@@ -354,6 +354,61 @@ function LinkPreviewCard({ text }: { text: string }) {
   );
 }
 
+
+function getFeedAvatarShellStyle(size: number, isOnline?: boolean | null): CSSProperties {
+  const dimension = `${size}px`;
+
+  return {
+    position: "relative",
+    width: dimension,
+    height: dimension,
+    minWidth: dimension,
+    borderRadius: "50%",
+    padding: "3px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    textDecoration: "none",
+    background: isOnline
+      ? "linear-gradient(135deg, rgba(168,85,247,0.98) 0%, rgba(59,130,246,0.92) 58%, rgba(236,72,153,0.72) 100%)"
+      : "linear-gradient(135deg, rgba(168,85,247,0.38), rgba(31,41,55,0.96))",
+    boxShadow: isOnline
+      ? "0 0 0 1px rgba(255,255,255,0.09), 0 0 18px rgba(168,85,247,0.42), 0 0 30px rgba(59,130,246,0.22)"
+      : "0 0 0 1px rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.24)",
+    transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease",
+    overflow: "visible",
+  };
+}
+
+function getFeedAvatarInnerStyle(): CSSProperties {
+  return {
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    objectFit: "cover",
+    display: "block",
+    border: "2px solid #07090d",
+    background: "#111827",
+  };
+}
+
+function getFeedAvatarFallbackStyle(fontSize = "14px"): CSSProperties {
+  return {
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #3b0764, #111827)",
+    color: "#f9fafb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 850,
+    fontSize,
+    border: "2px solid #07090d",
+  };
+}
+
 export default function DashboardPage() {
   const [content, setContent] = useState("");
   const [image, setImage] = useState<File | null>(null);
@@ -2317,8 +2372,8 @@ export default function DashboardPage() {
                           width: "8px",
                           height: "8px",
                           borderRadius: "50%",
-                          background: "#22c55e",
-                          boxShadow: "0 0 8px rgba(34,197,94,0.7)",
+                          background: "linear-gradient(135deg, #a855f7, #3b82f6)",
+                          boxShadow: "0 0 10px rgba(168,85,247,0.55)",
                         }}
                       />
                       Live
@@ -2398,17 +2453,8 @@ export default function DashboardPage() {
                               <Link
                                 href={`/profile/${shared.user_id}`}
                                 style={{
-                                  width: "44px",
-                                  height: "44px",
-                                  borderRadius: "50%",
-                                  overflow: "hidden",
-                                  background: "#374151",
+                                  ...getFeedAvatarShellStyle(44, sharerProfile?.is_online),
                                   color: "#f9fafb",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  textDecoration: "none",
-                                  flexShrink: 0,
                                   fontWeight: 800,
                                 }}
                               >
@@ -2416,10 +2462,10 @@ export default function DashboardPage() {
                                   <img
                                     src={sharerProfile.avatar_url}
                                     alt="Profile"
-                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                    style={getFeedAvatarInnerStyle()}
                                   />
                                 ) : (
-                                  getInitial(sharerProfile?.full_name, sharerProfile?.username)
+                                  <div style={getFeedAvatarFallbackStyle("15px")}>{getInitial(sharerProfile?.full_name, sharerProfile?.username)}</div>
                                 )}
                               </Link>
 
@@ -2630,18 +2676,7 @@ export default function DashboardPage() {
                               <Link
                                 href={`/profile/${post.user_id}`}
                                 aria-label={`View ${profilesMap[post.user_id]?.full_name || profilesMap[post.user_id]?.username || "user"} profile`}
-                                style={{
-                                  position: "relative",
-                                  width: "48px",
-                                  height: "48px",
-                                  borderRadius: "50%",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  flexShrink: 0,
-                                  textDecoration: "none",
-                                  transition: "transform 160ms ease, filter 160ms ease",
-                                }}
+                                style={getFeedAvatarShellStyle(48, profilesMap[post.user_id]?.is_online)}
                                 onMouseEnter={(e) => {
                                   e.currentTarget.style.transform = "scale(1.03)";
                                   e.currentTarget.style.filter = "brightness(1.06)";
@@ -2655,49 +2690,15 @@ export default function DashboardPage() {
                                   <img
                                     src={profilesMap[post.user_id]?.avatar_url || ""}
                                     alt="Profile"
-                                    style={{
-                                      width: "44px",
-                                      height: "44px",
-                                      borderRadius: "50%",
-                                      objectFit: "cover",
-                                    }}
+                                    style={getFeedAvatarInnerStyle()}
                                   />
                                 ) : (
-                                  <div
-                                    style={{
-                                      width: "44px",
-                                      height: "44px",
-                                      borderRadius: "50%",
-                                      background: "#374151",
-                                      color: "#f9fafb",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      fontWeight: 700,
-                                      fontSize: "16px",
-                                    }}
-                                  >
+                                  <div style={getFeedAvatarFallbackStyle("16px")}>
                                     {getInitial(
                                       profilesMap[post.user_id]?.full_name,
                                       profilesMap[post.user_id]?.username
                                     )}
                                   </div>
-                                )}
-
-                                {profilesMap[post.user_id]?.is_online && (
-                                  <span
-                                    style={{
-                                      position: "absolute",
-                                      bottom: "1px",
-                                      right: "1px",
-                                      width: "12px",
-                                      height: "12px",
-                                      borderRadius: "50%",
-                                      background: "#22c55e",
-                                      border: "2px solid #07090d",
-                                      boxShadow: "0 0 6px rgba(34,197,94,0.6)",
-                                    }}
-                                  />
                                 )}
                               </Link>
 
@@ -3095,7 +3096,7 @@ export default function DashboardPage() {
                 Blocked users: <strong style={{ color: "white" }}>{blockedUserIds.length}</strong>
               </p>
               <p style={{ color: "#d1d5db", margin: 0 }}>
-                Status: <strong style={{ color: "#22c55e" }}>Online</strong>
+                Status: <strong style={{ color: "#c084fc" }}>Online</strong>
               </p>
             </div>
 
@@ -3616,15 +3617,7 @@ function CommentCard({
         <Link
           href={`/profile/${comment.user_id}`}
           aria-label={`View ${displayName} profile`}
-          style={{
-            position: "relative",
-            width: "38px",
-            height: "38px",
-            flexShrink: 0,
-            textDecoration: "none",
-            borderRadius: "50%",
-            transition: "transform 160ms ease, filter 160ms ease",
-          }}
+          style={getFeedAvatarShellStyle(40, isOnline)}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "scale(1.04)";
             e.currentTarget.style.filter = "brightness(1.06)";
@@ -3638,45 +3631,12 @@ function CommentCard({
             <img
               src={profile.avatar_url}
               alt={displayName}
-              style={{
-                width: "38px",
-                height: "38px",
-                borderRadius: "50%",
-                objectFit: "cover",
-              }}
+              style={getFeedAvatarInnerStyle()}
             />
           ) : (
-            <div
-              style={{
-                width: "38px",
-                height: "38px",
-                borderRadius: "50%",
-                background: "#374151",
-                color: "#f9fafb",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "13px",
-                fontWeight: 700,
-              }}
-            >
+            <div style={getFeedAvatarFallbackStyle("13px")}>
               {displayName.charAt(0).toUpperCase()}
             </div>
-          )}
-
-          {isOnline && (
-            <span
-              style={{
-                position: "absolute",
-                bottom: 0,
-                right: 0,
-                width: "10px",
-                height: "10px",
-                borderRadius: "50%",
-                background: "#22c55e",
-                border: "2px solid #07090d",
-              }}
-            />
           )}
         </Link>
 
