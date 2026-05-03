@@ -1281,6 +1281,54 @@ return (
         grid-template-columns: minmax(0, 1fr) !important;
       }
 
+      .profile-meta-row > span,
+      .profile-meta-row > a {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 7px !important;
+        width: fit-content !important;
+        min-height: 34px !important;
+        padding: 7px 11px !important;
+        border-radius: 999px !important;
+        border: 1px solid rgba(255,255,255,0.085) !important;
+        background: rgba(255,255,255,0.042) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
+      }
+
+      .profile-meta-row > a {
+        color: #d8b4fe !important;
+      }
+
+      .profile-options-trigger {
+        position: relative !important;
+        overflow: visible !important;
+      }
+
+      .profile-options-trigger::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: 18px;
+        background: radial-gradient(circle at 50% 50%, rgba(168,85,247,0.28), rgba(34,211,238,0.09) 45%, rgba(255,255,255,0) 72%);
+        opacity: 0.72;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      .profile-options-trigger:hover {
+        border-color: rgba(216,180,254,0.38) !important;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.28), 0 0 22px rgba(168,85,247,0.24) !important;
+      }
+
+      @media (max-width: 720px) {
+        .profile-meta-row > span,
+        .profile-meta-row > a {
+          min-height: 32px !important;
+          padding: 7px 10px !important;
+          border-radius: 12px !important;
+        }
+      }
+
       .profile-polish-surface button {
         transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
       }
@@ -2960,8 +3008,10 @@ return (
                             onClick={() =>
                               setProfileActionsOpen((value) => !value)
                             }
+                            className="profile-options-trigger"
                             style={profileIconButtonStyle}
                             aria-label="More profile actions"
+                            title="Profile options"
                           >
                             •••
                           </button>
@@ -4651,20 +4701,20 @@ const linkPreviewDomainStyle: CSSProperties = {
 
 
 const profileDesktopActionMenuStyle: CSSProperties = {
-  width: "340px",
-  maxHeight: "340px",
+  width: "352px",
+  maxHeight: "360px",
   overflowY: "auto",
   overscrollBehavior: "contain",
   scrollbarWidth: "thin",
-  borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: "18px",
+  border: "1px solid rgba(216,180,254,0.16)",
   background:
-    "linear-gradient(180deg, rgba(24,27,34,0.98), rgba(12,14,19,0.98))",
-  boxShadow: "0 22px 70px rgba(0,0,0,0.50)",
-  padding: "8px",
+    "linear-gradient(180deg, rgba(26,29,38,0.985), rgba(10,12,18,0.985))",
+  boxShadow: "0 26px 80px rgba(0,0,0,0.56), 0 0 28px rgba(168,85,247,0.14)",
+  padding: "9px",
   paddingBottom: "12px",
-  backdropFilter: "blur(14px)",
-  WebkitBackdropFilter: "blur(14px)",
+  backdropFilter: "blur(16px)",
+  WebkitBackdropFilter: "blur(16px)",
 };
 
 const profileDesktopActionMenuHeaderStyle: CSSProperties = {
@@ -4678,12 +4728,12 @@ const profileDesktopActionItemStyle: CSSProperties = {
   border: "1px solid transparent",
   background: "transparent",
   color: "#ffffff",
-  borderRadius: "12px",
-  padding: "10px",
+  borderRadius: "13px",
+  padding: "11px",
   display: "grid",
-  gridTemplateColumns: "38px minmax(0, 1fr)",
+  gridTemplateColumns: "40px minmax(0, 1fr)",
   alignItems: "center",
-  gap: "10px",
+  gap: "11px",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -4797,13 +4847,13 @@ const profileActionItemStyle: CSSProperties = {
 };
 
 const profileActionIconStyle: CSSProperties = {
-  width: "42px",
-  height: "42px",
+  width: "40px",
+  height: "40px",
   borderRadius: "13px",
   display: "grid",
   placeItems: "center",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(168,85,247,0.14)",
+  border: "1px solid rgba(216,180,254,0.16)",
+  background: "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(34,211,238,0.08))",
   color: "#d8b4fe",
   fontSize: "18px",
   fontWeight: 950,
@@ -4858,9 +4908,9 @@ const editCoverButtonStyle: CSSProperties = {
 const profileHeroContentStyle: CSSProperties = {
   position: "relative",
   marginTop: "-86px",
-  padding: "0 20px 20px",
+  padding: "0 22px 22px",
   display: "flex",
-  gap: "24px",
+  gap: "22px",
   alignItems: "flex-end",
   flexWrap: "wrap",
 };
@@ -4924,24 +4974,25 @@ const avatarCameraButtonStyle: CSSProperties = {
 const profileHeroInfoStyle: CSSProperties = {
   flex: 1,
   minWidth: "300px",
-  paddingBottom: "12px",
+  paddingBottom: "10px",
 };
 
 const profileHeroTopLineStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "flex-start",
+  alignItems: "center",
   gap: "18px",
   flexWrap: "wrap",
-  marginBottom: "12px",
+  marginBottom: "10px",
 };
 
 const profileHeroNameStyle: CSSProperties = {
   margin: 0,
-  fontSize: "clamp(30px, 4vw, 48px)",
+  fontSize: "clamp(31px, 4vw, 48px)",
   lineHeight: 1.02,
   letterSpacing: "-0.055em",
   color: "#fff",
+  textWrap: "balance",
 };
 
 const verifiedBadgeStyle: CSSProperties = {
@@ -4958,9 +5009,17 @@ const verifiedBadgeStyle: CSSProperties = {
 };
 
 const profileHandleStyle: CSSProperties = {
-  margin: "8px 0 0",
+  margin: "10px 0 0",
   color: "#aeb3c2",
   fontSize: "14px",
+  lineHeight: 1.7,
+  minHeight: "24px",
+  display: "flex",
+  alignItems: "center",
+  gap: "4px",
+  flexWrap: "wrap",
+  overflow: "visible",
+  paddingTop: "2px",
 };
 
 const profileDotStyle: CSSProperties = {
@@ -4974,7 +5033,7 @@ const profileHeroActionsStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "flex-end",
   flexWrap: "wrap",
-  maxWidth: "520px",
+  maxWidth: "540px",
 };
 
 const profilePrimaryButtonStyle: React.CSSProperties = {
@@ -5012,27 +5071,33 @@ const profileGlassButtonStyle: React.CSSProperties = {
 };
 
 const profileIconButtonStyle: CSSProperties = {
-  width: "42px",
-  height: "42px",
-  borderRadius: "14px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.055)",
+  width: "46px",
+  height: "44px",
+  borderRadius: "15px",
+  border: "1px solid rgba(216,180,254,0.22)",
+  background:
+    "linear-gradient(135deg, rgba(255,255,255,0.09), rgba(168,85,247,0.14))",
   color: "white",
   cursor: "pointer",
+  fontSize: "16px",
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+  boxShadow: "0 10px 24px rgba(0,0,0,0.24)",
   transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const profileBioStyle: CSSProperties = {
-  margin: "12px 0 0",
+  margin: "13px 0 0",
   color: "#e5e7eb",
-  lineHeight: 1.6,
-  maxWidth: "760px",
+  lineHeight: 1.62,
+  maxWidth: "820px",
+  letterSpacing: "-0.01em",
 };
 
 const profileMetaRowStyle: CSSProperties = {
-  marginTop: "12px",
+  marginTop: "14px",
   display: "flex",
-  gap: "14px",
+  gap: "8px",
   flexWrap: "wrap",
   color: "#aeb3c2",
   fontSize: "13px",
@@ -5043,9 +5108,9 @@ const profileStatsBarStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr",
   alignItems: "center",
-  borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.075)",
-  background: "rgba(0,0,0,0.20)",
+  borderRadius: "18px",
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.18))",
   padding: "15px 10px",
 };
 
