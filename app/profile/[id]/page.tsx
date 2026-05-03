@@ -856,7 +856,7 @@ useEffect(() => {
       const { error: uploadError } = await supabase.storage
         .from("post-images")
         .upload(fileName, profilePostImage, {
-          cacheControl: "3600",
+          cacheControl: "604800",
           upsert: false,
         });
 
@@ -1440,11 +1440,31 @@ return (
 
 
       .profile-composer-smooth {
+        position: relative;
         overflow: hidden;
+      }
+
+      .profile-composer-smooth::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 18% 0%, rgba(168,85,247,0.10), transparent 34%),
+          radial-gradient(circle at 100% 12%, rgba(34,211,238,0.055), transparent 30%);
+      }
+
+      .profile-composer-smooth > * {
+        position: relative;
+        z-index: 1;
       }
 
       .profile-composer-textarea {
         font-family: inherit;
+      }
+
+      .profile-composer-textarea::placeholder {
+        color: #6b7280;
       }
 
       .profile-feed-stack {
@@ -1704,8 +1724,12 @@ return (
         }
 
         .profile-composer-media-box {
-          border-radius: 14px !important;
+          border-radius: 16px !important;
           background: rgba(255,255,255,0.025) !important;
+        }
+
+        .profile-composer-smooth textarea {
+          font-size: 16px !important;
         }
 
         .profile-feed-stack {
@@ -3336,18 +3360,18 @@ return (
               {activeProfileTab === "Posts" && isOwnProfile ? (
                 <div id="profile-composer" className="profile-content-card profile-composer-card profile-composer-smooth" style={mainCardStyle}>
                   <div style={profileComposerHeaderStyle}>
-                    <div style={profileComposerIconStyle}>＋</div>
+                    <div style={profileComposerIconStyle}>✦</div>
 
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <h3 style={{ margin: 0, color: "#ffffff", fontSize: "20px", letterSpacing: "-0.04em" }}>
                         Create a Post
                       </h3>
-                      <p style={{ margin: "5px 0 0", color: "#9ca3af", fontSize: "13px", lineHeight: 1.55 }}>
-                        Share an update to your profile and the homepage feed.
+                      <p style={{ margin: "6px 0 0", color: "#9ca3af", fontSize: "13px", lineHeight: 1.55 }}>
+                        Post to your profile and the homepage feed in one clean update.
                       </p>
                     </div>
 
-                    <span style={profileComposerBadgeStyle}>Profile post</span>
+                    <span style={profileComposerBadgeStyle}>Profile + Feed</span>
                   </div>
 
                   <textarea
@@ -3371,11 +3395,11 @@ return (
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: "14px", fontWeight: 900, color: "#f9fafb", marginBottom: "4px" }}>
-                          Add media
+                        <div style={{ fontSize: "14px", fontWeight: 950, color: "#f9fafb", marginBottom: "4px" }}>
+                          Add image
                         </div>
                         <p style={{ margin: 0, fontSize: "13px", color: "#9ca3af", lineHeight: 1.45 }}>
-                          Optional image for your profile post.
+                          Optional. Keep images light while we are watching storage egress.
                         </p>
                       </div>
 
@@ -3426,17 +3450,24 @@ return (
                   </div>
 
                   <div style={profileComposerFooterStyle}>
-                    <p style={{ margin: 0, color: "#6b7280", fontSize: "13px", lineHeight: 1.55 }}>
-                      This post will appear on this profile and in the homepage feed.
-                    </p>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, color: "#8b93a4", fontSize: "13px", lineHeight: 1.55, fontWeight: 700 }}>
+                        Appears on your profile and the homepage feed.
+                      </p>
+                      <p style={{ margin: "4px 0 0", color: "#626b7c", fontSize: "12px", lineHeight: 1.4 }}>
+                        {profilePostContent.length} characters
+                      </p>
+                    </div>
 
                     <button
                       onClick={handleCreateProfilePost}
-                      disabled={profilePostLoading}
+                      disabled={profilePostLoading || (!profilePostContent.trim() && !profilePostImage)}
                       style={{
                         ...primaryButtonStyle,
-                        opacity: profilePostLoading ? 0.7 : 1,
-                        cursor: profilePostLoading ? "not-allowed" : "pointer",
+                        background: "linear-gradient(135deg, #ffffff, #e9d5ff)",
+                        boxShadow: "0 12px 28px rgba(168,85,247,0.24)",
+                        opacity: profilePostLoading || (!profilePostContent.trim() && !profilePostImage) ? 0.62 : 1,
+                        cursor: profilePostLoading || (!profilePostContent.trim() && !profilePostImage) ? "not-allowed" : "pointer",
                       }}
                     >
                       {profilePostLoading ? "Posting..." : "Publish post"}
@@ -4108,37 +4139,42 @@ const profileComposerHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "13px",
+  gap: "14px",
   flexWrap: "wrap",
-  marginBottom: "14px",
+  marginBottom: "16px",
+  paddingBottom: "14px",
+  borderBottom: "1px solid rgba(255,255,255,0.075)",
 };
 
 const profileComposerIconStyle: CSSProperties = {
-  width: "44px",
-  height: "44px",
+  width: "46px",
+  height: "46px",
   borderRadius: "18px",
   display: "grid",
   placeItems: "center",
   flexShrink: 0,
-  background: "linear-gradient(135deg, #a855f7, #7c3aed)",
+  background:
+    "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.24), transparent 34%), linear-gradient(135deg, #a855f7, #7c3aed 58%, #2563eb)",
   color: "#ffffff",
-  fontSize: "25px",
+  fontSize: "24px",
   fontWeight: 950,
-  boxShadow: "0 14px 30px rgba(168,85,247,0.28)",
+  boxShadow: "0 16px 36px rgba(168,85,247,0.30), inset 0 1px 0 rgba(255,255,255,0.16)",
 };
 
 const profileComposerBadgeStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minHeight: "32px",
+  minHeight: "34px",
   borderRadius: "999px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.06)",
-  color: "#d1d5db",
-  padding: "7px 11px",
+  border: "1px solid rgba(168,85,247,0.24)",
+  background: "rgba(168,85,247,0.12)",
+  color: "#e9d5ff",
+  padding: "7px 12px",
   fontSize: "12px",
-  fontWeight: 900,
+  fontWeight: 950,
+  letterSpacing: "0.01em",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
 };
 
 const profileComposerFooterStyle: CSSProperties = {
@@ -4148,6 +4184,8 @@ const profileComposerFooterStyle: CSSProperties = {
   gap: "12px",
   flexWrap: "wrap",
   marginTop: "14px",
+  paddingTop: "14px",
+  borderTop: "1px solid rgba(255,255,255,0.065)",
 };
 
 const feedHeaderStyle: CSSProperties = {
@@ -4481,36 +4519,40 @@ const sharedReelPreviewStyle: CSSProperties = {
 
 const profilePostTextAreaStyle: CSSProperties = {
   width: "100%",
-  background: "rgba(3,7,18,0.50)",
+  background:
+    "linear-gradient(180deg, rgba(3,7,18,0.62), rgba(12,15,22,0.58))",
   color: "white",
   border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "24px",
-  padding: "16px 18px",
+  borderRadius: "22px",
+  padding: "17px 18px",
   fontSize: "15px",
   outline: "none",
   resize: "vertical",
   fontFamily: "inherit",
   lineHeight: 1.65,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 26px rgba(0,0,0,0.18)",
 };
 
 const profilePostMediaBoxStyle: CSSProperties = {
   marginTop: "12px",
-  border: "1px solid rgba(255,255,255,0.11)",
+  border: "1px solid rgba(168,85,247,0.16)",
   borderRadius: "24px",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.022))",
+  background:
+    "radial-gradient(circle at 0% 0%, rgba(168,85,247,0.10), transparent 36%), linear-gradient(180deg, rgba(255,255,255,0.050), rgba(255,255,255,0.022))",
   padding: "15px",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
 };
 
 const profilePostDangerButtonStyle: CSSProperties = {
   background: "rgba(248,113,113,0.08)",
   color: "#fecaca",
-  border: "1px solid rgba(248,113,113,0.20)",
+  border: "1px solid rgba(248,113,113,0.22)",
   borderRadius: "999px",
   padding: "10px 16px",
-  fontWeight: 700,
+  fontWeight: 850,
   cursor: "pointer",
   minHeight: "42px",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
 };
 
 
