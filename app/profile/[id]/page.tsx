@@ -856,7 +856,7 @@ useEffect(() => {
       const { error: uploadError } = await supabase.storage
         .from("post-images")
         .upload(fileName, profilePostImage, {
-          cacheControl: "604800",
+          cacheControl: "3600",
           upsert: false,
         });
 
