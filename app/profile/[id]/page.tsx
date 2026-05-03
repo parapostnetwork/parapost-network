@@ -1273,6 +1273,13 @@ return (
         --pp-surface-soft: rgba(255,255,255,0.045);
         --pp-purple: #a855f7;
       }
+      .profile-mobile-inline-more {
+        display: none !important;
+      }
+
+      .profile-mobile-meta-action-row {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
 
       .profile-polish-surface button {
         transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
@@ -3106,16 +3113,7 @@ return (
                         <span>📅 Joined Parapost</span>
                       </div>
 
-                      {isOwnProfile ? (
-                        <button
-                          type="button"
-                          onClick={() => setProfileActionsOpen(true)}
-                          className="profile-mobile-inline-more"
-                          aria-label="Profile options"
-                        >
-                          •••
-                        </button>
-                      ) : null}
+                      
                     </div>
                   </div>
                 </div>
