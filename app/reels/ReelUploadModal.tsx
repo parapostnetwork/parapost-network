@@ -482,7 +482,7 @@ export default function ReelUploadModal({
         const { error } = await supabase.storage
           .from("reels")
           .upload(videoPath, selectedVideo, {
-            cacheControl: "3600",
+            cacheControl: "604800",
             upsert: false,
             contentType: selectedVideo.type || "video/mp4",
           });

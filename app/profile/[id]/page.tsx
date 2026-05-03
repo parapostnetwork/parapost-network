@@ -856,7 +856,7 @@ useEffect(() => {
       const { error: uploadError } = await supabase.storage
         .from("post-images")
         .upload(fileName, profilePostImage, {
-          cacheControl: "3600",
+          cacheControl: "604800",
           upsert: false,
         });
 
@@ -1279,54 +1279,6 @@ return (
 
       .profile-mobile-meta-action-row {
         grid-template-columns: minmax(0, 1fr) !important;
-      }
-
-      .profile-meta-row > span,
-      .profile-meta-row > a {
-        display: inline-flex !important;
-        align-items: center !important;
-        gap: 7px !important;
-        width: fit-content !important;
-        min-height: 34px !important;
-        padding: 7px 11px !important;
-        border-radius: 999px !important;
-        border: 1px solid rgba(255,255,255,0.085) !important;
-        background: rgba(255,255,255,0.042) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
-      }
-
-      .profile-meta-row > a {
-        color: #d8b4fe !important;
-      }
-
-      .profile-options-trigger {
-        position: relative !important;
-        overflow: visible !important;
-      }
-
-      .profile-options-trigger::after {
-        content: "";
-        position: absolute;
-        inset: -4px;
-        border-radius: 18px;
-        background: radial-gradient(circle at 50% 50%, rgba(168,85,247,0.28), rgba(34,211,238,0.09) 45%, rgba(255,255,255,0) 72%);
-        opacity: 0.72;
-        pointer-events: none;
-        z-index: -1;
-      }
-
-      .profile-options-trigger:hover {
-        border-color: rgba(216,180,254,0.38) !important;
-        box-shadow: 0 12px 28px rgba(0,0,0,0.28), 0 0 22px rgba(168,85,247,0.24) !important;
-      }
-
-      @media (max-width: 720px) {
-        .profile-meta-row > span,
-        .profile-meta-row > a {
-          min-height: 32px !important;
-          padding: 7px 10px !important;
-          border-radius: 12px !important;
-        }
       }
 
       .profile-polish-surface button {
@@ -2657,6 +2609,75 @@ return (
   }
 }
 
+
+      /* Profile feed/post premium polish overrides */
+      .profile-feed-card {
+        position: relative !important;
+      }
+
+      .profile-feed-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0) 38%);
+        opacity: 0.55;
+      }
+
+      .profile-feed-card > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .profile-feed-card button:hover,
+      .profile-shared-reel-card a:hover {
+        filter: brightness(1.08);
+      }
+
+      @media (max-width: 720px) {
+        .profile-mobile-first-polish .profile-feed-section-card {
+          padding: 14px !important;
+          background: #111318 !important;
+        }
+
+        .profile-mobile-first-polish .profile-feed-section-card > div:first-child {
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+
+        .profile-mobile-first-polish .profile-feed-card {
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          border-radius: 22px !important;
+          border-left: 1px solid rgba(255,255,255,0.10) !important;
+          border-right: 1px solid rgba(255,255,255,0.10) !important;
+          border-top: 1px solid rgba(255,255,255,0.11) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+          box-shadow: 0 14px 34px rgba(0,0,0,0.28) !important;
+          background: linear-gradient(180deg, rgba(255,255,255,0.060), rgba(255,255,255,0.030)) !important;
+          padding: 14px !important;
+        }
+
+        .profile-mobile-first-polish .profile-post-image,
+        .profile-mobile-first-polish .profile-feed-card img.profile-post-image {
+          border-radius: 18px !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+
+        .profile-mobile-first-polish .profile-shared-reel-card {
+          border-radius: 22px !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          border-left: 1px solid rgba(168,85,247,0.22) !important;
+          border-right: 1px solid rgba(168,85,247,0.22) !important;
+        }
+      }
+
+
     `}</style>
 
     {/* Mobile Top Bar */}
@@ -3008,10 +3029,8 @@ return (
                             onClick={() =>
                               setProfileActionsOpen((value) => !value)
                             }
-                            className="profile-options-trigger"
                             style={profileIconButtonStyle}
                             aria-label="More profile actions"
-                            title="Profile options"
                           >
                             •••
                           </button>
@@ -3489,7 +3508,7 @@ return (
                               }}
                             >
                               <header style={postHeaderStyle}>
-                                <div style={postAuthorAvatarStyle}>
+                                <div style={{ ...postAuthorAvatarStyle, ...(profile?.is_online ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile.avatar_url ? (
                                     <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                   ) : (
@@ -3619,7 +3638,7 @@ return (
                             }}
                           >
                             <header style={postHeaderStyle}>
-                              <div style={postAuthorAvatarStyle}>
+                              <div style={{ ...postAuthorAvatarStyle, ...(profile?.is_online ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                 {profile.avatar_url ? (
                                   <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                 ) : (
@@ -3694,7 +3713,7 @@ return (
                             ) : null}
 
                             {post.image_url ? (
-                              <img src={post.image_url} alt="Post" style={postImageStyle} />
+                              <img src={post.image_url} alt="Post" className="profile-post-image" style={postImageStyle} />
                             ) : null}
 
                             <div style={postActionsRowStyle}>
@@ -4075,13 +4094,13 @@ const sideCardStyle: CSSProperties = {
 
 const postCardStyle: CSSProperties = {
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.052) 0%, rgba(255,255,255,0.026) 100%)",
-  border: "1px solid rgba(255,255,255,0.095)",
-  borderRadius: "18px",
+    "linear-gradient(180deg, rgba(255,255,255,0.064) 0%, rgba(255,255,255,0.034) 58%, rgba(168,85,247,0.035) 100%)",
+  border: "1px solid rgba(255,255,255,0.115)",
+  borderRadius: "24px",
   padding: "18px",
-  boxShadow: "0 12px 30px rgba(0,0,0,0.22)",
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
+  boxShadow: "0 18px 46px rgba(0,0,0,0.28)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
   transition: "transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease",
 };
 
@@ -4138,6 +4157,8 @@ const feedHeaderStyle: CSSProperties = {
   gap: "14px",
   flexWrap: "wrap",
   marginBottom: "16px",
+  paddingBottom: "14px",
+  borderBottom: "1px solid rgba(255,255,255,0.075)",
 };
 
 const feedTitleBlockStyle: CSSProperties = {
@@ -4161,18 +4182,19 @@ const feedCountPillStyle: CSSProperties = {
   justifyContent: "center",
   minHeight: "36px",
   borderRadius: "999px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.055)",
-  color: "#d1d5db",
+  border: "1px solid rgba(168,85,247,0.22)",
+  background: "rgba(168,85,247,0.10)",
+  color: "#e9d5ff",
   padding: "8px 12px",
   fontSize: "12px",
   fontWeight: 900,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
 };
 
 const feedStackStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "18px",
+  gap: "16px",
 };
 
 const feedEmptyStateStyle: CSSProperties = {
@@ -4190,19 +4212,30 @@ const feedEmptyStateStyle: CSSProperties = {
 const postHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "12px",
+  gap: "13px",
   marginBottom: "14px",
 };
 
 const postAuthorAvatarStyle: CSSProperties = {
-  width: "48px",
-  height: "48px",
+  width: "52px",
+  height: "52px",
   borderRadius: "50%",
   overflow: "hidden",
   flexShrink: 0,
-  border: "2px solid rgba(168,85,247,0.50)",
+  border: "2px solid rgba(168,85,247,0.48)",
   background: "#05070a",
   boxShadow: "0 10px 24px rgba(0,0,0,0.26)",
+};
+
+const postAuthorAvatarOnlineStyle: CSSProperties = {
+  border: "2px solid rgba(34,211,238,0.82)",
+  boxShadow:
+    "0 0 0 2px rgba(168,85,247,0.34), 0 0 22px rgba(168,85,247,0.34), 0 0 30px rgba(34,211,238,0.18)",
+};
+
+const postAuthorAvatarOfflineStyle: CSSProperties = {
+  border: "2px solid rgba(168,85,247,0.46)",
+  boxShadow: "0 0 0 1px rgba(255,255,255,0.07), 0 10px 24px rgba(0,0,0,0.28)",
 };
 
 const postAuthorFallbackStyle: CSSProperties = {
@@ -4226,8 +4259,8 @@ const postAuthorTextStyle: CSSProperties = {
 const postAuthorNameStyle: CSSProperties = {
   color: "#f9fafb",
   fontWeight: 950,
-  fontSize: "15px",
-  lineHeight: 1.2,
+  fontSize: "16px",
+  lineHeight: 1.22,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
@@ -4236,31 +4269,31 @@ const postAuthorNameStyle: CSSProperties = {
 const postMetaStyle: CSSProperties = {
   color: "#9ca3af",
   fontSize: "13px",
-  fontWeight: 700,
-  lineHeight: 1.25,
+  fontWeight: 750,
+  lineHeight: 1.45,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 };
 
 const postContentStyle: CSSProperties = {
-  margin: "0 0 2px",
+  margin: "10px 0 2px",
   whiteSpace: "pre-wrap",
-  lineHeight: 1.75,
+  lineHeight: 1.78,
   color: "#f9fafb",
-  fontSize: "15px",
-  fontWeight: 500,
+  fontSize: "15.5px",
+  fontWeight: 520,
 };
 
 const postImageStyle: CSSProperties = {
   width: "100%",
   maxHeight: "720px",
-  marginTop: "14px",
+  marginTop: "16px",
   borderRadius: "24px",
   objectFit: "cover",
   display: "block",
-  border: "1px solid rgba(255,255,255,0.10)",
-  boxShadow: "0 16px 36px rgba(0,0,0,0.34)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  boxShadow: "0 18px 42px rgba(0,0,0,0.36)",
 };
 
 const postActionsRowStyle: CSSProperties = {
@@ -4280,14 +4313,14 @@ const postLikeButtonActiveStyle: CSSProperties = {
   justifyContent: "center",
   gap: "8px",
   borderRadius: "999px",
-  border: "1px solid rgba(236,72,153,0.35)",
-  background: "rgba(236,72,153,0.14)",
+  border: "1px solid rgba(236,72,153,0.42)",
+  background: "linear-gradient(135deg, rgba(236,72,153,0.18), rgba(168,85,247,0.12))",
   color: "#fbcfe8",
   padding: "10px 15px",
   cursor: "pointer",
   minHeight: "42px",
   fontWeight: 900,
-  boxShadow: "0 10px 24px rgba(236,72,153,0.14)",
+  boxShadow: "0 12px 28px rgba(236,72,153,0.16)",
   transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease",
 };
 
@@ -4298,7 +4331,7 @@ const postSubtleMetaPillStyle: CSSProperties = {
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.08)",
   background: "rgba(255,255,255,0.035)",
-  color: "#8b949e",
+  color: "#9ca3af",
   padding: "7px 11px",
   fontSize: "12px",
   fontWeight: 850,
@@ -4380,6 +4413,7 @@ const actionButtonStyle: CSSProperties = {
   cursor: "pointer",
   minHeight: "42px",
   fontWeight: 900,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.035)",
   transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease",
 };
 
@@ -4418,28 +4452,28 @@ const pillMutedStyle: CSSProperties = {
 };
 
 const sharedReelCardStyle: CSSProperties = {
-  marginTop: "14px",
+  marginTop: "16px",
   display: "flex",
   gap: "16px",
   alignItems: "center",
   flexWrap: "wrap",
-  borderRadius: "26px",
-  border: "1px solid rgba(168,85,247,0.20)",
+  borderRadius: "28px",
+  border: "1px solid rgba(168,85,247,0.24)",
   background:
-    "linear-gradient(135deg, rgba(168,85,247,0.13), rgba(0,0,0,0.34) 48%, rgba(34,211,238,0.08))",
-  padding: "14px",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+    "linear-gradient(135deg, rgba(168,85,247,0.16), rgba(0,0,0,0.38) 48%, rgba(34,211,238,0.10))",
+  padding: "15px",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 16px 40px rgba(0,0,0,0.24)",
 };
 
 const sharedReelPreviewStyle: CSSProperties = {
-  width: "clamp(148px, 34vw, 220px)",
+  width: "clamp(150px, 34vw, 220px)",
   aspectRatio: "9 / 16",
   maxHeight: "370px",
-  borderRadius: "22px",
+  borderRadius: "23px",
   overflow: "hidden",
-  border: "1px solid rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.14)",
   background: "#000",
-  boxShadow: "0 16px 36px rgba(0,0,0,0.38)",
+  boxShadow: "0 18px 42px rgba(0,0,0,0.40)",
   flexShrink: 0,
   position: "relative",
   display: "block",
@@ -4701,20 +4735,20 @@ const linkPreviewDomainStyle: CSSProperties = {
 
 
 const profileDesktopActionMenuStyle: CSSProperties = {
-  width: "352px",
-  maxHeight: "360px",
+  width: "340px",
+  maxHeight: "340px",
   overflowY: "auto",
   overscrollBehavior: "contain",
   scrollbarWidth: "thin",
-  borderRadius: "18px",
-  border: "1px solid rgba(216,180,254,0.16)",
+  borderRadius: "16px",
+  border: "1px solid rgba(255,255,255,0.10)",
   background:
-    "linear-gradient(180deg, rgba(26,29,38,0.985), rgba(10,12,18,0.985))",
-  boxShadow: "0 26px 80px rgba(0,0,0,0.56), 0 0 28px rgba(168,85,247,0.14)",
-  padding: "9px",
+    "linear-gradient(180deg, rgba(24,27,34,0.98), rgba(12,14,19,0.98))",
+  boxShadow: "0 22px 70px rgba(0,0,0,0.50)",
+  padding: "8px",
   paddingBottom: "12px",
-  backdropFilter: "blur(16px)",
-  WebkitBackdropFilter: "blur(16px)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
 };
 
 const profileDesktopActionMenuHeaderStyle: CSSProperties = {
@@ -4728,12 +4762,12 @@ const profileDesktopActionItemStyle: CSSProperties = {
   border: "1px solid transparent",
   background: "transparent",
   color: "#ffffff",
-  borderRadius: "13px",
-  padding: "11px",
+  borderRadius: "12px",
+  padding: "10px",
   display: "grid",
-  gridTemplateColumns: "40px minmax(0, 1fr)",
+  gridTemplateColumns: "38px minmax(0, 1fr)",
   alignItems: "center",
-  gap: "11px",
+  gap: "10px",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -4847,13 +4881,13 @@ const profileActionItemStyle: CSSProperties = {
 };
 
 const profileActionIconStyle: CSSProperties = {
-  width: "40px",
-  height: "40px",
+  width: "42px",
+  height: "42px",
   borderRadius: "13px",
   display: "grid",
   placeItems: "center",
-  border: "1px solid rgba(216,180,254,0.16)",
-  background: "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(34,211,238,0.08))",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(168,85,247,0.14)",
   color: "#d8b4fe",
   fontSize: "18px",
   fontWeight: 950,
@@ -4908,9 +4942,9 @@ const editCoverButtonStyle: CSSProperties = {
 const profileHeroContentStyle: CSSProperties = {
   position: "relative",
   marginTop: "-86px",
-  padding: "0 22px 22px",
+  padding: "0 20px 20px",
   display: "flex",
-  gap: "22px",
+  gap: "24px",
   alignItems: "flex-end",
   flexWrap: "wrap",
 };
@@ -4974,25 +5008,24 @@ const avatarCameraButtonStyle: CSSProperties = {
 const profileHeroInfoStyle: CSSProperties = {
   flex: 1,
   minWidth: "300px",
-  paddingBottom: "10px",
+  paddingBottom: "12px",
 };
 
 const profileHeroTopLineStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "center",
+  alignItems: "flex-start",
   gap: "18px",
   flexWrap: "wrap",
-  marginBottom: "10px",
+  marginBottom: "12px",
 };
 
 const profileHeroNameStyle: CSSProperties = {
   margin: 0,
-  fontSize: "clamp(31px, 4vw, 48px)",
+  fontSize: "clamp(30px, 4vw, 48px)",
   lineHeight: 1.02,
   letterSpacing: "-0.055em",
   color: "#fff",
-  textWrap: "balance",
 };
 
 const verifiedBadgeStyle: CSSProperties = {
@@ -5009,17 +5042,9 @@ const verifiedBadgeStyle: CSSProperties = {
 };
 
 const profileHandleStyle: CSSProperties = {
-  margin: "10px 0 0",
+  margin: "8px 0 0",
   color: "#aeb3c2",
   fontSize: "14px",
-  lineHeight: 1.7,
-  minHeight: "24px",
-  display: "flex",
-  alignItems: "center",
-  gap: "4px",
-  flexWrap: "wrap",
-  overflow: "visible",
-  paddingTop: "2px",
 };
 
 const profileDotStyle: CSSProperties = {
@@ -5033,7 +5058,7 @@ const profileHeroActionsStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "flex-end",
   flexWrap: "wrap",
-  maxWidth: "540px",
+  maxWidth: "520px",
 };
 
 const profilePrimaryButtonStyle: React.CSSProperties = {
@@ -5071,33 +5096,27 @@ const profileGlassButtonStyle: React.CSSProperties = {
 };
 
 const profileIconButtonStyle: CSSProperties = {
-  width: "46px",
-  height: "44px",
-  borderRadius: "15px",
-  border: "1px solid rgba(216,180,254,0.22)",
-  background:
-    "linear-gradient(135deg, rgba(255,255,255,0.09), rgba(168,85,247,0.14))",
+  width: "42px",
+  height: "42px",
+  borderRadius: "14px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.055)",
   color: "white",
   cursor: "pointer",
-  fontSize: "16px",
-  fontWeight: 950,
-  letterSpacing: "0.08em",
-  boxShadow: "0 10px 24px rgba(0,0,0,0.24)",
   transition: "transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
 };
 
 const profileBioStyle: CSSProperties = {
-  margin: "13px 0 0",
+  margin: "12px 0 0",
   color: "#e5e7eb",
-  lineHeight: 1.62,
-  maxWidth: "820px",
-  letterSpacing: "-0.01em",
+  lineHeight: 1.6,
+  maxWidth: "760px",
 };
 
 const profileMetaRowStyle: CSSProperties = {
-  marginTop: "14px",
+  marginTop: "12px",
   display: "flex",
-  gap: "8px",
+  gap: "14px",
   flexWrap: "wrap",
   color: "#aeb3c2",
   fontSize: "13px",
@@ -5108,9 +5127,9 @@ const profileStatsBarStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr",
   alignItems: "center",
-  borderRadius: "18px",
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.18))",
+  borderRadius: "16px",
+  border: "1px solid rgba(255,255,255,0.075)",
+  background: "rgba(0,0,0,0.20)",
   padding: "15px 10px",
 };
 

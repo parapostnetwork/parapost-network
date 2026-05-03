@@ -1277,7 +1277,7 @@ export default function DashboardPage() {
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage.from("post-images").upload(fileName, image, {
-        cacheControl: "3600",
+        cacheControl: "604800",
         upsert: false,
       });
 
