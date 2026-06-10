@@ -605,7 +605,7 @@ export default function LegalSettingsPage() {
                               : "rounded-full border border-purple-200/15 bg-purple-400/10 px-2.5 py-1 text-[11px] font-black text-slate-300"
                           }
                         >
-                          {isAvailable ? "Open â†’" : "Coming soon"}
+                          {isAvailable ? "Open →" : "Coming soon"}
                         </span>
                       </div>
 
@@ -642,7 +642,7 @@ export default function LegalSettingsPage() {
                   ) : (
                     <div key={section.title}>{card}</div>
                   );
-                })}
+                })}s
               </div>
             </section>
 
@@ -715,7 +715,7 @@ export default function LegalSettingsPage() {
                     </span>
 
                     <span className="rounded-full border border-purple-200/15 bg-purple-400/10 px-2.5 py-1 text-[11px] font-black text-slate-300">
-                      Open â†’
+                      Open →
                     </span>
                   </div>
 
