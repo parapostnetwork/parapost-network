@@ -393,7 +393,7 @@ export default function LegalSettingsPage() {
       <div className="legal-settings-inner relative z-10 mx-auto w-full max-w-4xl">
         <div className="legal-settings-topbar mb-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 min-w-0">
-            <BackToPrevious label="â† Back" fallbackHref="/settings/help-support" />
+            <BackToPrevious label="← Back" fallbackHref="/settings/help-support" />
             <span className="text-slate-700 select-none">/</span>
             <Link href="/settings" className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white">Settings</Link>
           </div>

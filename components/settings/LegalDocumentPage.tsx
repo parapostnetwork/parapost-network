@@ -116,7 +116,7 @@ export default function LegalDocumentPage({
               className="text-sm font-bold no-underline transition hover:text-white"
               style={{ color: "var(--parapost-accent-text)" }}
             >
-              ← Back to Legal & Policies
+              {"\u2190 Back to Legal & Policies"}
             </Link>
 
             <Link
