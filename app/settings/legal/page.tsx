@@ -73,7 +73,7 @@ const legalSections: LegalSection[] = [
       "Moderation review",
     ],
     href: "/settings/legal/community-guidelines",
-    status: "Coming soon",
+    status: "Available",
   },
   {
     eyebrow: "Privacy Policy",
