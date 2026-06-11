@@ -105,7 +105,7 @@ const legalSections: LegalSection[] = [
       "Appeals",
     ],
     href: "/settings/legal/safety-reporting",
-    status: "Coming soon",
+    status: "Available",
   },
   {
     eyebrow: "Privacy Policy",
