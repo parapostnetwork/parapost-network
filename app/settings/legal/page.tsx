@@ -121,7 +121,7 @@ const legalSections: LegalSection[] = [
       "Future updates",
     ],
     href: "/settings/legal/cookies",
-    status: "Coming soon",
+    status: "Available",
   },
   {
     eyebrow: "Content Policy",
