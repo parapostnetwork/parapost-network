@@ -56,7 +56,8 @@ const legalSections: LegalSection[] = [
       "Safety records",
       "Data requests",
     ],
-    status: "Coming soon",
+    href: "/settings/legal/privacy",
+    status: "Available",
   },
   {
     eyebrow: "Community Policy",
@@ -71,6 +72,7 @@ const legalSections: LegalSection[] = [
       "Reporting",
       "Moderation review",
     ],
+    href: "/settings/legal/community-guidelines",
     status: "Coming soon",
   },
   {
@@ -86,6 +88,7 @@ const legalSections: LegalSection[] = [
       "Safety records",
       "Confirmation process",
     ],
+    href: "/settings/legal/data-deletion",
     status: "Coming soon",
   },
   {
@@ -101,6 +104,7 @@ const legalSections: LegalSection[] = [
       "Moderation response",
       "Appeals",
     ],
+    href: "/settings/legal/safety-reporting",
     status: "Coming soon",
   },
   {
@@ -116,6 +120,7 @@ const legalSections: LegalSection[] = [
       "Performance",
       "Future updates",
     ],
+    href: "/settings/legal/cookies",
     status: "Coming soon",
   },
   {
@@ -131,6 +136,7 @@ const legalSections: LegalSection[] = [
       "Platform branding",
       "Review process",
     ],
+    href: "/settings/legal/copyright",
     status: "Coming soon",
   },
 ];
@@ -393,7 +399,7 @@ export default function LegalSettingsPage() {
       <div className="legal-settings-inner relative z-10 mx-auto w-full max-w-4xl">
         <div className="legal-settings-topbar mb-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 min-w-0">
-            <BackToPrevious label="← Back" fallbackHref="/settings/help-support" />
+            <BackToPrevious label={"\u2190 Back"} fallbackHref="/settings/help-support" />
             <span className="text-slate-700 select-none">/</span>
             <Link href="/settings" className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white">Settings</Link>
           </div>
@@ -605,7 +611,7 @@ export default function LegalSettingsPage() {
                               : "rounded-full border border-purple-200/15 bg-purple-400/10 px-2.5 py-1 text-[11px] font-black text-slate-300"
                           }
                         >
-                          {isAvailable ? "Open →" : "Coming soon"}
+                          {isAvailable ? "Open \u2192" : "Coming soon"}
                         </span>
                       </div>
 
@@ -642,7 +648,7 @@ export default function LegalSettingsPage() {
                   ) : (
                     <div key={section.title}>{card}</div>
                   );
-                })}s
+                })}
               </div>
             </section>
 
@@ -715,7 +721,7 @@ export default function LegalSettingsPage() {
                     </span>
 
                     <span className="rounded-full border border-purple-200/15 bg-purple-400/10 px-2.5 py-1 text-[11px] font-black text-slate-300">
-                      Open →
+                      {"Open \u2192"}
                     </span>
                   </div>
 
