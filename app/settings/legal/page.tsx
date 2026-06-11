@@ -137,7 +137,7 @@ const legalSections: LegalSection[] = [
       "Review process",
     ],
     href: "/settings/legal/copyright",
-    status: "Coming soon",
+    status: "Available",
   },
 ];
 
