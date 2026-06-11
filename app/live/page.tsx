@@ -27,10 +27,16 @@ type LiveStreamRow = {
   updated_at: string;
 };
 
+const LIVE_SELECT =
+  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at";
+
 function formatLiveDate(value?: string | null) {
   if (!value) return "Not scheduled";
+
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) return "Not scheduled";
+
   return date.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
@@ -40,26 +46,18 @@ function formatLiveDate(value?: string | null) {
   });
 }
 
-function getStatusLabel(status: LiveStatus) {
-  if (status === "draft") return "Draft";
-  if (status === "upcoming") return "Upcoming";
-  if (status === "live") return "Live";
-  if (status === "ended") return "Ended";
-  return "Cancelled";
-}
-
 function getProviderLabel(provider?: string | null) {
-  if (!provider) return "No provider yet";
+  if (!provider) return "External provider";
   if (provider === "youtube") return "YouTube";
   if (provider === "twitch") return "Twitch";
   if (provider === "facebook") return "Facebook";
   if (provider === "streamyard") return "StreamYard destination";
-  return "Other";
+  return "External provider";
 }
 
 function getLiveDisplayStatus(stream: LiveStreamRow) {
   if (stream.status === "live") return "Live Now";
-  if (stream.status === "ended") return "Ended";
+  if (stream.status === "ended") return "Replay";
   if (stream.status === "cancelled") return "Cancelled";
   if (stream.status === "draft") return "Draft";
 
@@ -74,7 +72,35 @@ function getLiveDisplayStatus(stream: LiveStreamRow) {
     }
   }
 
-  return "Scheduled";
+  return "Upcoming";
+}
+
+function getPublicActionLabel(stream: LiveStreamRow) {
+  if (stream.status === "live") return "Watch Live";
+  if (stream.status === "ended") return "Watch Replay";
+  return "Open Stream";
+}
+
+function getOwnerHint(stream: LiveStreamRow) {
+  const isPublished = stream.visibility === "public" && !stream.is_hidden;
+
+  if (stream.status === "live" && isPublished) {
+    return "This show is visible in the Live hub. Remember to stop the outside stream separately when the show ends.";
+  }
+
+  if (stream.status === "upcoming" && isPublished) {
+    return "This scheduled show is visible in the Live hub.";
+  }
+
+  if (stream.status === "ended" && isPublished) {
+    return "This replay remains visible in the Live hub until you hide or delete it.";
+  }
+
+  if (stream.status === "cancelled") {
+    return "Cancelled shows are hidden from the public Live hub.";
+  }
+
+  return "Private draft. Publish it only when the title, schedule, thumbnail, and outside stream link are ready.";
 }
 
 function getStatusPillStyle(status: LiveStatus): CSSProperties {
@@ -118,59 +144,72 @@ function getStatusPillStyle(status: LiveStatus): CSSProperties {
   return statusPillStyle;
 }
 
-function getLiveRecordHint(stream: LiveStreamRow) {
-  if (stream.status === "live") {
-    return "This is marked Live on Parapost only. The actual video is still handled by the outside provider.";
-  }
+function sortPublicStreams(streams: LiveStreamRow[]) {
+  const rank: Record<LiveStatus, number> = {
+    live: 0,
+    upcoming: 1,
+    ended: 2,
+    draft: 3,
+    cancelled: 4,
+  };
 
-  if (stream.status === "upcoming") {
-    return "Scheduled privately. Keep it hidden until Parapost Live is ready to launch.";
-  }
+  return [...streams].sort((a, b) => {
+    const rankDifference = rank[a.status] - rank[b.status];
 
-  if (stream.status === "ended") {
-    return "Ended on Parapost. The external stream should also be stopped at the provider.";
-  }
+    if (rankDifference !== 0) return rankDifference;
 
-  if (stream.status === "cancelled") {
-    return "Cancelled records can stay for reference or be deleted if they were only tests.";
-  }
+    const aDate = new Date(a.scheduled_at || a.created_at).getTime();
+    const bDate = new Date(b.scheduled_at || b.created_at).getTime();
 
-  return "Draft only. Safe to edit, schedule, cancel, or delete before public launch.";
+    if (a.status === "ended") return bDate - aDate;
+
+    return aDate - bDate;
+  });
 }
 
-export default function ParapostLiveHiddenPage() {
+export default function ParapostLivePage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [liveStreams, setLiveStreams] = useState<LiveStreamRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [busyId, setBusyId] = useState("");
 
-  const draftCount = useMemo(
-    () => liveStreams.filter((stream) => stream.status === "draft").length,
+  const publicStreams = useMemo(
+    () =>
+      sortPublicStreams(
+        liveStreams.filter(
+          (stream) =>
+            stream.visibility === "public" &&
+            !stream.is_hidden &&
+            (stream.status === "upcoming" ||
+              stream.status === "live" ||
+              stream.status === "ended")
+        )
+      ),
     [liveStreams]
   );
 
-  const scheduledCount = useMemo(
-    () => liveStreams.filter((stream) => stream.status === "upcoming").length,
-    [liveStreams]
+  const ownedStreams = useMemo(
+    () => liveStreams.filter((stream) => stream.user_id === currentUserId),
+    [currentUserId, liveStreams]
   );
 
-  const liveCount = useMemo(
-    () => liveStreams.filter((stream) => stream.status === "live").length,
-    [liveStreams]
+  const liveNowCount = useMemo(
+    () => publicStreams.filter((stream) => stream.status === "live").length,
+    [publicStreams]
   );
 
-  const endedCount = useMemo(
-    () => liveStreams.filter((stream) => stream.status === "ended").length,
-    [liveStreams]
+  const upcomingCount = useMemo(
+    () => publicStreams.filter((stream) => stream.status === "upcoming").length,
+    [publicStreams]
   );
 
-  const cancelledCount = useMemo(
-    () => liveStreams.filter((stream) => stream.status === "cancelled").length,
-    [liveStreams]
+  const replayCount = useMemo(
+    () => publicStreams.filter((stream) => stream.status === "ended").length,
+    [publicStreams]
   );
 
-  const loadHiddenLivePreview = useCallback(async () => {
+  const loadLiveHub = useCallback(async () => {
     setLoading(true);
     setMessage("");
 
@@ -182,7 +221,7 @@ export default function ParapostLiveHiddenPage() {
     if (userError || !user) {
       setCurrentUserId("");
       setLiveStreams([]);
-      setMessage("Sign in to preview your hidden Parapost Live setup.");
+      setMessage("Sign in to view Parapost Live.");
       setLoading(false);
       return;
     }
@@ -191,16 +230,13 @@ export default function ParapostLiveHiddenPage() {
 
     const { data, error } = await supabase
       .from("live_streams")
-      .select(
-        "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at"
-      )
-      .eq("user_id", user.id)
+      .select(LIVE_SELECT)
       .order("created_at", { ascending: false })
-      .limit(30);
+      .limit(100);
 
     if (error) {
       setLiveStreams([]);
-      setMessage(error.message || "Parapost Live is not ready yet.");
+      setMessage(error.message || "Could not load Parapost Live.");
       setLoading(false);
       return;
     }
@@ -210,74 +246,134 @@ export default function ParapostLiveHiddenPage() {
   }, []);
 
   useEffect(() => {
-    void loadHiddenLivePreview();
-  }, [loadHiddenLivePreview]);
+    void loadLiveHub();
+  }, [loadLiveHub]);
 
-  const updateStatus = async (stream: LiveStreamRow, nextStatus: LiveStatus) => {
-    if (!currentUserId) return;
+  const updateOwnedStream = async (
+    stream: LiveStreamRow,
+    payload: Partial<LiveStreamRow>,
+    confirmation: string,
+    successMessage: string
+  ) => {
+    if (!currentUserId || stream.user_id !== currentUserId) return;
 
-    const label =
-      nextStatus === "live"
-        ? "mark this hidden test as Live on Parapost"
-        : nextStatus === "upcoming"
-          ? "move this hidden draft to Scheduled"
-          : nextStatus === "ended"
-            ? "end this Live on Parapost"
-            : "cancel this show";
-    const ok = window.confirm(`Are you sure you want to ${label}?`);
+    const ok = window.confirm(confirmation);
+
     if (!ok) return;
 
     setBusyId(stream.id);
     setMessage("");
 
-    const updatePayload: Partial<LiveStreamRow> = {
-      status: nextStatus,
-    };
-
-    if (nextStatus === "upcoming") {
-      updatePayload.started_at = null;
-      updatePayload.ended_at = null;
-    }
-
-    if (nextStatus === "live") {
-      updatePayload.started_at = new Date().toISOString();
-      updatePayload.ended_at = null;
-    }
-
-    if (nextStatus === "ended" || nextStatus === "cancelled") {
-      updatePayload.ended_at = new Date().toISOString();
-    }
-
     const { error } = await supabase
       .from("live_streams")
-      .update(updatePayload)
+      .update(payload)
       .eq("id", stream.id)
       .eq("user_id", currentUserId);
 
     setBusyId("");
 
     if (error) {
-      setMessage(error.message || "Could not update Live record.");
+      setMessage(error.message || "Could not update this Live show.");
       return;
     }
 
-    if (nextStatus === "ended") {
-      setMessage("Live ended on Parapost. Remember: the external stream must also be stopped on StreamYard/YouTube/Twitch.");
-    } else if (nextStatus === "cancelled") {
-      setMessage("Live show marked as cancelled on Parapost.");
-    } else if (nextStatus === "upcoming") {
-      setMessage("Hidden Live draft moved to Scheduled. It is still private and not public.");
-    } else {
-      setMessage("Hidden test Live marked as active on Parapost.");
+    setMessage(successMessage);
+    await loadLiveHub();
+  };
+
+  const publishScheduledShow = async (stream: LiveStreamRow) => {
+    if (!stream.scheduled_at) {
+      setMessage("Add a scheduled date and time before publishing this show as Upcoming.");
+      return;
     }
 
-    await loadHiddenLivePreview();
+    await updateOwnedStream(
+      stream,
+      {
+        status: "upcoming",
+        visibility: "public",
+        is_hidden: false,
+        started_at: null,
+        ended_at: null,
+      },
+      "Publish this show in the Parapost Live hub as an upcoming event?",
+      "The show is now published in the Parapost Live hub as Upcoming."
+    );
+  };
+
+  const publishAndStartShow = async (stream: LiveStreamRow) => {
+    await updateOwnedStream(
+      stream,
+      {
+        status: "live",
+        visibility: "public",
+        is_hidden: false,
+        started_at: new Date().toISOString(),
+        ended_at: null,
+      },
+      "Publish this show and mark it Live on Parapost now?",
+      "The show is now public and marked Live on Parapost. Start or confirm the outside stream separately."
+    );
+  };
+
+  const markLive = async (stream: LiveStreamRow) => {
+    await updateOwnedStream(
+      stream,
+      {
+        status: "live",
+        started_at: new Date().toISOString(),
+        ended_at: null,
+      },
+      "Mark this published show Live on Parapost now?",
+      "The show is now marked Live on Parapost. Start or confirm the outside stream separately."
+    );
+  };
+
+  const endLive = async (stream: LiveStreamRow) => {
+    await updateOwnedStream(
+      stream,
+      {
+        status: "ended",
+        ended_at: new Date().toISOString(),
+      },
+      "End this show on Parapost?",
+      "The show is now marked as ended on Parapost. Stop the outside stream separately."
+    );
+  };
+
+  const hideShow = async (stream: LiveStreamRow) => {
+    await updateOwnedStream(
+      stream,
+      {
+        visibility: "private",
+        is_hidden: true,
+      },
+      "Hide this show from the public Live hub?",
+      "The show is now hidden from the public Live hub."
+    );
+  };
+
+  const cancelShow = async (stream: LiveStreamRow) => {
+    await updateOwnedStream(
+      stream,
+      {
+        status: "cancelled",
+        visibility: "private",
+        is_hidden: true,
+        ended_at: new Date().toISOString(),
+      },
+      "Cancel this show and remove it from the public Live hub?",
+      "The show is cancelled and hidden from the public Live hub."
+    );
   };
 
   const deleteStream = async (stream: LiveStreamRow) => {
-    if (!currentUserId) return;
+    if (!currentUserId || stream.user_id !== currentUserId) return;
 
-    const ok = window.confirm("Delete this hidden Live record from Parapost? This is best for test drafts or mistakes.");
+    const ok = window.confirm(
+      "Delete this Live record permanently from Parapost? This cannot be undone."
+    );
+
     if (!ok) return;
 
     setBusyId(stream.id);
@@ -292,12 +388,12 @@ export default function ParapostLiveHiddenPage() {
     setBusyId("");
 
     if (error) {
-      setMessage(error.message || "Could not delete Live record.");
+      setMessage(error.message || "Could not delete this Live record.");
       return;
     }
 
-    setMessage("Hidden Live record deleted from Parapost.");
-    await loadHiddenLivePreview();
+    setMessage("Live record deleted from Parapost.");
+    await loadLiveHub();
   };
 
   return (
@@ -305,7 +401,7 @@ export default function ParapostLiveHiddenPage() {
       <div style={shellStyle}>
         <section style={heroCardStyle} className="parapost-live-hero">
           <div style={topRowStyle}>
-            <div style={badgeStyle}>Hidden foundation</div>
+            <div style={badgeStyle}>External stream hub</div>
 
             <Link href="/dashboard" style={backLinkStyle}>
               Back to Dashboard
@@ -317,61 +413,55 @@ export default function ParapostLiveHiddenPage() {
           <h1 style={titleStyle}>Parapost Live</h1>
 
           <p style={subtitleStyle}>
-            Quiet internal setup for external live embeds. This is not publicly launched yet.
+            Discover live paranormal podcasts, investigations, interviews, and
+            community broadcasts. Shows are streamed through trusted external
+            providers while Parapost keeps everything easy to find in one place.
           </p>
 
           <div style={ruleGridStyle}>
             <div style={ruleCardStyle}>
-              <strong style={ruleTitleStyle}>No Parapost RTMP</strong>
+              <strong style={ruleTitleStyle}>Live broadcasts</strong>
               <span style={ruleTextStyle}>
-                Parapost will not provide stream keys or ingest live video.
+                Open the active stream link to watch a show while it is live.
               </span>
             </div>
 
             <div style={ruleCardStyle}>
-              <strong style={ruleTitleStyle}>No video hosting</strong>
+              <strong style={ruleTitleStyle}>Upcoming events</strong>
               <span style={ruleTextStyle}>
-                Live video stays on YouTube, Twitch, StreamYard destinations, or another provider.
+                Find scheduled podcasts, investigations, and community shows
+                before they begin.
               </span>
             </div>
 
             <div style={ruleCardStyle}>
-              <strong style={ruleTitleStyle}>No streaming load</strong>
+              <strong style={ruleTitleStyle}>Replay links</strong>
               <span style={ruleTextStyle}>
-                Parapost only stores metadata, thumbnails, and later displays safe external embeds.
+                Creators can keep an external replay link available after a show
+                has ended.
               </span>
             </div>
           </div>
 
           <div style={statusStripStyle} className="parapost-live-status-strip">
             <div>
-              <span style={statusNumberStyle}>{liveStreams.length}</span>
-              <span style={statusLabelStyle}>Hidden records</span>
+              <span style={statusNumberStyle}>{publicStreams.length}</span>
+              <span style={statusLabelStyle}>Published shows</span>
             </div>
 
             <div>
-              <span style={statusNumberStyle}>{draftCount}</span>
-              <span style={statusLabelStyle}>Drafts</span>
+              <span style={statusNumberStyle}>{liveNowCount}</span>
+              <span style={statusLabelStyle}>Live now</span>
             </div>
 
             <div>
-              <span style={statusNumberStyle}>{scheduledCount}</span>
-              <span style={statusLabelStyle}>Scheduled</span>
+              <span style={statusNumberStyle}>{upcomingCount}</span>
+              <span style={statusLabelStyle}>Upcoming</span>
             </div>
 
             <div>
-              <span style={statusNumberStyle}>{liveCount}</span>
-              <span style={statusLabelStyle}>Test Live</span>
-            </div>
-
-            <div>
-              <span style={statusNumberStyle}>{endedCount}</span>
-              <span style={statusLabelStyle}>Ended</span>
-            </div>
-
-            <div>
-              <span style={statusNumberStyle}>{cancelledCount}</span>
-              <span style={statusLabelStyle}>Cancelled</span>
+              <span style={statusNumberStyle}>{replayCount}</span>
+              <span style={statusLabelStyle}>Replays</span>
             </div>
           </div>
         </section>
@@ -379,154 +469,112 @@ export default function ParapostLiveHiddenPage() {
         <section style={panelStyle} className="parapost-live-panel">
           <div style={sectionHeaderStyle}>
             <div>
-              <div style={eyebrowStyle}>Private preview</div>
-              <h2 style={sectionTitleStyle}>Your hidden Live records</h2>
+              <div style={eyebrowStyle}>Community broadcasts</div>
+              <h2 style={sectionTitleStyle}>Live shows and upcoming events</h2>
             </div>
 
-            <Link href="/live/create" style={createLinkStyle}>
-              Create Live Draft
-            </Link>
+            {currentUserId ? (
+              <Link href="/live/create" style={createLinkStyle}>
+                Create Live Show
+              </Link>
+            ) : null}
           </div>
 
           {loading ? (
-            <div style={emptyStateStyle}>Loading hidden Parapost Live setup...</div>
+            <div style={emptyStateStyle}>Loading Parapost Live...</div>
           ) : !currentUserId ? (
             <div style={emptyStateStyle}>{message}</div>
-          ) : liveStreams.length === 0 ? (
+          ) : publicStreams.length === 0 ? (
             <div style={emptyStateStyle}>
-              <strong style={{ color: "#fff" }}>No hidden Live records yet.</strong>
+              <strong style={{ color: "#fff" }}>No public Live shows yet.</strong>
               <span>
-                Create a private test draft where you can paste a YouTube or Twitch live link. Parapost will auto-fill a thumbnail when possible.
+                Published podcasts, investigations, interviews, and broadcasts
+                will appear here.
               </span>
             </div>
           ) : (
             <div style={listStyle}>
-              {liveStreams.map((stream) => {
-                const isBusy = busyId === stream.id;
+              {publicStreams.map((stream) => {
                 const providerLabel = getProviderLabel(stream.provider);
 
                 return (
-                  <article key={stream.id} style={liveCardStyle} className="parapost-live-card">
-                    <div style={thumbnailWrapStyle} className="parapost-live-thumbnail">
+                  <article
+                    key={`public-${stream.id}`}
+                    style={liveCardStyle}
+                    className="parapost-live-card"
+                  >
+                    <div
+                      style={thumbnailWrapStyle}
+                      className="parapost-live-thumbnail"
+                    >
                       {stream.thumbnail_url ? (
-                        <img src={stream.thumbnail_url} alt="" style={thumbnailImageStyle} />
+                        <img
+                          src={stream.thumbnail_url}
+                          alt=""
+                          style={thumbnailImageStyle}
+                        />
                       ) : (
                         <div style={fallbackThumbStyle}>
                           <span style={fallbackBadgeStyle}>PARAPOST LIVE</span>
-                          <strong style={fallbackTitleStyle}>{stream.title}</strong>
-                          <span style={fallbackProviderStyle}>{providerLabel}</span>
+                          <strong style={fallbackTitleStyle}>
+                            {stream.title}
+                          </strong>
+                          <span style={fallbackProviderStyle}>
+                            {providerLabel}
+                          </span>
                         </div>
                       )}
                     </div>
 
                     <div style={liveContentStyle}>
-                      <div style={liveCardHeaderStyle} className="parapost-live-card-header">
+                      <div
+                        style={liveCardHeaderStyle}
+                        className="parapost-live-card-header"
+                      >
                         <div style={{ minWidth: 0 }}>
                           <h3 style={liveTitleStyle}>{stream.title}</h3>
                           <p style={liveDescriptionStyle}>
-                            {stream.description || "No description yet."}
+                            {stream.description || "Live community broadcast."}
                           </p>
-                          <p style={liveHintStyle}>{getLiveRecordHint(stream)}</p>
                         </div>
 
-                        <span style={getStatusPillStyle(stream.status)}>{getLiveDisplayStatus(stream)}</span>
+                        <span style={getStatusPillStyle(stream.status)}>
+                          {getLiveDisplayStatus(stream)}
+                        </span>
                       </div>
 
-                      <div style={metaGridStyle} className="parapost-live-meta-grid">
+                      <div
+                        style={publicMetaGridStyle}
+                        className="parapost-live-meta-grid"
+                      >
                         <div>
                           <span style={metaLabelStyle}>Provider</span>
                           <strong style={metaValueStyle}>{providerLabel}</strong>
                         </div>
 
                         <div>
-                          <span style={metaLabelStyle}>Visibility</span>
-                          <strong style={metaValueStyle}>{stream.visibility}</strong>
-                        </div>
-
-                        <div>
-                          <span style={metaLabelStyle}>Hidden</span>
-                          <strong style={metaValueStyle}>{stream.is_hidden ? "Yes" : "No"}</strong>
-                        </div>
-
-                        <div>
                           <span style={metaLabelStyle}>Scheduled</span>
-                          <strong style={metaValueStyle}>{formatLiveDate(stream.scheduled_at)}</strong>
-                        </div>
-
-                        <div>
-                          <span style={metaLabelStyle}>Started</span>
-                          <strong style={metaValueStyle}>{formatLiveDate(stream.started_at)}</strong>
-                        </div>
-
-                        <div>
-                          <span style={metaLabelStyle}>Ended</span>
-                          <strong style={metaValueStyle}>{formatLiveDate(stream.ended_at)}</strong>
+                          <strong style={metaValueStyle}>
+                            {formatLiveDate(stream.scheduled_at)}
+                          </strong>
                         </div>
                       </div>
 
-                      <div style={actionRowStyle} className="parapost-live-actions">
-                        <Link href={`/live/create?edit=${stream.id}`} style={secondaryLinkActionStyle}>
-                          Edit Draft
-                        </Link>
-
+                      <div style={actionRowStyle}>
                         {stream.external_url ? (
-                          <a href={stream.external_url} target="_blank" rel="noopener noreferrer" style={secondaryLinkActionStyle}>
-                            Open Link
+                          <a
+                            href={stream.external_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={publicActionStyle}
+                          >
+                            {getPublicActionLabel(stream)}
                           </a>
-                        ) : null}
-
-                        {stream.status === "draft" && stream.scheduled_at ? (
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => updateStatus(stream, "upcoming")}
-                            style={secondaryActionStyle}
-                          >
-                            Mark Scheduled
-                          </button>
-                        ) : null}
-
-                        {stream.status !== "live" && stream.status !== "ended" && stream.status !== "cancelled" ? (
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => updateStatus(stream, "live")}
-                            style={primaryActionStyle}
-                          >
-                            Mark Test Live
-                          </button>
-                        ) : null}
-
-                        {stream.status === "live" ? (
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => updateStatus(stream, "ended")}
-                            style={primaryActionStyle}
-                          >
-                            End Live
-                          </button>
-                        ) : null}
-
-                        {stream.status !== "cancelled" && stream.status !== "ended" && stream.status !== "live" ? (
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => updateStatus(stream, "cancelled")}
-                            style={secondaryActionStyle}
-                          >
-                            Cancel Show
-                          </button>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => deleteStream(stream)}
-                          style={dangerActionStyle}
-                        >
-                          Delete Draft
-                        </button>
+                        ) : (
+                          <span style={linkPendingStyle}>
+                            Stream link coming soon
+                          </span>
+                        )}
                       </div>
                     </div>
                   </article>
@@ -534,155 +582,371 @@ export default function ParapostLiveHiddenPage() {
               })}
             </div>
           )}
-
-          {message ? <div style={noteStyle}>{message}</div> : null}
         </section>
 
-        <style jsx global>{`
+        {currentUserId ? (
+          <section style={creatorPanelStyle} className="parapost-live-panel">
+            <div style={sectionHeaderStyle}>
+              <div>
+                <div style={eyebrowStyle}>Creator studio</div>
+                <h2 style={sectionTitleStyle}>Manage your Live shows</h2>
+              </div>
+
+              <Link href="/live/create" style={createLinkStyle}>
+                Create Live Show
+              </Link>
+            </div>
+
+            {ownedStreams.length === 0 ? (
+              <div style={emptyStateStyle}>
+                <strong style={{ color: "#fff" }}>No Live shows yet.</strong>
+                <span>
+                  Create a draft, add your outside stream link, and publish it
+                  when your show is ready.
+                </span>
+              </div>
+            ) : (
+              <div style={listStyle}>
+                {ownedStreams.map((stream) => {
+                  const isBusy = busyId === stream.id;
+                  const providerLabel = getProviderLabel(stream.provider);
+                  const isPublished =
+                    stream.visibility === "public" && !stream.is_hidden;
+
+                  return (
+                    <article
+                      key={`owner-${stream.id}`}
+                      style={creatorCardStyle}
+                      className="parapost-live-card"
+                    >
+                      <div
+                        style={thumbnailWrapStyle}
+                        className="parapost-live-thumbnail"
+                      >
+                        {stream.thumbnail_url ? (
+                          <img
+                            src={stream.thumbnail_url}
+                            alt=""
+                            style={thumbnailImageStyle}
+                          />
+                        ) : (
+                          <div style={fallbackThumbStyle}>
+                            <span style={fallbackBadgeStyle}>CREATOR STUDIO</span>
+                            <strong style={fallbackTitleStyle}>
+                              {stream.title}
+                            </strong>
+                            <span style={fallbackProviderStyle}>
+                              {providerLabel}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={liveContentStyle}>
+                        <div
+                          style={liveCardHeaderStyle}
+                          className="parapost-live-card-header"
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <h3 style={liveTitleStyle}>{stream.title}</h3>
+                            <p style={liveDescriptionStyle}>
+                              {stream.description || "No description yet."}
+                            </p>
+                            <p style={liveHintStyle}>{getOwnerHint(stream)}</p>
+                          </div>
+
+                          <span style={getStatusPillStyle(stream.status)}>
+                            {getLiveDisplayStatus(stream)}
+                          </span>
+                        </div>
+
+                        <div
+                          style={metaGridStyle}
+                          className="parapost-live-meta-grid"
+                        >
+                          <div>
+                            <span style={metaLabelStyle}>Provider</span>
+                            <strong style={metaValueStyle}>
+                              {providerLabel}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span style={metaLabelStyle}>Visibility</span>
+                            <strong style={metaValueStyle}>
+                              {stream.visibility}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span style={metaLabelStyle}>Hidden</span>
+                            <strong style={metaValueStyle}>
+                              {stream.is_hidden ? "Yes" : "No"}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span style={metaLabelStyle}>Scheduled</span>
+                            <strong style={metaValueStyle}>
+                              {formatLiveDate(stream.scheduled_at)}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span style={metaLabelStyle}>Started</span>
+                            <strong style={metaValueStyle}>
+                              {formatLiveDate(stream.started_at)}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span style={metaLabelStyle}>Ended</span>
+                            <strong style={metaValueStyle}>
+                              {formatLiveDate(stream.ended_at)}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div
+                          style={actionRowStyle}
+                          className="parapost-live-actions"
+                        >
+                          <Link
+                            href={`/live/create?edit=${stream.id}`}
+                            style={secondaryLinkActionStyle}
+                          >
+                            Edit Show
+                          </Link>
+
+                          {stream.external_url ? (
+                            <a
+                              href={stream.external_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={secondaryLinkActionStyle}
+                            >
+                              Open Link
+                            </a>
+                          ) : null}
+
+                          {!isPublished &&
+                          stream.status !== "ended" &&
+                          stream.status !== "cancelled" ? (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => publishScheduledShow(stream)}
+                              style={secondaryActionStyle}
+                            >
+                              Publish Upcoming
+                            </button>
+                          ) : null}
+
+                          {!isPublished &&
+                          stream.status !== "ended" &&
+                          stream.status !== "cancelled" ? (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => publishAndStartShow(stream)}
+                              style={primaryActionStyle}
+                            >
+                              Publish &amp; Go Live
+                            </button>
+                          ) : null}
+
+                          {isPublished &&
+                          stream.status !== "live" &&
+                          stream.status !== "ended" &&
+                          stream.status !== "cancelled" ? (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => markLive(stream)}
+                              style={primaryActionStyle}
+                            >
+                              Mark Live
+                            </button>
+                          ) : null}
+
+                          {stream.status === "live" ? (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => endLive(stream)}
+                              style={primaryActionStyle}
+                            >
+                              End Live
+                            </button>
+                          ) : null}
+
+                          {isPublished ? (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => hideShow(stream)}
+                              style={secondaryActionStyle}
+                            >
+                              Hide from Hub
+                            </button>
+                          ) : null}
+
+                          {stream.status !== "cancelled" &&
+                          stream.status !== "ended" &&
+                          stream.status !== "live" ? (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => cancelShow(stream)}
+                              style={secondaryActionStyle}
+                            >
+                              Cancel Show
+                            </button>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => deleteStream(stream)}
+                            style={dangerActionStyle}
+                          >
+                            Delete Record
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {message ? <div style={noteStyle}>{message}</div> : null}
+          </section>
+        ) : null}
+
+        <section style={footerNoteStyle}>
+          <strong>How Parapost Live works:</strong> Parapost is an external
+          stream hub. Creators broadcast through StreamYard, YouTube, Twitch,
+          Facebook, or another provider and share the outside stream link here.
+        </section>
+      </div>
+
+      <style jsx global>{`
+        .parapost-live-page {
+          overflow-x: hidden;
+          touch-action: pan-y;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .parapost-live-page *,
+        .parapost-live-page *::before,
+        .parapost-live-page *::after {
+          box-sizing: border-box;
+        }
+
+        .parapost-live-card {
+          transition:
+            border-color 180ms ease,
+            box-shadow 180ms ease,
+            transform 180ms ease;
+        }
+
+        .parapost-live-card:hover {
+          border-color: rgba(216, 180, 254, 0.2) !important;
+          box-shadow:
+            0 18px 46px rgba(0, 0, 0, 0.28),
+            0 0 30px rgba(168, 85, 247, 0.1) !important;
+          transform: translateY(-1px);
+        }
+
+        @media (max-width: 980px) {
           .parapost-live-page {
-            overflow-x: hidden;
-            touch-action: pan-y;
-            -webkit-overflow-scrolling: touch;
+            padding: max(18px, env(safe-area-inset-top)) 12px
+              calc(88px + env(safe-area-inset-bottom)) !important;
           }
 
-          .parapost-live-page *,
-          .parapost-live-page *::before,
-          .parapost-live-page *::after {
-            box-sizing: border-box;
+          .parapost-live-actions {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+          }
+
+          .parapost-live-actions > * {
+            width: 100% !important;
+            min-height: 42px !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+            touch-action: manipulation;
+          }
+        }
+
+        @media (max-width: 820px) {
+          .parapost-live-card {
+            grid-template-columns: 1fr !important;
+            border-radius: 22px !important;
+          }
+
+          .parapost-live-thumbnail {
+            min-height: 210px !important;
+          }
+
+          .parapost-live-card-header {
+            display: grid !important;
+            gap: 10px !important;
+          }
+
+          .parapost-live-meta-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .parapost-live-page {
+            padding: max(14px, env(safe-area-inset-top)) 10px
+              calc(96px + env(safe-area-inset-bottom)) !important;
+          }
+
+          .parapost-live-hero,
+          .parapost-live-panel {
+            border-radius: 24px !important;
+            padding: 16px !important;
+          }
+
+          .parapost-live-status-strip {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px !important;
           }
 
           .parapost-live-card {
-            transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+            padding: 10px !important;
           }
 
-          .parapost-live-card:hover {
-            border-color: rgba(216, 180, 254, 0.20) !important;
-            box-shadow: 0 18px 46px rgba(0,0,0,0.28), 0 0 30px rgba(168,85,247,0.10) !important;
-            transform: translateY(-1px);
+          .parapost-live-thumbnail {
+            min-height: 190px !important;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .parapost-live-actions {
+            grid-template-columns: 1fr !important;
           }
 
-          @media (max-width: 1180px) {
-            .parapost-live-page {
-              padding-left: 14px !important;
-              padding-right: 14px !important;
-            }
+          .parapost-live-actions > * {
+            justify-content: center !important;
+          }
+        }
 
-            .parapost-live-card {
-              grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) !important;
-            }
+        @media (max-width: 430px) {
+          .parapost-live-status-strip,
+          .parapost-live-meta-grid {
+            grid-template-columns: 1fr !important;
           }
 
-          @media (max-width: 980px) {
-            .parapost-live-page {
-              padding: max(18px, env(safe-area-inset-top)) 12px calc(88px + env(safe-area-inset-bottom)) !important;
-            }
-
-            .parapost-live-card {
-              grid-template-columns: minmax(210px, 260px) minmax(0, 1fr) !important;
-            }
-
-            .parapost-live-actions {
-              display: grid !important;
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-              gap: 8px !important;
-            }
-
-            .parapost-live-actions > * {
-              width: 100% !important;
-              min-height: 42px !important;
-              padding-left: 10px !important;
-              padding-right: 10px !important;
-              touch-action: manipulation;
-            }
+          .parapost-live-thumbnail {
+            min-height: 172px !important;
           }
-
-          @media (max-width: 820px) {
-            .parapost-live-card {
-              grid-template-columns: 1fr !important;
-              border-radius: 22px !important;
-            }
-
-            .parapost-live-thumbnail {
-              min-height: 210px !important;
-            }
-
-            .parapost-live-card-header {
-              display: grid !important;
-              gap: 10px !important;
-            }
-
-            .parapost-live-meta-grid {
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            }
-          }
-
-          @media (max-width: 760px) {
-            .parapost-live-page {
-              padding: max(14px, env(safe-area-inset-top)) 10px calc(96px + env(safe-area-inset-bottom)) !important;
-            }
-
-            .parapost-live-hero,
-            .parapost-live-panel {
-              border-radius: 24px !important;
-              padding: 16px !important;
-            }
-
-            .parapost-live-status-strip {
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-              gap: 10px !important;
-            }
-
-            .parapost-live-card {
-              padding: 10px !important;
-            }
-
-            .parapost-live-thumbnail {
-              min-height: 190px !important;
-            }
-          }
-
-          @media (max-width: 560px) {
-            .parapost-live-actions {
-              grid-template-columns: 1fr !important;
-            }
-
-            .parapost-live-actions > * {
-              justify-content: center !important;
-            }
-          }
-
-          @media (max-width: 430px) {
-            .parapost-live-status-strip,
-            .parapost-live-meta-grid {
-              grid-template-columns: 1fr !important;
-            }
-
-            .parapost-live-thumbnail {
-              min-height: 172px !important;
-            }
-          }
-
-          @media (max-height: 520px) and (orientation: landscape) {
-            .parapost-live-page {
-              padding-top: 10px !important;
-              padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
-            }
-
-            .parapost-live-hero,
-            .parapost-live-panel {
-              padding: 14px !important;
-            }
-
-            .parapost-live-thumbnail {
-              min-height: 150px !important;
-            }
-          }
-        `}</style>
-
-        <section style={footerNoteStyle}>
-          <strong>Build rule:</strong> Parapost Live is an external-embed live hub only. Ending a Live on Parapost changes Parapost status, but the creator must still stop the outside stream on StreamYard, YouTube, Twitch, or the provider they are using.
-        </section>
-      </div>
+        }
+      `}</style>
     </main>
   );
 }
@@ -696,7 +960,8 @@ const pageStyle: CSSProperties = {
   background:
     "radial-gradient(circle at 14% 0%, rgba(168,85,247,0.28), transparent 34%), radial-gradient(circle at 88% 14%, rgba(236,72,153,0.14), transparent 34%), linear-gradient(180deg, #05050b 0%, #07090d 52%, #05050b 100%)",
   color: "#fff",
-  padding: "max(18px, env(safe-area-inset-top)) 14px calc(80px + env(safe-area-inset-bottom))",
+  padding:
+    "max(18px, env(safe-area-inset-top)) 14px calc(80px + env(safe-area-inset-bottom))",
 };
 
 const shellStyle: CSSProperties = {
@@ -712,7 +977,8 @@ const heroCardStyle: CSSProperties = {
   border: "1px solid rgba(216,180,254,0.20)",
   background:
     "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(255,255,255,0.055) 36%, rgba(10,13,24,0.94) 100%)",
-  boxShadow: "0 24px 70px rgba(0,0,0,0.34), 0 0 40px rgba(168,85,247,0.15)",
+  boxShadow:
+    "0 24px 70px rgba(0,0,0,0.34), 0 0 40px rgba(168,85,247,0.15)",
   padding: 24,
   overflow: "hidden",
 };
@@ -781,7 +1047,7 @@ const titleStyle: CSSProperties = {
 
 const subtitleStyle: CSSProperties = {
   margin: "16px 0 0",
-  maxWidth: 680,
+  maxWidth: 760,
   color: "#d1d5db",
   fontSize: 16,
   lineHeight: 1.65,
@@ -822,7 +1088,7 @@ const statusStripStyle: CSSProperties = {
   background: "rgba(0,0,0,0.20)",
   padding: 14,
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
   gap: 10,
 };
 
@@ -848,6 +1114,11 @@ const panelStyle: CSSProperties = {
   background: "rgba(10,13,24,0.82)",
   boxShadow: "0 18px 44px rgba(0,0,0,0.24)",
   padding: 18,
+};
+
+const creatorPanelStyle: CSSProperties = {
+  ...panelStyle,
+  border: "1px solid rgba(216,180,254,0.18)",
 };
 
 const sectionHeaderStyle: CSSProperties = {
@@ -881,7 +1152,8 @@ const createLinkStyle: CSSProperties = {
   borderRadius: 999,
   padding: "0 14px",
   border: "1px solid rgba(216,180,254,0.28)",
-  background: "linear-gradient(135deg, rgba(168,85,247,0.95), rgba(124,58,237,0.95))",
+  background:
+    "linear-gradient(135deg, rgba(168,85,247,0.95), rgba(124,58,237,0.95))",
   color: "#fff",
   textDecoration: "none",
   display: "inline-flex",
@@ -914,11 +1186,17 @@ const listStyle: CSSProperties = {
 const liveCardStyle: CSSProperties = {
   borderRadius: 24,
   border: "1px solid rgba(255,255,255,0.10)",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.035))",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.035))",
   padding: 12,
   display: "grid",
   gridTemplateColumns: "minmax(210px, 300px) 1fr",
   gap: 14,
+};
+
+const creatorCardStyle: CSSProperties = {
+  ...liveCardStyle,
+  border: "1px solid rgba(216,180,254,0.14)",
 };
 
 const thumbnailWrapStyle: CSSProperties = {
@@ -997,6 +1275,13 @@ const liveDescriptionStyle: CSSProperties = {
   lineHeight: 1.5,
 };
 
+const liveHintStyle: CSSProperties = {
+  margin: "8px 0 0",
+  color: "#c4b5fd",
+  fontSize: 12.5,
+  lineHeight: 1.45,
+};
+
 const statusPillStyle: CSSProperties = {
   flexShrink: 0,
   minHeight: 30,
@@ -1010,6 +1295,12 @@ const statusPillStyle: CSSProperties = {
   border: "1px solid rgba(216,180,254,0.18)",
   fontSize: 12,
   fontWeight: 900,
+};
+
+const publicMetaGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 10,
 };
 
 const metaGridStyle: CSSProperties = {
@@ -1043,9 +1334,9 @@ const actionRowStyle: CSSProperties = {
 };
 
 const primaryActionStyle: CSSProperties = {
-  minHeight: 34,
+  minHeight: 36,
   borderRadius: 999,
-  padding: "0 12px",
+  padding: "0 13px",
   border: "1px solid rgba(216,180,254,0.28)",
   background: "rgba(168,85,247,0.22)",
   color: "#fff",
@@ -1065,19 +1356,31 @@ const dangerActionStyle: CSSProperties = {
   background: "rgba(127,29,29,0.24)",
 };
 
-const liveHintStyle: CSSProperties = {
-  margin: "8px 0 0",
-  color: "#c4b5fd",
-  fontSize: 12.5,
-  lineHeight: 1.45,
-};
-
 const secondaryLinkActionStyle: CSSProperties = {
   ...secondaryActionStyle,
   textDecoration: "none",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
+};
+
+const publicActionStyle: CSSProperties = {
+  ...primaryActionStyle,
+  minHeight: 40,
+  padding: "0 16px",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background:
+    "linear-gradient(135deg, rgba(168,85,247,0.95), rgba(124,58,237,0.95))",
+  boxShadow: "0 12px 28px rgba(168,85,247,0.20)",
+};
+
+const linkPendingStyle: CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 13,
+  fontWeight: 800,
 };
 
 const noteStyle: CSSProperties = {

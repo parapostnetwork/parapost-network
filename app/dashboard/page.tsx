@@ -3416,7 +3416,7 @@ export default function DashboardPage() {
             <nav style={sidebarNavStyle}>
               <SidebarLink href="/dashboard" active icon={<HomeIcon />} label="Home" />
               <SidebarLink href="/reels" icon={<SidebarParapostReelIcon />} label="Explore Reels" />
-              <SidebarButton label="Live" badge="Soon" muted />
+              <SidebarLink href="/live" label="Live" />
               <SidebarLink href="/friends" label="Friends" badge={pendingFriendRequestCount || undefined} />
               <SidebarButton label="Groups" muted />
               <SidebarLink href="/messages" label="Parachat" badge={parachatUnreadCount || undefined} />
@@ -3447,14 +3447,20 @@ export default function DashboardPage() {
               <div style={{ ...sidebarSectionLabelStyle, marginBottom: 0 }}>Live Tools</div>
             </div>
 
-            <div style={goLiveCardStyle} aria-disabled="true" title="Live streaming is coming soon.">
+            <Link
+              href="/live"
+              style={{ ...goLiveCardStyle, textDecoration: "none" }}
+              aria-label="Open Parapost Live"
+            >
               <span style={goLiveIconStyle}>+</span>
               <span style={{ minWidth: 0 }}>
-                <strong style={{ display: "block", color: "#fff" }}>Go Live</strong>
-                <span style={{ color: "var(--parapost-accent-readable-text)", fontSize: 12 }}>Coming soon</span>
+               <strong style={{ display: "block", color: "#fff" }}>Parapost Live</strong>
+               <span style={{ color: "var(--parapost-accent-readable-text)", fontSize: 12 }}>
+                 Live hub
+               </span>
               </span>
-              <span style={goLiveSoonBadgeStyle}>Soon</span>
-            </div>
+              <span style={goLiveSoonBadgeStyle}>Open</span>
+            </Link>
 
             <div style={{ ...sidebarDividerStyle, margin: "12px 0 10px" }} />
             <div style={{ ...sidebarSectionLabelStyle, marginBottom: 8 }}>Profile</div>
@@ -9044,7 +9050,7 @@ function ComposerCard({
       <div className="dashboard-composer-actions" style={composerActionGridStyle}>
         <ComposerActionPill label="Photo / Video" icon="▣" tone="green" onClick={() => fileInputRef.current?.click()} />
         <ComposerActionPill label="Parapost Reel" icon="▶" tone="pink" href="/reels" />
-        <ComposerActionPill label="Live Stream" icon="◎" tone="red" disabled note="Coming soon" />
+        <ComposerActionPill label="Live Stream" icon="◎" tone="red" href="/live" />
         <ComposerActionPill label="Feeling / Activity" icon="●" tone="gold" active={!!selectedFeelingActivity} onClick={onOpenFeelingActivity} />
       </div>
 

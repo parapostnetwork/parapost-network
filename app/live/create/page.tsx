@@ -136,7 +136,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
       externalUrl: url.toString(),
       embedUrl: `https://player.twitch.tv/?channel=${encodeURIComponent(twitchChannel)}`,
       thumbnailUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${encodeURIComponent(twitchChannel)}-640x360.jpg`,
-      helper: "Twitch channel detected. Parapost will use Twitch’s live preview image when available.",
+      helper: "Twitch channel detected. Parapost will use TwitchÃ¢â‚¬â„¢s live preview image when available.",
     };
   }
 
@@ -315,11 +315,11 @@ export default function CreateLiveDraftPage() {
     <main style={pageStyle} className="parapost-live-create-page">
       <section style={shellStyle} className="parapost-live-create-shell">
         <div style={heroStyle} className="parapost-live-create-hero">
-          <div style={badgeStyle}>Private hidden test</div>
-          <h1 style={titleStyle}>{isEditing ? "Edit Live Draft" : "Create Live Draft"}</h1>
+          <div style={badgeStyle}>Creator setup</div>
+          <h1 style={titleStyle}>{isEditing ? "Edit Live Draft" : "Create Live Show"}</h1>
           <p style={subtitleStyle}>
-            {isEditing ? "Update this hidden draft only." : "This creates a hidden draft only."} Parapost will not provide RTMP, host video, encode video,
-            store recordings, or deliver live-stream bandwidth. The future public version will only display
+            {isEditing ? "Save your changes. Publish the show from the Live hub when it is ready." : "This saves the show privately. Publish it from the Live hub when it is ready."} Parapost will not provide RTMP, host video, encode video,
+            store recordings, or deliver live-stream bandwidth. The public Live hub displays
             safe external embeds from providers like YouTube or Twitch.
           </p>
 
@@ -434,7 +434,7 @@ export default function CreateLiveDraftPage() {
           <div style={actionsStyle} className="parapost-live-create-actions">
             <Link href="/live" style={cancelButtonStyle}>Cancel</Link>
             <button type="submit" disabled={saving} style={saveButtonStyle}>
-              {saving ? "Saving..." : isEditing ? "Update Hidden Draft" : "Save Hidden Draft"}
+              {saving ? "Saving..." : isEditing ? "Update Show" : "Save Show"}
             </button>
           </div>
         </form>
