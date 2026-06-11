@@ -89,7 +89,7 @@ const legalSections: LegalSection[] = [
       "Confirmation process",
     ],
     href: "/settings/legal/data-deletion",
-    status: "Coming soon",
+    status: "Available",
   },
   {
     eyebrow: "Safety Policy",
