@@ -3,6 +3,7 @@
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import LiveChatPanel from "@/components/live/LiveChatPanel";
 
 type LiveStatus = "draft" | "upcoming" | "live" | "ended" | "cancelled";
 type LiveVisibility = "private" | "friends" | "public";
@@ -560,29 +561,39 @@ export default function ParapostLivePage() {
                         </div>
                       </div>
 
-                      <div style={actionRowStyle}>
-                        {stream.external_url ? (
-                          <a
-                            href={stream.external_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={publicActionStyle}
-                          >
-                            {getPublicActionLabel(stream)}
-                          </a>
-                        ) : (
-                          <span style={linkPendingStyle}>
-                            Stream link coming soon
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+
+                  <div style={actionRowStyle}>
+                    {stream.external_url ? (
+                      <a
+                        href={stream.external_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={publicActionStyle}
+                      >
+                        {getPublicActionLabel(stream)}
+                      </a>
+                    ) : (
+                      <span style={linkPendingStyle}>
+                        Stream link coming soon
+                      </span>
+                    )}
+                  </div>
+
+                  <LiveChatPanel
+                    liveStreamId={stream.id}
+                    creatorUserId={stream.user_id}
+                    currentUserId={currentUserId}
+                    status={stream.status}
+                  />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+
+
 
         {currentUserId ? (
           <section style={creatorPanelStyle} className="parapost-live-panel">
@@ -952,17 +963,22 @@ export default function ParapostLivePage() {
 }
 
 const pageStyle: CSSProperties = {
-  minHeight: "100dvh",
-  position: "relative",
-  overflowY: "auto",
-  overflowX: "hidden",
-  overscrollBehaviorY: "contain",
-  background:
-    "radial-gradient(circle at 14% 0%, rgba(168,85,247,0.28), transparent 34%), radial-gradient(circle at 88% 14%, rgba(236,72,153,0.14), transparent 34%), linear-gradient(180deg, #05050b 0%, #07090d 52%, #05050b 100%)",
-  color: "#fff",
-  padding:
-    "max(18px, env(safe-area-inset-top)) 14px calc(80px + env(safe-area-inset-bottom))",
+height: "100dvh",
+minHeight: "100dvh",
+position: "relative",
+overflowY: "auto",
+overflowX: "hidden",
+overscrollBehaviorY: "auto",
+WebkitOverflowScrolling: "touch",
+touchAction: "pan-y",
+boxSizing: "border-box",
+background:
+"radial-gradient(circle at 14% 0%, rgba(168,85,247,0.28), transparent 34%), radial-gradient(circle at 88% 14%, rgba(236,72,153,0.14), transparent 34%), linear-gradient(180deg, #05050b 0%, #07090d 52%, #05050b 100%)",
+color: "#fff",
+padding:
+"max(18px, env(safe-area-inset-top)) 14px calc(80px + env(safe-area-inset-bottom))",
 };
+
 
 const shellStyle: CSSProperties = {
   width: "100%",
