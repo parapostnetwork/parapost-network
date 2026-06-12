@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ParapostPreferencesProvider from "@/components/ParapostPreferencesProvider";
+import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,6 +40,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased parapost-font-default`}
     >
       <body className="min-h-full flex flex-col">
+        <ServiceWorkerRegistration />
         <ParapostPreferencesProvider>{children}</ParapostPreferencesProvider>
       </body>
     </html>
