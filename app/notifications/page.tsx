@@ -773,7 +773,10 @@ const pageStyle: CSSProperties = {
   position: "relative",
   overflowY: "auto",
   overflowX: "hidden",
-  overscrollBehaviorY: "contain",
+  overscrollBehaviorY: "auto",
+  WebkitOverflowScrolling: "touch",
+  touchAction: "pan-y",
+  boxSizing: "border-box",
   background:
     "radial-gradient(circle at 12% 0%, var(--parapost-accent-soft), transparent 34%), radial-gradient(circle at 88% 16%, var(--parapost-accent-muted-bg), transparent 32%), linear-gradient(180deg, #05050b 0%, #07090d 48%, #05050b 100%)",
   color: "#ffffff",
