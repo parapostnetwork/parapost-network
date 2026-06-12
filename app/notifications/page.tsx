@@ -434,11 +434,14 @@ export default function NotificationsPage() {
 
         @media (max-width: 760px) {
           .notifications-page-root {
-            min-height: 100svh !important;
+            height: 100dvh !important;
             min-height: 100dvh !important;
-            height: auto !important;
+            max-height: 100dvh !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
+            overscroll-behavior-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
           }
 
           .notifications-page-inner {

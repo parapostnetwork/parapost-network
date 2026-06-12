@@ -1766,7 +1766,11 @@ export default function DashboardPage() {
       return;
     }
 
-    const [{ count: unreadCount }, { count: parachatCount }, { count: requestCount }] = await Promise.all([
+    const [
+      { count: unreadCount, error: unreadError },
+      { count: parachatCount, error: parachatError },
+      { count: requestCount, error: requestError },
+    ] = await Promise.all([
       supabase
         .from("notifications")
         .select("id", { count: "exact", head: true })
@@ -1785,9 +1789,23 @@ export default function DashboardPage() {
         .eq("status", "pending"),
     ]);
 
-    setNotificationsCount(unreadCount || 0);
-    setParachatUnreadCount(parachatCount || 0);
-    setPendingFriendRequestCount(requestCount || 0);
+    if (unreadError) {
+      logDashboardNetworkIssue("Dashboard notification badge refresh skipped", unreadError);
+    } else {
+      setNotificationsCount(unreadCount || 0);
+    }
+
+    if (parachatError) {
+      logDashboardNetworkIssue("Dashboard Parachat badge refresh skipped", parachatError);
+    } else {
+      setParachatUnreadCount(parachatCount || 0);
+    }
+
+    if (requestError) {
+      logDashboardNetworkIssue("Dashboard friend-request badge refresh skipped", requestError);
+    } else {
+      setPendingFriendRequestCount(requestCount || 0);
+    }
   }, []);
 
   const fetchFriendShowcases = useCallback(async (userId?: string, blockedIds: string[] = []) => {
@@ -2325,6 +2343,74 @@ export default function DashboardPage() {
       void supabase.removeChannel(channel);
     };
   }, [currentUserId, fetchDashboardData]);
+
+  useEffect(() => {
+    if (!currentUserId || typeof window === "undefined") return;
+
+    let badgeRefreshTimer: number | null = null;
+
+    const refreshNotificationBadges = () => {
+      if (!shouldRunDashboardNetworkRefresh()) return;
+      void fetchNotifications(currentUserId);
+    };
+
+    const scheduleNotificationBadgeRefresh = () => {
+      if (badgeRefreshTimer) {
+        window.clearTimeout(badgeRefreshTimer);
+      }
+
+      badgeRefreshTimer = window.setTimeout(refreshNotificationBadges, 180);
+    };
+
+    const notificationBadgeChannel = supabase
+      .channel(`dashboard-notification-badges-${currentUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${currentUserId}`,
+        },
+        scheduleNotificationBadgeRefresh
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+          filter: `receiver_id=eq.${currentUserId}`,
+        },
+        scheduleNotificationBadgeRefresh
+      )
+      .subscribe();
+
+    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 30000);
+
+    const handleBadgeFocusRefresh = () => {
+      refreshNotificationBadges();
+    };
+
+    const handleBadgeVisibilityRefresh = () => {
+      if (document.visibilityState === "visible") {
+        refreshNotificationBadges();
+      }
+    };
+
+    refreshNotificationBadges();
+
+    window.addEventListener("focus", handleBadgeFocusRefresh);
+    document.addEventListener("visibilitychange", handleBadgeVisibilityRefresh);
+
+    return () => {
+      if (badgeRefreshTimer) window.clearTimeout(badgeRefreshTimer);
+      window.clearInterval(badgeIntervalId);
+      window.removeEventListener("focus", handleBadgeFocusRefresh);
+      document.removeEventListener("visibilitychange", handleBadgeVisibilityRefresh);
+      void supabase.removeChannel(notificationBadgeChannel);
+    };
+  }, [currentUserId, fetchNotifications]);
 
   useEffect(() => {
     if (postImages.length === 0) {
@@ -9137,7 +9223,7 @@ function FeedTabs({ feedMode, setFeedMode }: { feedMode: FeedMode; setFeedMode: 
       <FeedTab label="For You" active={feedMode === "for_you"} onClick={() => setFeedMode("for_you")} />
       <FeedTab label="Friends" active={feedMode === "friends"} onClick={() => setFeedMode("friends")} />
       <FeedTab label="Following" active={feedMode === "following"} onClick={() => setFeedMode("following")} />
-      <FeedTab label="Live" disabled />
+      <FeedTab label="Live" href="/live" />
     </div>
   );
 }
@@ -9146,19 +9232,31 @@ function FeedTab({
   label,
   active = false,
   disabled = false,
+  href,
   onClick,
 }: {
   label: string;
   active?: boolean;
   disabled?: boolean;
+  href?: string;
   onClick?: () => void;
 }) {
+  const style = disabled ? disabledFeedTabStyle : active ? activeFeedTabStyle : feedTabStyle;
+
+  if (href && !disabled) {
+    return (
+      <Link href={href} style={{ ...style, textDecoration: "none" }}>
+        {label}
+      </Link>
+    );
+  }
+
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={disabled ? undefined : onClick}
-      style={disabled ? disabledFeedTabStyle : active ? activeFeedTabStyle : feedTabStyle}
+      style={style}
     >
       {label}
     </button>
