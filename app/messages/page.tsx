@@ -531,6 +531,7 @@ function MessagesPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
+  const [conversationMenuAnchor, setConversationMenuAnchor] = useState<{ top: number; left: number } | null>(null);
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [conversationDeleteTarget, setConversationDeleteTarget] = useState<ConversationItem | null>(null);
   const [mobileChatOpen, setMobileChatOpen] = useState(!!selectedConversationFromUrl);
@@ -722,6 +723,41 @@ function MessagesPage() {
 
     return groups;
   }, [messages]);
+
+  const openConversationMenuConversation = useMemo(() => {
+    if (!openConversationMenuId) return null;
+    return conversations.find((conversation) => conversation.id === openConversationMenuId) || null;
+  }, [conversations, openConversationMenuId]);
+
+  const conversationOptionsUsesBottomSheet = viewportWidth <= 1024;
+
+  const closeConversationOptions = useCallback(() => {
+    setOpenConversationMenuId(null);
+    setConversationMenuAnchor(null);
+  }, []);
+
+  const getDesktopConversationMenuPosition = useCallback((button: HTMLElement) => {
+    if (typeof window === "undefined") return { top: 80, left: 16 };
+
+    const rect = button.getBoundingClientRect();
+    const menuWidth = 220;
+    const menuHeight = 220;
+    const edgePadding = 12;
+
+    const preferredTop = rect.bottom + 8;
+    const fallbackTop = rect.top - menuHeight - 8;
+    const top =
+      preferredTop + menuHeight + edgePadding <= window.innerHeight
+        ? preferredTop
+        : Math.max(edgePadding, fallbackTop);
+
+    const left = Math.min(
+      window.innerWidth - menuWidth - edgePadding,
+      Math.max(edgePadding, rect.right - menuWidth)
+    );
+
+    return { top, left };
+  }, []);
 
   const openMessageMenuMessage = useMemo(() => {
     if (!openMessageMenuId) return null;
@@ -1211,13 +1247,32 @@ function MessagesPage() {
   useEffect(() => {
     const closeFloatingMenus = () => {
       setOpenConversationMenuId(null);
+      setConversationMenuAnchor(null);
       setOpenMessageMenuId(null);
+      setMessageMenuAnchor(null);
     };
 
     window.addEventListener("click", closeFloatingMenus);
 
     return () => {
       window.removeEventListener("click", closeFloatingMenus);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleOptionsEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+
+      setOpenConversationMenuId(null);
+      setConversationMenuAnchor(null);
+      setOpenMessageMenuId(null);
+      setMessageMenuAnchor(null);
+    };
+
+    window.addEventListener("keydown", handleOptionsEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleOptionsEscape);
     };
   }, []);
 
@@ -1401,6 +1456,7 @@ function MessagesPage() {
 
   const handleRequestDeleteConversation = (conversation: ConversationItem) => {
     setOpenConversationMenuId(null);
+    setConversationMenuAnchor(null);
     setStatusMessage("");
     setErrorMessage("");
     setConversationDeleteTarget(conversation);
@@ -1418,6 +1474,7 @@ function MessagesPage() {
 
     setDeletingConversationId(conversation.id);
     setOpenConversationMenuId(null);
+    setConversationMenuAnchor(null);
     setStatusMessage("");
     setErrorMessage("");
 
@@ -1802,7 +1859,9 @@ function MessagesPage() {
   const handleSelectConversation = (conversationId: string) => {
     if (conversationId === activeConversationId) {
       setOpenConversationMenuId(null);
+      setConversationMenuAnchor(null);
       setOpenMessageMenuId(null);
+      setMessageMenuAnchor(null);
       setMobileChatOpen(true);
       updateConversationUrl(conversationId);
       scrollToBottom("smooth");
@@ -1810,7 +1869,9 @@ function MessagesPage() {
     }
 
     setOpenConversationMenuId(null);
+    setConversationMenuAnchor(null);
     setOpenMessageMenuId(null);
+    setMessageMenuAnchor(null);
     setEditingMessageId(null);
     setEditingMessageText("");
     setActiveConversationId(conversationId);
@@ -1827,13 +1888,17 @@ function MessagesPage() {
 
   const handleMobileBackToInbox = () => {
     setOpenConversationMenuId(null);
+    setConversationMenuAnchor(null);
     setOpenMessageMenuId(null);
+    setMessageMenuAnchor(null);
     setMobileChatOpen(false);
   };
 
   const handleCloseActiveConversation = () => {
     setOpenConversationMenuId(null);
+    setConversationMenuAnchor(null);
     setOpenMessageMenuId(null);
+    setMessageMenuAnchor(null);
     setEditingMessageId(null);
     setEditingMessageText("");
     setActiveConversationId("");
@@ -2566,16 +2631,35 @@ function MessagesPage() {
                       </div>
                     </button>
 
-                    <div style={conversationMenuWrapStyle}>
+                    <div
+                      style={conversationMenuWrapStyle}
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          handleRequestDeleteConversation(conversation);
+
+                          setOpenMessageMenuId(null);
+                          setMessageMenuAnchor(null);
+
+                          if (openConversationMenuId === conversation.id) {
+                            closeConversationOptions();
+                            return;
+                          }
+
+                          setConversationMenuAnchor(
+                            conversationOptionsUsesBottomSheet
+                              ? null
+                              : getDesktopConversationMenuPosition(event.currentTarget)
+                          );
+                          setOpenConversationMenuId(conversation.id);
                         }}
                         style={conversationMenuButtonStyle}
-                        aria-label={`Delete Parachat with ${getProfileName(profile)}`}
-                        title="Delete conversation"
+                        aria-label={`Open options for Parachat with ${getProfileName(profile)}`}
+                        aria-haspopup="menu"
+                        aria-expanded={openConversationMenuId === conversation.id}
+                        title="Parachat options"
                       >
                         ⋯
                       </button>
@@ -2816,6 +2900,8 @@ function MessagesPage() {
                                           return;
                                         }
 
+                                        setOpenConversationMenuId(null);
+                                        setConversationMenuAnchor(null);
                                         setMessageMenuAnchor(getDesktopMessageMenuPosition(event.currentTarget));
                                         setOpenMessageMenuId(message.id);
                                       }}
@@ -2954,6 +3040,82 @@ function MessagesPage() {
           )}
         </main>
       </div>
+
+      {openConversationMenuConversation ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close Parachat options"
+            onClick={closeConversationOptions}
+            style={
+              conversationOptionsUsesBottomSheet
+                ? messageOptionsOverlayBackdropStyle
+                : messageOptionsDesktopBackdropStyle
+            }
+          />
+
+          <div
+            style={
+              conversationOptionsUsesBottomSheet
+                ? messageOptionsActionSheetStyle
+                : {
+                    ...messageOptionsDesktopPopoverStyle,
+                    top: conversationMenuAnchor?.top ?? 80,
+                    left: conversationMenuAnchor?.left ?? 16,
+                  }
+            }
+            role={conversationOptionsUsesBottomSheet ? "dialog" : "menu"}
+            aria-modal={conversationOptionsUsesBottomSheet ? "true" : undefined}
+            aria-label={`Parachat options for ${getProfileName(openConversationMenuConversation.otherProfile)}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {conversationOptionsUsesBottomSheet ? (
+              <div style={mobileMessageOptionsHeaderStyle}>
+                <span style={mobileMessageOptionsHandleStyle} />
+                <span style={mobileMessageOptionsTitleStyle}>Parachat options</span>
+              </div>
+            ) : null}
+
+            <Link
+              href={`/profile/${openConversationMenuConversation.otherUserId}`}
+              onClick={closeConversationOptions}
+              style={{
+                ...(conversationOptionsUsesBottomSheet
+                  ? messageOptionButtonStyle
+                  : messageDesktopOptionButtonStyle),
+                display: "block",
+                textDecoration: "none",
+              }}
+            >
+              View profile
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => handleRequestDeleteConversation(openConversationMenuConversation)}
+              style={
+                conversationOptionsUsesBottomSheet
+                  ? messageDeleteOptionButtonStyle
+                  : messageDesktopDeleteOptionButtonStyle
+              }
+            >
+              Delete chat
+            </button>
+
+            <button
+              type="button"
+              onClick={closeConversationOptions}
+              style={
+                conversationOptionsUsesBottomSheet
+                  ? messageCancelOptionButtonStyle
+                  : messageDesktopCancelOptionButtonStyle
+              }
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : null}
 
       {openMessageMenuMessage ? (
         <>
