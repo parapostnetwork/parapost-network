@@ -1414,6 +1414,7 @@ export default function DashboardPage() {
   const [recentlyViewed, setRecentlyViewed] = useState<ProfilePreview[]>([]);
   const [discoverProfiles, setDiscoverProfiles] = useState<ProfilePreview[]>([]);
   const [friendShowcases, setFriendShowcases] = useState<DashboardShowcaseItem[]>([]);
+  const [selectedDashboardShowcase, setSelectedDashboardShowcase] = useState<DashboardShowcaseItem | null>(null);
   const [showcaseComposerOpen, setShowcaseComposerOpen] = useState(false);
   const [dashboardShowcaseTitle, setDashboardShowcaseTitle] = useState("");
   const [dashboardShowcaseCoverText, setDashboardShowcaseCoverText] = useState("");
@@ -1523,6 +1524,11 @@ export default function DashboardPage() {
     const handleDashboardEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
 
+      if (selectedDashboardShowcase) {
+        setSelectedDashboardShowcase(null);
+        return;
+      }
+
       if (showcaseComposerOpen) {
         setShowcaseComposerOpen(false);
         setDashboardShowcaseError("");
@@ -1566,6 +1572,7 @@ export default function DashboardPage() {
     openCommentsPostId,
     openPostMenuId,
     searchOpen,
+    selectedDashboardShowcase,
     showcaseComposerOpen,
   ]);
 
@@ -3593,7 +3600,13 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <ShowcaseQuickActions currentProfile={currentProfile} currentUserId={currentUserId} friendShowcases={friendShowcases} onCreateShowcase={handleOpenDashboardShowcaseComposer} />
+            <ShowcaseQuickActions
+              currentProfile={currentProfile}
+              currentUserId={currentUserId}
+              friendShowcases={friendShowcases}
+              onCreateShowcase={handleOpenDashboardShowcaseComposer}
+              onOpenShowcase={setSelectedDashboardShowcase}
+            />
 
             <ComposerCard
               composerRef={mainComposerRef}
@@ -3876,6 +3889,15 @@ export default function DashboardPage() {
           onClearMedia={handleClearDashboardShowcaseMedia}
           onClose={handleCloseDashboardShowcaseComposer}
           onCreate={handleCreateDashboardShowcase}
+        />
+      ) : null}
+
+      {selectedDashboardShowcase ? (
+        <DashboardShowcaseViewerModal
+          showcase={selectedDashboardShowcase}
+          showcases={friendShowcases}
+          onSelectShowcase={setSelectedDashboardShowcase}
+          onClose={() => setSelectedDashboardShowcase(null)}
         />
       ) : null}
 
@@ -8942,14 +8964,15 @@ function MobileDashboardHeader({
 }
 
 function ShowcaseQuickActions({
-  currentUserId,
   friendShowcases,
   onCreateShowcase,
+  onOpenShowcase,
 }: {
   currentProfile: ProfilePreview | null;
   currentUserId: string;
   friendShowcases: DashboardShowcaseItem[];
   onCreateShowcase: () => void;
+  onOpenShowcase: (showcase: DashboardShowcaseItem) => void;
 }) {
   const visibleFriendShowcases = friendShowcases.slice(0, 18);
 
@@ -8971,44 +8994,398 @@ function ShowcaseQuickActions({
         </button>
 
         {visibleFriendShowcases.map((showcase) => {
-            const coverText = (showcase.cover_text || showcase.title || showcase.profile?.full_name || "Showcase").trim();
-            const x = Number(showcase.text_position_x ?? 50);
-            const y = Number(showcase.text_position_y ?? 50);
-            const mediaType = showcase.media_type === "image" || showcase.media_type === "video" ? showcase.media_type : "text";
+          const coverText = (showcase.cover_text || showcase.title || showcase.profile?.full_name || "Showcase").trim();
+          const x = Number(showcase.text_position_x ?? 50);
+          const y = Number(showcase.text_position_y ?? 50);
+          const mediaType = showcase.media_type === "image" || showcase.media_type === "video" ? showcase.media_type : "text";
 
-            return (
-              <Link
-                key={showcase.id}
-                href={`/profile/${showcase.user_id}`}
-                style={dashboardProfileShowcaseItemStyle}
-                aria-label={`Open ${getDashboardShowcaseLabel(showcase)} Showcase`}
-              >
-                <span style={dashboardProfileShowcaseCoverCircleStyle}>
-                  {showcase.media_url && mediaType === "image" ? (
-                    <img src={showcase.media_url} alt="" style={dashboardProfileShowcaseCoverMediaStyle} />
-                  ) : showcase.media_url && mediaType === "video" ? (
-                    <video src={showcase.media_url} muted playsInline style={dashboardProfileShowcaseCoverMediaStyle} />
-                  ) : null}
+          return (
+            <button
+              key={showcase.id}
+              type="button"
+              onClick={() => onOpenShowcase(showcase)}
+              style={dashboardProfileShowcaseItemStyle}
+              aria-label={`Open ${getDashboardShowcaseLabel(showcase)} Showcase`}
+            >
+              <span style={dashboardProfileShowcaseCoverCircleStyle}>
+                {showcase.media_url && mediaType === "image" ? (
+                  <img src={showcase.media_url} alt="" style={dashboardProfileShowcaseCoverMediaStyle} />
+                ) : showcase.media_url && mediaType === "video" ? (
+                  <video src={showcase.media_url} muted playsInline preload="metadata" style={dashboardProfileShowcaseCoverMediaStyle} />
+                ) : null}
 
-                  <span style={{ ...dashboardProfileShowcaseCoverShadeStyle, opacity: showcase.media_url ? 1 : 0 }} />
-                  <span
-                    style={{
-                      ...dashboardProfileShowcaseCoverTextStyle,
-                      left: `${Number.isFinite(x) ? x : 50}%`,
-                      top: `${Number.isFinite(y) ? y : 50}%`,
-                      fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
-                      fontSize: `${clampDashboardShowcaseFontSize(showcase.overlay_font_size)}px`,
-                    }}
-                  >
-                    {coverText}
-                  </span>
+                <span style={{ ...dashboardProfileShowcaseCoverShadeStyle, opacity: showcase.media_url ? 1 : 0 }} />
+                <span
+                  style={{
+                    ...dashboardProfileShowcaseCoverTextStyle,
+                    left: `${Number.isFinite(x) ? x : 50}%`,
+                    top: `${Number.isFinite(y) ? y : 50}%`,
+                    fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
+                    fontSize: `${clampDashboardShowcaseFontSize(showcase.overlay_font_size)}px`,
+                  }}
+                >
+                  {coverText}
                 </span>
-                <span style={dashboardProfileShowcaseLabelStyle}>{getDashboardShowcaseLabel(showcase)}</span>
-              </Link>
-            );
-          })}
+              </span>
+              <span style={dashboardProfileShowcaseLabelStyle}>{getDashboardShowcaseLabel(showcase)}</span>
+            </button>
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+function DashboardShowcaseViewerModal({
+  showcase,
+  showcases,
+  onSelectShowcase,
+  onClose,
+}: {
+  showcase: DashboardShowcaseItem;
+  showcases: DashboardShowcaseItem[];
+  onSelectShowcase: (showcase: DashboardShowcaseItem) => void;
+  onClose: () => void;
+}) {
+  const visibleShowcases = showcases.slice(0, 18);
+  const activeIndex = Math.max(0, visibleShowcases.findIndex((item) => item.id === showcase.id));
+  const hasMultipleShowcases = visibleShowcases.length > 1;
+  const previousShowcase = hasMultipleShowcases
+    ? visibleShowcases[(activeIndex - 1 + visibleShowcases.length) % visibleShowcases.length]
+    : null;
+  const nextShowcase = hasMultipleShowcases
+    ? visibleShowcases[(activeIndex + 1) % visibleShowcases.length]
+    : null;
+
+  const coverText = (showcase.cover_text || showcase.title || showcase.profile?.full_name || "Showcase").trim();
+  const x = Number(showcase.text_position_x ?? 50);
+  const y = Number(showcase.text_position_y ?? 50);
+  const mediaType = showcase.media_type === "image" || showcase.media_type === "video" ? showcase.media_type : "text";
+  const profileName = showcase.profile?.full_name || showcase.profile?.username || "Parapost member";
+  const profileHandle = showcase.profile?.username ? `@${showcase.profile.username}` : "Showcase";
+
+  const handlePrevious = useCallback(() => {
+    if (previousShowcase) onSelectShowcase(previousShowcase);
+  }, [onSelectShowcase, previousShowcase]);
+
+  const handleNext = useCallback(() => {
+    if (nextShowcase) onSelectShowcase(nextShowcase);
+  }, [nextShowcase, onSelectShowcase]);
+
+  useEffect(() => {
+    const handleViewerKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        handlePrevious();
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        handleNext();
+      }
+    };
+
+    window.addEventListener("keydown", handleViewerKeyDown);
+    return () => window.removeEventListener("keydown", handleViewerKeyDown);
+  }, [handleNext, handlePrevious, onClose]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${getDashboardShowcaseLabel(showcase)} Showcase viewer`}
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "grid",
+        placeItems: "center",
+        padding: "18px 12px",
+        background: "rgba(0,0,0,0.82)",
+        backdropFilter: "blur(18px)",
+      }}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          position: "relative",
+          width: "min(440px, 96vw)",
+          maxHeight: "min(92vh, 820px)",
+          overflow: "hidden",
+          borderRadius: 30,
+          border: "1px solid rgba(255,255,255,0.16)",
+          background: "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(2,6,23,0.98))",
+          boxShadow: "0 30px 100px rgba(0,0,0,0.66)",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 14,
+            right: 58,
+            zIndex: 8,
+            display: "flex",
+            gap: 5,
+          }}
+          aria-hidden="true"
+        >
+          {visibleShowcases.length > 0 ? visibleShowcases.map((item, index) => (
+            <span
+              key={`showcase-progress-${item.id}`}
+              style={{
+                height: 3,
+                flex: 1,
+                borderRadius: 999,
+                background: index === activeIndex ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.26)",
+                boxShadow: index === activeIndex ? "0 0 14px rgba(255,255,255,0.42)" : "none",
+              }}
+            />
+          )) : null}
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close Showcase viewer"
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            zIndex: 10,
+            width: 38,
+            height: 38,
+            borderRadius: 999,
+            border: "1px solid rgba(255,255,255,0.20)",
+            background: "rgba(0,0,0,0.52)",
+            color: "white",
+            fontSize: 24,
+            lineHeight: 1,
+            cursor: "pointer",
+            boxShadow: "0 10px 28px rgba(0,0,0,0.32)",
+          }}
+        >
+          ×
+        </button>
+
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "9 / 16",
+            maxHeight: "calc(92vh - 86px)",
+            display: "grid",
+            placeItems: "center",
+            overflow: "hidden",
+            background: "radial-gradient(circle at top, var(--parapost-accent-soft), rgba(2,6,23,1))",
+          }}
+        >
+          {showcase.media_url && mediaType === "image" ? (
+            <img
+              src={showcase.media_url}
+              alt=""
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          ) : showcase.media_url && mediaType === "video" ? (
+            <video
+              key={showcase.id}
+              src={showcase.media_url}
+              controls
+              autoPlay
+              playsInline
+              preload="metadata"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "radial-gradient(circle at 28% 18%, color-mix(in srgb, var(--parapost-accent-2) 38%, transparent), transparent 34%), radial-gradient(circle at 75% 78%, color-mix(in srgb, var(--parapost-accent-1) 32%, transparent), transparent 38%), linear-gradient(145deg, rgba(17,24,39,1), rgba(2,6,23,1))",
+              }}
+            />
+          )}
+
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.08) 28%, rgba(0,0,0,0.44))",
+              pointerEvents: "none",
+            }}
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              top: 32,
+              left: 18,
+              right: 64,
+              zIndex: 6,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              color: "white",
+            }}
+          >
+            <Avatar profile={showcase.profile} size={42} />
+            <div style={{ minWidth: 0 }}>
+              <strong style={{ display: "block", fontSize: 14, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {profileName}
+              </strong>
+              <span style={{ display: "block", marginTop: 2, color: "rgba(255,255,255,0.72)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {profileHandle}
+              </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              position: "absolute",
+              left: `${Number.isFinite(x) ? x : 50}%`,
+              top: `${Number.isFinite(y) ? y : 50}%`,
+              transform: "translate(-50%, -50%)",
+              maxWidth: getShowcaseOverlayTextWidth(coverText),
+              color: "white",
+              textAlign: "center",
+              fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
+              fontSize: `${getShowcaseOverlayDisplayFontSize(
+                coverText,
+                showcase.overlay_font_size || SHOWCASE_OVERLAY_DEFAULT_FONT_SIZE
+              )}px`,
+              fontWeight: 950,
+              lineHeight: 1.05,
+              textShadow: "0 5px 22px rgba(0,0,0,0.9)",
+              wordBreak: "break-word",
+              padding: "0 10px",
+            }}
+          >
+            {coverText}
+          </div>
+
+          {hasMultipleShowcases && previousShowcase ? (
+            <button
+              type="button"
+              onClick={handlePrevious}
+              aria-label="Previous Showcase"
+              style={{
+                position: "absolute",
+                left: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 7,
+                width: 42,
+                height: 42,
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(0,0,0,0.36)",
+                color: "white",
+                fontSize: 24,
+                cursor: "pointer",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              ‹
+            </button>
+          ) : null}
+
+          {hasMultipleShowcases && nextShowcase ? (
+            <button
+              type="button"
+              onClick={handleNext}
+              aria-label="Next Showcase"
+              style={{
+                position: "absolute",
+                right: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 7,
+                width: 42,
+                height: 42,
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(0,0,0,0.36)",
+                color: "white",
+                fontSize: 24,
+                cursor: "pointer",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              ›
+            </button>
+          ) : null}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "14px 16px 16px",
+            color: "white",
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <strong style={{ display: "block", fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {getDashboardShowcaseLabel(showcase)}
+            </strong>
+            <span style={{ display: "block", marginTop: 3, color: "rgba(255,255,255,0.62)", fontSize: 12 }}>
+              Dashboard viewer · stays on this page
+            </span>
+          </div>
+
+          <Link
+            href={`/profile/${showcase.user_id}`}
+            style={{
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: 34,
+              padding: "0 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.16)",
+              background: "rgba(255,255,255,0.08)",
+              color: "white",
+              textDecoration: "none",
+              fontSize: 12,
+              fontWeight: 900,
+            }}
+          >
+            View Profile
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 
