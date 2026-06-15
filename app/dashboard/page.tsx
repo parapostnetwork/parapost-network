@@ -9125,8 +9125,8 @@ function DashboardShowcaseViewerModal({
         onClick={(event) => event.stopPropagation()}
         style={{
           position: "relative",
-          width: "min(440px, 96vw)",
-          maxHeight: "min(92vh, 820px)",
+          width: "min(720px, 96vw)",
+          maxHeight: "92vh",
           overflow: "hidden",
           borderRadius: 30,
           border: "1px solid rgba(255,255,255,0.16)",
@@ -9188,12 +9188,12 @@ function DashboardShowcaseViewerModal({
           style={{
             position: "relative",
             width: "100%",
-            aspectRatio: "9 / 16",
+            aspectRatio: "4 / 3",
             maxHeight: "calc(92vh - 86px)",
             display: "grid",
             placeItems: "center",
             overflow: "hidden",
-            background: "radial-gradient(circle at top, var(--parapost-accent-soft), rgba(2,6,23,1))",
+            background: "#020617",
           }}
         >
           {showcase.media_url && mediaType === "image" ? (
@@ -9203,7 +9203,7 @@ function DashboardShowcaseViewerModal({
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: "contain",
                 display: "block",
               }}
             />
@@ -9218,7 +9218,7 @@ function DashboardShowcaseViewerModal({
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: "contain",
                 display: "block",
               }}
             />
