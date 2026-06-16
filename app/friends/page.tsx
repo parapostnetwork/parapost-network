@@ -387,16 +387,49 @@ export default function FriendsListPage() {
       </div>
 
       <style jsx global>{`
+        html:has(.friends-page-root),
+        body:has(.friends-page-root) {
+          min-height: 100%;
+          height: auto !important;
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+          overscroll-behavior-y: contain;
+        }
+
+        body:has(.friends-page-root) {
+          touch-action: pan-y;
+        }
+
         .friends-page-root {
+          width: 100%;
+          min-height: 100svh;
           min-height: 100dvh;
-          overflow-x: hidden;
-          overflow-y: auto;
+          height: auto !important;
+          max-height: none !important;
+          overflow-x: hidden !important;
+          overflow-y: visible !important;
+          position: relative;
+          display: block;
+          touch-action: pan-y;
           -webkit-overflow-scrolling: touch;
+        }
+
+        .friends-page-inner {
+          min-height: 100svh;
+          min-height: 100dvh;
+          box-sizing: border-box;
+        }
+
+        .friends-hero-shell,
+        .friends-card,
+        .friends-search-input,
+        .friends-pill-action,
+        .friends-card-action {
+          box-sizing: border-box;
         }
 
         .friends-pill-action,
         .friends-card-action {
-          box-sizing: border-box;
           transition: transform 160ms ease, filter 160ms ease, border-color 160ms ease;
         }
 
@@ -411,11 +444,34 @@ export default function FriendsListPage() {
         }
 
         @media (max-width: 760px) {
+          html:has(.friends-page-root),
+          body:has(.friends-page-root) {
+            overflow-y: auto !important;
+            height: auto !important;
+            max-height: none !important;
+          }
+
+          .friends-page-root {
+            min-height: 100svh !important;
+            min-height: 100dvh !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow-y: visible !important;
+            align-items: stretch !important;
+            padding-bottom: 0 !important;
+          }
+
           .friends-page-inner {
-            padding: 14px 10px calc(124px + env(safe-area-inset-bottom)) !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 100svh !important;
+            min-height: 100dvh !important;
+            padding: 14px 10px calc(220px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
+            width: 100% !important;
+            max-width: 100% !important;
             border-radius: 24px !important;
             padding: 14px !important;
           }
@@ -457,6 +513,7 @@ export default function FriendsListPage() {
           .friends-grid {
             grid-template-columns: 1fr !important;
             gap: 12px !important;
+            padding-bottom: 48px !important;
           }
 
           .friends-card {
@@ -473,6 +530,7 @@ export default function FriendsListPage() {
           .friends-page-inner {
             padding-left: 8px !important;
             padding-right: 8px !important;
+            padding-bottom: calc(240px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
@@ -488,7 +546,7 @@ export default function FriendsListPage() {
         @media (min-width: 761px) and (max-width: 1024px) {
           .friends-page-inner {
             max-width: 940px !important;
-            padding: 22px 16px calc(112px + env(safe-area-inset-bottom)) !important;
+            padding: 22px 16px calc(150px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
@@ -518,7 +576,7 @@ export default function FriendsListPage() {
         @media (max-height: 540px) and (orientation: landscape) {
           .friends-page-inner {
             padding-top: 10px !important;
-            padding-bottom: calc(92px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(130px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
@@ -532,13 +590,17 @@ export default function FriendsListPage() {
 }
 
 const pageStyle: CSSProperties = {
-  minHeight: "100dvh",
+  width: "100%",
+  minHeight: "100svh",
+  height: "auto",
   overflowX: "hidden",
-  overflowY: "auto",
+  overflowY: "visible",
   position: "relative",
+  display: "block",
   background:
     "radial-gradient(circle at 12% 0%, var(--parapost-accent-soft), transparent 35%), radial-gradient(circle at 88% 18%, var(--parapost-accent-muted-bg), transparent 32%), linear-gradient(180deg, #05050b 0%, #07090d 45%, #05050b 100%)",
   color: "#ffffff",
+  overscrollBehaviorY: "contain",
 };
 
 const backgroundGlowOneStyle: CSSProperties = {
@@ -570,8 +632,10 @@ const pageInnerStyle: CSSProperties = {
   zIndex: 1,
   width: "100%",
   maxWidth: "1180px",
+  minHeight: "100svh",
   margin: "0 auto",
-  padding: "26px 16px calc(110px + env(safe-area-inset-bottom))",
+  padding: "26px 16px calc(180px + env(safe-area-inset-bottom))",
+  boxSizing: "border-box",
 };
 
 const heroShellStyle: CSSProperties = {
