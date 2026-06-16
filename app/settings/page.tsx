@@ -345,7 +345,7 @@ export default function SettingsPage() {
 
   return (
     <main className="px-4 py-5 pb-[calc(8.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-6 lg:px-6">
-      <div className="relative z-10 mx-auto w-full max-w-3xl">
+      <div className="relative z-10 mx-auto w-full max-w-3xl xl:max-w-6xl 2xl:max-w-7xl">
 
         {/* Top bar */}
         <div className="mb-5 flex items-center gap-3">
@@ -444,7 +444,7 @@ export default function SettingsPage() {
                   {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} for &ldquo;{searchQuery.trim()}&rdquo;
                 </p>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
                   {searchResults.map((result) => (
                     <SettingsCardItem
                       key={result.href}
@@ -496,7 +496,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
                   {group.cards.map((card) => (
                     <SettingsCardItem key={card.href} card={card} />
                   ))}
