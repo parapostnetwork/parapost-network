@@ -43,6 +43,14 @@ type BlockedUserRow = {
   blocked_id: string;
 };
 
+type AcceptedFriendshipRow = {
+  sender_id?: string | null;
+  receiver_id?: string | null;
+  user_id?: string | null;
+  friend_id?: string | null;
+  status?: string | null;
+};
+
 type MessageRow = {
   id: string;
   conversation_id: string;
@@ -321,16 +329,31 @@ function getConversationOtherUserId(conversation: ConversationRow, viewerId: str
 }
 
 function buildAcceptedFriendIdSet(
-  rows: Array<{ sender_id?: string | null; receiver_id?: string | null; status?: string | null }> | null | undefined,
+  rows: AcceptedFriendshipRow[] | null | undefined,
   viewerId: string
 ) {
   const friendIds = new Set<string>();
 
   for (const row of rows || []) {
-    if (row.status !== "accepted") continue;
+    const status = (row.status || "accepted").toLowerCase();
+    if (status !== "accepted") continue;
 
-    const otherId = row.sender_id === viewerId ? row.receiver_id : row.receiver_id === viewerId ? row.sender_id : "";
-    if (otherId) friendIds.add(otherId);
+    const requestOtherId =
+      row.sender_id === viewerId
+        ? row.receiver_id
+        : row.receiver_id === viewerId
+          ? row.sender_id
+          : "";
+
+    const directFriendOtherId =
+      row.user_id === viewerId
+        ? row.friend_id
+        : row.friend_id === viewerId
+          ? row.user_id
+          : "";
+
+    const otherId = requestOtherId || directFriendOtherId || "";
+    if (otherId && otherId !== viewerId) friendIds.add(otherId);
   }
 
   return friendIds;
@@ -885,14 +908,26 @@ function MessagesPage() {
 
     setViewerId(user.id);
 
-    const { data: friendshipRows, error: friendshipError } = await supabase
-      .from("friend_requests")
-      .select("sender_id, receiver_id, status")
-      .eq("status", "accepted")
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+    const [friendRequestResult, directFriendsResult] = await Promise.all([
+      supabase
+        .from("friend_requests")
+        .select("sender_id, receiver_id, status")
+        .eq("status", "accepted")
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
+      supabase
+        .from("friends")
+        .select("user_id, friend_id, status")
+        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`),
+    ]);
 
-    if (friendshipError) {
-      setErrorMessage(getParachatErrorMessage(friendshipError.message || "Could not verify your friends list for Parachat."));
+    if (friendRequestResult.error && directFriendsResult.error) {
+      setErrorMessage(
+        getParachatErrorMessage(
+          friendRequestResult.error.message ||
+            directFriendsResult.error.message ||
+            "Could not verify your friends list for Parachat."
+        )
+      );
       setAcceptedFriendIds([]);
       setConversations([]);
       setActiveConversationId("");
@@ -904,7 +939,20 @@ function MessagesPage() {
       return;
     }
 
-    const acceptedFriendIdSet = buildAcceptedFriendIdSet(friendshipRows, user.id);
+    if (friendRequestResult.error) {
+      console.warn("Parachat friend_requests lookup warning:", friendRequestResult.error.message);
+    }
+
+    if (directFriendsResult.error) {
+      console.warn("Parachat friends table lookup warning:", directFriendsResult.error.message);
+    }
+
+    const acceptedFriendRows: AcceptedFriendshipRow[] = [
+      ...(((friendRequestResult.data as AcceptedFriendshipRow[]) || [])),
+      ...(((directFriendsResult.data as AcceptedFriendshipRow[]) || [])),
+    ];
+
+    const acceptedFriendIdSet = buildAcceptedFriendIdSet(acceptedFriendRows, user.id);
     const nextAcceptedFriendIds = Array.from(acceptedFriendIdSet);
     setAcceptedFriendIds(nextAcceptedFriendIds);
 
@@ -2149,13 +2197,16 @@ function MessagesPage() {
     sending ||
     !activeConversationId ||
     !activeConversationIsAcceptedFriend ||
-    activeConversationIsBlocked ||
-    !!errorMessage;
+    activeConversationIsBlocked;
   const sendDisabled = (!messageText.trim() && !selectedImage) || inputDisabled || compressingImage;
 
   return (
     <div
-      className={mobileChatOpen ? "parachat-page-root parachat-page-chat-open" : "parachat-page-root"}
+      className={
+        mobileChatOpen
+          ? "parachat-page-root parachat-page-chat-open parachat-mobile-chat-open"
+          : "parachat-page-root"
+      }
       style={pageStyle}
     >
       <style>{`
