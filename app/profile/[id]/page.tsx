@@ -4058,25 +4058,23 @@ useEffect(() => {
       if (error) {
         throw new Error(error.message);
       }
+ 
+      const { error } = await supabase
+  .from("friend_requests")
+  .insert([
+    {
+      sender_id: viewerId,
+      receiver_id: profileId,
+      status: "pending",
+    },
+  ])
+  
+if (error) {
+  throw new Error(error.message);
+}
 
-      const { error: notifyError } = await supabase
-        .from("notifications")
-        .insert([
-          {
-            user_id: profileId,
-            actor_id: viewerId,
-            type: "friend_request",
-            post_id: null,
-            comment_id: null,
-            friend_request_id: data.id,
-            message: "sent you a friend request.",
-            is_read: false,
-          },
-        ]);
-
-      if (notifyError) {
-        console.error("Friend request notification error:", notifyError.message);
-      }
+// Do not insert friend_request notification here.
+// Supabase trigger tr_friend_request_notification creates it automatically.
 
       setFriendStatus("outgoing_request");
       showFriendStatus("Friend request sent.");
