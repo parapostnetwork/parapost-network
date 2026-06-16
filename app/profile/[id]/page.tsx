@@ -4059,7 +4059,7 @@ useEffect(() => {
         throw new Error(error.message);
       }
  
-      const { error } = await supabase
+  const { error: requestError } = await supabase
   .from("friend_requests")
   .insert([
     {
@@ -4067,17 +4067,17 @@ useEffect(() => {
       receiver_id: profileId,
       status: "pending",
     },
-  ])
-  
-if (error) {
-  throw new Error(error.message);
+  ]);
+
+if (requestError) {
+  throw new Error(requestError.message);
 }
 
 // Do not insert friend_request notification here.
 // Supabase trigger tr_friend_request_notification creates it automatically.
 
-      setFriendStatus("outgoing_request");
-      showFriendStatus("Friend request sent.");
+setFriendStatus("outgoing_request");
+showFriendStatus("Friend request sent.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to send friend request.";
