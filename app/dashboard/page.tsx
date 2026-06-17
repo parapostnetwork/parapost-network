@@ -1404,6 +1404,9 @@ export default function DashboardPage() {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [commentsLoadingPostId, setCommentsLoadingPostId] = useState<string | null>(null);
   const [postingCommentPostId, setPostingCommentPostId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
+  const [savingCommentId, setSavingCommentId] = useState<string | null>(null);
   const [shareCounts, setShareCounts] = useState<CountMap>({});
   const [userLikes, setUserLikes] = useState<ToggleMap>({});
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
@@ -3260,6 +3263,62 @@ export default function DashboardPage() {
     }
   };
 
+  const handleStartEditDashboardComment = (comment: DashboardComment) => {
+    if (!currentUserId || comment.user_id !== currentUserId) return;
+
+    setEditingCommentId(comment.id);
+    setEditingCommentText(comment.content || "");
+    setOpenPostMenuId(null);
+  };
+
+  const handleCancelEditDashboardComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentText("");
+    setSavingCommentId(null);
+  };
+
+  const handleSaveDashboardComment = async (postId: string, comment: DashboardComment) => {
+    const trimmed = editingCommentText.trim();
+
+    if (!currentUserId || comment.user_id !== currentUserId) return;
+
+    if (!trimmed) {
+      alert("A comment needs some text. Delete the comment instead if you want to remove it.");
+      return;
+    }
+
+    setSavingCommentId(comment.id);
+
+    try {
+      const { data, error } = await supabase
+        .from("comments")
+        .update({ content: trimmed })
+        .eq("id", comment.id)
+        .eq("user_id", currentUserId)
+        .select("id, post_id, user_id, content, created_at, is_hidden")
+        .single();
+
+      if (error) {
+        alert(`Edit comment error: ${error.message}`);
+        return;
+      }
+
+      const updatedComment = data as DashboardComment;
+
+      setCommentsByPostId((prev) => ({
+        ...prev,
+        [postId]: (prev[postId] || []).map((item) =>
+          item.id === updatedComment.id ? updatedComment : item
+        ),
+      }));
+
+      setEditingCommentId(null);
+      setEditingCommentText("");
+    } finally {
+      setSavingCommentId((current) => (current === comment.id ? null : current));
+    }
+  };
+
   const handleDeleteDashboardComment = async (postId: string, commentId: string) => {
     if (!currentUserId) return;
     if (!window.confirm("Delete this comment?")) return;
@@ -3284,6 +3343,12 @@ export default function DashboardPage() {
       ...prev,
       [postId]: Math.max((prev[postId] || 1) - 1, 0),
     }));
+
+    if (editingCommentId === commentId) {
+      setEditingCommentId(null);
+      setEditingCommentText("");
+      setSavingCommentId(null);
+    }
   };
 
   const handleReportDashboardComment = async (
@@ -3758,6 +3823,13 @@ export default function DashboardPage() {
                             commentsLoading={commentsLoadingPostId === item.post.id}
                             commentDraft={commentDrafts[item.post.id] || ""}
                             postingComment={postingCommentPostId === item.post.id}
+                            editingCommentId={editingCommentId}
+                            editingCommentText={editingCommentText}
+                            savingCommentId={savingCommentId}
+                            setEditingCommentText={setEditingCommentText}
+                            onStartEditComment={handleStartEditDashboardComment}
+                            onSaveEditComment={(comment) => handleSaveDashboardComment(item.post.id, comment)}
+                            onCancelEditComment={handleCancelEditDashboardComment}
                             onLike={() => handleLikeToggle(item.post.id)}
                             onToggleComments={() => handleToggleDashboardComments(item.post.id)}
                             onCommentDraftChange={(value) => handleDashboardCommentDraftChange(item.post.id, value)}
@@ -3795,6 +3867,13 @@ export default function DashboardPage() {
                             commentsLoading={commentsLoadingPostId === item.sharedPost.post_id}
                             commentDraft={commentDrafts[item.sharedPost.post_id] || ""}
                             postingComment={postingCommentPostId === item.sharedPost.post_id}
+                            editingCommentId={editingCommentId}
+                            editingCommentText={editingCommentText}
+                            savingCommentId={savingCommentId}
+                            setEditingCommentText={setEditingCommentText}
+                            onStartEditComment={handleStartEditDashboardComment}
+                            onSaveEditComment={(comment) => handleSaveDashboardComment(item.sharedPost.post_id, comment)}
+                            onCancelEditComment={handleCancelEditDashboardComment}
                             onLikeOriginal={() => handleLikeToggle(item.sharedPost.post_id)}
                             onToggleComments={() => handleToggleDashboardComments(item.sharedPost.post_id)}
                             onCommentDraftChange={(value) => handleDashboardCommentDraftChange(item.sharedPost.post_id, value)}
@@ -9768,6 +9847,13 @@ function PostCard({
   commentsLoading,
   commentDraft,
   postingComment,
+  editingCommentId,
+  editingCommentText,
+  savingCommentId,
+  setEditingCommentText,
+  onStartEditComment,
+  onSaveEditComment,
+  onCancelEditComment,
   onLike,
   onToggleComments,
   onCommentDraftChange,
@@ -9801,6 +9887,13 @@ function PostCard({
   commentsLoading: boolean;
   commentDraft: string;
   postingComment: boolean;
+  editingCommentId: string | null;
+  editingCommentText: string;
+  savingCommentId: string | null;
+  setEditingCommentText: (value: string) => void;
+  onStartEditComment: (comment: DashboardComment) => void;
+  onSaveEditComment: (comment: DashboardComment) => void;
+  onCancelEditComment: () => void;
   onLike: () => void;
   onToggleComments: () => void;
   onCommentDraftChange: (value: string) => void;
@@ -9921,6 +10014,13 @@ function PostCard({
           profilesMap={profilesMap}
           currentUserId={currentUserId}
           onToggleComments={onToggleComments}
+          editingCommentId={editingCommentId}
+          editingCommentText={editingCommentText}
+          savingCommentId={savingCommentId}
+          setEditingCommentText={setEditingCommentText}
+          onStartEditComment={onStartEditComment}
+          onSaveEditComment={onSaveEditComment}
+          onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
         />
@@ -9937,6 +10037,13 @@ function PostCard({
           posting={postingComment}
           onDraftChange={onCommentDraftChange}
           onAddComment={onAddComment}
+          editingCommentId={editingCommentId}
+          editingCommentText={editingCommentText}
+          savingCommentId={savingCommentId}
+          setEditingCommentText={setEditingCommentText}
+          onStartEditComment={onStartEditComment}
+          onSaveEditComment={onSaveEditComment}
+          onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
         />
@@ -9953,6 +10060,13 @@ function DashboardCommentsPreview({
   profilesMap,
   currentUserId,
   onToggleComments,
+  editingCommentId,
+  editingCommentText,
+  savingCommentId,
+  setEditingCommentText,
+  onStartEditComment,
+  onSaveEditComment,
+  onCancelEditComment,
   onDeleteComment,
   onReportComment,
 }: {
@@ -9962,6 +10076,13 @@ function DashboardCommentsPreview({
   profilesMap: Record<string, ProfilePreview>;
   currentUserId: string;
   onToggleComments: () => void;
+  editingCommentId: string | null;
+  editingCommentText: string;
+  savingCommentId: string | null;
+  setEditingCommentText: (value: string) => void;
+  onStartEditComment: (comment: DashboardComment) => void;
+  onSaveEditComment: (comment: DashboardComment) => void;
+  onCancelEditComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
 }) {
@@ -9983,7 +10104,9 @@ function DashboardCommentsPreview({
         {previewComments.map((comment) => {
           const author = profilesMap[comment.user_id];
           const authorName = author?.full_name || author?.username || "Parapost member";
-          const canDelete = !!currentUserId && comment.user_id === currentUserId;
+          const canManage = !!currentUserId && comment.user_id === currentUserId;
+          const isEditingComment = editingCommentId === comment.id;
+          const isSavingComment = savingCommentId === comment.id;
 
           return (
             <div key={`preview-${postId}-${comment.id}`} style={dashboardCommentRowStyle}>
@@ -9995,16 +10118,73 @@ function DashboardCommentsPreview({
                   </Link>
                   <span style={dashboardCommentTimeStyle}>{formatRelativeTime(comment.created_at)}</span>
                 </div>
-                <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
-                {canDelete ? (
-                  <button
-                    type="button"
-                    onClick={() => onDeleteComment(comment.id)}
-                    style={dashboardCommentDeleteButtonStyle}
-                  >
-                    Delete
-                  </button>
-                ) : currentUserId ? (
+
+                {isEditingComment ? (
+                  <div style={dashboardCommentEditWrapStyle}>
+                    <textarea
+                      value={editingCommentText}
+                      onChange={(event) => setEditingCommentText(event.target.value)}
+                      rows={2}
+                      maxLength={1200}
+                      style={dashboardCommentEditTextareaStyle}
+                      autoFocus
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          onCancelEditComment();
+                        }
+
+                        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                          event.preventDefault();
+                          onSaveEditComment(comment);
+                        }
+                      }}
+                    />
+                    <div style={dashboardCommentEditActionsStyle}>
+                      <button
+                        type="button"
+                        onClick={() => onSaveEditComment(comment)}
+                        disabled={!editingCommentText.trim() || isSavingComment}
+                        style={{
+                          ...dashboardCommentEditPrimaryButtonStyle,
+                          opacity: editingCommentText.trim() && !isSavingComment ? 1 : 0.55,
+                          cursor: editingCommentText.trim() && !isSavingComment ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        {isSavingComment ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onCancelEditComment}
+                        disabled={isSavingComment}
+                        style={dashboardCommentEditSecondaryButtonStyle}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
+                )}
+
+                {!isEditingComment && canManage ? (
+                  <div style={dashboardCommentActionRowStyle}>
+                    <button
+                      type="button"
+                      onClick={() => onStartEditComment(comment)}
+                      style={dashboardCommentEditActionButtonStyle}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteComment(comment.id)}
+                      style={dashboardCommentDeleteButtonStyle}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : !isEditingComment && currentUserId ? (
                   <button
                     type="button"
                     onClick={() => onReportComment(comment.id, comment.user_id)}
@@ -10049,6 +10229,13 @@ function DashboardCommentsPanel({
   posting,
   onDraftChange,
   onAddComment,
+  editingCommentId,
+  editingCommentText,
+  savingCommentId,
+  setEditingCommentText,
+  onStartEditComment,
+  onSaveEditComment,
+  onCancelEditComment,
   onDeleteComment,
   onReportComment,
 }: {
@@ -10061,6 +10248,13 @@ function DashboardCommentsPanel({
   posting: boolean;
   onDraftChange: (value: string) => void;
   onAddComment: () => void;
+  editingCommentId: string | null;
+  editingCommentText: string;
+  savingCommentId: string | null;
+  setEditingCommentText: (value: string) => void;
+  onStartEditComment: (comment: DashboardComment) => void;
+  onSaveEditComment: (comment: DashboardComment) => void;
+  onCancelEditComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
 }) {
@@ -10109,7 +10303,9 @@ function DashboardCommentsPanel({
           {comments.map((comment) => {
             const author = profilesMap[comment.user_id];
             const authorName = author?.full_name || author?.username || "Parapost member";
-            const canDelete = !!currentUserId && comment.user_id === currentUserId;
+            const canManage = !!currentUserId && comment.user_id === currentUserId;
+            const isEditingComment = editingCommentId === comment.id;
+            const isSavingComment = savingCommentId === comment.id;
 
             return (
               <div key={`${postId}-${comment.id}`} style={dashboardCommentRowStyle}>
@@ -10121,16 +10317,73 @@ function DashboardCommentsPanel({
                     </Link>
                     <span style={dashboardCommentTimeStyle}>{formatRelativeTime(comment.created_at)}</span>
                   </div>
-                  <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
-                  {canDelete ? (
-                    <button
-                      type="button"
-                      onClick={() => onDeleteComment(comment.id)}
-                      style={dashboardCommentDeleteButtonStyle}
-                    >
-                      Delete
-                    </button>
-                  ) : currentUserId ? (
+
+                  {isEditingComment ? (
+                    <div style={dashboardCommentEditWrapStyle}>
+                      <textarea
+                        value={editingCommentText}
+                        onChange={(event) => setEditingCommentText(event.target.value)}
+                        rows={2}
+                        maxLength={1200}
+                        style={dashboardCommentEditTextareaStyle}
+                        autoFocus
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            onCancelEditComment();
+                          }
+
+                          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                            event.preventDefault();
+                            onSaveEditComment(comment);
+                          }
+                        }}
+                      />
+                      <div style={dashboardCommentEditActionsStyle}>
+                        <button
+                          type="button"
+                          onClick={() => onSaveEditComment(comment)}
+                          disabled={!editingCommentText.trim() || isSavingComment}
+                          style={{
+                            ...dashboardCommentEditPrimaryButtonStyle,
+                            opacity: editingCommentText.trim() && !isSavingComment ? 1 : 0.55,
+                            cursor: editingCommentText.trim() && !isSavingComment ? "pointer" : "not-allowed",
+                          }}
+                        >
+                          {isSavingComment ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onCancelEditComment}
+                          disabled={isSavingComment}
+                          style={dashboardCommentEditSecondaryButtonStyle}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
+                  )}
+
+                  {!isEditingComment && canManage ? (
+                    <div style={dashboardCommentActionRowStyle}>
+                      <button
+                        type="button"
+                        onClick={() => onStartEditComment(comment)}
+                        style={dashboardCommentEditActionButtonStyle}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteComment(comment.id)}
+                        style={dashboardCommentDeleteButtonStyle}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : !isEditingComment && currentUserId ? (
                     <button
                       type="button"
                       onClick={() => onReportComment(comment.id, comment.user_id)}
@@ -10169,6 +10422,13 @@ function SharedPostCard({
   commentsLoading,
   commentDraft,
   postingComment,
+  editingCommentId,
+  editingCommentText,
+  savingCommentId,
+  setEditingCommentText,
+  onStartEditComment,
+  onSaveEditComment,
+  onCancelEditComment,
   onLikeOriginal,
   onToggleComments,
   onCommentDraftChange,
@@ -10202,6 +10462,13 @@ function SharedPostCard({
   commentsLoading: boolean;
   commentDraft: string;
   postingComment: boolean;
+  editingCommentId: string | null;
+  editingCommentText: string;
+  savingCommentId: string | null;
+  setEditingCommentText: (value: string) => void;
+  onStartEditComment: (comment: DashboardComment) => void;
+  onSaveEditComment: (comment: DashboardComment) => void;
+  onCancelEditComment: () => void;
   onLikeOriginal: () => void;
   onToggleComments: () => void;
   onCommentDraftChange: (value: string) => void;
@@ -10382,6 +10649,13 @@ function SharedPostCard({
           profilesMap={profilesMap}
           currentUserId={currentUserId}
           onToggleComments={onToggleComments}
+          editingCommentId={editingCommentId}
+          editingCommentText={editingCommentText}
+          savingCommentId={savingCommentId}
+          setEditingCommentText={setEditingCommentText}
+          onStartEditComment={onStartEditComment}
+          onSaveEditComment={onSaveEditComment}
+          onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
         />
@@ -10398,6 +10672,13 @@ function SharedPostCard({
           posting={postingComment}
           onDraftChange={onCommentDraftChange}
           onAddComment={onAddComment}
+          editingCommentId={editingCommentId}
+          editingCommentText={editingCommentText}
+          savingCommentId={savingCommentId}
+          setEditingCommentText={setEditingCommentText}
+          onStartEditComment={onStartEditComment}
+          onSaveEditComment={onSaveEditComment}
+          onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
         />
@@ -14370,6 +14651,53 @@ const dashboardCommentDeleteButtonStyle: CSSProperties = {
   fontWeight: 800,
   cursor: "pointer",
   padding: 0,
+};
+
+const dashboardCommentActionRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  marginTop: "7px",
+  flexWrap: "wrap",
+};
+
+const dashboardCommentEditActionButtonStyle: CSSProperties = {
+  ...dashboardCommentDeleteButtonStyle,
+  marginTop: 0,
+  color: "var(--parapost-accent-readable-text)",
+};
+
+const dashboardCommentEditWrapStyle: CSSProperties = {
+  marginTop: "8px",
+};
+
+const dashboardCommentEditTextareaStyle: CSSProperties = {
+  ...dashboardCommentTextareaStyle,
+  minHeight: "72px",
+  borderRadius: "14px",
+  fontSize: "13px",
+  padding: "10px 12px",
+};
+
+const dashboardCommentEditActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  marginTop: "8px",
+  flexWrap: "wrap",
+};
+
+const dashboardCommentEditPrimaryButtonStyle: CSSProperties = {
+  ...dashboardCommentSubmitButtonStyle,
+  minHeight: "32px",
+  padding: "0 12px",
+  fontSize: "12px",
+};
+
+const dashboardCommentEditSecondaryButtonStyle: CSSProperties = {
+  ...dashboardCommentDeleteButtonStyle,
+  marginTop: 0,
+  color: "#d1d5db",
 };
 
 const actionButtonStyle: CSSProperties = {
