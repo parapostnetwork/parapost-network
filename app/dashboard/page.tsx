@@ -184,6 +184,7 @@ const FEED_INITIAL_BATCH_SIZE = 14;
 const FEED_BATCH_INCREMENT = 10;
 const DASHBOARD_REALTIME_REFRESH_DELAY_MS = 1500;
 const DASHBOARD_BACKGROUND_REFRESH_MS = 120000;
+const DASHBOARD_COMMENT_PREVIEW_LIMIT = 2;
 
 const FEELING_ACTIVITY_OPTIONS: FeelingActivityOption[] = [
   { id: "happy", label: "Feeling happy", category: "Feeling", helper: "Share a positive mood", icon: "smile" },
@@ -1695,7 +1696,10 @@ export default function DashboardPage() {
       nextMap[profile.id] = profile as ProfilePreview;
     }
 
-    setProfilesMap(nextMap);
+    setProfilesMap((prev) => ({
+      ...prev,
+      ...nextMap,
+    }));
   }, []);
 
   const fetchCounts = useCallback(async (userId: string | undefined, visiblePostIds: string[]) => {
@@ -1703,7 +1707,11 @@ export default function DashboardPage() {
 
     const [{ data: likesData }, { data: commentsData }, { data: sharesData }] = await Promise.all([
       supabase.from("likes").select("post_id, user_id").in("post_id", safePostIds),
-      supabase.from("comments").select("post_id, is_hidden").in("post_id", safePostIds),
+      supabase
+        .from("comments")
+        .select("id, post_id, user_id, content, created_at, is_hidden")
+        .in("post_id", safePostIds)
+        .order("created_at", { ascending: true }),
       supabase.from("shares").select("post_id, share_destination, deleted_at").in("post_id", safePostIds),
     ]);
 
@@ -1715,10 +1723,54 @@ export default function DashboardPage() {
       if (userId && like.user_id === userId) nextUserLikes[like.post_id] = true;
     }
 
+    const visibleComments = ((commentsData || []) as DashboardComment[]).filter(
+      (comment) =>
+        comment.post_id &&
+        !comment.is_hidden &&
+        !blockedUserIds.includes(comment.user_id)
+    );
+
     const nextComments: CountMap = {};
-    for (const comment of commentsData || []) {
-      if (!comment.post_id || comment.is_hidden) continue;
+    const nextCommentPreviews: Record<string, DashboardComment[]> = {};
+
+    for (const comment of visibleComments) {
+      if (!comment.post_id) continue;
+
       nextComments[comment.post_id] = (nextComments[comment.post_id] || 0) + 1;
+
+      if (!nextCommentPreviews[comment.post_id]) {
+        nextCommentPreviews[comment.post_id] = [];
+      }
+
+      nextCommentPreviews[comment.post_id].push(comment);
+    }
+
+    Object.keys(nextCommentPreviews).forEach((postId) => {
+      nextCommentPreviews[postId] = nextCommentPreviews[postId].slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT);
+    });
+
+    const commenterIds = [
+      ...new Set(visibleComments.map((comment) => comment.user_id).filter(Boolean)),
+    ];
+
+    if (commenterIds.length > 0) {
+      const { data: profileRows, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+        .in("id", commenterIds);
+
+      if (!profileError && profileRows) {
+        const nextProfiles: Record<string, ProfilePreview> = {};
+
+        for (const profile of profileRows as ProfilePreview[]) {
+          if (profile.id) nextProfiles[profile.id] = profile;
+        }
+
+        setProfilesMap((prev) => ({
+          ...prev,
+          ...nextProfiles,
+        }));
+      }
     }
 
     const nextShares: CountMap = {};
@@ -1733,7 +1785,23 @@ export default function DashboardPage() {
     setUserLikes(nextUserLikes);
     setCommentCounts(nextComments);
     setShareCounts(nextShares);
-  }, []);
+    setCommentsByPostId((prev) => {
+      const next = { ...prev };
+
+      safePostIds.forEach((postId) => {
+        if (!postId || postId === EMPTY_UUID) return;
+
+        const previewComments = nextCommentPreviews[postId] || [];
+        const currentComments = next[postId] || [];
+
+        if (currentComments.length > previewComments.length) return;
+
+        next[postId] = previewComments;
+      });
+
+      return next;
+    });
+  }, [blockedUserIds]);
 
   const fetchFollowData = useCallback(async (userId?: string) => {
     if (!userId) {
@@ -3183,6 +3251,10 @@ export default function DashboardPage() {
           },
         ]);
       }
+
+      // After posting, close the full comment composer and leave the newest
+      // comment visible in the automatic preview under the post.
+      setOpenCommentsPostId((current) => (current === postId ? null : current));
     } finally {
       setPostingCommentPostId((current) => (current === postId ? null : current));
     }
@@ -9841,6 +9913,19 @@ function PostCard({
         </ActionButton>
       </div>
 
+      {!commentsOpen && comments.length > 0 ? (
+        <DashboardCommentsPreview
+          postId={post.id}
+          comments={comments}
+          commentCount={commentCount}
+          profilesMap={profilesMap}
+          currentUserId={currentUserId}
+          onToggleComments={onToggleComments}
+          onDeleteComment={onDeleteComment}
+          onReportComment={onReportComment}
+        />
+      ) : null}
+
       {commentsOpen ? (
         <DashboardCommentsPanel
           postId={post.id}
@@ -9857,6 +9942,99 @@ function PostCard({
         />
       ) : null}
     </article>
+  );
+}
+
+
+function DashboardCommentsPreview({
+  postId,
+  comments,
+  commentCount,
+  profilesMap,
+  currentUserId,
+  onToggleComments,
+  onDeleteComment,
+  onReportComment,
+}: {
+  postId: string;
+  comments: DashboardComment[];
+  commentCount: number;
+  profilesMap: Record<string, ProfilePreview>;
+  currentUserId: string;
+  onToggleComments: () => void;
+  onDeleteComment: (commentId: string) => void;
+  onReportComment: (commentId: string, commentOwnerId: string) => void;
+}) {
+  const previewComments = comments.slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT);
+  const hiddenCommentCount = Math.max(commentCount - previewComments.length, 0);
+
+  if (previewComments.length === 0) return null;
+
+  return (
+    <section
+      style={{
+        ...dashboardCommentsPanelStyle,
+        marginTop: 12,
+        paddingTop: 12,
+      }}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div style={dashboardCommentsListStyle}>
+        {previewComments.map((comment) => {
+          const author = profilesMap[comment.user_id];
+          const authorName = author?.full_name || author?.username || "Parapost member";
+          const canDelete = !!currentUserId && comment.user_id === currentUserId;
+
+          return (
+            <div key={`preview-${postId}-${comment.id}`} style={dashboardCommentRowStyle}>
+              <Avatar profile={author} size={34} href={comment.user_id ? `/profile/${comment.user_id}` : undefined} />
+              <div style={dashboardCommentBubbleStyle}>
+                <div style={dashboardCommentTopLineStyle}>
+                  <Link href={comment.user_id ? `/profile/${comment.user_id}` : "#"} style={dashboardCommentAuthorStyle}>
+                    {authorName}
+                  </Link>
+                  <span style={dashboardCommentTimeStyle}>{formatRelativeTime(comment.created_at)}</span>
+                </div>
+                <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
+                {canDelete ? (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteComment(comment.id)}
+                    style={dashboardCommentDeleteButtonStyle}
+                  >
+                    Delete
+                  </button>
+                ) : currentUserId ? (
+                  <button
+                    type="button"
+                    onClick={() => onReportComment(comment.id, comment.user_id)}
+                    style={dashboardCommentDeleteButtonStyle}
+                  >
+                    Report
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {hiddenCommentCount > 0 ? (
+        <button
+          type="button"
+          onClick={onToggleComments}
+          style={{
+            ...softButtonStyle,
+            marginTop: 10,
+            minHeight: 36,
+            padding: "0 12px",
+            fontSize: 13,
+          }}
+        >
+          View all {commentCount} comments
+        </button>
+      ) : null}
+    </section>
   );
 }
 
@@ -10195,6 +10373,19 @@ function SharedPostCard({
           <span className="dashboard-action-label">Share</span>
         </ActionButton>
       </div>
+
+      {!commentsOpen && comments.length > 0 ? (
+        <DashboardCommentsPreview
+          postId={originalPost.id}
+          comments={comments}
+          commentCount={commentCount}
+          profilesMap={profilesMap}
+          currentUserId={currentUserId}
+          onToggleComments={onToggleComments}
+          onDeleteComment={onDeleteComment}
+          onReportComment={onReportComment}
+        />
+      ) : null}
 
       {commentsOpen ? (
         <DashboardCommentsPanel
