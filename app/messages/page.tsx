@@ -431,6 +431,119 @@ async function ensureParachatConversationsForFriends(viewerId: string, friendIds
 }
 
 
+async function checkAcceptedParachatFriend(viewerId: string, otherUserId: string) {
+  if (!viewerId || !otherUserId || viewerId === otherUserId) return false;
+
+  const [friendRequestResult, directFriendsResult] = await Promise.all([
+    supabase
+      .from("friend_requests")
+      .select("id")
+      .eq("status", "accepted")
+      .or(
+        `and(sender_id.eq.${viewerId},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${viewerId})`
+      )
+      .limit(1),
+    supabase
+      .from("friends")
+      .select("id")
+      .eq("status", "accepted")
+      .or(
+        `and(user_id.eq.${viewerId},friend_id.eq.${otherUserId}),and(user_id.eq.${otherUserId},friend_id.eq.${viewerId})`
+      )
+      .limit(1),
+  ]);
+
+  if (!friendRequestResult.error && (friendRequestResult.data || []).length > 0) return true;
+  if (!directFriendsResult.error && (directFriendsResult.data || []).length > 0) return true;
+
+  if (friendRequestResult.error) {
+    console.warn("Parachat accepted friend request check warning:", friendRequestResult.error.message);
+  }
+
+  if (directFriendsResult.error) {
+    console.warn("Parachat accepted friends table check warning:", directFriendsResult.error.message);
+  }
+
+  return false;
+}
+
+function extractParachatConversationId(value: unknown) {
+  if (typeof value === "string") return value;
+
+  if (Array.isArray(value)) {
+    const first = value[0] as unknown;
+
+    if (typeof first === "string") return first;
+
+    if (first && typeof first === "object" && "id" in first) {
+      return String((first as { id?: unknown }).id || "");
+    }
+
+    return "";
+  }
+
+  if (value && typeof value === "object" && "id" in value) {
+    return String((value as { id?: unknown }).id || "");
+  }
+
+  return "";
+}
+
+async function resolveParachatConversationId(otherUserId: string) {
+  if (!otherUserId) {
+    throw new Error("This Parachat could not find the other user.");
+  }
+
+  const { data, error } = await supabase.rpc("get_or_create_direct_conversation", {
+    other_user_id: otherUserId,
+  });
+
+  if (error) {
+    throw new Error(getParachatErrorMessage(error.message || "Could not prepare this Parachat."));
+  }
+
+  const conversationId = extractParachatConversationId(data);
+
+  if (!conversationId) {
+    throw new Error("This Parachat could not prepare a valid conversation.");
+  }
+
+  return conversationId;
+}
+
+async function ensureParachatParticipantRow(conversationId: string, viewerId: string) {
+  if (!conversationId || !viewerId) return;
+
+  const { data: existingParticipant, error: existingParticipantError } = await supabase
+    .from("direct_conversation_participants")
+    .select("conversation_id")
+    .eq("conversation_id", conversationId)
+    .eq("user_id", viewerId)
+    .maybeSingle();
+
+  if (existingParticipantError) {
+    console.warn("Parachat participant check warning:", existingParticipantError.message);
+    return;
+  }
+
+  if (existingParticipant?.conversation_id) return;
+
+  const { error: insertParticipantError } = await supabase
+    .from("direct_conversation_participants")
+    .insert({
+      conversation_id: conversationId,
+      user_id: viewerId,
+    });
+
+  if (
+    insertParticipantError &&
+    !insertParticipantError.message.toLowerCase().includes("duplicate")
+  ) {
+    console.warn("Parachat participant repair warning:", insertParticipantError.message);
+  }
+}
+
+
 function updateConversationUrl(conversationId: string) {
   if (typeof window === "undefined" || !conversationId) return;
   const nextUrl = `/messages?conversation=${conversationId}`;
@@ -979,6 +1092,11 @@ function MessagesPage() {
       return;
     }
 
+    // Prepare/reconcile Parachat rows for every accepted friend, not only friends
+    // that appear to be missing. This repairs older conversations that exist
+    // but are missing participant rows, which can cause RLS to block messages.
+    await ensureParachatConversationsForFriends(user.id, nextAcceptedFriendIds);
+
     const { data: initialConversationData, error: conversationError } = await supabase
       .from("direct_conversations")
       .select("id, user_one_id, user_two_id, created_at, updated_at")
@@ -1200,7 +1318,7 @@ function MessagesPage() {
         return;
       }
 
-      setLoadingMessages(false);
+      setLoadingMessages(true);
       setErrorMessage("");
 
       const { data, error } = await supabase
@@ -2020,11 +2138,6 @@ function MessagesPage() {
 
     if ((!trimmed && !imageDraft) || sending || compressingImage || !viewerId || !activeConversationId) return;
 
-    if (!activeConversationIsAcceptedFriend) {
-      setErrorMessage("Parachat is only available between accepted friends.");
-      return;
-    }
-
     const recipientUserId =
       activeConversation?.otherUserId ||
       conversationsRef.current.find((conversation) => conversation.id === activeConversationId)?.otherUserId ||
@@ -2033,6 +2146,22 @@ function MessagesPage() {
     if (!recipientUserId) {
       setErrorMessage("This Parachat could not find the other user.");
       return;
+    }
+
+    const acceptedForParachat =
+      activeConversationIsAcceptedFriend ||
+      acceptedFriendIds.includes(recipientUserId) ||
+      (await checkAcceptedParachatFriend(viewerId, recipientUserId));
+
+    if (!acceptedForParachat) {
+      setErrorMessage("Parachat is only available between accepted friends.");
+      return;
+    }
+
+    if (!acceptedFriendIds.includes(recipientUserId)) {
+      setAcceptedFriendIds((prev) =>
+        prev.includes(recipientUserId) ? prev : [...prev, recipientUserId]
+      );
     }
 
     if (activeConversationIsBlocked) {
@@ -2059,11 +2188,29 @@ function MessagesPage() {
     setErrorMessage("");
     setImageError("");
 
+    let sendConversationId = activeConversationId;
+
+    try {
+      const canonicalConversationId = await resolveParachatConversationId(recipientUserId);
+      await ensureParachatParticipantRow(canonicalConversationId, viewerId);
+
+      if (canonicalConversationId !== activeConversationId) {
+        sendConversationId = canonicalConversationId;
+        setActiveConversationId(canonicalConversationId);
+        activeConversationIdRef.current = canonicalConversationId;
+        updateConversationUrl(canonicalConversationId);
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not prepare this Parachat.");
+      setSending(false);
+      return;
+    }
+
     let uploadedImagePath: string | null = null;
 
     if (imageDraft) {
       uploadedImagePath = buildParachatImagePath(
-        activeConversationId,
+        sendConversationId,
         viewerId,
         imageDraft.fileName
       );
@@ -2087,7 +2234,7 @@ function MessagesPage() {
       .from("direct_messages")
       .insert([
         {
-          conversation_id: activeConversationId,
+          conversation_id: sendConversationId,
           sender_id: viewerId,
           body: trimmed || null,
           is_read: false,
@@ -2117,7 +2264,7 @@ function MessagesPage() {
 
       const notificationConversation =
         activeConversation ||
-        conversationsRef.current.find((conversation) => conversation.id === activeConversationId) ||
+        conversationsRef.current.find((conversation) => conversation.id === sendConversationId) ||
         null;
 
       if (notificationConversation?.otherUserId) {
@@ -2136,7 +2283,7 @@ function MessagesPage() {
       setConversations((prev) =>
         prev
           .map((conversation) =>
-            conversation.id === activeConversationId
+            conversation.id === sendConversationId
               ? {
                   ...conversation,
                   lastMessage: sentMessage,
@@ -2160,7 +2307,11 @@ function MessagesPage() {
     await supabase
       .from("direct_conversations")
       .update({ updated_at: new Date().toISOString() })
-      .eq("id", activeConversationId);
+      .eq("id", sendConversationId);
+
+    if (sendConversationId !== activeConversationId) {
+      await loadInbox();
+    }
 
     setMessageText("");
     clearSelectedImage();
