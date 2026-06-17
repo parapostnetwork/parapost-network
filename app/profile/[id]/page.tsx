@@ -1940,6 +1940,9 @@ export default function ProfilePage() {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [commentsLoadingPostId, setCommentsLoadingPostId] = useState<string | null>(null);
   const [postingCommentPostId, setPostingCommentPostId] = useState<string | null>(null);
+  const [editingProfileCommentId, setEditingProfileCommentId] = useState<string | null>(null);
+  const [editingProfileCommentDraft, setEditingProfileCommentDraft] = useState("");
+  const [savingProfileCommentId, setSavingProfileCommentId] = useState<string | null>(null);
   const [commentProfilesMap, setCommentProfilesMap] = useState<Record<string, ProfileRow>>({});
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -3063,6 +3066,9 @@ useEffect(() => {
       closePostMenuIfOpen();
       closeProfileActionsIfOpen();
       setOpenCommentsPostId(null);
+      setEditingProfileCommentId(null);
+      setEditingProfileCommentDraft("");
+      setSavingProfileCommentId(null);
       setProfileFeelingActivityOpen(false);
       setActiveProfileShowcase(null);
       setProfileBadgesViewerOpen(false);
@@ -3754,9 +3760,65 @@ useEffect(() => {
           },
         ]);
       }
+
+      setOpenCommentsPostId(null);
     } finally {
       setPostingCommentPostId((current) => (current === postId ? null : current));
     }
+  };
+
+  const handleStartEditProfileComment = (comment: ProfileComment) => {
+    if (!viewerId || comment.user_id !== viewerId) return;
+
+    setEditingProfileCommentId(comment.id);
+    setEditingProfileCommentDraft(comment.content || "");
+  };
+
+  const handleCancelEditProfileComment = () => {
+    setEditingProfileCommentId(null);
+    setEditingProfileCommentDraft("");
+    setSavingProfileCommentId(null);
+  };
+
+  const handleSaveProfileComment = async (postId: string, comment: ProfileComment) => {
+    if (!viewerId || comment.user_id !== viewerId || savingProfileCommentId) return;
+
+    const trimmed = editingProfileCommentDraft.trim();
+
+    if (!trimmed) {
+      alert("A comment needs some text. Delete the comment instead if you want to remove it.");
+      return;
+    }
+
+    setSavingProfileCommentId(comment.id);
+
+    const { data, error } = await supabase
+      .from("comments")
+      .update({ content: trimmed })
+      .eq("id", comment.id)
+      .eq("post_id", postId)
+      .eq("user_id", viewerId)
+      .select("id, post_id, user_id, content, created_at, is_hidden")
+      .single();
+
+    if (error) {
+      alert(`Edit comment error: ${error.message}`);
+      setSavingProfileCommentId(null);
+      return;
+    }
+
+    const updatedComment = data as ProfileComment;
+
+    setCommentsByPostId((prev) => ({
+      ...prev,
+      [postId]: (prev[postId] || []).map((item) =>
+        item.id === updatedComment.id ? updatedComment : item
+      ),
+    }));
+
+    setEditingProfileCommentId(null);
+    setEditingProfileCommentDraft("");
+    setSavingProfileCommentId(null);
   };
 
   const handleDeleteProfileComment = async (postId: string, commentId: string) => {
@@ -3783,6 +3845,12 @@ useEffect(() => {
       ...prev,
       [postId]: Math.max((prev[postId] || 1) - 1, 0),
     }));
+
+    setEditingProfileCommentId((current) => (current === commentId ? null : current));
+    setEditingProfileCommentDraft((currentDraft) =>
+      editingProfileCommentId === commentId ? "" : currentDraft
+    );
+    setSavingProfileCommentId((current) => (current === commentId ? null : current));
   };
 
   const handleReportProfileComment = async (
@@ -3892,8 +3960,11 @@ useEffect(() => {
                 commentProfile?.username ||
                 "Parapost Member";
               const commentHandle = commentProfile?.username || "member";
+              const canEditComment = Boolean(viewerId && comment.user_id === viewerId);
               const canDeleteComment = Boolean(viewerId && (comment.user_id === viewerId || postOwnerId === viewerId));
               const canReportComment = Boolean(viewerId && comment.user_id !== viewerId);
+              const isEditingComment = editingProfileCommentId === comment.id;
+              const isSavingComment = savingProfileCommentId === comment.id;
 
               return (
                 <article key={comment.id} style={profileCommentItemStyle}>
@@ -3919,13 +3990,55 @@ useEffect(() => {
                         <strong style={profileCommentNameStyle}>{commentName}</strong>
                         <span style={profileCommentTimeStyle}>{formatTimeAgo(comment.created_at)}</span>
                       </div>
-                      <p style={profileCommentTextStyle}>{comment.content}</p>
+
+                      {isEditingComment ? (
+                        <div style={profileCommentEditBoxStyle}>
+                          <textarea
+                            value={editingProfileCommentDraft}
+                            onChange={(event) => setEditingProfileCommentDraft(event.target.value)}
+                            disabled={isSavingComment}
+                            rows={2}
+                            style={profileCommentEditInputStyle}
+                          />
+                          <div style={profileCommentEditActionsStyle}>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveProfileComment(postId, comment)}
+                              disabled={!editingProfileCommentDraft.trim() || isSavingComment}
+                              style={{
+                                ...profileCommentEditSaveButtonStyle,
+                                opacity: !editingProfileCommentDraft.trim() || isSavingComment ? 0.58 : 1,
+                                cursor: !editingProfileCommentDraft.trim() || isSavingComment ? "not-allowed" : "pointer",
+                              }}
+                            >
+                              {isSavingComment ? "Saving..." : "Save"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelEditProfileComment}
+                              disabled={isSavingComment}
+                              style={profileCommentEditCancelButtonStyle}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p style={profileCommentTextStyle}>{comment.content}</p>
+                      )}
                     </div>
 
                     <div style={profileCommentFooterStyle}>
-                      <Link href={`/profile/${comment.user_id}`} style={profileCommentHandleStyle}>
-                        @{commentHandle}
-                      </Link>
+                      {canEditComment && !isEditingComment ? (
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditProfileComment(comment)}
+                          style={profileCommentEditButtonStyle}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+
                       {canDeleteComment ? (
                         <button
                           type="button"
@@ -3940,7 +4053,7 @@ useEffect(() => {
                         <button
                           type="button"
                           onClick={() => handleReportProfileComment(comment.id, comment.user_id)}
-                          style={profileCommentDeleteButtonStyle}
+                          style={profileCommentReportButtonStyle}
                         >
                           Report
                         </button>
@@ -17155,18 +17268,20 @@ const profileDashboardComposerActionPillActiveStyle: CSSProperties = {
 };
 
 const profileDashboardComposerActionDisabledStyle: CSSProperties = {
-  opacity: 0.46,
-  background: "rgba(255,255,255,0.018)",
-  border: "1px dashed rgba(255,255,255,0.11)",
+  opacity: 1,
+  background:
+    "linear-gradient(135deg, rgba(239,68,68,0.18), color-mix(in srgb, var(--parapost-accent-2) 10%, transparent))",
+  border: "1px solid rgba(248,113,113,0.28)",
   cursor: "not-allowed",
-  color: "#9ca3af",
+  color: "#fee2e2",
+  boxShadow: "0 10px 24px rgba(127,29,29,0.22)",
 };
 
 const profileDashboardComposerActionNoteStyle: CSSProperties = {
   borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.045)",
-  color: "#a1a1aa",
+  border: "1px solid rgba(255,255,255,0.13)",
+  background: "rgba(255,255,255,0.07)",
+  color: "#f5d0fe",
   padding: "2px 6px",
   fontSize: 10,
   fontWeight: 900,
@@ -21930,25 +22045,95 @@ const profileCommentFooterStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "10px",
-  marginTop: "5px",
+  marginTop: "6px",
   paddingLeft: "4px",
+  minHeight: "16px",
 };
 
-const profileCommentHandleStyle: CSSProperties = {
-  color: "#a78bfa",
-  fontSize: "11px",
-  fontWeight: 850,
-  textDecoration: "none",
-};
-
-const profileCommentDeleteButtonStyle: CSSProperties = {
+const profileCommentActionButtonBaseStyle: CSSProperties = {
+  appearance: "none",
+  WebkitAppearance: "none",
   border: 0,
   background: "transparent",
-  color: "#fca5a5",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "16px",
+  margin: 0,
+  padding: 0,
+  lineHeight: 1,
   fontSize: "11px",
   fontWeight: 900,
   cursor: "pointer",
-  padding: 0,
+  textDecoration: "none",
+};
+
+const profileCommentEditButtonStyle: CSSProperties = {
+  ...profileCommentActionButtonBaseStyle,
+  color: "#c4b5fd",
+};
+
+const profileCommentDeleteButtonStyle: CSSProperties = {
+  ...profileCommentActionButtonBaseStyle,
+  color: "#fca5a5",
+};
+
+const profileCommentReportButtonStyle: CSSProperties = {
+  ...profileCommentActionButtonBaseStyle,
+  color: "#fbbf24",
+};
+
+const profileCommentEditBoxStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+  marginTop: "7px",
+};
+
+const profileCommentEditInputStyle: CSSProperties = {
+  width: "100%",
+  minHeight: "54px",
+  resize: "vertical",
+  borderRadius: "14px",
+  border: "1px solid rgba(167,139,250,0.28)",
+  background: "rgba(7,9,13,0.76)",
+  color: "#f8fafc",
+  padding: "10px 11px",
+  outline: "none",
+  fontSize: "13px",
+  lineHeight: 1.45,
+  boxSizing: "border-box",
+};
+
+const profileCommentEditActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const profileCommentEditSaveButtonStyle: CSSProperties = {
+  minHeight: "34px",
+  borderRadius: "999px",
+  border: "1px solid rgba(167,139,250,0.32)",
+  background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2))",
+  color: "#ffffff",
+  padding: "0 14px",
+  fontSize: "12px",
+  fontWeight: 950,
+  cursor: "pointer",
+  boxShadow: "0 10px 24px var(--parapost-accent-glow)",
+};
+
+const profileCommentEditCancelButtonStyle: CSSProperties = {
+  minHeight: "34px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#f8fafc",
+  padding: "0 14px",
+  fontSize: "12px",
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 
