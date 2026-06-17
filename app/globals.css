@@ -486,3 +486,145 @@ html[data-parapost-accent="ghost-white"] {
 .parapost-theme-muted {
   color: #9ca3af;
 }
+
+/* === PARAPOST MOBILE VERTICAL SCROLL SAFETY PATCH === */
+/*
+  Purpose:
+  - Keeps horizontal overflow locked down.
+  - Explicitly allows vertical page scrolling on mobile.
+  - Helps mobile browser webviews / in-app browsers scroll long pages like Friends.
+  - Avoids 100vh/fixed-height page wrappers trapping content.
+*/
+
+html {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  height: auto;
+  min-height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+body > div,
+body > main {
+  min-height: 0;
+}
+
+/* App route containers should be allowed to grow taller than the viewport. */
+main {
+  min-height: 100dvh;
+  height: auto;
+  overflow-y: visible;
+}
+
+/* Mobile page wrappers used across Parapost. */
+.friends-page-root,
+.friends-page-inner,
+.friends-page-shell,
+.notifications-page-root,
+.notifications-page-inner,
+.settings-page-root,
+.settings-page-inner,
+.profile-page-root,
+.profile-page-inner,
+.dashboard-page-root,
+.dashboard-page-inner {
+  max-height: none;
+}
+
+/* Friends page mobile scroll correction.
+   This is intentionally targeted so pages with long friend lists can scroll
+   even if an older inline/root style used 100vh or overflow hidden. */
+@media (max-width: 760px) {
+  html,
+  body {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    touch-action: pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    position: relative;
+    min-height: 100dvh !important;
+  }
+
+  main {
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .friends-page-root,
+  .friends-page-inner,
+  .friends-page-shell {
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .friends-page-root {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding-bottom: max(32px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .friends-page-inner,
+  .friends-page-shell {
+    padding-bottom: max(48px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* If the Friends cards/list are inside a scrollable shell, do not let that
+     shell trap the page on mobile. */
+  .friends-list,
+  .friends-results,
+  .friends-content,
+  .friends-content-shell,
+  .friends-list-shell {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+}
+
+/* Extra safety for very narrow phones and in-app browser headers. */
+@media (max-width: 430px) {
+  html,
+  body,
+  main {
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow-y: auto !important;
+  }
+
+  .friends-page-root,
+  .friends-page-inner,
+  .friends-page-shell,
+  .friends-list,
+  .friends-results,
+  .friends-content,
+  .friends-content-shell,
+  .friends-list-shell {
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+
+  .friends-page-root {
+    overflow-y: auto !important;
+    padding-bottom: max(40px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
