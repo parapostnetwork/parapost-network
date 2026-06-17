@@ -290,19 +290,35 @@ async function compressParachatImage(file: File) {
   }
 }
 
+function waitForParachatImageUrlRetry(delayMs: number) {
+  return new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, delayMs);
+  });
+}
+
 async function attachSignedImageUrlToMessage(message: MessageRow) {
   if (!message.image_path) return message;
 
-  const { data, error } = await supabase.storage
-    .from(PARACHAT_IMAGE_BUCKET)
-    .createSignedUrl(message.image_path, 60 * 60);
+  const maxAttempts = 5;
 
-  if (error || !data?.signedUrl) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const { data, error } = await supabase.storage
+      .from(PARACHAT_IMAGE_BUCKET)
+      .createSignedUrl(message.image_path, 60 * 60);
+
+    if (!error && data?.signedUrl) {
+      return { ...message, signedImageUrl: data.signedUrl };
+    }
+
+    if (attempt < maxAttempts) {
+      await waitForParachatImageUrlRetry(350 * attempt);
+      continue;
+    }
+
     console.warn("Could not create Parachat image URL:", error?.message);
-    return { ...message, signedImageUrl: null };
   }
 
-  return { ...message, signedImageUrl: data.signedUrl };
+  return { ...message, signedImageUrl: null };
 }
 
 async function attachSignedImageUrls(messages: MessageRow[]) {
@@ -445,8 +461,7 @@ async function checkAcceptedParachatFriend(viewerId: string, otherUserId: string
       .limit(1),
     supabase
       .from("friends")
-      .select("id")
-      .eq("status", "accepted")
+      .select("user_id, friend_id")
       .or(
         `and(user_id.eq.${viewerId},friend_id.eq.${otherUserId}),and(user_id.eq.${otherUserId},friend_id.eq.${viewerId})`
       )
@@ -1028,8 +1043,8 @@ function MessagesPage() {
         .eq("status", "accepted")
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
       supabase
-        .from("friends")
-        .select("user_id, friend_id, status")
+       .from("friends")
+       .select("user_id, friend_id")
         .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`),
     ]);
 
@@ -1463,6 +1478,18 @@ function MessagesPage() {
 
           if (!belongsToUser) {
             await loadInbox();
+
+            // Image messages can arrive through Realtime before the receiver inbox
+            // has fully reconciled the new/updated conversation. Run a short
+            // follow-up refresh so the receiver sees the new photo without a manual refresh.
+            globalThis.setTimeout(() => {
+              void loadInbox();
+            }, 900);
+
+            globalThis.setTimeout(() => {
+              void loadInbox();
+            }, 1800);
+
             return;
           }
 
@@ -1518,6 +1545,16 @@ function MessagesPage() {
             }
 
             scrollToBottom();
+
+            if (isImageMessage(nextMessage)) {
+              globalThis.setTimeout(() => {
+                void loadMessages(nextMessage.conversation_id, viewerId);
+              }, 900);
+
+              globalThis.setTimeout(() => {
+                void loadMessages(nextMessage.conversation_id, viewerId);
+              }, 1800);
+            }
           }
         }
       )
@@ -1615,6 +1652,7 @@ function MessagesPage() {
     activeConversationId,
     blockedUserIds,
     loadInbox,
+    loadMessages,
     markConversationRead,
     scrollToBottom,
     viewerId,
@@ -2323,6 +2361,16 @@ function MessagesPage() {
 
     setSending(false);
     scrollToBottom();
+
+    if (imageDraft) {
+      globalThis.setTimeout(() => {
+        void loadMessages(sendConversationId, viewerId);
+      }, 900);
+
+      globalThis.setTimeout(() => {
+        void loadMessages(sendConversationId, viewerId);
+      }, 1800);
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
