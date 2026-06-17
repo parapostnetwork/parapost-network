@@ -10185,13 +10185,15 @@ function DashboardCommentsPreview({
                     </button>
                   </div>
                 ) : !isEditingComment && currentUserId ? (
-                  <button
-                    type="button"
-                    onClick={() => onReportComment(comment.id, comment.user_id)}
-                    style={dashboardCommentDeleteButtonStyle}
-                  >
-                    Report
-                  </button>
+                  <div style={dashboardCommentActionRowStyle}>
+                    <button
+                      type="button"
+                      onClick={() => onReportComment(comment.id, comment.user_id)}
+                      style={dashboardCommentDeleteButtonStyle}
+                    >
+                      Report
+                    </button>
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -10384,13 +10386,15 @@ function DashboardCommentsPanel({
                       </button>
                     </div>
                   ) : !isEditingComment && currentUserId ? (
-                    <button
-                      type="button"
-                      onClick={() => onReportComment(comment.id, comment.user_id)}
-                      style={dashboardCommentDeleteButtonStyle}
-                    >
-                      Report
-                    </button>
+                    <div style={dashboardCommentActionRowStyle}>
+                      <button
+                        type="button"
+                        onClick={() => onReportComment(comment.id, comment.user_id)}
+                        style={dashboardCommentDeleteButtonStyle}
+                      >
+                        Report
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -14642,15 +14646,28 @@ const dashboardCommentTextStyle: CSSProperties = {
   overflowWrap: "anywhere",
 };
 
-const dashboardCommentDeleteButtonStyle: CSSProperties = {
-  marginTop: "7px",
+const dashboardCommentInlineActionButtonStyle: CSSProperties = {
+  appearance: "none",
+  WebkitAppearance: "none",
   border: "none",
   background: "transparent",
-  color: "#fca5a5",
+  fontFamily: "inherit",
   fontSize: "12px",
   fontWeight: 800,
+  lineHeight: 1,
+  minHeight: "16px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   cursor: "pointer",
   padding: 0,
+  margin: 0,
+  textDecoration: "none",
+};
+
+const dashboardCommentDeleteButtonStyle: CSSProperties = {
+  ...dashboardCommentInlineActionButtonStyle,
+  color: "#fca5a5",
 };
 
 const dashboardCommentActionRowStyle: CSSProperties = {
@@ -14662,8 +14679,7 @@ const dashboardCommentActionRowStyle: CSSProperties = {
 };
 
 const dashboardCommentEditActionButtonStyle: CSSProperties = {
-  ...dashboardCommentDeleteButtonStyle,
-  marginTop: 0,
+  ...dashboardCommentInlineActionButtonStyle,
   color: "var(--parapost-accent-readable-text)",
 };
 
