@@ -231,13 +231,57 @@ export default function FriendRequestsPage() {
   };
 
   return (
-    <div className="friend-requests-page min-h-screen bg-[#07090d] text-white">
+    <div className="friend-requests-page min-h-screen text-white">
       <style jsx global>{`
         .friend-requests-page {
           min-height: 100svh;
           min-height: 100dvh;
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
+          background:
+            radial-gradient(circle at 18% 8%, rgba(124, 58, 237, 0.34), transparent 34%),
+            radial-gradient(circle at 82% 0%, rgba(168, 85, 247, 0.22), transparent 30%),
+            radial-gradient(circle at 50% 100%, rgba(79, 70, 229, 0.18), transparent 42%),
+            linear-gradient(180deg, #090611 0%, #05040a 48%, #030307 100%);
+          color: #f8f5ff;
+        }
+
+        .friend-requests-page::before {
+          content: "";
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          background:
+            linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+          background-size: 44px 44px;
+          mask-image: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent 72%);
+          opacity: 0.45;
+        }
+
+        .friend-requests-inner {
+          position: relative;
+          z-index: 1;
+        }
+
+        .friend-requests-card {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .friend-requests-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(circle at 12% 0%, rgba(168, 85, 247, 0.20), transparent 36%),
+            radial-gradient(circle at 100% 18%, rgba(124, 58, 237, 0.15), transparent 35%);
+        }
+
+        .friend-requests-card > * {
+          position: relative;
+          z-index: 1;
         }
 
         .friend-requests-inner {
@@ -397,12 +441,14 @@ export default function FriendRequestsPage() {
         <div
           className="friend-requests-card"
           style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.04) 100%)",
-            borderRadius: "28px",
-            padding: "20px",
-            border: "1px solid rgba(255,255,255,0.10)",
-            backdropFilter: "blur(10px)",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
+            background:
+              "linear-gradient(180deg, rgba(26, 18, 46, 0.86) 0%, rgba(10, 7, 19, 0.92) 100%)",
+            borderRadius: "30px",
+            padding: "22px",
+            border: "1px solid rgba(168, 85, 247, 0.24)",
+            backdropFilter: "blur(18px)",
+            boxShadow:
+              "0 28px 70px rgba(0,0,0,0.45), 0 0 42px rgba(124,58,237,0.16), inset 0 1px 0 rgba(255,255,255,0.08)",
           }}
         >
           <div
@@ -417,8 +463,18 @@ export default function FriendRequestsPage() {
             }}
           >
             <div>
-              <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800 }}>Friend Requests</h1>
-              <p style={{ margin: "6px 0 0", color: "#9ca3af", fontSize: "14px" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "30px",
+                  fontWeight: 900,
+                  letterSpacing: "-0.04em",
+                  textShadow: "0 0 24px rgba(168,85,247,0.22)",
+                }}
+              >
+                Friend Requests
+              </h1>
+              <p style={{ margin: "7px 0 0", color: "#c8bfdc", fontSize: "14px" }}>
                 Review incoming requests and grow your Parapost circle.
               </p>
             </div>
@@ -437,9 +493,9 @@ export default function FriendRequestsPage() {
             <div
               style={{
                 marginBottom: "16px",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                color: "#f9fafb",
+                background: "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(168,85,247,0.10))",
+                border: "1px solid rgba(168,85,247,0.25)",
+                color: "#f8f5ff",
                 borderRadius: "18px",
                 padding: "12px 14px",
               }}
@@ -449,19 +505,23 @@ export default function FriendRequestsPage() {
           )}
 
           {loading ? (
-            <p style={{ color: "#9ca3af", margin: 0 }}>Loading friend requests...</p>
+            <p style={{ color: "#c8bfdc", margin: 0 }}>Loading friend requests...</p>
           ) : requests.length === 0 ? (
             <div
               className="friend-requests-empty"
               style={{
-                border: "1px solid rgba(255,255,255,0.10)",
+                border: "1px solid rgba(168,85,247,0.20)",
                 borderRadius: "24px",
                 padding: "24px",
-                background: "rgba(255,255,255,0.03)",
+                background:
+                  "linear-gradient(180deg, rgba(124,58,237,0.10) 0%, rgba(255,255,255,0.035) 100%)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
               }}
             >
-              <h2 style={{ marginTop: 0, marginBottom: "8px", fontSize: "20px" }}>No pending requests</h2>
-              <p style={{ margin: 0, color: "#9ca3af", lineHeight: 1.6 }}>
+              <h2 style={{ marginTop: 0, marginBottom: "8px", fontSize: "20px", color: "#f8f5ff" }}>
+                No pending requests
+              </h2>
+              <p style={{ margin: 0, color: "#c8bfdc", lineHeight: 1.6 }}>
                 When someone sends you a friend request, it will show up here.
               </p>
             </div>
@@ -478,11 +538,12 @@ export default function FriendRequestsPage() {
                     key={request.id}
                     className="friend-request-card"
                     style={{
-                      background: "linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.035) 100%)",
-                      border: "1px solid rgba(255,255,255,0.12)",
+                      background:
+                        "linear-gradient(180deg, rgba(30, 20, 54, 0.82) 0%, rgba(12, 8, 24, 0.88) 100%)",
+                      border: "1px solid rgba(168,85,247,0.22)",
                       borderRadius: "24px",
                       padding: "16px",
-                      boxShadow: "0 10px 26px rgba(0,0,0,0.24)",
+                      boxShadow: "0 18px 42px rgba(0,0,0,0.36), 0 0 26px rgba(124,58,237,0.10)",
                     }}
                   >
                     <div
@@ -536,8 +597,9 @@ export default function FriendRequestsPage() {
                                 width: "54px",
                                 height: "54px",
                                 borderRadius: "50%",
-                                background: "#374151",
-                                color: "#f9fafb",
+                                background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                                color: "#ffffff",
+                                boxShadow: "0 0 22px rgba(124,58,237,0.34)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -559,7 +621,7 @@ export default function FriendRequestsPage() {
                                 height: "12px",
                                 borderRadius: "50%",
                                 background: "#22c55e",
-                                border: "2px solid #07090d",
+                                border: "2px solid #090611",
                                 boxShadow: "0 0 6px rgba(34,197,94,0.6)",
                               }}
                             />
@@ -570,7 +632,7 @@ export default function FriendRequestsPage() {
                           <Link
                             href={`/profile/${request.sender_id}`}
                             style={{
-                              color: "#f9fafb",
+                              color: "#f8f5ff",
                               textDecoration: "none",
                               fontWeight: 700,
                               fontSize: "16px",
@@ -581,11 +643,11 @@ export default function FriendRequestsPage() {
                             {label}
                           </Link>
 
-                          <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "6px" }}>
+                          <div style={{ color: "#b8aecb", fontSize: "13px", marginBottom: "6px" }}>
                             @{username} · {formatRelativeTime(request.created_at)}
                           </div>
 
-                          <div style={{ color: "#d1d5db", fontSize: "14px" }}>
+                          <div style={{ color: "#ded7ea", fontSize: "14px" }}>
                             Wants to connect with you on Parapost.
                           </div>
                         </div>
@@ -630,10 +692,11 @@ const secondaryLinkStyle: React.CSSProperties = {
   padding: "0 16px",
   borderRadius: "999px",
   textDecoration: "none",
-  color: "#f9fafb",
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  fontWeight: 600,
+  color: "#f8f5ff",
+  background: "linear-gradient(135deg, rgba(124,58,237,0.24), rgba(168,85,247,0.12))",
+  border: "1px solid rgba(168,85,247,0.28)",
+  boxShadow: "0 0 20px rgba(124,58,237,0.14), inset 0 1px 0 rgba(255,255,255,0.07)",
+  fontWeight: 800,
 };
 
 const countPillStyle: React.CSSProperties = {
@@ -643,10 +706,11 @@ const countPillStyle: React.CSSProperties = {
   minHeight: "42px",
   padding: "0 14px",
   borderRadius: "999px",
-  color: "#f9fafb",
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  fontWeight: 700,
+  color: "#f8f5ff",
+  background: "rgba(124,58,237,0.16)",
+  border: "1px solid rgba(168,85,247,0.30)",
+  boxShadow: "0 0 20px rgba(124,58,237,0.12)",
+  fontWeight: 800,
   fontSize: "14px",
 };
 
@@ -655,9 +719,9 @@ const declineButtonStyle: React.CSSProperties = {
   borderRadius: "999px",
   padding: "0 18px",
   border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.04)",
-  color: "#f9fafb",
-  fontWeight: 700,
+  background: "rgba(255,255,255,0.055)",
+  color: "#f8f5ff",
+  fontWeight: 800,
   cursor: "pointer",
 };
 
@@ -665,9 +729,10 @@ const acceptButtonStyle: React.CSSProperties = {
   minHeight: "44px",
   borderRadius: "999px",
   padding: "0 18px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "#ffffff",
-  color: "#000000",
-  fontWeight: 700,
+  border: "1px solid rgba(196,181,253,0.42)",
+  background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 48%, #6d28d9 100%)",
+  color: "#ffffff",
+  boxShadow: "0 12px 28px rgba(124,58,237,0.34), inset 0 1px 0 rgba(255,255,255,0.22)",
+  fontWeight: 900,
   cursor: "pointer",
 };
