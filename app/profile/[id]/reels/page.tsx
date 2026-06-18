@@ -392,29 +392,35 @@ export default function ProfileReelsGridPage() {
                   >
                     {reel.video_url ? (
                       <>
-                        reel.poster_url ? (
+                        {reel.poster_url ? (
                           <img
-                            src={reel.poster_url || undefined}
-                            alt="Parapost Reel preview"
+                            src={reel.poster_url}
+                            alt={reel.title || reel.caption || "Parapost Reel preview"}
                             loading="lazy"
                             decoding="async"
                             style={{
                               width: "100%",
                               height: "100%",
-                              objectFit: "contain",
+                              objectFit: "cover",
                               display: "block",
                               background: "#000",
                             }}
                           />
                         ) : (
-                          <div
+                          <video
+                            src={reel.video_url || undefined}
+                            muted
+                            playsInline
+                            preload="metadata"
                             style={{
                               width: "100%",
                               height: "100%",
+                              objectFit: "cover",
+                              display: "block",
                               background: "#000",
                             }}
                           />
-                        )
+                        )}
                         <div
                           style={{
                             position: "absolute",
@@ -436,6 +442,26 @@ export default function ProfileReelsGridPage() {
                             opacity: 0.88,
                           }}
                         />
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "10px",
+                            right: "10px",
+                            width: "36px",
+                            height: "36px",
+                            borderRadius: 999,
+                            display: "grid",
+                            placeItems: "center",
+                            background:
+                              "linear-gradient(135deg, var(--parapost-accent, #a855f7), color-mix(in srgb, var(--parapost-accent, #a855f7) 55%, #ffffff))",
+                            color: "#ffffff",
+                            fontSize: "13px",
+                            fontWeight: 900,
+                            boxShadow: "0 10px 22px rgba(0,0,0,0.34)",
+                          }}
+                        >
+                          ▶
+                        </div>
                         <div
                           style={{
                             position: "absolute",

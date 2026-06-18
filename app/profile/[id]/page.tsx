@@ -92,6 +92,8 @@ type ProfileComment = {
 
 type Reel = {
   id: string;
+  title?: string | null;
+  caption?: string | null;
   video_url: string | null;
   poster_url: string | null;
   user_id: string;
@@ -2607,7 +2609,7 @@ const closeProfileMobileSearch = useCallback(() => {
       supabase.from("likes").select("post_id, user_id"),
       supabase
         .from("reels")
-        .select("id, video_url, user_id, created_at")
+        .select("id, title, caption, video_url, poster_url, user_id, created_at")
         .eq("user_id", profileId)
         .order("created_at", { ascending: false })
         .limit(200),
@@ -14765,24 +14767,52 @@ return (
                     </div>
                   ) : (
                     <div style={miniReelGridStyle}>
-                      {reels.slice(0, 6).map((reel) => (
-                        <Link key={reel.id} href={`/profile/${profileId}/reels/view?reelId=${reel.id}`} style={miniReelTileStyle}>
-                        {reel.video_url ? (
-                          reel.poster_url ? (
-                            <img
-                              src={reel.poster_url || undefined}
-                              alt="Parapost Reel preview"
-                              style={miniReelVideoStyle}
-                            />
-                          ) : (
-                            <span>Preview unavailable</span>
-                          )
-                        ) : (
-                          <span>Reel unavailable</span>
-                         )}
-                      </Link>
-                    ))}
-                  </div>
+                      {reels.slice(0, 6).map((reel) => {
+                        const previewUrl = reel.poster_url || reel.video_url || "";
+                        const reelTitle = reel.title || reel.caption || "Parapost Reel";
+
+                        return (
+                          <Link
+                            key={reel.id}
+                            href={`/profile/${profileId}/reels/view?reelId=${reel.id}`}
+                            style={miniReelTileStyle}
+                            aria-label={`Open ${reelTitle}`}
+                          >
+                            {previewUrl ? (
+                              reel.poster_url ? (
+                                <img
+                                  src={reel.poster_url}
+                                  alt={reelTitle}
+                                  loading="lazy"
+                                  decoding="async"
+                                  style={miniReelVideoStyle}
+                                />
+                              ) : (
+                                <video
+                                  src={reel.video_url || undefined}
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                  style={miniReelVideoStyle}
+                                />
+                              )
+                            ) : (
+                              <span>Reel unavailable</span>
+                            )}
+
+                            <div style={miniReelOverlayStyle} />
+                            <div style={miniReelPlayBadgeStyle}>▶</div>
+
+                            {(reel.title || reel.caption) ? (
+                              <div style={miniReelTextOverlayStyle}>
+                                {reel.title ? <strong style={miniReelTitleStyle}>{reel.title}</strong> : null}
+                                {reel.caption ? <span style={miniReelCaptionStyle}>{reel.caption}</span> : null}
+                              </div>
+                            ) : null}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               ) : null}
@@ -20441,6 +20471,7 @@ const miniReelTileStyle: CSSProperties = {
   textDecoration: "none",
   display: "grid",
   placeItems: "center",
+  isolation: "isolate",
 };
 
 const miniReelVideoStyle: CSSProperties = {
@@ -20448,6 +20479,68 @@ const miniReelVideoStyle: CSSProperties = {
   height: "100%",
   objectFit: "cover",
   display: "block",
+};
+
+const miniReelOverlayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 1,
+  pointerEvents: "none",
+  background:
+    "linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.00) 40%, rgba(0,0,0,0.72) 100%)",
+};
+
+const miniReelPlayBadgeStyle: CSSProperties = {
+  position: "absolute",
+  top: "10px",
+  right: "10px",
+  zIndex: 2,
+  width: "34px",
+  height: "34px",
+  borderRadius: 999,
+  display: "grid",
+  placeItems: "center",
+  background:
+    "linear-gradient(135deg, var(--parapost-accent, #a855f7), color-mix(in srgb, var(--parapost-accent, #a855f7) 55%, #ffffff))",
+  color: "#ffffff",
+  fontSize: "13px",
+  fontWeight: 900,
+  boxShadow: "0 10px 22px rgba(0,0,0,0.34)",
+};
+
+const miniReelTextOverlayStyle: CSSProperties = {
+  position: "absolute",
+  left: "10px",
+  right: "10px",
+  bottom: "10px",
+  zIndex: 2,
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+};
+
+const miniReelTitleStyle: CSSProperties = {
+  color: "#ffffff",
+  fontSize: "13px",
+  fontWeight: 900,
+  lineHeight: 1.2,
+  textShadow: "0 2px 10px rgba(0,0,0,0.70)",
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
+
+const miniReelCaptionStyle: CSSProperties = {
+  color: "rgba(255,255,255,0.86)",
+  fontSize: "11px",
+  fontWeight: 700,
+  lineHeight: 1.2,
+  textShadow: "0 2px 9px rgba(0,0,0,0.70)",
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
 };
 
 
