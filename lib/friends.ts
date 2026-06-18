@@ -1,10 +1,65 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
+type FriendRequestStatus = "pending" | "accepted" | "declined" | "cancelled" | string;
+
+type FriendRequestRow = {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  status: FriendRequestStatus;
+};
+
+type SendFriendRequestResult = {
+  status: "outgoing_request" | "incoming_request" | "friends";
+  message: string;
+  requestId?: string | null;
+};
+
+function getFriendPairFilter(currentUserId: string, targetUserId: string) {
+  return `and(sender_id.eq.${currentUserId},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${currentUserId})`;
+}
+
+function isDuplicatePairError(error: { code?: string | null; message?: string | null }) {
+  const message = String(error.message || "").toLowerCase();
+
+  return (
+    error.code === "23505" ||
+    message.includes("duplicate key") ||
+    message.includes("friend_requests_unique_pair")
+  );
+}
+
+async function createFriendRequestNotification(
+  supabase: SupabaseClient,
+  receiverId: string,
+  senderId: string,
+  requestId: string | null
+) {
+  if (!receiverId || !senderId || receiverId === senderId) return;
+
+  const { error } = await supabase.from("notifications").insert([
+    {
+      user_id: receiverId,
+      actor_id: senderId,
+      type: "friend_request",
+      post_id: null,
+      comment_id: null,
+      friend_request_id: requestId,
+      message: "sent you a friend request.",
+      is_read: false,
+    },
+  ]);
+
+  if (error) {
+    console.warn("Friend request notification warning:", error.message);
+  }
+}
+
 export async function sendFriendRequest(
   supabase: SupabaseClient,
   currentUserId: string,
   targetUserId: string
-) {
+): Promise<SendFriendRequestResult> {
   if (!currentUserId || !targetUserId) {
     throw new Error("Missing user IDs.");
   }
@@ -13,19 +68,135 @@ export async function sendFriendRequest(
     throw new Error("You cannot send a friend request to yourself.");
   }
 
-  const { error } = await supabase.from("friend_requests").insert([
-    {
-      sender_id: currentUserId,
-      receiver_id: targetUserId,
-      status: "pending",
-    },
-  ]);
+  const pairFilter = getFriendPairFilter(currentUserId, targetUserId);
 
-  if (error) {
-    throw new Error(error.message);
+  const { data: existingRows, error: existingError } = await supabase
+    .from("friend_requests")
+    .select("id, sender_id, receiver_id, status")
+    .or(pairFilter)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (existingError) {
+    throw new Error(existingError.message);
   }
 
-  return true;
+  const existingRequest = (existingRows?.[0] || null) as FriendRequestRow | null;
+
+  if (existingRequest) {
+    if (existingRequest.status === "accepted") {
+      return {
+        status: "friends",
+        message: "You are already friends.",
+        requestId: existingRequest.id,
+      };
+    }
+
+    if (existingRequest.status === "pending") {
+      if (existingRequest.sender_id === currentUserId) {
+        return {
+          status: "outgoing_request",
+          message: "Friend request already sent.",
+          requestId: existingRequest.id,
+        };
+      }
+
+      return {
+        status: "incoming_request",
+        message: "This member already sent you a request.",
+        requestId: existingRequest.id,
+      };
+    }
+
+    if (existingRequest.status === "declined" || existingRequest.status === "cancelled") {
+      const { data: updatedRows, error: updateError } = await supabase
+        .from("friend_requests")
+        .update({
+          sender_id: currentUserId,
+          receiver_id: targetUserId,
+          status: "pending",
+        })
+        .eq("id", existingRequest.id)
+        .select("id");
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      const updatedRequestId = (updatedRows?.[0]?.id as string | undefined) || existingRequest.id;
+
+      await createFriendRequestNotification(
+        supabase,
+        targetUserId,
+        currentUserId,
+        updatedRequestId
+      );
+
+      return {
+        status: "outgoing_request",
+        message: "Friend request sent.",
+        requestId: updatedRequestId,
+      };
+    }
+  }
+
+  const { data: insertedRows, error: insertError } = await supabase
+    .from("friend_requests")
+    .insert([
+      {
+        sender_id: currentUserId,
+        receiver_id: targetUserId,
+        status: "pending",
+      },
+    ])
+    .select("id");
+
+  if (insertError) {
+    if (isDuplicatePairError(insertError)) {
+      const { data: duplicateRows, error: duplicateFetchError } = await supabase
+        .from("friend_requests")
+        .select("id, sender_id, receiver_id, status")
+        .or(pairFilter)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (duplicateFetchError) {
+        throw new Error(duplicateFetchError.message);
+      }
+
+      const duplicateRequest = (duplicateRows?.[0] || null) as FriendRequestRow | null;
+
+      if (duplicateRequest?.status === "accepted") {
+        return {
+          status: "friends",
+          message: "You are already friends.",
+          requestId: duplicateRequest.id,
+        };
+      }
+
+      if (duplicateRequest?.sender_id === currentUserId) {
+        return {
+          status: "outgoing_request",
+          message: "Friend request already sent.",
+          requestId: duplicateRequest.id,
+        };
+      }
+
+      return {
+        status: "incoming_request",
+        message: "This member already sent you a request.",
+        requestId: duplicateRequest?.id || null,
+      };
+    }
+
+    throw new Error(insertError.message);
+  }
+
+  return {
+    status: "outgoing_request",
+    message: "Friend request sent.",
+    requestId: (insertedRows?.[0]?.id as string | undefined) || null,
+  };
 }
 
 export async function cancelFriendRequest(
@@ -76,7 +247,7 @@ export async function acceptFriendRequest(
     },
   ]);
 
-  if (insertError) {
+  if (insertError && insertError.code !== "23505") {
     throw new Error(insertError.message);
   }
 
@@ -121,14 +292,24 @@ export async function removeFriend(
   const user_two =
     currentUserId < targetUserId ? targetUserId : currentUserId;
 
-  const { error } = await supabase
+  const { error: friendshipError } = await supabase
     .from("friendships")
     .delete()
     .eq("user_one", user_one)
     .eq("user_two", user_two);
 
-  if (error) {
-    throw new Error(error.message);
+  if (friendshipError) {
+    throw new Error(friendshipError.message);
+  }
+
+  const { error: requestError } = await supabase
+    .from("friend_requests")
+    .delete()
+    .eq("status", "accepted")
+    .or(getFriendPairFilter(currentUserId, targetUserId));
+
+  if (requestError) {
+    throw new Error(requestError.message);
   }
 
   return true;

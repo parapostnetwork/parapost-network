@@ -10,6 +10,7 @@ import {
   cancelFriendRequest,
   declineFriendRequest,
   removeFriend,
+  sendFriendRequest,
 } from "@/lib/friends";
 import MutualFriendsPreviewCard from "@/components/profile/MutualFriendsPreviewCard";
 import ProfileAboutSection from "@/components/profile/ProfileAboutSection";
@@ -4313,46 +4314,34 @@ useEffect(() => {
   const handleSendFriendRequest = async () => {
     if (!viewerId || !profileId || isOwnProfile) return;
     if (friendRequestInFlight.current) return;
-    friendRequestInFlight.current = true;
+    if (
+      friendStatus === "outgoing_request" ||
+      friendStatus === "incoming_request" ||
+      friendStatus === "friends"
+    ) {
+      return;
+    }
 
+    friendRequestInFlight.current = true;
     setFriendLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("friend_requests")
-        .insert([
-          {
-            sender_id: viewerId,
-            receiver_id: profileId,
-            status: "pending",
-          },
-        ])
-        .select("id")
-        .single();
+      const result = await sendFriendRequest(supabase, viewerId, profileId);
 
-      if (error) {
-        throw new Error(error.message);
+      if (result.status === "friends") {
+        setFriendStatus("friends");
+        showFriendStatus(result.message || "You are already friends.");
+        return;
       }
- 
-  const { error: requestError } = await supabase
-  .from("friend_requests")
-  .insert([
-    {
-      sender_id: viewerId,
-      receiver_id: profileId,
-      status: "pending",
-    },
-  ]);
 
-if (requestError) {
-  throw new Error(requestError.message);
-}
+      if (result.status === "incoming_request") {
+        setFriendStatus("incoming_request");
+        showFriendStatus(result.message || "This member already sent you a request.");
+        return;
+      }
 
-// Do not insert friend_request notification here.
-// Supabase trigger tr_friend_request_notification creates it automatically.
-
-setFriendStatus("outgoing_request");
-showFriendStatus("Friend request sent.");
+      setFriendStatus("outgoing_request");
+      showFriendStatus(result.message || "Friend request sent.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to send friend request.";
