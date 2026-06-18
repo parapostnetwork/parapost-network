@@ -1731,7 +1731,7 @@ function ProfileDashboardComposerActionPill({
       <button
         type="button"
         disabled
-        title="Live Stream is coming soon."
+        title="Live Stream"
         style={{ ...profileDashboardComposerActionPillStyle, ...profileDashboardComposerActionDisabledStyle }}
       >
         {content}
@@ -14783,7 +14783,6 @@ return (
                       icon="◎"
                       tone="red"
                       disabled
-                      note="Coming soon"
                     />
                     <ProfileDashboardComposerActionPill
                       label="Feeling / Activity"
