@@ -1399,6 +1399,7 @@ const MAX_POST_IMAGES = 10;
 const MAX_POST_VIDEO_SECONDS = 60;
 const MAX_POST_IMAGE_MB = 12;
 const MAX_POST_VIDEO_MB = 100;
+const PROFILE_COMMENT_PREVIEW_LIMIT = 2;
 
 const FEELING_ACTIVITY_OPTIONS: FeelingActivityOption[] = [
   { id: "happy", label: "Feeling happy", category: "Feeling", helper: "Share a positive mood", icon: "smile" },
@@ -1935,6 +1936,7 @@ export default function ProfilePage() {
   const [likeCounts, setLikeCounts] = useState<CountMap>({});
   const [userLikes, setUserLikes] = useState<ToggleMap>({});
   const [commentCounts, setCommentCounts] = useState<CountMap>({});
+  const [shareCounts, setShareCounts] = useState<CountMap>({});
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, ProfileComment[]>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
@@ -2536,6 +2538,9 @@ const closeProfileMobileSearch = useCallback(() => {
       setRecentlyViewedLoading(false);
     }
 
+    let loadedProfilePostsForCounts: Post[] = [];
+    let mappedSharedPostsForCounts: SharedProfilePost[] = [];
+
     const [
       profileResult,
       postsResult,
@@ -2695,7 +2700,8 @@ const closeProfileMobileSearch = useCallback(() => {
     } else {
       const loadedPosts = (postsResult.data as Post[]) || [];
       const postImagesMap = await fetchPostImagesMap(loadedPosts.map((post) => post.id));
-      setPosts(attachImagesToPosts(loadedPosts, postImagesMap));
+      loadedProfilePostsForCounts = attachImagesToPosts(loadedPosts, postImagesMap);
+      setPosts(loadedProfilePostsForCounts);
     }
 
     if (sharesResult.error) {
@@ -2763,7 +2769,8 @@ const closeProfileMobileSearch = useCallback(() => {
         })
         .filter(Boolean) as SharedProfilePost[];
 
-      setSharedPostPosts(mappedSharedPosts);
+      mappedSharedPostsForCounts = mappedSharedPosts;
+      setSharedPostPosts(mappedSharedPostsForCounts);
     }
 
     if (reelsResult.error) {
@@ -2839,6 +2846,103 @@ const closeProfileMobileSearch = useCallback(() => {
 
     setLikeCounts(nextLikeCounts);
     setUserLikes(nextUserLikes);
+
+    const countPostIds = [
+      ...new Set([
+        ...loadedProfilePostsForCounts.map((post) => post.id),
+        ...mappedSharedPostsForCounts.map((share) => share.post_id),
+      ].filter(Boolean)),
+    ];
+
+    if (countPostIds.length > 0) {
+      const [{ data: commentsData, error: commentsCountError }, { data: sharesCountData, error: sharesCountError }] = await Promise.all([
+        supabase
+          .from("comments")
+          .select("id, post_id, user_id, content, created_at, is_hidden")
+          .in("post_id", countPostIds)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("shares")
+          .select("post_id, share_destination, deleted_at")
+          .in("post_id", countPostIds),
+      ]);
+
+      if (commentsCountError) {
+        console.warn("Profile comment counts could not load:", commentsCountError.message);
+        setCommentCounts({});
+        setCommentsByPostId({});
+      } else {
+        const visibleComments = ((commentsData || []) as ProfileComment[]).filter((comment) =>
+          Boolean(comment.post_id && !comment.is_hidden)
+        );
+
+        const nextCommentCounts: CountMap = {};
+        const nextCommentPreviews: Record<string, ProfileComment[]> = {};
+
+        for (const comment of visibleComments) {
+          if (!comment.post_id) continue;
+
+          nextCommentCounts[comment.post_id] = (nextCommentCounts[comment.post_id] || 0) + 1;
+
+          if (!nextCommentPreviews[comment.post_id]) {
+            nextCommentPreviews[comment.post_id] = [];
+          }
+
+          nextCommentPreviews[comment.post_id].push(comment);
+        }
+
+        Object.keys(nextCommentPreviews).forEach((postId) => {
+          nextCommentPreviews[postId] = nextCommentPreviews[postId].slice(-PROFILE_COMMENT_PREVIEW_LIMIT);
+        });
+
+        setCommentCounts(nextCommentCounts);
+        setCommentsByPostId(nextCommentPreviews);
+
+        const commenterIds = [
+          ...new Set(visibleComments.map((comment) => comment.user_id).filter(Boolean)),
+        ] as string[];
+
+        if (commenterIds.length > 0) {
+          const { data: profileRows, error: profileRowsError } = await supabase
+            .from("profiles")
+            .select("id, username, full_name, bio, avatar_url, is_online, last_seen_at, location")
+            .in("id", commenterIds);
+
+          if (!profileRowsError && profileRows) {
+            const nextCommentProfiles: Record<string, ProfileRow> = {};
+
+            for (const commentProfile of profileRows as ProfileRow[]) {
+              if (commentProfile.id) nextCommentProfiles[commentProfile.id] = commentProfile;
+            }
+
+            setCommentProfilesMap((prev) => ({
+              ...prev,
+              ...nextCommentProfiles,
+            }));
+          }
+        }
+      }
+
+      if (sharesCountError) {
+        console.warn("Profile share counts could not load:", sharesCountError.message);
+        setShareCounts({});
+      } else {
+        const nextShareCounts: CountMap = {};
+
+        for (const share of sharesCountData || []) {
+          if (!share.post_id) continue;
+          if (share.deleted_at) continue;
+          if (share.share_destination && share.share_destination !== "feed") continue;
+          nextShareCounts[share.post_id] = (nextShareCounts[share.post_id] || 0) + 1;
+        }
+
+        setShareCounts(nextShareCounts);
+      }
+    } else {
+      setCommentCounts({});
+      setShareCounts({});
+      setCommentsByPostId({});
+    }
 
     const followerRows = ((followersResult.data as FollowRow[]) || []).filter(Boolean);
     setFollowersCount(followerRows.filter((row) => row.following_id === profileId).length);
@@ -3896,6 +4000,179 @@ useEffect(() => {
     alert("Thanks. This comment has been sent to Parapost moderation.");
   };
 
+  const renderProfileCommentRow = (
+    postId: string,
+    postOwnerId: string | null | undefined,
+    comment: ProfileComment,
+    keyPrefix = "comment"
+  ) => {
+    const commentProfile =
+      commentProfilesMap[comment.user_id] ||
+      (comment.user_id === profile?.id ? profile : null);
+    const commentName =
+      commentProfile?.full_name ||
+      commentProfile?.username ||
+      "Parapost Member";
+    const commentHandle = commentProfile?.username || "member";
+    const canEditComment = Boolean(viewerId && comment.user_id === viewerId);
+    const canDeleteComment = Boolean(viewerId && (comment.user_id === viewerId || postOwnerId === viewerId));
+    const canReportComment = Boolean(viewerId && comment.user_id !== viewerId);
+    const isEditingComment = editingProfileCommentId === comment.id;
+    const isSavingComment = savingProfileCommentId === comment.id;
+
+    return (
+      <article key={`${keyPrefix}-${postId}-${comment.id}`} style={profileCommentItemStyle}>
+        <Link
+          href={`/profile/${comment.user_id}`}
+          style={profileCommentAvatarStyle}
+          aria-label={`Open ${commentName}'s profile`}
+        >
+          {commentProfile?.avatar_url ? (
+            <img
+              src={commentProfile.avatar_url}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <span>{getInitial(commentName, commentHandle)}</span>
+          )}
+        </Link>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={profileCommentBubbleStyle}>
+            <div style={profileCommentMetaRowStyle}>
+              <Link href={`/profile/${comment.user_id}`} style={profileCommentNameLinkStyle}>
+                {commentName}
+              </Link>
+              <span style={profileCommentTimeStyle}>{formatTimeAgo(comment.created_at)}</span>
+            </div>
+
+            {isEditingComment ? (
+              <div style={profileCommentEditBoxStyle}>
+                <textarea
+                  value={editingProfileCommentDraft}
+                  onChange={(event) => setEditingProfileCommentDraft(event.target.value)}
+                  disabled={isSavingComment}
+                  rows={2}
+                  maxLength={1200}
+                  style={profileCommentEditInputStyle}
+                  autoFocus
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      handleCancelEditProfileComment();
+                    }
+
+                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                      event.preventDefault();
+                      handleSaveProfileComment(postId, comment);
+                    }
+                  }}
+                />
+                <div style={profileCommentEditActionsStyle}>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveProfileComment(postId, comment)}
+                    disabled={!editingProfileCommentDraft.trim() || isSavingComment}
+                    style={{
+                      ...profileCommentEditSaveButtonStyle,
+                      opacity: !editingProfileCommentDraft.trim() || isSavingComment ? 0.58 : 1,
+                      cursor: !editingProfileCommentDraft.trim() || isSavingComment ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {isSavingComment ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditProfileComment}
+                    disabled={isSavingComment}
+                    style={profileCommentEditCancelButtonStyle}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={profileCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
+            )}
+
+            {!isEditingComment && canEditComment ? (
+              <div style={profileCommentFooterStyle}>
+                <button
+                  type="button"
+                  onClick={() => handleStartEditProfileComment(comment)}
+                  style={profileCommentEditButtonStyle}
+                >
+                  Edit
+                </button>
+                {canDeleteComment ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProfileComment(postId, comment.id)}
+                    style={profileCommentDeleteButtonStyle}
+                  >
+                    Delete
+                  </button>
+                ) : null}
+              </div>
+            ) : !isEditingComment && canDeleteComment ? (
+              <div style={profileCommentFooterStyle}>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteProfileComment(postId, comment.id)}
+                  style={profileCommentDeleteButtonStyle}
+                >
+                  Delete
+                </button>
+              </div>
+            ) : !isEditingComment && canReportComment ? (
+              <div style={profileCommentFooterStyle}>
+                <button
+                  type="button"
+                  onClick={() => handleReportProfileComment(comment.id, comment.user_id)}
+                  style={profileCommentReportButtonStyle}
+                >
+                  Report
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </article>
+    );
+  };
+
+  const renderProfileCommentsPreview = (postId: string, postOwnerId?: string | null) => {
+    const comments = commentsByPostId[postId] || [];
+    const commentCount = commentCounts[postId] || comments.length;
+    const previewComments = comments.slice(-PROFILE_COMMENT_PREVIEW_LIMIT);
+    const hiddenCommentCount = Math.max(commentCount - previewComments.length, 0);
+
+    if (previewComments.length === 0) return null;
+
+    return (
+      <section
+        className="profile-comments-panel profile-comments-preview-panel"
+        style={profileCommentsPreviewPanelStyle}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={profileCommentsListStyle}>
+          {previewComments.map((comment) => renderProfileCommentRow(postId, postOwnerId, comment, "preview"))}
+        </div>
+
+        {hiddenCommentCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => handleProfileCommentAction(postId)}
+            style={profileViewAllCommentsButtonStyle}
+          >
+            View all {commentCount} comments
+          </button>
+        ) : null}
+      </section>
+    );
+  };
+
   const renderProfileCommentsPanel = (postId: string, postOwnerId?: string | null) => {
     const comments = commentsByPostId[postId] || [];
     const draft = commentDrafts[postId] || "";
@@ -3903,23 +4180,12 @@ useEffect(() => {
     const isPostingComment = postingCommentPostId === postId;
 
     return (
-      <section className="profile-comments-panel" style={profileCommentsPanelStyle}>
+      <section className="profile-comments-panel profile-comments-open-panel" style={profileCommentsPanelStyle} onClick={(event) => event.stopPropagation()}>
         <div style={profileCommentsHeaderStyle}>
-          <div>
-            <strong style={profileCommentsTitleStyle}>Comments</strong>
-            <p style={profileCommentsSubtitleStyle}>
-              Reply to this profile post without leaving the timeline.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setOpenCommentsPostId(null)}
-            style={profileCommentsCloseButtonStyle}
-            aria-label="Close comments"
-          >
-            ×
-          </button>
+          <strong style={profileCommentsTitleStyle}>Comments</strong>
+          <span style={profileCommentsHeaderCountStyle}>
+            {isLoadingComments ? "Loading..." : `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}
+          </span>
         </div>
 
         <div style={profileCommentComposerStyle}>
@@ -3929,7 +4195,14 @@ useEffect(() => {
             placeholder={viewerId ? "Write a comment..." : "Log in to comment"}
             disabled={!viewerId || isPostingComment}
             rows={2}
+            maxLength={1200}
             style={profileCommentInputStyle}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                handleAddProfileComment(postId, postOwnerId);
+              }
+            }}
           />
           <button
             type="button"
@@ -3945,126 +4218,15 @@ useEffect(() => {
           </button>
         </div>
 
-        <div style={profileCommentsListStyle}>
-          {isLoadingComments ? (
-            <div style={profileCommentsEmptyStyle}>Loading comments...</div>
-          ) : comments.length === 0 ? (
-            <div style={profileCommentsEmptyStyle}>No comments yet. Start the conversation.</div>
-          ) : (
-            comments.map((comment) => {
-              const commentProfile =
-                commentProfilesMap[comment.user_id] ||
-                (comment.user_id === profile?.id ? profile : null);
-              const commentName =
-                commentProfile?.full_name ||
-                commentProfile?.username ||
-                "Parapost Member";
-              const commentHandle = commentProfile?.username || "member";
-              const canEditComment = Boolean(viewerId && comment.user_id === viewerId);
-              const canDeleteComment = Boolean(viewerId && (comment.user_id === viewerId || postOwnerId === viewerId));
-              const canReportComment = Boolean(viewerId && comment.user_id !== viewerId);
-              const isEditingComment = editingProfileCommentId === comment.id;
-              const isSavingComment = savingProfileCommentId === comment.id;
-
-              return (
-                <article key={comment.id} style={profileCommentItemStyle}>
-                  <Link
-                    href={`/profile/${comment.user_id}`}
-                    style={profileCommentAvatarStyle}
-                    aria-label={`Open ${commentName}'s profile`}
-                  >
-                    {commentProfile?.avatar_url ? (
-                      <img
-                        src={commentProfile.avatar_url}
-                        alt=""
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                      />
-                    ) : (
-                      <span>{getInitial(commentName, commentHandle)}</span>
-                    )}
-                  </Link>
-
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={profileCommentBubbleStyle}>
-                      <div style={profileCommentMetaRowStyle}>
-                        <strong style={profileCommentNameStyle}>{commentName}</strong>
-                        <span style={profileCommentTimeStyle}>{formatTimeAgo(comment.created_at)}</span>
-                      </div>
-
-                      {isEditingComment ? (
-                        <div style={profileCommentEditBoxStyle}>
-                          <textarea
-                            value={editingProfileCommentDraft}
-                            onChange={(event) => setEditingProfileCommentDraft(event.target.value)}
-                            disabled={isSavingComment}
-                            rows={2}
-                            style={profileCommentEditInputStyle}
-                          />
-                          <div style={profileCommentEditActionsStyle}>
-                            <button
-                              type="button"
-                              onClick={() => handleSaveProfileComment(postId, comment)}
-                              disabled={!editingProfileCommentDraft.trim() || isSavingComment}
-                              style={{
-                                ...profileCommentEditSaveButtonStyle,
-                                opacity: !editingProfileCommentDraft.trim() || isSavingComment ? 0.58 : 1,
-                                cursor: !editingProfileCommentDraft.trim() || isSavingComment ? "not-allowed" : "pointer",
-                              }}
-                            >
-                              {isSavingComment ? "Saving..." : "Save"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleCancelEditProfileComment}
-                              disabled={isSavingComment}
-                              style={profileCommentEditCancelButtonStyle}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p style={profileCommentTextStyle}>{comment.content}</p>
-                      )}
-                    </div>
-
-                    <div style={profileCommentFooterStyle}>
-                      {canEditComment && !isEditingComment ? (
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditProfileComment(comment)}
-                          style={profileCommentEditButtonStyle}
-                        >
-                          Edit
-                        </button>
-                      ) : null}
-
-                      {canDeleteComment ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteProfileComment(postId, comment.id)}
-                          style={profileCommentDeleteButtonStyle}
-                        >
-                          Delete
-                        </button>
-                      ) : null}
-
-                      {canReportComment ? (
-                        <button
-                          type="button"
-                          onClick={() => handleReportProfileComment(comment.id, comment.user_id)}
-                          style={profileCommentReportButtonStyle}
-                        >
-                          Report
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
-              );
-            })
-          )}
-        </div>
+        {isLoadingComments ? (
+          <div style={profileCommentsEmptyStyle}>Loading comments...</div>
+        ) : comments.length === 0 ? (
+          <div style={profileCommentsEmptyStyle}>No comments yet. Be the first to reply.</div>
+        ) : (
+          <div style={profileCommentsListStyle}>
+            {comments.map((comment) => renderProfileCommentRow(postId, postOwnerId, comment, "open"))}
+          </div>
+        )}
       </section>
     );
   };
@@ -15086,11 +15248,14 @@ return (
                             originalCreator?.username ||
                             "Original creator";
                           const originalHandle = originalCreator?.username || "member";
+                          const originalPostLiked = !!userLikes[originalPost.id];
+                          const originalPostCommentCount = commentCounts[originalPost.id] || 0;
+                          const originalPostShareCount = shareCounts[originalPost.id] || 0;
 
                           return (
                             <article
                               key={item.id}
-                              className="profile-feed-card profile-shared-post-feed-card"
+                              className="profile-feed-card profile-shared-post-feed-card dashboard-card dashboard-feed-card"
                               style={{ ...postCardStyle, position: "relative" }}
                               onMouseEnter={(event) => {
                                 event.currentTarget.style.transform = "translateY(-1px)";
@@ -15165,13 +15330,60 @@ return (
                                 <ProfilePostImageGrid imageUrls={getPostImageUrls(originalPost)} alt="Shared post image" />
 
                               </div>
+
+                              {originalPostCommentCount > 0 || originalPostShareCount > 0 ? (
+                                <div style={profilePostStatsSummaryStyle}>
+                                  <span>{originalPostCommentCount} Comments</span>
+                                  <span>·</span>
+                                  <span>{originalPostShareCount} Shares</span>
+                                </div>
+                              ) : null}
+
+                              <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
+                                <button
+                                  className={`profile-post-action-button profile-post-like-button ${originalPostLiked ? "profile-post-like-button-active" : ""}`}
+                                  onClick={() => handleLikeToggle(originalPost.id)}
+                                  style={originalPostLiked ? postLikeButtonActiveStyle : actionButtonStyle}
+                                  aria-pressed={originalPostLiked}
+                                  type="button"
+                                >
+                                  <HeartIcon filled={originalPostLiked} />
+                                  <span>Like</span>
+                                </button>
+
+                                <button
+                                  className="profile-post-action-button"
+                                  onClick={() => handleProfileCommentAction(originalPost.id)}
+                                  style={actionButtonStyle}
+                                  type="button"
+                                  aria-expanded={openCommentsPostId === originalPost.id}
+                                >
+                                  <CommentIcon />
+                                  <span>Comment</span>
+                                </button>
+
+                                <button
+                                  className="profile-post-action-button"
+                                  onClick={() => handleProfileShareAction(originalPost.id)}
+                                  style={actionButtonStyle}
+                                  type="button"
+                                >
+                                  <ShareIcon />
+                                  <span>Share</span>
+                                </button>
+                              </div>
+
+                              {openCommentsPostId !== originalPost.id ? renderProfileCommentsPreview(originalPost.id, originalPost.user_id) : null}
+
+                              {openCommentsPostId === originalPost.id ? renderProfileCommentsPanel(originalPost.id, originalPost.user_id) : null}
                             </article>
                           );
                         }
 
                         const post = item;
                         const liked = !!userLikes[post.id];
-                        const likeCount = likeCounts[post.id] || 0;
+                        const commentCount = commentCounts[post.id] || 0;
+                        const shareCount = shareCounts[post.id] || 0;
                         const isPostOwner = canManageProfilePost(post);
                         const isEditingPost = editingPostId === post.id;
                         const { headerActivityText, bodyContent } = splitPostFeelingActivityContent(post.content || "");
@@ -15180,8 +15392,8 @@ return (
                           <article
                             key={post.id}
                             id={`profile-post-${post.id}`}
-                            className="profile-feed-card profile-feed-post-card"
-                            style={{ ...profileNormalPostCardStyle, position: "relative" }}
+                            className="profile-feed-card profile-feed-post-card dashboard-card dashboard-feed-card"
+                            style={{ ...postCardStyle, position: "relative" }}
                             onMouseEnter={(event) => {
                               event.currentTarget.style.transform = "translateY(-1px)";
                               event.currentTarget.style.borderColor = "var(--parapost-accent-active-border)";
@@ -15287,7 +15499,15 @@ return (
 
                             <ProfilePostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" />
 
-                            <div className="profile-post-actions" style={postActionsRowStyle}>
+                            {commentCount > 0 || shareCount > 0 ? (
+                              <div style={profilePostStatsSummaryStyle}>
+                                <span>{commentCount} Comments</span>
+                                <span>·</span>
+                                <span>{shareCount} Shares</span>
+                              </div>
+                            ) : null}
+
+                            <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
                               <button
                                 className={`profile-post-action-button profile-post-like-button ${liked ? "profile-post-like-button-active" : ""}`}
                                 onClick={() => handleLikeToggle(post.id)}
@@ -15296,7 +15516,7 @@ return (
                                 type="button"
                               >
                                 <HeartIcon filled={liked} />
-                                <span>{likeCount > 0 ? `Like ${likeCount}` : "Like"}</span>
+                                <span>Like</span>
                               </button>
 
                               <button
@@ -15307,7 +15527,7 @@ return (
                                 aria-expanded={openCommentsPostId === post.id}
                               >
                                 <CommentIcon />
-                                <span>{commentCounts[post.id] > 0 ? `Comment ${commentCounts[post.id]}` : "Comment"}</span>
+                                <span>Comment</span>
                               </button>
 
                               <button
@@ -15320,6 +15540,8 @@ return (
                                 <span>Share</span>
                               </button>
                             </div>
+
+                            {openCommentsPostId !== post.id ? renderProfileCommentsPreview(post.id, post.user_id) : null}
 
                             {openCommentsPostId === post.id ? renderProfileCommentsPanel(post.id, post.user_id) : null}
                           </article>
@@ -17652,14 +17874,28 @@ const profilePostImageGridOverlayStyle: CSSProperties = {
 };
 
 
+const profilePostStatsSummaryStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  flexWrap: "wrap",
+  gap: 9,
+  alignItems: "center",
+  color: "#d1d5db",
+  fontSize: 13,
+  borderBottom: "1px solid rgba(255,255,255,0.10)",
+  paddingBottom: 11,
+  marginTop: 13,
+};
+
 const postActionsRowStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   alignItems: "center",
-  gap: "6px",
+  gap: 8,
   marginTop: "12px",
-  paddingTop: "10px",
-  borderTop: "1px solid rgba(255,255,255,0.055)",
+  padding: 0,
+  background: "transparent",
+  borderTop: 0,
 };
 
 const postLikeButtonActiveStyle: CSSProperties = {
@@ -21881,18 +22117,29 @@ const profileAchievementViewerProgressWrapStyle: CSSProperties = {
 
 
 const profileCommentsPanelStyle: CSSProperties = {
-  marginTop: "13px",
-  paddingTop: "13px",
-  borderTop: "1px solid rgba(255,255,255,0.075)",
-  display: "grid",
-  gap: "12px",
+  marginTop: "12px",
+  borderRadius: "22px",
+  border: "1px solid color-mix(in srgb, var(--parapost-accent-1) 20%, rgba(255,255,255,0.09))",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.028))",
+  padding: "12px",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.045)",
+};
+
+const profileCommentsPreviewPanelStyle: CSSProperties = {
+  ...profileCommentsPanelStyle,
+  marginTop: 12,
+  paddingTop: 12,
 };
 
 const profileCommentsHeaderStyle: CSSProperties = {
   display: "flex",
-  alignItems: "flex-start",
+  alignItems: "center",
   justifyContent: "space-between",
   gap: "12px",
+  padding: "2px 2px 10px",
+  color: "#f8fafc",
+  fontSize: "13px",
 };
 
 const profileCommentsTitleStyle: CSSProperties = {
@@ -21931,6 +22178,8 @@ const profileCommentComposerStyle: CSSProperties = {
   gridTemplateColumns: "minmax(0, 1fr) auto",
   gap: "10px",
   alignItems: "end",
+  paddingBottom: "12px",
+  borderBottom: "1px solid rgba(255,255,255,0.075)",
 };
 
 const profileCommentInputStyle: CSSProperties = {
@@ -21965,6 +22214,17 @@ const profileCommentSubmitButtonStyle: CSSProperties = {
 const profileCommentsListStyle: CSSProperties = {
   display: "grid",
   gap: "10px",
+  paddingTop: "12px",
+  maxHeight: "330px",
+  overflowY: "auto",
+};
+
+const profileViewAllCommentsButtonStyle: CSSProperties = {
+  ...secondaryButtonStyle,
+  marginTop: 10,
+  minHeight: 36,
+  padding: "0 12px",
+  fontSize: 13,
 };
 
 const profileCommentsEmptyStyle: CSSProperties = {
@@ -22021,6 +22281,19 @@ const profileCommentNameStyle: CSSProperties = {
   fontWeight: 950,
   overflow: "hidden",
   textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const profileCommentNameLinkStyle: CSSProperties = {
+  ...profileCommentNameStyle,
+  textDecoration: "none",
+  minWidth: 0,
+};
+
+const profileCommentsHeaderCountStyle: CSSProperties = {
+  color: "#9ca3af",
+  fontSize: "12px",
+  fontWeight: 800,
   whiteSpace: "nowrap",
 };
 
