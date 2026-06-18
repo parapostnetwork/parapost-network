@@ -389,34 +389,34 @@ export default function FriendsListPage() {
       <style jsx global>{`
         html:has(.friends-page-root),
         body:has(.friends-page-root) {
-          min-height: 100%;
-          height: auto !important;
-          overflow-x: hidden !important;
-          overflow-y: auto !important;
-          overscroll-behavior-y: contain;
+          height: 100% !important;
+          min-height: 100% !important;
+          overflow: hidden !important;
+          overscroll-behavior-y: none;
         }
 
         body:has(.friends-page-root) {
-          touch-action: pan-y;
+          touch-action: none;
         }
 
         .friends-page-root {
           width: 100%;
+          height: 100svh !important;
+          height: 100dvh !important;
           min-height: 100svh;
           min-height: 100dvh;
-          height: auto !important;
-          max-height: none !important;
+          max-height: 100dvh !important;
           overflow-x: hidden !important;
-          overflow-y: visible !important;
+          overflow-y: auto !important;
           position: relative;
           display: block;
           touch-action: pan-y;
+          overscroll-behavior-y: contain;
           -webkit-overflow-scrolling: touch;
         }
 
         .friends-page-inner {
-          min-height: 100svh;
-          min-height: 100dvh;
+          min-height: 100%;
           box-sizing: border-box;
         }
 
@@ -446,17 +446,18 @@ export default function FriendsListPage() {
         @media (max-width: 760px) {
           html:has(.friends-page-root),
           body:has(.friends-page-root) {
-            overflow-y: auto !important;
-            height: auto !important;
-            max-height: none !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow: hidden !important;
           }
 
           .friends-page-root {
             min-height: 100svh !important;
             min-height: 100dvh !important;
-            height: auto !important;
-            max-height: none !important;
-            overflow-y: visible !important;
+            height: 100svh !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            overflow-y: auto !important;
             align-items: stretch !important;
             padding-bottom: 0 !important;
           }
@@ -464,9 +465,8 @@ export default function FriendsListPage() {
           .friends-page-inner {
             width: 100% !important;
             max-width: 100% !important;
-            min-height: 100svh !important;
-            min-height: 100dvh !important;
-            padding: 14px 10px calc(220px + env(safe-area-inset-bottom)) !important;
+            min-height: 100% !important;
+            padding: 14px 10px calc(260px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
@@ -591,16 +591,18 @@ export default function FriendsListPage() {
 
 const pageStyle: CSSProperties = {
   width: "100%",
-  minHeight: "100svh",
-  height: "auto",
+  minHeight: "100dvh",
+  height: "100dvh",
+  maxHeight: "100dvh",
   overflowX: "hidden",
-  overflowY: "visible",
+  overflowY: "auto",
   position: "relative",
   display: "block",
   background:
     "radial-gradient(circle at 12% 0%, var(--parapost-accent-soft), transparent 35%), radial-gradient(circle at 88% 18%, var(--parapost-accent-muted-bg), transparent 32%), linear-gradient(180deg, #05050b 0%, #07090d 45%, #05050b 100%)",
   color: "#ffffff",
   overscrollBehaviorY: "contain",
+  WebkitOverflowScrolling: "touch",
 };
 
 const backgroundGlowOneStyle: CSSProperties = {
@@ -632,9 +634,9 @@ const pageInnerStyle: CSSProperties = {
   zIndex: 1,
   width: "100%",
   maxWidth: "1180px",
-  minHeight: "100svh",
+  minHeight: "100%",
   margin: "0 auto",
-  padding: "26px 16px calc(180px + env(safe-area-inset-bottom))",
+  padding: "26px 16px calc(200px + env(safe-area-inset-bottom))",
   boxSizing: "border-box",
 };
 
