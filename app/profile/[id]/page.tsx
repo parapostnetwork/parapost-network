@@ -14944,7 +14944,7 @@ return (
                       label="Live Stream"
                       icon="◎"
                       tone="red"
-                      disabled
+                      href="/live"
                     />
                     <ProfileDashboardComposerActionPill
                       label="Feeling / Activity"
