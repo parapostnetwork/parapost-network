@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
@@ -28,6 +28,25 @@ const emptyForm: ProfileSettingsForm = {
   is_private: false,
 };
 
+const AVATAR_BUCKET = "post-images";
+const MAX_AVATAR_MB = 8;
+
+function getSafeAvatarExtension(file: File) {
+  const rawExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  return rawExt.replace(/[^a-z0-9]/g, "") || "jpg";
+}
+
+function getAvatarErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+
+  if (typeof error === "object" && error && "message" in error) {
+    const message = String((error as { message?: unknown }).message || "").trim();
+    if (message) return message;
+  }
+
+  return "Unknown avatar upload error";
+}
+
 
 function getInitial(name?: string | null, username?: string | null) {
   const value = name || username || "P";
@@ -46,6 +65,8 @@ export default function ProfileSettingsPage() {
   const [form, setForm] = useState<ProfileSettingsForm>(emptyForm);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const displayName = useMemo(() => getDisplayName(form, username), [form, username]);
   const bioCharacters = form.bio.trim().length;
@@ -114,8 +135,84 @@ export default function ProfileSettingsPage() {
     };
   }, []);
 
+  const handleAvatarFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!userId || avatarUploading) return;
+
+    const file = event.target.files?.[0] || null;
+
+    if (!file) return;
+
+    setStatusMessage("");
+    setErrorMessage("");
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("Please choose an image file for your avatar.");
+      if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_MB * 1024 * 1024) {
+      setErrorMessage(`Avatar images can be up to ${MAX_AVATAR_MB}MB.`);
+      if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+      return;
+    }
+
+    setAvatarUploading(true);
+
+    try {
+      const safeExt = getSafeAvatarExtension(file);
+      const storagePath = `${userId}/avatars/avatar-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}.${safeExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(storagePath, file, {
+          cacheControl: "604800",
+          upsert: false,
+          contentType: file.type || undefined,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from(AVATAR_BUCKET)
+        .getPublicUrl(storagePath);
+
+      const nextAvatarUrl = publicUrlData.publicUrl;
+
+      if (!nextAvatarUrl) {
+        throw new Error("Avatar uploaded, but no public URL was returned.");
+      }
+
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: nextAvatarUrl })
+        .eq("id", userId)
+        .select("id, avatar_url")
+        .single();
+
+      if (updateError) throw updateError;
+
+      const savedAvatarUrl = updatedProfile?.avatar_url || nextAvatarUrl;
+
+      setForm((prev) => ({
+        ...prev,
+        avatar_url: savedAvatarUrl,
+      }));
+
+      setStatusMessage("Avatar uploaded and saved.");
+    } catch (error) {
+      console.error("Avatar upload error:", error);
+      setErrorMessage(`Avatar upload failed: ${getAvatarErrorMessage(error)}`);
+    } finally {
+      setAvatarUploading(false);
+      if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+    }
+  };
+
   const handleSave = async () => {
-    if (!userId || saving) return;
+    if (!userId || saving || avatarUploading) return;
 
     setSaving(true);
     setStatusMessage("");
@@ -126,16 +223,27 @@ export default function ProfileSettingsPage() {
       const cleanBio = form.bio.trim();
       const cleanAvatarUrl = form.avatar_url.trim();
 
-      const { error } = await supabase
+      const { data: updatedProfile, error } = await supabase
         .from("profiles")
         .update({
           full_name: cleanFullName || null,
           bio: cleanBio || null,
           avatar_url: cleanAvatarUrl || null,
         })
-        .eq("id", userId);
+        .eq("id", userId)
+        .select("full_name, bio, avatar_url")
+        .single();
 
       if (error) throw error;
+
+      if (updatedProfile) {
+        setForm((prev) => ({
+          ...prev,
+          full_name: updatedProfile.full_name || "",
+          bio: updatedProfile.bio || "",
+          avatar_url: updatedProfile.avatar_url || "",
+        }));
+      }
 
       setStatusMessage("Profile settings saved successfully.");
     } catch (error) {
@@ -316,24 +424,58 @@ export default function ProfileSettingsPage() {
                 <div className="mt-2 text-right text-xs font-bold text-slate-500">{bioCharacters}/280</div>
               </label>
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-white/85">Avatar URL</span>
+              <div className="rounded-[24px] border border-white/10 bg-black/25 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-base font-black text-white">Profile Avatar</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      Upload a new avatar and it will save immediately to your profile.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => avatarFileInputRef.current?.click()}
+                    disabled={avatarUploading || !userId}
+                    className="rounded-2xl px-5 py-3 text-sm font-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
+                      color: "var(--parapost-accent-button-text)",
+                      boxShadow: "0 12px 26px var(--parapost-accent-glow)",
+                    }}
+                  >
+                    {avatarUploading ? "Uploading..." : "Upload Avatar"}
+                  </button>
+                </div>
+
                 <input
-                  type="text"
-                  value={form.avatar_url}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      avatar_url: event.target.value,
-                    }))
-                  }
-                  className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none placeholder:text-white/35 focus:border-purple-300/50"
-                  placeholder="Paste image URL"
+                  ref={avatarFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarFileUpload}
+                  className="hidden"
                 />
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  A full avatar upload flow can stay in the profile editor. This field supports a direct image URL when needed.
-                </p>
-              </label>
+
+                <label className="mt-4 block">
+                  <span className="mb-2 block text-sm font-bold text-white/85">Avatar URL</span>
+                  <input
+                    type="text"
+                    value={form.avatar_url}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        avatar_url: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none placeholder:text-white/35 focus:border-purple-300/50"
+                    placeholder="Paste image URL or upload above"
+                  />
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    Upload saves on the first try. The URL field remains available for a direct image link if needed.
+                  </p>
+                </label>
+              </div>
 
               <div className="rounded-[24px] border border-white/10 bg-black/25 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -381,7 +523,7 @@ export default function ProfileSettingsPage() {
                 <button
                   type="button"
                   onClick={handleSave}
-                  disabled={saving || !userId}
+                  disabled={saving || avatarUploading || !userId}
                   className="rounded-2xl px-5 py-3 text-sm font-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                   style={{
                     background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
@@ -389,7 +531,7 @@ export default function ProfileSettingsPage() {
                     boxShadow: "0 12px 26px var(--parapost-accent-glow)",
                   }}
                 >
-                  {saving ? "Saving..." : "Save Changes"}
+                  {saving ? "Saving..." : avatarUploading ? "Avatar Uploading..." : "Save Changes"}
                 </button>
 
                 <button
