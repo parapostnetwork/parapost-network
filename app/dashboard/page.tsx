@@ -9992,14 +9992,13 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
   const creatorName = creatorProfile?.full_name || creatorProfile?.username || "Parapost creator";
   const creatorHandle = creatorProfile?.username || "member";
   const isLive = stream.status === "live";
-  const actionLabel = getDashboardLiveActionLabel(stream);
   const scheduleLabel = isLive
     ? `Started ${formatDashboardLiveDate(stream.started_at || stream.updated_at || stream.created_at)}`
     : `Scheduled ${formatDashboardLiveDate(stream.scheduled_at)}`;
   const providerLabel = stream.provider
     ? stream.provider.charAt(0).toUpperCase() + stream.provider.slice(1)
     : "External stream";
-  const watchUrl = stream.external_url || stream.embed_url || "";
+  const liveEmbedUrl = isLive ? stream.embed_url || "" : "";
 
   return (
     <article
@@ -10069,18 +10068,50 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
             background: "rgba(0,0,0,0.28)",
           }}
         >
-          {stream.thumbnail_url ? (
-            <img
-              src={stream.thumbnail_url}
-              alt=""
+          {isLive && liveEmbedUrl ? (
+            <iframe
+              src={liveEmbedUrl}
+              title={stream.title || "Parapost Live Show"}
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
               style={{
                 width: "100%",
-                maxHeight: 340,
-                objectFit: "cover",
+                aspectRatio: "16 / 9",
+                minHeight: 220,
+                border: 0,
                 display: "block",
                 background: "#05070a",
               }}
             />
+          ) : stream.thumbnail_url ? (
+            <div style={{ position: "relative" }}>
+              <img
+                src={stream.thumbnail_url}
+                alt=""
+                style={{
+                  width: "100%",
+                  maxHeight: 340,
+                  objectFit: "cover",
+                  display: "block",
+                  background: "#05070a",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "flex-end",
+                  padding: 18,
+                  background:
+                    "linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.68))",
+                }}
+              >
+                <strong style={{ color: "#ffffff", fontSize: 18 }}>
+                  {isLive ? "Live now on Parapost" : "Scheduled Live Show"}
+                </strong>
+              </div>
+            </div>
           ) : (
             <div
               style={{
@@ -10124,35 +10155,24 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
           ) : null}
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-            <Link
-              href="/live"
+            <span
               style={{
-                ...followButtonStyle,
-                minHeight: 42,
-                textDecoration: "none",
                 display: "inline-flex",
                 alignItems: "center",
+                minHeight: 38,
+                borderRadius: 999,
+                padding: "9px 13px",
+                color: isLive ? "#dcfce7" : "#fef3c7",
+                background: isLive ? "rgba(34,197,94,0.14)" : "rgba(245,158,11,0.14)",
+                border: isLive ? "1px solid rgba(74,222,128,0.26)" : "1px solid rgba(251,191,36,0.24)",
+                fontSize: 13,
+                fontWeight: 850,
               }}
             >
-              {actionLabel}
-            </Link>
-
-            {watchUrl ? (
-              <a
-                href={watchUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  ...softButtonStyle,
-                  minHeight: 42,
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                Open Stream
-              </a>
-            ) : null}
+              {isLive
+                ? "Live now — watch from this timeline."
+                : "Scheduled — this card will become the live show here when the creator starts it."}
+            </span>
           </div>
         </div>
       </div>

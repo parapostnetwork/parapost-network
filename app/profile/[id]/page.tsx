@@ -131,10 +131,36 @@ type SharedProfilePost = {
   originalCreator: ProfileRow | null;
 };
 
+type ProfileLiveStatus = "draft" | "upcoming" | "live" | "ended" | "cancelled" | string;
+
+type ProfileLiveStream = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  provider: string | null;
+  external_url: string | null;
+  embed_url: string | null;
+  thumbnail_url: string | null;
+  status: ProfileLiveStatus;
+  visibility: string | null;
+  is_hidden: boolean | null;
+  is_featured: boolean | null;
+  scheduled_at: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+const PROFILE_LIVE_SELECT =
+  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at";
+
 type ProfileFeedItem =
   | (Post & { feedKind: "post" })
   | (SharedProfilePost & { feedKind: "shared_post" })
   | (ReelShareProfilePost & { feedKind: "reel_share" })
+  | (ProfileLiveStream & { feedKind: "live_stream" })
   | (ProfileAchievementActivity & { feedKind: "achievement" });
 
 type CountMap = Record<string, number>;
@@ -993,6 +1019,55 @@ function formatTimeAgo(dateString: string) {
 
   const years = Math.floor(days / 365);
   return `${years}y ago`;
+}
+
+
+
+function getProfileLiveTimestamp(stream: {
+  status?: string | null;
+  scheduled_at?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+}) {
+  return (
+    (stream.status === "live" ? stream.started_at : null) ||
+    (stream.status === "upcoming" ? stream.scheduled_at : null) ||
+    stream.updated_at ||
+    stream.created_at ||
+    new Date().toISOString()
+  );
+}
+
+function formatProfileLiveDate(value?: string | null) {
+  if (!value) return "Schedule pending";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Schedule pending";
+
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getProfileLiveStatusLabel(stream: { status?: string | null; scheduled_at?: string | null }) {
+  if (stream.status === "live") return "Live Now";
+
+  if (stream.status === "upcoming" && stream.scheduled_at) {
+    const scheduledTime = new Date(stream.scheduled_at).getTime();
+
+    if (Number.isFinite(scheduledTime)) {
+      const msUntilLive = scheduledTime - Date.now();
+      const twoHours = 2 * 60 * 60 * 1000;
+
+      if (msUntilLive > 0 && msUntilLive <= twoHours) return "Live Soon";
+    }
+  }
+
+  return "Upcoming Live";
 }
 
 
@@ -1935,6 +2010,7 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostPosts, setSharedPostPosts] = useState<SharedProfilePost[]>([]);
   const [sharedReelPosts, setSharedReelPosts] = useState<ReelShareProfilePost[]>([]);
+  const [profileLiveStreams, setProfileLiveStreams] = useState<ProfileLiveStream[]>([]);
   const [reels, setReels] = useState<Reel[]>([]);
   const [likeCounts, setLikeCounts] = useState<CountMap>({});
   const [userLikes, setUserLikes] = useState<ToggleMap>({});
@@ -2309,12 +2385,17 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
       ...share,
       feedKind: "reel_share" as const,
     })),
+    ...profileLiveStreams.map((stream) => ({
+      ...stream,
+      created_at: getProfileLiveTimestamp(stream),
+      feedKind: "live_stream" as const,
+    })),
   ].sort(
     (a, b) =>
       new Date(b.created_at).getTime() -
       new Date(a.created_at).getTime()
   );
-}, [posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity]);
+}, [posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileLiveStreams]);
 
 const showFriendStatus = useCallback((message: string) => {
   setFriendStatusMessage(message);
@@ -2551,6 +2632,7 @@ const closeProfileMobileSearch = useCallback(() => {
       likesResult,
       reelsResult,
       reelSharesResult,
+      liveStreamsResult,
       followersResult,
       outgoingRequestResult,
       incomingRequestResult,
@@ -2619,6 +2701,15 @@ const closeProfileMobileSearch = useCallback(() => {
         .eq("user_id", profileId)
         .order("created_at", { ascending: false })
         .limit(200),
+      supabase
+        .from("live_streams")
+        .select(PROFILE_LIVE_SELECT)
+        .eq("user_id", profileId)
+        .eq("visibility", "public")
+        .eq("is_hidden", false)
+        .in("status", ["upcoming", "live"])
+        .order("scheduled_at", { ascending: true, nullsFirst: false })
+        .limit(50),
       supabase.from("followers").select("follower_id, following_id"),
       nextViewerId && profileId && nextViewerId !== profileId
         ? supabase
@@ -2685,6 +2776,7 @@ const closeProfileMobileSearch = useCallback(() => {
       setPosts([]);
       setSharedPostPosts([]);
       setSharedReelPosts([]);
+      setProfileLiveStreams([]);
       setReels([]);
       setProfileBadges([]);
       setProfileBadgesLoading(false);
@@ -2780,6 +2872,21 @@ const closeProfileMobileSearch = useCallback(() => {
       setReels([]);
     } else {
       setReels((reelsResult.data as Reel[]) || []);
+    }
+
+    if (liveStreamsResult.error) {
+      console.warn("Could not load profile live streams:", liveStreamsResult.error.message);
+      setProfileLiveStreams([]);
+    } else {
+      const nextProfileLiveStreams = ((liveStreamsResult.data as ProfileLiveStream[]) || [])
+        .filter((stream) => Boolean(stream.id && stream.user_id))
+        .filter((stream) => stream.status === "upcoming" || stream.status === "live")
+        .map((stream) => ({
+          ...stream,
+          created_at: getProfileLiveTimestamp(stream),
+        }));
+
+      setProfileLiveStreams(nextProfileLiveStreams);
     }
 
     if (reelSharesResult.error) {
@@ -3308,6 +3415,25 @@ useEffect(() => {
       supabase.removeChannel(channel);
     };
   }, [viewerId, profileId, loadPage]);
+
+  useEffect(() => {
+    if (!profileId) return;
+
+    const channel = supabase
+      .channel(`profile-live-streams-${profileId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_streams", filter: `user_id=eq.${profileId}` },
+        async () => {
+          await loadPage();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profileId, loadPage]);
 
   const handleRemoveSharedReel = async (shareId: string) => {
     if (!viewerId || !isOwnProfile) return;
@@ -15025,6 +15151,7 @@ return (
                       <span style={feedCountPillStyle}>{posts.length} Posts</span>
                       <span style={feedCountPillStyle}>{sharedPostPosts.length} Post Shares</span>
                       <span style={feedCountPillStyle}>{sharedReelPosts.length} Reel Shares</span>
+                      <span style={feedCountPillStyle}>{profileLiveStreams.length} Live Shows</span>
                       <Link
                         href="/dashboard"
                         style={profileFeedBackButtonStyle}
@@ -15071,6 +15198,202 @@ return (
                   ) : (
                     <div className="profile-feed-stack profile-feed-list-all-posts" style={feedStackStyle}>
                       {profileFeedItems.map((item) => {
+                        if (item.feedKind === "live_stream") {
+                          const isLive = item.status === "live";
+                          const liveEmbedUrl = isLive ? item.embed_url || "" : "";
+                          const scheduleLabel = isLive
+                            ? `Started ${formatProfileLiveDate(item.started_at || item.updated_at || item.created_at)}`
+                            : `Scheduled ${formatProfileLiveDate(item.scheduled_at)}`;
+
+                          return (
+                            <article
+                              key={`profile-live-${item.id}`}
+                              className={`profile-feed-card profile-live-feed-card ${isLive ? "profile-live-feed-card-live" : "profile-live-feed-card-upcoming"}`}
+                              style={{
+                                ...postCardStyle,
+                                position: "relative",
+                                overflow: "hidden",
+                                borderColor: isLive ? "rgba(74,222,128,0.38)" : "rgba(251,191,36,0.26)",
+                                boxShadow: isLive
+                                  ? "0 22px 54px rgba(0,0,0,0.34), 0 0 34px rgba(34,197,94,0.12)"
+                                  : "0 18px 46px rgba(0,0,0,0.30), 0 0 28px rgba(245,158,11,0.10)",
+                              }}
+                            >
+                              <div
+                                aria-hidden="true"
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  background: isLive
+                                    ? "radial-gradient(circle at 18% 0%, rgba(34,197,94,0.20), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%)"
+                                    : "radial-gradient(circle at 18% 0%, rgba(245,158,11,0.18), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 16%, transparent), transparent 34%)",
+                                  pointerEvents: "none",
+                                }}
+                              />
+
+                              <div style={{ position: "relative", zIndex: 1 }}>
+                                <header style={postHeaderStyle}>
+                                  <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
+                                    {profile?.avatar_url ? (
+                                      <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                    ) : (
+                                      <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
+                                    )}
+                                  </div>
+
+                                  <div style={postAuthorTextStyle}>
+                                    <strong style={postAuthorNameStyle}>
+                                      {profileDisplayName || "Parapost Member"}
+                                    </strong>
+                                    <span style={postMetaStyle}>
+                                      @{profileDisplayUsername || "new-member"} {isLive ? "is live now" : "scheduled a live show"} · {formatTimeAgo(item.created_at)}
+                                    </span>
+                                  </div>
+
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 7,
+                                      padding: "7px 10px",
+                                      borderRadius: 999,
+                                      color: isLive ? "#dcfce7" : "#fef3c7",
+                                      background: isLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
+                                      border: isLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
+                                      fontSize: 12,
+                                      fontWeight: 900,
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.05em",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {isLive ? "●" : "◎"} {getProfileLiveStatusLabel(item)}
+                                  </span>
+                                </header>
+
+                                <div
+                                  style={{
+                                    marginTop: 14,
+                                    borderRadius: 24,
+                                    overflow: "hidden",
+                                    border: "1px solid rgba(255,255,255,0.12)",
+                                    background: "rgba(0,0,0,0.28)",
+                                  }}
+                                >
+                                  {isLive && liveEmbedUrl ? (
+                                    <iframe
+                                      src={liveEmbedUrl}
+                                      title={item.title || "Parapost Live Show"}
+                                      allow="autoplay; fullscreen; picture-in-picture"
+                                      allowFullScreen
+                                      style={{
+                                        width: "100%",
+                                        aspectRatio: "16 / 9",
+                                        minHeight: 220,
+                                        border: 0,
+                                        display: "block",
+                                        background: "#05070a",
+                                      }}
+                                    />
+                                  ) : item.thumbnail_url ? (
+                                    <div style={{ position: "relative" }}>
+                                      <img
+                                        src={item.thumbnail_url}
+                                        alt=""
+                                        style={{
+                                          width: "100%",
+                                          maxHeight: 340,
+                                          objectFit: "cover",
+                                          display: "block",
+                                          background: "#05070a",
+                                        }}
+                                      />
+                                      <div
+                                        style={{
+                                          position: "absolute",
+                                          inset: 0,
+                                          display: "flex",
+                                          alignItems: "flex-end",
+                                          padding: 18,
+                                          background:
+                                            "linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.68))",
+                                        }}
+                                      >
+                                        <strong style={{ color: "#ffffff", fontSize: 18 }}>
+                                          {isLive ? "Live now on Parapost" : "Scheduled Live Show"}
+                                        </strong>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      style={{
+                                        minHeight: 190,
+                                        display: "grid",
+                                        placeItems: "center",
+                                        textAlign: "center",
+                                        padding: 24,
+                                        background:
+                                          "linear-gradient(135deg, color-mix(in srgb, var(--parapost-accent, #a855f7) 20%, rgba(255,255,255,0.05)), rgba(0,0,0,0.48))",
+                                      }}
+                                    >
+                                      <div>
+                                        <div style={{ fontSize: 46, marginBottom: 8 }}>LIVE</div>
+                                        <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>
+                                          {item.provider ? item.provider.charAt(0).toUpperCase() + item.provider.slice(1) : "External stream"}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div style={{ marginTop: 14 }}>
+                                  <div
+                                    style={{
+                                      color: isLive ? "#bbf7d0" : "#fde68a",
+                                      fontSize: 12,
+                                      fontWeight: 900,
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.08em",
+                                      marginBottom: 7,
+                                    }}
+                                  >
+                                    {scheduleLabel}
+                                  </div>
+
+                                  <h3 style={{ margin: 0, color: "#ffffff", fontSize: "1.25rem", lineHeight: 1.18, letterSpacing: "-0.035em" }}>
+                                    {item.title || "Parapost Live Show"}
+                                  </h3>
+
+                                  {item.description ? (
+                                    <p style={{ ...postContentStyle, marginTop: 10 }}>{renderLinkedText(item.description)}</p>
+                                  ) : null}
+
+                                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        minHeight: 38,
+                                        borderRadius: 999,
+                                        padding: "9px 13px",
+                                        color: isLive ? "#dcfce7" : "#fef3c7",
+                                        background: isLive ? "rgba(34,197,94,0.14)" : "rgba(245,158,11,0.14)",
+                                        border: isLive ? "1px solid rgba(74,222,128,0.26)" : "1px solid rgba(251,191,36,0.24)",
+                                        fontSize: 13,
+                                        fontWeight: 850,
+                                      }}
+                                    >
+                                      {isLive
+                                        ? "Live now — watch from this profile timeline."
+                                        : "Scheduled — this card will become the live show here when the creator starts it."}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </article>
+                          );
+                        }
+
                         if (item.feedKind === "reel_share") {
                           const creatorName =
                             item.originalCreator?.full_name ||
