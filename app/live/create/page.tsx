@@ -21,8 +21,15 @@ type LiveStreamRow = {
   description: string | null;
   provider: LiveProvider | string | null;
   external_url: string | null;
+  embed_url: string | null;
+  thumbnail_url: string | null;
+  visibility: "private" | "friends" | "public" | string | null;
+  is_hidden: boolean | null;
+  is_featured: boolean | null;
   scheduled_at: string | null;
   status: string | null;
+  started_at: string | null;
+  ended_at: string | null;
 };
 
 const PROVIDERS: { value: LiveProvider; label: string }[] = [
@@ -62,6 +69,17 @@ function safeUrl(value: string) {
   } catch {
     return null;
   }
+}
+
+function extractEmbedUrl(value: string) {
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const iframeSrcMatch = raw.match(/src=["']([^"']+)["']/i);
+  const candidate = iframeSrcMatch?.[1] || raw;
+  const url = safeUrl(candidate);
+
+  return url ? url.toString() : null;
 }
 
 function getYoutubeVideoId(url: URL) {
@@ -136,7 +154,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
       externalUrl: url.toString(),
       embedUrl: `https://player.twitch.tv/?channel=${encodeURIComponent(twitchChannel)}`,
       thumbnailUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${encodeURIComponent(twitchChannel)}-640x360.jpg`,
-      helper: "Twitch channel detected. Parapost will use TwitchÃ¢â‚¬â„¢s live preview image when available.",
+      helper: "Twitch channel detected. Parapost will use Twitch's live preview image when available.",
     };
   }
 
@@ -150,10 +168,20 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
     };
   }
 
+  if (host.includes("streamyard.com")) {
+    return {
+      provider: "streamyard",
+      externalUrl: url.toString(),
+      embedUrl: url.toString(),
+      thumbnailUrl: null,
+      helper: "StreamYard link detected. Parapost will save it as both the external watch link and the embed URL. If StreamYard gives you iframe code, paste it in the Embed URL field below.",
+    };
+  }
+
   return {
     provider,
     externalUrl: url.toString(),
-    embedUrl: null,
+    embedUrl: provider === "streamyard" ? url.toString() : null,
     thumbnailUrl: null,
     helper: "External link saved. Parapost will show a polished fallback Live cover for unsupported providers.",
   };
@@ -161,11 +189,13 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
 
 export default function CreateLiveDraftPage() {
   const [editingStreamId, setEditingStreamId] = useState("");
+  const [existingStream, setExistingStream] = useState<LiveStreamRow | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [provider, setProvider] = useState<LiveProvider>("youtube");
   const [externalUrl, setExternalUrl] = useState("");
+  const [embedUrlInput, setEmbedUrlInput] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -213,7 +243,7 @@ export default function CreateLiveDraftPage() {
 
       const { data, error: loadError } = await supabase
         .from("live_streams")
-        .select("id, user_id, title, description, provider, external_url, scheduled_at, status")
+        .select("id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, visibility, is_hidden, is_featured, scheduled_at, status, started_at, ended_at")
         .eq("id", editingStreamId)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -227,10 +257,12 @@ export default function CreateLiveDraftPage() {
       }
 
       const stream = data as LiveStreamRow;
+      setExistingStream(stream);
       setTitle(stream.title || "");
       setDescription(stream.description || "");
       setProvider((stream.provider as LiveProvider) || "youtube");
       setExternalUrl(stream.external_url || "");
+      setEmbedUrlInput(stream.embed_url || "");
       setScheduledAt(toDateTimeLocal(stream.scheduled_at));
       setLoadingExisting(false);
     };
@@ -266,30 +298,36 @@ export default function CreateLiveDraftPage() {
     setSaving(true);
 
     const scheduledValue = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+    const manualEmbedUrl = extractEmbedUrl(embedUrlInput);
+    const nextEmbedUrl =
+      manualEmbedUrl ||
+      detectedMeta.embedUrl ||
+      (detectedMeta.provider === "streamyard" ? detectedMeta.externalUrl : null);
 
-    const payload = {
+    const basePayload = {
       title: cleanTitle,
       description: description.trim() || null,
       provider: detectedMeta.provider,
       external_url: detectedMeta.externalUrl,
-      embed_url: detectedMeta.embedUrl,
+      embed_url: nextEmbedUrl,
       thumbnail_url: detectedMeta.thumbnailUrl,
-      visibility: "private",
-      is_hidden: true,
-      is_featured: false,
       scheduled_at: scheduledValue,
+      updated_at: new Date().toISOString(),
     };
 
     const result = isEditing
       ? await supabase
           .from("live_streams")
-          .update(payload)
+          .update(basePayload)
           .eq("id", editingStreamId)
           .eq("user_id", user.id)
       : await supabase.from("live_streams").insert({
-          ...payload,
+          ...basePayload,
           user_id: user.id,
           status: "draft",
+          visibility: "private",
+          is_hidden: true,
+          is_featured: false,
           started_at: null,
           ended_at: null,
         });
@@ -301,12 +339,13 @@ export default function CreateLiveDraftPage() {
       return;
     }
 
-    setMessage(isEditing ? "Hidden Parapost Live draft updated." : "Hidden Parapost Live draft created. It is private, hidden, and not publicly launched.");
+    setMessage(isEditing ? "Parapost Live show updated. Published shows stay public and visible after editing." : "Hidden Parapost Live draft created. It is private, hidden, and not publicly launched.");
 
     if (!isEditing) {
       setTitle("");
       setDescription("");
       setExternalUrl("");
+      setEmbedUrlInput("");
       setScheduledAt("");
     }
   };
@@ -318,9 +357,9 @@ export default function CreateLiveDraftPage() {
           <div style={badgeStyle}>Creator setup</div>
           <h1 style={titleStyle}>{isEditing ? "Edit Live Draft" : "Create Live Show"}</h1>
           <p style={subtitleStyle}>
-            {isEditing ? "Save your changes. Publish the show from the Live hub when it is ready." : "This saves the show privately. Publish it from the Live hub when it is ready."} Parapost will not provide RTMP, host video, encode video,
+            {isEditing ? "Save your changes without hiding a show that is already public." : "This saves the show privately. Publish it from the Live hub when it is ready."} Parapost will not provide RTMP, host video, encode video,
             store recordings, or deliver live-stream bandwidth. The public Live hub displays
-            safe external embeds from providers like YouTube or Twitch.
+            safe external embeds from providers like YouTube, Twitch, and supported StreamYard On-Air links.
           </p>
 
           <div style={heroActionsStyle} className="parapost-live-create-hero-actions">
@@ -384,14 +423,23 @@ export default function CreateLiveDraftPage() {
             <input
               value={externalUrl}
               onChange={(event) => setExternalUrl(event.target.value)}
-              placeholder="Paste a future YouTube or Twitch live link. Leave blank for a draft."
+              placeholder="Paste a future YouTube, Twitch, StreamYard, or external live link. Leave blank for a draft."
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={labelStyle}>
+            Embed URL / iframe code
+            <input
+              value={embedUrlInput}
+              onChange={(event) => setEmbedUrlInput(event.target.value)}
+              placeholder="Optional: paste StreamYard iframe code or an embed URL for inline playback."
               style={inputStyle}
             />
           </label>
 
           <p style={helperStyle}>
-            StreamYard should send the actual live video to YouTube/Twitch/etc. Parapost only stores
-            the link, safe embed metadata, and a thumbnail URL when one can be detected.
+            StreamYard On-Air links are saved to both the external link and embed field by default. If StreamYard gives you iframe code, paste it above so Dashboard and Profile can use the inline player.
           </p>
 
           <div style={previewWrapStyle} className="parapost-live-create-preview">
@@ -415,6 +463,9 @@ export default function CreateLiveDraftPage() {
               <strong style={{ color: "#fff" }}>Automatic thumbnail preview</strong>
               <span>{detectedMeta.helper}</span>
               <span>
+                Saved embed URL: {extractEmbedUrl(embedUrlInput) || detectedMeta.embedUrl || (detectedMeta.provider === "streamyard" && detectedMeta.externalUrl) ? "Yes" : "No"}
+              </span>
+              <span>
                 Saved thumbnail URL: {detectedMeta.thumbnailUrl ? "Yes" : "Fallback card until supported link is added"}
               </span>
             </div>
@@ -423,8 +474,14 @@ export default function CreateLiveDraftPage() {
           <div style={safetyBoxStyle}>
             <strong>Hidden safety settings</strong>
             <span>
-              {isEditing ? "This update keeps the record hidden/private and does not launch Live publicly." : <>This draft saves as <b>status: draft</b>, <b>visibility: private</b>, and <b>is_hidden: true</b>.</>}
-              No public Live launch, no RTMP, no video hosting.
+              {isEditing ? (
+                existingStream?.visibility === "public" && !existingStream?.is_hidden
+                  ? "This update keeps the show public and visible on the Live hub, dashboard timeline, and profile timeline."
+                  : "This update preserves the current draft/private state. Publish it from the Live hub when it is ready."
+              ) : (
+                <>This draft saves as <b>status: draft</b>, <b>visibility: private</b>, and <b>is_hidden: true</b>.</>
+              )}
+              No RTMP and no video hosting inside Parapost.
             </span>
           </div>
 
