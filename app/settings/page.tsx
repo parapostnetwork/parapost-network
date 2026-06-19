@@ -550,7 +550,7 @@ export default function SettingsPage() {
                 <div className="min-w-0">
                   <p className="text-lg font-black leading-tight text-white">Log out</p>
                   <p className="mt-1.5 max-w-2xl text-sm leading-6 text-red-50/55">
-                    Sign out of this Parapost account on this device. This option is placed here for easy access across desktop, tablet, iOS, and Android.
+                    Sign out of Parapost Network. You can log back in anytime with your email and password.
                   </p>
                 </div>
 
