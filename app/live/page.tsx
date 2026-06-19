@@ -86,11 +86,11 @@ function getOwnerHint(stream: LiveStreamRow) {
   const isPublished = stream.visibility === "public" && !stream.is_hidden;
 
   if (stream.status === "live" && isPublished) {
-    return "This show is visible in the Live hub. Remember to stop the outside stream separately when the show ends.";
+    return "This show is visible in the Live hub, dashboard timeline, and your profile timeline. Remember to stop the outside stream separately when the show ends.";
   }
 
   if (stream.status === "upcoming" && isPublished) {
-    return "This scheduled show is visible in the Live hub.";
+    return "This scheduled show is visible in the Live hub, dashboard timeline, and your profile timeline.";
   }
 
   if (stream.status === "ended" && isPublished) {
@@ -298,7 +298,7 @@ export default function ParapostLivePage() {
         ended_at: null,
       },
       "Publish this show in the Parapost Live hub as an upcoming event?",
-      "The show is now published in the Parapost Live hub as Upcoming."
+      "The show is now published as Upcoming in the Live hub, dashboard timeline, and your profile timeline."
     );
   };
 
@@ -313,7 +313,7 @@ export default function ParapostLivePage() {
         ended_at: null,
       },
       "Publish this show and mark it Live on Parapost now?",
-      "The show is now public and marked Live on Parapost. Start or confirm the outside stream separately."
+      "The show is now public and marked Live on Parapost. It will appear live on the dashboard timeline and your profile timeline. Start or confirm the outside stream separately."
     );
   };
 
@@ -326,7 +326,7 @@ export default function ParapostLivePage() {
         ended_at: null,
       },
       "Mark this published show Live on Parapost now?",
-      "The show is now marked Live on Parapost. Start or confirm the outside stream separately."
+      "The show is now marked Live on Parapost. It will appear live on the dashboard timeline and your profile timeline. Start or confirm the outside stream separately."
     );
   };
 
