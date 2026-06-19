@@ -142,10 +142,37 @@ type SharedPostItem = {
   original_post: Post;
 };
 
+type DashboardLiveStatus = "draft" | "upcoming" | "live" | "ended" | "cancelled" | string;
+
+type DashboardLiveStreamItem = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  provider: string | null;
+  external_url: string | null;
+  embed_url: string | null;
+  thumbnail_url: string | null;
+  status: DashboardLiveStatus;
+  visibility: string | null;
+  is_hidden: boolean | null;
+  is_featured: boolean | null;
+  scheduled_at: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+  profile: ProfilePreview | null;
+};
+
+const DASHBOARD_LIVE_SELECT =
+  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at";
+
 type MixedFeedItem =
   | { type: "post"; id: string; created_at: string; post: Post }
   | { type: "shared_post"; id: string; created_at: string; sharedPost: SharedPostItem }
-  | { type: "reel_share"; id: string; created_at: string; share: SharedReelItem };
+  | { type: "reel_share"; id: string; created_at: string; share: SharedReelItem }
+  | { type: "live_stream"; id: string; created_at: string; liveStream: DashboardLiveStreamItem };
 
 type FeedMode = "for_you" | "friends" | "following";
 
@@ -335,6 +362,57 @@ function logDashboardNetworkIssue(label: string, error: unknown) {
   if (isDashboardFetchFailure(error)) return;
 
   console.warn(`${label}: ${message}`);
+}
+
+function getDashboardLiveTimestamp(stream: {
+  status?: string | null;
+  scheduled_at?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+}) {
+  return (
+    (stream.status === "live" ? stream.started_at : null) ||
+    (stream.status === "upcoming" ? stream.scheduled_at : null) ||
+    stream.updated_at ||
+    stream.created_at ||
+    new Date().toISOString()
+  );
+}
+
+function formatDashboardLiveDate(value?: string | null) {
+  if (!value) return "Schedule pending";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Schedule pending";
+
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getDashboardLiveStatusLabel(stream: { status?: string | null; scheduled_at?: string | null }) {
+  if (stream.status === "live") return "Live Now";
+
+  if (stream.status === "upcoming" && stream.scheduled_at) {
+    const scheduledTime = new Date(stream.scheduled_at).getTime();
+
+    if (Number.isFinite(scheduledTime)) {
+      const msUntilLive = scheduledTime - Date.now();
+      const twoHours = 2 * 60 * 60 * 1000;
+
+      if (msUntilLive > 0 && msUntilLive <= twoHours) return "Live Soon";
+    }
+  }
+
+  return "Upcoming Live";
+}
+
+function getDashboardLiveActionLabel(stream: { status?: string | null }) {
+  return stream.status === "live" ? "Watch Live" : "View Live Show";
 }
 
 const ONLINE_STATUS_TIMEOUT_MS = 3 * 60 * 1000;
@@ -874,7 +952,9 @@ function buildDashboardTrendingTopics(items: MixedFeedItem[]) {
         ? item.post.content || ""
         : item.type === "shared_post"
           ? [item.sharedPost.caption, item.sharedPost.original_post.content].filter(Boolean).join(" ")
-          : [item.share.caption, item.share.reel_title, item.share.reel_caption].filter(Boolean).join(" ");
+          : item.type === "reel_share"
+            ? [item.share.caption, item.share.reel_title, item.share.reel_caption].filter(Boolean).join(" ")
+            : [item.liveStream.title, item.liveStream.description].filter(Boolean).join(" ");
 
     const hashtags = text.match(/#[a-zA-Z0-9_]{3,}/g) || [];
     hashtags.forEach((tag) => addTrendCandidate(trendMap, tag, latestTime, "hashtag"));
@@ -1386,6 +1466,7 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostItems, setSharedPostItems] = useState<SharedPostItem[]>([]);
   const [sharedReelItems, setSharedReelItems] = useState<SharedReelItem[]>([]);
+  const [liveFeedStreams, setLiveFeedStreams] = useState<DashboardLiveStreamItem[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
   const [currentProfile, setCurrentProfile] = useState<ProfilePreview | null>(null);
   const [currentUserId, setCurrentUserId] = useState("");
@@ -1473,6 +1554,13 @@ export default function DashboardPage() {
         !blockedUserIds.includes(share.reel_user_id) &&
         !blockedUserIds.includes(share.creator_profile_id || "")
     );
+    const visibleLiveStreamItemsForViewer = liveFeedStreams.filter(
+      (stream) =>
+        !blockedUserIds.includes(stream.user_id) &&
+        stream.visibility === "public" &&
+        !stream.is_hidden &&
+        (stream.status === "upcoming" || stream.status === "live")
+    );
 
     const postItems = visiblePostsForViewer.map((post) => ({
       type: "post" as const,
@@ -1495,22 +1583,43 @@ export default function DashboardPage() {
       share,
     }));
 
-    return [...postItems, ...sharedPostFeedItems, ...reelShareItems].sort(
+    const liveStreamItems = visibleLiveStreamItemsForViewer.map((liveStream) => ({
+      type: "live_stream" as const,
+      id: liveStream.id,
+      created_at: getDashboardLiveTimestamp(liveStream),
+      liveStream,
+    }));
+
+    return [...postItems, ...sharedPostFeedItems, ...reelShareItems, ...liveStreamItems].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [blockedUserIds, posts, sharedPostItems, sharedReelItems]);
+  }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, sharedReelItems]);
 
   const filteredFeedItems = useMemo(() => {
     if (feedMode === "friends" && currentUserId) {
       return mixedFeedItems.filter((item) => {
-        const authorId = item.type === "post" ? item.post.user_id : item.type === "shared_post" ? item.sharedPost.user_id : item.share.user_id;
+        const authorId =
+          item.type === "post"
+            ? item.post.user_id
+            : item.type === "shared_post"
+              ? item.sharedPost.user_id
+              : item.type === "reel_share"
+                ? item.share.user_id
+                : item.liveStream.user_id;
         return acceptedFriendUserIds.includes(authorId);
       });
     }
 
     if (feedMode === "following" && currentUserId) {
       return mixedFeedItems.filter((item) => {
-        const authorId = item.type === "post" ? item.post.user_id : item.type === "shared_post" ? item.sharedPost.user_id : item.share.user_id;
+        const authorId =
+          item.type === "post"
+            ? item.post.user_id
+            : item.type === "shared_post"
+              ? item.sharedPost.user_id
+              : item.type === "reel_share"
+                ? item.share.user_id
+                : item.liveStream.user_id;
         return followedUserIds.includes(authorId);
       });
     }
@@ -2156,6 +2265,53 @@ export default function DashboardPage() {
     return nextShared;
   }, []);
 
+  const fetchLiveFeedStreams = useCallback(async (blockedIds: string[] = []) => {
+    const { data, error } = await supabase
+      .from("live_streams")
+      .select(DASHBOARD_LIVE_SELECT)
+      .eq("visibility", "public")
+      .eq("is_hidden", false)
+      .in("status", ["upcoming", "live"])
+      .order("scheduled_at", { ascending: true, nullsFirst: false })
+      .limit(80);
+
+    if (error) {
+      console.error("Error fetching live feed streams:", error.message);
+      setLiveFeedStreams([]);
+      return [] as DashboardLiveStreamItem[];
+    }
+
+    const streamRows = ((data || []) as Omit<DashboardLiveStreamItem, "profile">[])
+      .filter((stream) => Boolean(stream.id && stream.user_id))
+      .filter((stream) => !blockedIds.includes(stream.user_id))
+      .filter((stream) => stream.status === "upcoming" || stream.status === "live");
+
+    const liveProfileIds = [...new Set(streamRows.map((stream) => stream.user_id).filter(Boolean))];
+
+    let liveProfiles: ProfilePreview[] = [];
+
+    if (liveProfileIds.length > 0) {
+      const { data: profileRows, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+        .in("id", liveProfileIds);
+
+      if (!profileError) {
+        liveProfiles = (profileRows as ProfilePreview[]) || [];
+      }
+    }
+
+    const liveProfileMap = new Map(liveProfiles.map((profile) => [profile.id, profile]));
+
+    const nextStreams = streamRows.map((stream) => ({
+      ...stream,
+      profile: liveProfileMap.get(stream.user_id) || null,
+    })) as DashboardLiveStreamItem[];
+
+    setLiveFeedStreams(nextStreams);
+    return nextStreams;
+  }, []);
+
   const fetchDashboardData = useCallback(async (showFeedLoading = false) => {
     if (dashboardRefreshInFlightRef.current) return;
 
@@ -2237,6 +2393,7 @@ export default function DashboardPage() {
     const visiblePosts = attachImagesToPosts(visiblePostsBase, postImagesMap);
     const visibleSharedPosts = await fetchSharedPosts(blockedIds);
     const visibleShared = await fetchSharedReels(blockedIds);
+    const visibleLiveStreams = await fetchLiveFeedStreams(blockedIds);
 
     setPosts(visiblePosts);
 
@@ -2248,6 +2405,7 @@ export default function DashboardPage() {
       ...visibleShared.map((share) => share.user_id),
       ...visibleShared.map((share) => share.reel_user_id),
       ...visibleShared.map((share) => share.creator_profile_id || ""),
+      ...visibleLiveStreams.map((stream) => stream.user_id),
     ];
 
     const countPostIds = [
@@ -2267,7 +2425,7 @@ export default function DashboardPage() {
       dashboardRefreshInFlightRef.current = false;
       setFetchingPosts(false);
     }
-  }, [fetchCounts, fetchFollowData, fetchFriendShowcases, fetchNotifications, fetchPeopleToDiscover, fetchProfileMap, fetchRecentlyViewed, fetchSharedPosts, fetchSharedReels]);
+  }, [fetchCounts, fetchFollowData, fetchFriendShowcases, fetchLiveFeedStreams, fetchNotifications, fetchPeopleToDiscover, fetchProfileMap, fetchRecentlyViewed, fetchSharedPosts, fetchSharedReels]);
 
   useEffect(() => {
     void fetchDashboardData(true);
@@ -2394,6 +2552,7 @@ export default function DashboardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "profile_showcases" }, schedulePulseRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_streams" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "recently_viewed_profiles" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "blocked_users" }, schedulePulseRefresh)
       .subscribe();
@@ -3801,7 +3960,9 @@ export default function DashboardPage() {
 
                     return (
                       <div key={`feed-item-${item.type}-${item.id}`} style={{ display: "contents" }}>
-                        {item.type === "post" ? (
+                        {item.type === "live_stream" ? (
+                          <DashboardLiveStreamCard stream={item.liveStream} />
+                        ) : item.type === "post" ? (
                           <PostCard
                             post={item.post}
                             profile={profilesMap[item.post.user_id]}
@@ -9823,6 +9984,179 @@ function MiniFeedStat({ label, value }: { label: string; value: number }) {
       <strong style={miniFeedStatValueStyle}>{value}</strong>
       <span style={miniFeedStatLabelStyle}>{label}</span>
     </div>
+  );
+}
+
+function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }) {
+  const creatorProfile = stream.profile;
+  const creatorName = creatorProfile?.full_name || creatorProfile?.username || "Parapost creator";
+  const creatorHandle = creatorProfile?.username || "member";
+  const isLive = stream.status === "live";
+  const actionLabel = getDashboardLiveActionLabel(stream);
+  const scheduleLabel = isLive
+    ? `Started ${formatDashboardLiveDate(stream.started_at || stream.updated_at || stream.created_at)}`
+    : `Scheduled ${formatDashboardLiveDate(stream.scheduled_at)}`;
+  const providerLabel = stream.provider
+    ? stream.provider.charAt(0).toUpperCase() + stream.provider.slice(1)
+    : "External stream";
+  const watchUrl = stream.external_url || stream.embed_url || "";
+
+  return (
+    <article
+      className={`dashboard-live-feed-card ${isLive ? "dashboard-live-feed-card-live" : "dashboard-live-feed-card-upcoming"}`}
+      style={{
+        ...postCardStyle,
+        position: "relative",
+        overflow: "hidden",
+        borderColor: isLive ? "rgba(74,222,128,0.38)" : "rgba(251,191,36,0.26)",
+        boxShadow: isLive
+          ? "0 20px 58px rgba(0,0,0,0.34), 0 0 34px rgba(34,197,94,0.12)"
+          : "0 18px 46px rgba(0,0,0,0.30), 0 0 28px rgba(245,158,11,0.10)",
+      }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: isLive
+            ? "radial-gradient(circle at 18% 0%, rgba(34,197,94,0.20), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%)"
+            : "radial-gradient(circle at 18% 0%, rgba(245,158,11,0.18), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 16%, transparent), transparent 34%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <header style={{ ...postHeaderStyle, alignItems: "flex-start" }}>
+          <Avatar profile={creatorProfile} size={48} href={`/profile/${stream.user_id}`} />
+
+          <div style={{ minWidth: 0, flex: "1 1 auto" }}>
+            <Link href={`/profile/${stream.user_id}`} style={postAuthorNameStyle}>
+              {creatorName}
+            </Link>
+            <span style={postMetaStyle}>
+              @{creatorHandle} · {isLive ? "is live now" : "scheduled a live show"}
+            </span>
+          </div>
+
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "7px 10px",
+              borderRadius: 999,
+              color: isLive ? "#dcfce7" : "#fef3c7",
+              background: isLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
+              border: isLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
+              fontSize: 12,
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {isLive ? "●" : "◎"} {getDashboardLiveStatusLabel(stream)}
+          </span>
+        </header>
+
+        <div
+          style={{
+            marginTop: 14,
+            borderRadius: 24,
+            overflow: "hidden",
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(0,0,0,0.28)",
+          }}
+        >
+          {stream.thumbnail_url ? (
+            <img
+              src={stream.thumbnail_url}
+              alt=""
+              style={{
+                width: "100%",
+                maxHeight: 340,
+                objectFit: "cover",
+                display: "block",
+                background: "#05070a",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                minHeight: 190,
+                display: "grid",
+                placeItems: "center",
+                textAlign: "center",
+                padding: 24,
+                background:
+                  "linear-gradient(135deg, color-mix(in srgb, var(--parapost-accent, #a855f7) 20%, rgba(255,255,255,0.05)), rgba(0,0,0,0.48))",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 46, marginBottom: 8 }}>{isLive ? "LIVE" : "LIVE"}</div>
+                <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>{providerLabel}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <div
+            style={{
+              color: isLive ? "#bbf7d0" : "#fde68a",
+              fontSize: 12,
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              marginBottom: 7,
+            }}
+          >
+            {scheduleLabel}
+          </div>
+
+          <h3 style={{ margin: 0, color: "#ffffff", fontSize: "1.25rem", lineHeight: 1.18, letterSpacing: "-0.035em" }}>
+            {stream.title || "Parapost Live Show"}
+          </h3>
+
+          {stream.description ? (
+            <p style={{ ...postContentStyle, marginTop: 10 }}>{stream.description}</p>
+          ) : null}
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+            <Link
+              href="/live"
+              style={{
+                ...followButtonStyle,
+                minHeight: 42,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              {actionLabel}
+            </Link>
+
+            {watchUrl ? (
+              <a
+                href={watchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  ...softButtonStyle,
+                  minHeight: 42,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                Open Stream
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }
 
