@@ -1030,11 +1030,14 @@ function getProfileLiveTimestamp(stream: {
   updated_at?: string | null;
   created_at?: string | null;
 }) {
+  // Timeline order should feel like Facebook:
+  // scheduled Live cards appear where they were published/updated,
+  // then jump to the top when the creator actually starts the show.
   return (
-    (stream.status === "live" ? stream.started_at : null) ||
-    (stream.status === "upcoming" ? stream.scheduled_at : null) ||
+    (stream.status === "live" ? stream.started_at || stream.updated_at : null) ||
     stream.updated_at ||
     stream.created_at ||
+    stream.scheduled_at ||
     new Date().toISOString()
   );
 }
@@ -2708,7 +2711,8 @@ const closeProfileMobileSearch = useCallback(() => {
         .eq("visibility", "public")
         .eq("is_hidden", false)
         .in("status", ["upcoming", "live"])
-        .order("scheduled_at", { ascending: true, nullsFirst: false })
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
         .limit(50),
       supabase.from("followers").select("follower_id, following_id"),
       nextViewerId && profileId && nextViewerId !== profileId
