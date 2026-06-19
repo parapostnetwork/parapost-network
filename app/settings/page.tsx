@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -42,7 +43,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         eyebrow: "Account",
         title: "Account & Security",
         description: "Manage your signed-in account, email, password reset, sign out, and security tools.",
-        items: ["Signed-in account", "Email & password", "Password reset", "Sign out"],
+        items: ["Signed-in account", "Email & password", "Password reset", "Log out", "Sign out"],
         href: "/settings/account",
         active: true,
       },
@@ -175,11 +176,13 @@ function isAdminRole(role: string) {
 type SearchResult = SettingsCard & { groupLabel: string; groupIcon: string };
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [currentProfile, setCurrentProfile] = useState<ProfilePreview | null>(null);
   const [currentUserId, setCurrentUserId] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [adminRole, setAdminRole] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -265,6 +268,21 @@ export default function SettingsPage() {
       cancelled = true;
     };
   }, []);
+
+  async function handleLogOut() {
+    if (logoutLoading) return;
+
+    setLogoutLoading(true);
+
+    try {
+      await supabase.auth.signOut();
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      console.error("Error logging out:", error);
+      setLogoutLoading(false);
+    }
+  }
 
   // Reusable card renderer — used in both normal and search views
   function SettingsCardItem({ card, groupLabel, groupIcon }: {
@@ -395,6 +413,17 @@ export default function SettingsPage() {
                 Support Inbox
               </Link>
             ) : null}
+
+            {currentUserId ? (
+              <button
+                type="button"
+                onClick={handleLogOut}
+                disabled={logoutLoading}
+                className="rounded-full border border-red-300/25 bg-red-500/10 px-4 py-2 text-sm font-black text-red-100 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {logoutLoading ? "Logging out..." : "Log out"}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -505,6 +534,38 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+
+        {/* Log out — visible final Settings action for web, mobile, tablet, iOS, and Android */}
+        {currentUserId ? (
+          <section className="mt-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+            <div className="mb-3 flex items-center gap-2 px-0.5">
+              <span className="text-sm text-red-300/50" aria-hidden="true">↳</span>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-red-200/80">
+                Account Session
+              </p>
+            </div>
+
+            <div className="rounded-[22px] border border-red-300/15 bg-red-500/[0.065] p-5 shadow-xl ring-1 ring-red-300/[0.04]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-lg font-black leading-tight text-white">Log out</p>
+                  <p className="mt-1.5 max-w-2xl text-sm leading-6 text-red-50/55">
+                    Sign out of this Parapost account on this device. This option is placed here for easy access across desktop, tablet, iOS, and Android.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleLogOut}
+                  disabled={logoutLoading}
+                  className="min-h-[46px] w-full rounded-2xl border border-red-200/20 bg-red-500/15 px-5 py-3 text-sm font-black text-red-50 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                >
+                  {logoutLoading ? "Logging out..." : "Log out"}
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {/* Admin support panel — always visible */}
         {canSeeAdminSupport ? (
