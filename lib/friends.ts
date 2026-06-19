@@ -19,40 +19,165 @@ function getFriendPairFilter(currentUserId: string, targetUserId: string) {
   return `and(sender_id.eq.${currentUserId},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${currentUserId})`;
 }
 
-function isDuplicatePairError(error: { code?: string | null; message?: string | null }) {
-  const message = String(error.message || "").toLowerCase();
+function getFriendshipPair(currentUserId: string, targetUserId: string) {
+  return {
+    user_one: currentUserId < targetUserId ? currentUserId : targetUserId,
+    user_two: currentUserId < targetUserId ? targetUserId : currentUserId,
+  };
+}
 
+function isDuplicateError(error: { code?: string | null; message?: string | null }) {
+  const message = String(error.message || "").toLowerCase();
   return (
     error.code === "23505" ||
     message.includes("duplicate key") ||
+    message.includes("unique constraint") ||
     message.includes("friend_requests_unique_pair")
   );
 }
 
-async function createFriendRequestNotification(
+function getProfileUsernameFallback(userId: string, email?: string | null, userMetadata?: Record<string, unknown> | null) {
+  const metadataUsername = String(userMetadata?.username || "").trim();
+  if (metadataUsername) return metadataUsername;
+
+  const emailPrefix = String(email || "")
+    .split("@")[0]
+    ?.toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return `${emailPrefix || "member"}_${userId.slice(0, 6)}`;
+}
+
+function getProfileNameFallback(username: string, userMetadata?: Record<string, unknown> | null) {
+  const fullName = String(userMetadata?.full_name || userMetadata?.name || "").trim();
+  return fullName || username;
+}
+
+async function ensureOwnProfileRow(supabase: SupabaseClient, currentUserId: string) {
+  const { data: existingProfile, error: existingError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", currentUserId)
+    .maybeSingle();
+
+  if (existingError) throw new Error(existingError.message);
+  if (existingProfile?.id) return true;
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user || user.id !== currentUserId) {
+    throw new Error("Unable to verify your account before sending a friend request.");
+  }
+
+  const userMetadata = (user.user_metadata || {}) as Record<string, unknown>;
+  const username = getProfileUsernameFallback(currentUserId, user.email, userMetadata);
+  const fullName = getProfileNameFallback(username, userMetadata);
+  const avatarUrl = String(userMetadata.avatar_url || userMetadata.picture || "").trim() || null;
+
+  const { error: insertError } = await supabase.from("profiles").insert([
+    {
+      id: currentUserId,
+      username,
+      full_name: fullName,
+      avatar_url: avatarUrl,
+      bio: null,
+      updated_at: new Date().toISOString(),
+    },
+  ]);
+
+  if (insertError && !isDuplicateError(insertError)) {
+    throw new Error(`Your profile is still being prepared. Please refresh and try again. ${insertError.message}`);
+  }
+
+  return true;
+}
+
+async function ensureTargetProfileExists(supabase: SupabaseClient, targetUserId: string) {
+  const { data: targetProfile, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", targetUserId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  if (!targetProfile?.id) {
+    throw new Error("This member profile is still being prepared. Please try again in a moment.");
+  }
+
+  return true;
+}
+
+async function createNotification(
   supabase: SupabaseClient,
-  receiverId: string,
-  senderId: string,
-  requestId: string | null
+  payload: {
+    user_id: string;
+    actor_id: string;
+    type: string;
+    friend_request_id?: string | null;
+    message: string;
+  }
 ) {
-  if (!receiverId || !senderId || receiverId === senderId) return;
+  if (!payload.user_id || !payload.actor_id || payload.user_id === payload.actor_id) return;
 
   const { error } = await supabase.from("notifications").insert([
     {
-      user_id: receiverId,
-      actor_id: senderId,
-      type: "friend_request",
+      user_id: payload.user_id,
+      actor_id: payload.actor_id,
+      type: payload.type,
       post_id: null,
       comment_id: null,
-      friend_request_id: requestId,
-      message: "sent you a friend request.",
+      friend_request_id: payload.friend_request_id || null,
+      message: payload.message,
       is_read: false,
     },
   ]);
 
-  if (error) {
-    console.warn("Friend request notification warning:", error.message);
-  }
+  if (error) console.warn("Friend notification warning:", error.message);
+}
+
+async function markFriendRequestNotificationsRead(supabase: SupabaseClient, requestId: string, userId: string) {
+  if (!requestId || !userId) return;
+
+  const { error } = await supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("user_id", userId)
+    .eq("friend_request_id", requestId)
+    .eq("type", "friend_request");
+
+  if (error) console.warn("Friend request notification read warning:", error.message);
+}
+
+async function findExistingFriendRequest(supabase: SupabaseClient, currentUserId: string, targetUserId: string) {
+  const { data, error } = await supabase
+    .from("friend_requests")
+    .select("id, sender_id, receiver_id, status")
+    .or(getFriendPairFilter(currentUserId, targetUserId))
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) throw new Error(error.message);
+  return (data?.[0] || null) as FriendRequestRow | null;
+}
+
+async function friendshipAlreadyExists(supabase: SupabaseClient, currentUserId: string, targetUserId: string) {
+  const { user_one, user_two } = getFriendshipPair(currentUserId, targetUserId);
+
+  const { data, error } = await supabase
+    .from("friendships")
+    .select("user_one, user_two")
+    .eq("user_one", user_one)
+    .eq("user_two", user_two)
+    .limit(1);
+
+  if (error) return false;
+  return Boolean(data && data.length > 0);
 }
 
 export async function sendFriendRequest(
@@ -60,126 +185,89 @@ export async function sendFriendRequest(
   currentUserId: string,
   targetUserId: string
 ): Promise<SendFriendRequestResult> {
-  if (!currentUserId || !targetUserId) {
-    throw new Error("Missing user IDs.");
+  if (!currentUserId || !targetUserId) throw new Error("Missing user IDs.");
+  if (currentUserId === targetUserId) throw new Error("You cannot send a friend request to yourself.");
+
+  await ensureOwnProfileRow(supabase, currentUserId);
+  await ensureTargetProfileExists(supabase, targetUserId);
+
+  if (await friendshipAlreadyExists(supabase, currentUserId, targetUserId)) {
+    return { status: "friends", message: "You are already friends.", requestId: null };
   }
 
-  if (currentUserId === targetUserId) {
-    throw new Error("You cannot send a friend request to yourself.");
-  }
-
-  const pairFilter = getFriendPairFilter(currentUserId, targetUserId);
-
-  const { data: existingRows, error: existingError } = await supabase
-    .from("friend_requests")
-    .select("id, sender_id, receiver_id, status")
-    .or(pairFilter)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (existingError) {
-    throw new Error(existingError.message);
-  }
-
-  const existingRequest = (existingRows?.[0] || null) as FriendRequestRow | null;
+  const existingRequest = await findExistingFriendRequest(supabase, currentUserId, targetUserId);
 
   if (existingRequest) {
     if (existingRequest.status === "accepted") {
-      return {
-        status: "friends",
-        message: "You are already friends.",
-        requestId: existingRequest.id,
-      };
+      return { status: "friends", message: "You are already friends.", requestId: existingRequest.id };
     }
 
     if (existingRequest.status === "pending") {
       if (existingRequest.sender_id === currentUserId) {
-        return {
-          status: "outgoing_request",
-          message: "Friend request already sent.",
-          requestId: existingRequest.id,
-        };
+        return { status: "outgoing_request", message: "Friend request already sent.", requestId: existingRequest.id };
       }
 
-      return {
-        status: "incoming_request",
-        message: "This member already sent you a request.",
-        requestId: existingRequest.id,
-      };
+      return { status: "incoming_request", message: "This member already sent you a request.", requestId: existingRequest.id };
     }
 
     if (existingRequest.status === "declined" || existingRequest.status === "cancelled") {
+      let updatedRequestId = existingRequest.id;
+
       const { data: updatedRows, error: updateError } = await supabase
         .from("friend_requests")
         .update({
           sender_id: currentUserId,
           receiver_id: targetUserId,
           status: "pending",
+          updated_at: new Date().toISOString(),
         })
         .eq("id", existingRequest.id)
         .select("id");
 
       if (updateError) {
-        throw new Error(updateError.message);
+        const { data: fallbackRows, error: fallbackError } = await supabase
+          .from("friend_requests")
+          .update({
+            sender_id: currentUserId,
+            receiver_id: targetUserId,
+            status: "pending",
+          })
+          .eq("id", existingRequest.id)
+          .select("id");
+
+        if (fallbackError) throw new Error(fallbackError.message);
+        updatedRequestId = (fallbackRows?.[0]?.id as string | undefined) || existingRequest.id;
+      } else {
+        updatedRequestId = (updatedRows?.[0]?.id as string | undefined) || existingRequest.id;
       }
 
-      const updatedRequestId = (updatedRows?.[0]?.id as string | undefined) || existingRequest.id;
+      await createNotification(supabase, {
+        user_id: targetUserId,
+        actor_id: currentUserId,
+        type: "friend_request",
+        friend_request_id: updatedRequestId,
+        message: "sent you a friend request.",
+      });
 
-      await createFriendRequestNotification(
-        supabase,
-        targetUserId,
-        currentUserId,
-        updatedRequestId
-      );
-
-      return {
-        status: "outgoing_request",
-        message: "Friend request sent.",
-        requestId: updatedRequestId,
-      };
+      return { status: "outgoing_request", message: "Friend request sent.", requestId: updatedRequestId };
     }
   }
 
   const { data: insertedRows, error: insertError } = await supabase
     .from("friend_requests")
-    .insert([
-      {
-        sender_id: currentUserId,
-        receiver_id: targetUserId,
-        status: "pending",
-      },
-    ])
+    .insert([{ sender_id: currentUserId, receiver_id: targetUserId, status: "pending" }])
     .select("id");
 
   if (insertError) {
-    if (isDuplicatePairError(insertError)) {
-      const { data: duplicateRows, error: duplicateFetchError } = await supabase
-        .from("friend_requests")
-        .select("id, sender_id, receiver_id, status")
-        .or(pairFilter)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (duplicateFetchError) {
-        throw new Error(duplicateFetchError.message);
-      }
-
-      const duplicateRequest = (duplicateRows?.[0] || null) as FriendRequestRow | null;
+    if (isDuplicateError(insertError)) {
+      const duplicateRequest = await findExistingFriendRequest(supabase, currentUserId, targetUserId);
 
       if (duplicateRequest?.status === "accepted") {
-        return {
-          status: "friends",
-          message: "You are already friends.",
-          requestId: duplicateRequest.id,
-        };
+        return { status: "friends", message: "You are already friends.", requestId: duplicateRequest.id };
       }
 
       if (duplicateRequest?.sender_id === currentUserId) {
-        return {
-          status: "outgoing_request",
-          message: "Friend request already sent.",
-          requestId: duplicateRequest.id,
-        };
+        return { status: "outgoing_request", message: "Friend request already sent.", requestId: duplicateRequest.id };
       }
 
       return {
@@ -204,6 +292,8 @@ export async function cancelFriendRequest(
   currentUserId: string,
   targetUserId: string
 ) {
+  const existingRequest = await findExistingFriendRequest(supabase, currentUserId, targetUserId);
+
   const { error } = await supabase
     .from("friend_requests")
     .update({ status: "cancelled" })
@@ -211,8 +301,10 @@ export async function cancelFriendRequest(
     .eq("receiver_id", targetUserId)
     .eq("status", "pending");
 
-  if (error) {
-    throw new Error(error.message);
+  if (error) throw new Error(error.message);
+
+  if (existingRequest?.id) {
+    await markFriendRequestNotificationsRead(supabase, existingRequest.id, targetUserId);
   }
 
   return true;
@@ -223,6 +315,9 @@ export async function acceptFriendRequest(
   currentUserId: string,
   senderUserId: string
 ) {
+  await ensureOwnProfileRow(supabase, currentUserId);
+  await ensureTargetProfileExists(supabase, senderUserId);
+
   const { data: request, error } = await supabase
     .from("friend_requests")
     .select("*")
@@ -231,23 +326,13 @@ export async function acceptFriendRequest(
     .eq("status", "pending")
     .single();
 
-  if (error || !request) {
-    throw new Error("No request found.");
-  }
+  if (error || !request) throw new Error("No request found.");
 
-  const user_one =
-    currentUserId < senderUserId ? currentUserId : senderUserId;
-  const user_two =
-    currentUserId < senderUserId ? senderUserId : currentUserId;
+  const { user_one, user_two } = getFriendshipPair(currentUserId, senderUserId);
 
-  const { error: insertError } = await supabase.from("friendships").insert([
-    {
-      user_one,
-      user_two,
-    },
-  ]);
+  const { error: insertError } = await supabase.from("friendships").insert([{ user_one, user_two }]);
 
-  if (insertError && insertError.code !== "23505") {
+  if (insertError && !isDuplicateError(insertError)) {
     throw new Error(insertError.message);
   }
 
@@ -256,9 +341,17 @@ export async function acceptFriendRequest(
     .update({ status: "accepted" })
     .eq("id", request.id);
 
-  if (updateError) {
-    throw new Error(updateError.message);
-  }
+  if (updateError) throw new Error(updateError.message);
+
+  await markFriendRequestNotificationsRead(supabase, request.id, currentUserId);
+
+  await createNotification(supabase, {
+    user_id: senderUserId,
+    actor_id: currentUserId,
+    type: "friend_accept",
+    friend_request_id: request.id,
+    message: "accepted your friend request.",
+  });
 
   return true;
 }
@@ -268,6 +361,8 @@ export async function declineFriendRequest(
   currentUserId: string,
   senderUserId: string
 ) {
+  const existingRequest = await findExistingFriendRequest(supabase, currentUserId, senderUserId);
+
   const { error } = await supabase
     .from("friend_requests")
     .update({ status: "declined" })
@@ -275,8 +370,10 @@ export async function declineFriendRequest(
     .eq("receiver_id", currentUserId)
     .eq("status", "pending");
 
-  if (error) {
-    throw new Error(error.message);
+  if (error) throw new Error(error.message);
+
+  if (existingRequest?.id) {
+    await markFriendRequestNotificationsRead(supabase, existingRequest.id, currentUserId);
   }
 
   return true;
@@ -287,10 +384,7 @@ export async function removeFriend(
   currentUserId: string,
   targetUserId: string
 ) {
-  const user_one =
-    currentUserId < targetUserId ? currentUserId : targetUserId;
-  const user_two =
-    currentUserId < targetUserId ? targetUserId : currentUserId;
+  const { user_one, user_two } = getFriendshipPair(currentUserId, targetUserId);
 
   const { error: friendshipError } = await supabase
     .from("friendships")
@@ -298,9 +392,7 @@ export async function removeFriend(
     .eq("user_one", user_one)
     .eq("user_two", user_two);
 
-  if (friendshipError) {
-    throw new Error(friendshipError.message);
-  }
+  if (friendshipError) throw new Error(friendshipError.message);
 
   const { error: requestError } = await supabase
     .from("friend_requests")
@@ -308,9 +400,7 @@ export async function removeFriend(
     .eq("status", "accepted")
     .or(getFriendPairFilter(currentUserId, targetUserId));
 
-  if (requestError) {
-    throw new Error(requestError.message);
-  }
+  if (requestError) throw new Error(requestError.message);
 
   return true;
 }

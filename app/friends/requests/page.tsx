@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { acceptFriendRequest, declineFriendRequest } from "@/lib/friends";
 
 type RequestProfile = {
   id: string;
@@ -142,59 +143,34 @@ export default function FriendRequestsPage() {
     if (!currentUserId) return;
     setProcessingId(request.id);
 
-    const { error: updateError } = await supabase
-      .from("friend_requests")
-      .update({ status: "accepted" })
-      .eq("id", request.id)
-      .eq("receiver_id", currentUserId);
+    try {
+      await acceptFriendRequest(supabase, currentUserId, request.sender_id);
 
-    if (updateError) {
-      alert(`Accept error: ${updateError.message}`);
+      setRequests((prev) => prev.filter((item) => item.id !== request.id));
+      showStatus("Friend request accepted.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to accept friend request.";
+      alert(`Accept error: ${message}`);
+    } finally {
       setProcessingId(null);
-      return;
     }
-
-    const { error: notifyError } = await supabase.from("notifications").insert([
-      {
-        user_id: request.sender_id,
-        actor_id: currentUserId,
-        type: "friend_accept",
-        post_id: null,
-        comment_id: null,
-        friend_request_id: request.id,
-        message: "accepted your friend request.",
-        is_read: false,
-      },
-    ]);
-
-    if (notifyError) {
-      console.error("Friend accept notification error:", notifyError.message);
-    }
-
-    setRequests((prev) => prev.filter((item) => item.id !== request.id));
-    setProcessingId(null);
-    showStatus("Friend request accepted.");
   };
 
   const handleDecline = async (request: RequestCard) => {
     if (!currentUserId) return;
     setProcessingId(request.id);
 
-    const { error } = await supabase
-      .from("friend_requests")
-      .update({ status: "declined" })
-      .eq("id", request.id)
-      .eq("receiver_id", currentUserId);
+    try {
+      await declineFriendRequest(supabase, currentUserId, request.sender_id);
 
-    if (error) {
-      alert(`Decline error: ${error.message}`);
+      setRequests((prev) => prev.filter((item) => item.id !== request.id));
+      showStatus("Friend request declined.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to decline friend request.";
+      alert(`Decline error: ${message}`);
+    } finally {
       setProcessingId(null);
-      return;
     }
-
-    setRequests((prev) => prev.filter((item) => item.id !== request.id));
-    setProcessingId(null);
-    showStatus("Friend request declined.");
   };
 
   const getInitial = (name?: string | null, username?: string | null) => {
