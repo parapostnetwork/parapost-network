@@ -60,7 +60,7 @@ function getLiveDisplayStatus(stream: LiveStreamRow) {
   if (stream.status === "live") return "Live Now";
   if (stream.status === "ended") return "Replay";
   if (stream.status === "cancelled") return "Cancelled";
-  if (stream.status === "draft") return "Draft";
+  if (stream.status === "draft") return "Not Published";
 
   if (stream.status === "upcoming" && stream.scheduled_at) {
     const scheduledTime = new Date(stream.scheduled_at).getTime();
@@ -86,7 +86,7 @@ function getOwnerHint(stream: LiveStreamRow) {
   const isPublished = stream.visibility === "public" && !stream.is_hidden;
 
   if (stream.status === "live" && isPublished) {
-    return "This show is visible in the Live hub, dashboard timeline, and your profile timeline. Remember to stop the outside stream separately when the show ends.";
+    return "This show is visible in the Live hub, dashboard timeline, and your profile timeline. Remember to end the stream on your broadcast platform when the show is finished.";
   }
 
   if (stream.status === "upcoming" && isPublished) {
@@ -101,7 +101,7 @@ function getOwnerHint(stream: LiveStreamRow) {
     return "Cancelled shows are hidden from the public Live hub.";
   }
 
-  return "Private draft. Publish it only when the title, schedule, thumbnail, and outside stream link are ready.";
+  return "This show is saved but not published yet. Publish it when the title, schedule, thumbnail, and live link are ready.";
 }
 
 function getStatusPillStyle(status: LiveStatus): CSSProperties {
@@ -402,7 +402,7 @@ export default function ParapostLivePage() {
       <div style={shellStyle}>
         <section style={heroCardStyle} className="parapost-live-hero">
           <div style={topRowStyle}>
-            <div style={badgeStyle}>External stream hub</div>
+            <div style={badgeStyle}>Parapost Live hub</div>
 
             <Link href="/dashboard" style={backLinkStyle}>
               Back to Dashboard
@@ -436,7 +436,7 @@ export default function ParapostLivePage() {
             </div>
 
             <div style={ruleCardStyle}>
-              <strong style={ruleTitleStyle}>Replay links</strong>
+              <strong style={ruleTitleStyle}>Replays</strong>
               <span style={ruleTextStyle}>
                 Replays can remain available inside Parapost when the YouTube or
                 Twitch player supports playback.
@@ -515,7 +515,7 @@ export default function ParapostLivePage() {
                           style={thumbnailImageStyle}
                         />
                       ) : (
-                        <div style={fallbackThumbStyle}>
+                        <div style={fallbackThumbStyle} className="parapost-live-fallback-thumb">
                           <span style={fallbackBadgeStyle}>PARAPOST LIVE</span>
                           <strong style={fallbackTitleStyle}>
                             {stream.title}
@@ -576,7 +576,7 @@ export default function ParapostLivePage() {
                     <div style={emptyStateStyle}>
                       <strong style={{ color: "#fff" }}>Inline player not available.</strong>
                       <span>
-                        For now, Parapost Live only plays YouTube Live and Twitch Live links inside Parapost.
+                        Add a YouTube Live or Twitch Live link so viewers can watch inside Parapost.
                       </span>
                     </div>
                   )}
@@ -614,7 +614,7 @@ export default function ParapostLivePage() {
               <div style={emptyStateStyle}>
                 <strong style={{ color: "#fff" }}>No Live shows yet.</strong>
                 <span>
-                  Create a draft, add your outside stream link, and publish it
+                  Create a Live show, add your YouTube or Twitch link, and publish it
                   when your show is ready.
                 </span>
               </div>
@@ -643,8 +643,8 @@ export default function ParapostLivePage() {
                             style={thumbnailImageStyle}
                           />
                         ) : (
-                          <div style={fallbackThumbStyle}>
-                            <span style={fallbackBadgeStyle}>CREATOR STUDIO</span>
+                          <div style={fallbackThumbStyle} className="parapost-live-fallback-thumb">
+                            <span style={fallbackBadgeStyle}>PARAPOST LIVE</span>
                             <strong style={fallbackTitleStyle}>
                               {stream.title}
                             </strong>
@@ -685,16 +685,16 @@ export default function ParapostLivePage() {
                           </div>
 
                           <div>
-                            <span style={metaLabelStyle}>Visibility</span>
+                            <span style={metaLabelStyle}>Published</span>
                             <strong style={metaValueStyle}>
-                              {stream.visibility}
+                              {isPublished ? "Yes" : "Not yet"}
                             </strong>
                           </div>
 
                           <div>
-                            <span style={metaLabelStyle}>Hidden</span>
+                            <span style={metaLabelStyle}>Visible in Parapost</span>
                             <strong style={metaValueStyle}>
-                              {stream.is_hidden ? "Yes" : "No"}
+                              {isPublished ? "Yes" : "No"}
                             </strong>
                           </div>
 
@@ -827,10 +827,10 @@ export default function ParapostLivePage() {
         ) : null}
 
         <section style={footerNoteStyle}>
-          <strong>How Parapost Live works:</strong> For launch, creators broadcast through
+          <strong>How Parapost Live works:</strong> Creators can broadcast through
           StreamYard, Restream, Evmux, OBS, or another tool to YouTube or Twitch.
-          They paste the YouTube/Twitch live link into Parapost, and viewers watch
-          inside Parapost with Parapost live comments.
+          Then they paste the YouTube/Twitch Live link into Parapost so viewers can
+          watch and comment inside Parapost.
         </section>
       </div>
 

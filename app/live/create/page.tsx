@@ -127,7 +127,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
       externalUrl: null,
       embedUrl: null,
       thumbnailUrl: null,
-      helper: "No external link yet. A polished Parapost Live fallback cover will show until a supported link is added.",
+      helper: "Add a YouTube Live or Twitch Live link to preview the show image.",
     };
   }
 
@@ -161,7 +161,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
     externalUrl: url.toString(),
     embedUrl: null,
     thumbnailUrl: null,
-    helper: "This link is not a supported inline Live link yet. For now, use a YouTube Live or Twitch Live link so viewers can watch inside Parapost.",
+    helper: "Use a YouTube Live or Twitch Live link so viewers can watch inside Parapost.",
   };
 }
 
@@ -183,7 +183,7 @@ export default function CreateLiveDraftPage() {
     [provider, externalUrl]
   );
 
-  const previewTitle = title.trim() || "Your Parapost Live Draft";
+  const previewTitle = title.trim() || "Your Parapost Live Show";
   const previewProvider = PROVIDERS.find((item) => item.value === detectedMeta.provider)?.label || "External";
   const isEditing = Boolean(editingStreamId);
 
@@ -212,7 +212,7 @@ export default function CreateLiveDraftPage() {
 
       if (userError || !user) {
         if (!cancelled) {
-          setError("You must be signed in to edit this hidden Live draft.");
+          setError("You must be signed in to edit this Live show.");
           setLoadingExisting(false);
         }
         return;
@@ -228,7 +228,7 @@ export default function CreateLiveDraftPage() {
       if (cancelled) return;
 
       if (loadError || !data) {
-        setError(loadError?.message || "Could not load this hidden Live draft.");
+        setError(loadError?.message || "Could not load this Live show.");
         setLoadingExisting(false);
         return;
       }
@@ -267,12 +267,12 @@ export default function CreateLiveDraftPage() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      setError("You must be signed in to create a hidden Live draft.");
+      setError("You must be signed in to create a Live show.");
       return;
     }
 
     if (externalUrl.trim() && !detectedMeta.embedUrl) {
-      setError("For now, Parapost Live only supports YouTube Live or Twitch Live links for inline playback. Use StreamYard, Restream, Evmux, or OBS to send your live to YouTube or Twitch, then paste that YouTube/Twitch link here.");
+      setError("Please use a YouTube Live or Twitch Live link. If you use StreamYard, Restream, Evmux, or OBS, send your live to YouTube or Twitch first, then paste that link here.");
       return;
     }
 
@@ -311,11 +311,11 @@ export default function CreateLiveDraftPage() {
     setSaving(false);
 
     if (result.error) {
-      setError(result.error.message || (isEditing ? "Could not update hidden Live draft." : "Could not create hidden Live draft."));
+      setError(result.error.message || (isEditing ? "Could not update this Live show." : "Could not create this Live show."));
       return;
     }
 
-    setMessage(isEditing ? "Parapost Live show updated. Published shows stay public and visible after editing." : "Hidden Parapost Live draft created. It is private, hidden, and not publicly launched.");
+    setMessage(isEditing ? "Parapost Live show updated. Published shows stay public and visible after editing." : "Parapost Live show saved. Publish it from the Live hub when you are ready.");
 
     if (!isEditing) {
       setTitle("");
@@ -332,7 +332,7 @@ export default function CreateLiveDraftPage() {
           <div style={badgeStyle}>Creator setup</div>
           <h1 style={titleStyle}>{isEditing ? "Edit Live Show" : "Create Live Show"}</h1>
           <p style={subtitleStyle}>
-            {isEditing ? "Save your changes without hiding a show that is already public." : "This saves the show privately. Publish it from the Live hub when it is ready."} For now, Parapost Live supports YouTube Live and Twitch Live links so viewers can watch inside Parapost without Parapost paying live video hosting costs.
+            {isEditing ? "Update your Live show details." : "Set up your Live show with a YouTube Live or Twitch Live link."} Viewers can watch and comment inside Parapost.
           </p>
 
           <div style={heroActionsStyle} className="parapost-live-create-hero-actions">
@@ -342,7 +342,7 @@ export default function CreateLiveDraftPage() {
         </div>
 
         <form onSubmit={handleSubmit} style={formStyle} className="parapost-live-create-form">
-          {loadingExisting ? <div style={successStyle}>Loading hidden Live draft...</div> : null}
+          {loadingExisting ? <div style={successStyle}>Loading Live show...</div> : null}
 
           <label style={labelStyle}>
             Live title
@@ -360,7 +360,7 @@ export default function CreateLiveDraftPage() {
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Add a private draft description for this future live page."
+              placeholder="Add a description for this Live show."
               style={textareaStyle}
               maxLength={1200}
             />
@@ -396,13 +396,13 @@ export default function CreateLiveDraftPage() {
             <input
               value={externalUrl}
               onChange={(event) => setExternalUrl(event.target.value)}
-              placeholder="Paste a YouTube Live or Twitch Live link. Leave blank for a draft."
+              placeholder="Paste a YouTube Live or Twitch Live link."
               style={inputStyle}
             />
           </label>
 
           <p style={helperStyle}>
-            Using StreamYard, Restream, Evmux, or OBS? Send your broadcast to YouTube or Twitch first, then paste that YouTube/Twitch live link here. This keeps viewers inside Parapost and keeps Parapost live video costs down.
+            Using StreamYard, Restream, Evmux, or OBS? Send your broadcast to YouTube or Twitch first, then paste that YouTube/Twitch Live link here.
           </p>
 
           <div style={previewWrapStyle} className="parapost-live-create-preview">
@@ -414,7 +414,7 @@ export default function CreateLiveDraftPage() {
                   style={previewImageStyle}
                 />
               ) : (
-                <div style={fallbackThumbStyle}>
+                <div style={fallbackThumbStyle} className="parapost-live-fallback-thumb">
                   <span style={fallbackBadgeStyle}>PARAPOST LIVE</span>
                   <strong style={fallbackTitleStyle}>{previewTitle}</strong>
                   <span style={fallbackProviderStyle}>{previewProvider}</span>
@@ -423,28 +423,28 @@ export default function CreateLiveDraftPage() {
             </div>
 
             <div style={previewTextStyle}>
-              <strong style={{ color: "#fff" }}>Automatic thumbnail preview</strong>
+              <strong style={{ color: "#fff" }}>Thumbnail preview</strong>
               <span>{detectedMeta.helper}</span>
               <span>
-                Inline Parapost player: {detectedMeta.embedUrl ? "Yes" : "No — use a YouTube Live or Twitch Live link"}
+                Parapost player: {detectedMeta.embedUrl ? "Yes" : "Add a YouTube Live or Twitch Live link"}
               </span>
               <span>
-                Saved thumbnail URL: {detectedMeta.thumbnailUrl ? "Yes" : "Fallback card until supported link is added"}
+                Thumbnail preview: {detectedMeta.thumbnailUrl ? "Yes" : "Preview image will appear after a supported link is added"}
               </span>
             </div>
           </div>
 
           <div style={safetyBoxStyle}>
-            <strong>Hidden safety settings</strong>
+            <strong>Show setup</strong>
             <span>
               {isEditing ? (
                 existingStream?.visibility === "public" && !existingStream?.is_hidden
-                  ? "This update keeps the show public and visible on the Live hub, dashboard timeline, and profile timeline."
-                  : "This update preserves the current draft/private state. Publish it from the Live hub when it is ready."
+                  ? "This show is visible on the Live hub, dashboard timeline, and profile timeline."
+                  : "This show is saved and can be published from the Live hub when you are ready."
               ) : (
-                <>This draft saves as <b>status: draft</b>, <b>visibility: private</b>, and <b>is_hidden: true</b>.</>
+                <>Your Live show is saved first. Publish it from the Live hub when you are ready for it to appear.</>
               )}
-              No RTMP and no video hosting inside Parapost for this launch version.
+              
             </span>
           </div>
 
