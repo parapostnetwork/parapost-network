@@ -56,13 +56,36 @@ function getProviderLabel(provider?: string | null) {
   return "Live provider";
 }
 
-function getLiveDisplayStatus(stream: LiveStreamRow) {
-  if (stream.status === "live") return "Live Now";
-  if (stream.status === "ended") return "Replay";
-  if (stream.status === "cancelled") return "Cancelled";
-  if (stream.status === "draft") return "Not Published";
+function isScheduledTimeDue(value?: string | null) {
+  if (!value) return false;
 
-  if (stream.status === "upcoming" && stream.scheduled_at) {
+  const scheduledTime = new Date(value).getTime();
+
+  return Number.isFinite(scheduledTime) && scheduledTime <= Date.now();
+}
+
+function getEffectiveLiveStatus(stream: LiveStreamRow): LiveStatus {
+  if (
+    stream.status === "upcoming" &&
+    stream.visibility === "public" &&
+    !stream.is_hidden &&
+    isScheduledTimeDue(stream.scheduled_at)
+  ) {
+    return "live";
+  }
+
+  return stream.status;
+}
+
+function getLiveDisplayStatus(stream: LiveStreamRow) {
+  const effectiveStatus = getEffectiveLiveStatus(stream);
+
+  if (effectiveStatus === "live") return "Live Now";
+  if (effectiveStatus === "ended") return "Replay";
+  if (effectiveStatus === "cancelled") return "Cancelled";
+  if (effectiveStatus === "draft") return "Not Published";
+
+  if (effectiveStatus === "upcoming" && stream.scheduled_at) {
     const scheduledTime = new Date(stream.scheduled_at).getTime();
 
     if (Number.isFinite(scheduledTime)) {
@@ -84,20 +107,21 @@ function getPublicActionLabel(stream: LiveStreamRow) {
 
 function getOwnerHint(stream: LiveStreamRow) {
   const isPublished = stream.visibility === "public" && !stream.is_hidden;
+  const effectiveStatus = getEffectiveLiveStatus(stream);
 
-  if (stream.status === "live" && isPublished) {
-    return "This show is visible in the Live hub, dashboard timeline, and your profile timeline. Remember to end the stream on your broadcast platform when the show is finished.";
+  if (effectiveStatus === "live" && isPublished) {
+    return "This show is visible in the Live hub, dashboard timeline, and your profile timeline. Remember to end the YouTube/Twitch broadcast when the show is finished.";
   }
 
-  if (stream.status === "upcoming" && isPublished) {
+  if (effectiveStatus === "upcoming" && isPublished) {
     return "This scheduled show is visible in the Live hub, dashboard timeline, and your profile timeline.";
   }
 
-  if (stream.status === "ended" && isPublished) {
+  if (effectiveStatus === "ended" && isPublished) {
     return "This replay remains visible in the Live hub until you hide or delete it.";
   }
 
-  if (stream.status === "cancelled") {
+  if (effectiveStatus === "cancelled") {
     return "Cancelled shows are hidden from the public Live hub.";
   }
 
@@ -155,14 +179,14 @@ function sortPublicStreams(streams: LiveStreamRow[]) {
   };
 
   return [...streams].sort((a, b) => {
-    const rankDifference = rank[a.status] - rank[b.status];
+    const rankDifference = rank[getEffectiveLiveStatus(a)] - rank[getEffectiveLiveStatus(b)];
 
     if (rankDifference !== 0) return rankDifference;
 
     const aDate = new Date(a.scheduled_at || a.created_at).getTime();
     const bDate = new Date(b.scheduled_at || b.created_at).getTime();
 
-    if (a.status === "ended") return bDate - aDate;
+    if (getEffectiveLiveStatus(a) === "ended") return bDate - aDate;
 
     return aDate - bDate;
   });
@@ -196,12 +220,12 @@ export default function ParapostLivePage() {
   );
 
   const liveNowCount = useMemo(
-    () => publicStreams.filter((stream) => stream.status === "live").length,
+    () => publicStreams.filter((stream) => getEffectiveLiveStatus(stream) === "live").length,
     [publicStreams]
   );
 
   const upcomingCount = useMemo(
-    () => publicStreams.filter((stream) => stream.status === "upcoming").length,
+    () => publicStreams.filter((stream) => getEffectiveLiveStatus(stream) === "upcoming").length,
     [publicStreams]
   );
 
@@ -242,7 +266,49 @@ export default function ParapostLivePage() {
       return;
     }
 
-    setLiveStreams((data || []) as LiveStreamRow[]);
+    const rows = (data || []) as LiveStreamRow[];
+
+    const ownedDueShows = rows.filter(
+      (stream) =>
+        stream.user_id === user.id &&
+        stream.status === "upcoming" &&
+        stream.visibility === "public" &&
+        !stream.is_hidden &&
+        isScheduledTimeDue(stream.scheduled_at)
+    );
+
+    if (ownedDueShows.length > 0) {
+      const now = new Date().toISOString();
+
+      await Promise.all(
+        ownedDueShows.map((stream) =>
+          supabase
+            .from("live_streams")
+            .update({
+              status: "live",
+              started_at: stream.started_at || now,
+              ended_at: null,
+              updated_at: now,
+            })
+            .eq("id", stream.id)
+            .eq("user_id", user.id)
+        )
+      );
+
+      const { data: refreshedData, error: refreshedError } = await supabase
+        .from("live_streams")
+        .select(LIVE_SELECT)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (!refreshedError) {
+        setLiveStreams((refreshedData || []) as LiveStreamRow[]);
+        setLoading(false);
+        return;
+      }
+    }
+
+    setLiveStreams(rows);
     setLoading(false);
   }, []);
 
@@ -313,7 +379,7 @@ export default function ParapostLivePage() {
         ended_at: null,
       },
       "Publish this show and mark it Live on Parapost now?",
-      "The show is now public and marked Live on Parapost. It will appear live on the dashboard timeline and your profile timeline. Start or confirm the outside stream separately."
+      "The show is now public and marked Live on Parapost. It will appear live on the dashboard timeline and your profile timeline. Start or confirm the YouTube/Twitch broadcast as well."
     );
   };
 
@@ -326,7 +392,7 @@ export default function ParapostLivePage() {
         ended_at: null,
       },
       "Mark this published show Live on Parapost now?",
-      "The show is now marked Live on Parapost. It will appear live on the dashboard timeline and your profile timeline. Start or confirm the outside stream separately."
+      "The show is now marked Live on Parapost. It will appear live on the dashboard timeline and your profile timeline. Start or confirm the YouTube/Twitch broadcast as well."
     );
   };
 
@@ -338,7 +404,7 @@ export default function ParapostLivePage() {
         ended_at: new Date().toISOString(),
       },
       "End this show on Parapost?",
-      "The show is now marked as ended on Parapost. Stop the outside stream separately."
+      "The show is now marked as ended on Parapost. End the YouTube/Twitch broadcast as well."
     );
   };
 
@@ -539,7 +605,7 @@ export default function ParapostLivePage() {
                           </p>
                         </div>
 
-                        <span style={getStatusPillStyle(stream.status)}>
+                        <span style={getStatusPillStyle(getEffectiveLiveStatus(stream))}>
                           {getLiveDisplayStatus(stream)}
                         </span>
                       </div>
@@ -585,7 +651,7 @@ export default function ParapostLivePage() {
                     liveStreamId={stream.id}
                     creatorUserId={stream.user_id}
                     currentUserId={currentUserId}
-                    status={stream.status}
+                    status={getEffectiveLiveStatus(stream)}
                   />
                 </div>
               </article>
@@ -668,7 +734,7 @@ export default function ParapostLivePage() {
                             <p style={liveHintStyle}>{getOwnerHint(stream)}</p>
                           </div>
 
-                          <span style={getStatusPillStyle(stream.status)}>
+                          <span style={getStatusPillStyle(getEffectiveLiveStatus(stream))}>
                             {getLiveDisplayStatus(stream)}
                           </span>
                         </div>
@@ -758,7 +824,7 @@ export default function ParapostLivePage() {
                           ) : null}
 
                           {isPublished &&
-                          stream.status !== "live" &&
+                          getEffectiveLiveStatus(stream) !== "live" &&
                           stream.status !== "ended" &&
                           stream.status !== "cancelled" ? (
                             <button
@@ -771,7 +837,7 @@ export default function ParapostLivePage() {
                             </button>
                           ) : null}
 
-                          {stream.status === "live" ? (
+                          {getEffectiveLiveStatus(stream) === "live" ? (
                             <button
                               type="button"
                               disabled={isBusy}
