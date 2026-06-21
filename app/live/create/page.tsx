@@ -4,7 +4,7 @@ import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-type LiveProvider = "youtube" | "twitch" | "facebook" | "streamyard" | "other";
+type LiveProvider = "youtube" | "twitch";
 
 type DetectedLiveMeta = {
   provider: LiveProvider;
@@ -33,11 +33,8 @@ type LiveStreamRow = {
 };
 
 const PROVIDERS: { value: LiveProvider; label: string }[] = [
-  { value: "youtube", label: "YouTube" },
-  { value: "twitch", label: "Twitch" },
-  { value: "facebook", label: "Facebook" },
-  { value: "streamyard", label: "StreamYard destination" },
-  { value: "other", label: "Other external link" },
+  { value: "youtube", label: "YouTube Live" },
+  { value: "twitch", label: "Twitch Live" },
 ];
 
 function normalizeExternalUrl(value: string) {
@@ -71,7 +68,7 @@ function safeUrl(value: string) {
   }
 }
 
-function extractEmbedUrl(value: string) {
+function extractFirstUrlFromInput(value: string) {
   const raw = value.trim();
   if (!raw) return null;
 
@@ -121,7 +118,8 @@ function getTwitchChannel(url: URL) {
 }
 
 function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): DetectedLiveMeta {
-  const url = safeUrl(externalUrlInput);
+  const extractedExternalUrl = extractFirstUrlFromInput(externalUrlInput);
+  const url = extractedExternalUrl ? safeUrl(extractedExternalUrl) : null;
 
   if (!url) {
     return {
@@ -142,7 +140,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
       externalUrl: url.toString(),
       embedUrl: `https://www.youtube.com/embed/${youtubeId}`,
       thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
-      helper: "YouTube video ID detected. Parapost will automatically show the YouTube thumbnail on Live cards.",
+      helper: "YouTube Live detected. Parapost will automatically create the inline player for Dashboard, Profile, and Live hub.",
     };
   }
 
@@ -154,36 +152,16 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
       externalUrl: url.toString(),
       embedUrl: `https://player.twitch.tv/?channel=${encodeURIComponent(twitchChannel)}`,
       thumbnailUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${encodeURIComponent(twitchChannel)}-640x360.jpg`,
-      helper: "Twitch channel detected. Parapost will use Twitch's live preview image when available.",
-    };
-  }
-
-  if (host.includes("facebook.com") || host.includes("fb.watch")) {
-    return {
-      provider: "facebook",
-      externalUrl: url.toString(),
-      embedUrl: null,
-      thumbnailUrl: null,
-      helper: "Facebook link saved. Parapost will show a polished fallback Live cover unless a supported preview is available later.",
-    };
-  }
-
-  if (host.includes("streamyard.com")) {
-    return {
-      provider: "streamyard",
-      externalUrl: url.toString(),
-      embedUrl: url.toString(),
-      thumbnailUrl: null,
-      helper: "StreamYard link detected. Parapost will save it as both the external watch link and the embed URL. If StreamYard gives you iframe code, paste it in the Embed URL field below.",
+      helper: "Twitch Live detected. Parapost will automatically create the inline player for Dashboard, Profile, and Live hub.",
     };
   }
 
   return {
     provider,
     externalUrl: url.toString(),
-    embedUrl: provider === "streamyard" ? url.toString() : null,
+    embedUrl: null,
     thumbnailUrl: null,
-    helper: "External link saved. Parapost will show a polished fallback Live cover for unsupported providers.",
+    helper: "This link is not a supported inline Live link yet. For now, use a YouTube Live or Twitch Live link so viewers can watch inside Parapost.",
   };
 }
 
@@ -195,7 +173,6 @@ export default function CreateLiveDraftPage() {
   const [description, setDescription] = useState("");
   const [provider, setProvider] = useState<LiveProvider>("youtube");
   const [externalUrl, setExternalUrl] = useState("");
-  const [embedUrlInput, setEmbedUrlInput] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -260,9 +237,8 @@ export default function CreateLiveDraftPage() {
       setExistingStream(stream);
       setTitle(stream.title || "");
       setDescription(stream.description || "");
-      setProvider((stream.provider as LiveProvider) || "youtube");
+      setProvider(stream.provider === "twitch" ? "twitch" : "youtube");
       setExternalUrl(stream.external_url || "");
-      setEmbedUrlInput(stream.embed_url || "");
       setScheduledAt(toDateTimeLocal(stream.scheduled_at));
       setLoadingExisting(false);
     };
@@ -295,21 +271,21 @@ export default function CreateLiveDraftPage() {
       return;
     }
 
+    if (externalUrl.trim() && !detectedMeta.embedUrl) {
+      setError("For now, Parapost Live only supports YouTube Live or Twitch Live links for inline playback. Use StreamYard, Restream, Evmux, or OBS to send your live to YouTube or Twitch, then paste that YouTube/Twitch link here.");
+      return;
+    }
+
     setSaving(true);
 
     const scheduledValue = scheduledAt ? new Date(scheduledAt).toISOString() : null;
-    const manualEmbedUrl = extractEmbedUrl(embedUrlInput);
-    const nextEmbedUrl =
-      manualEmbedUrl ||
-      detectedMeta.embedUrl ||
-      (detectedMeta.provider === "streamyard" ? detectedMeta.externalUrl : null);
 
     const basePayload = {
       title: cleanTitle,
       description: description.trim() || null,
       provider: detectedMeta.provider,
       external_url: detectedMeta.externalUrl,
-      embed_url: nextEmbedUrl,
+      embed_url: detectedMeta.embedUrl,
       thumbnail_url: detectedMeta.thumbnailUrl,
       scheduled_at: scheduledValue,
       updated_at: new Date().toISOString(),
@@ -345,7 +321,6 @@ export default function CreateLiveDraftPage() {
       setTitle("");
       setDescription("");
       setExternalUrl("");
-      setEmbedUrlInput("");
       setScheduledAt("");
     }
   };
@@ -355,11 +330,9 @@ export default function CreateLiveDraftPage() {
       <section style={shellStyle} className="parapost-live-create-shell">
         <div style={heroStyle} className="parapost-live-create-hero">
           <div style={badgeStyle}>Creator setup</div>
-          <h1 style={titleStyle}>{isEditing ? "Edit Live Draft" : "Create Live Show"}</h1>
+          <h1 style={titleStyle}>{isEditing ? "Edit Live Show" : "Create Live Show"}</h1>
           <p style={subtitleStyle}>
-            {isEditing ? "Save your changes without hiding a show that is already public." : "This saves the show privately. Publish it from the Live hub when it is ready."} Parapost will not provide RTMP, host video, encode video,
-            store recordings, or deliver live-stream bandwidth. The public Live hub displays
-            safe external embeds from providers like YouTube, Twitch, and supported StreamYard On-Air links.
+            {isEditing ? "Save your changes without hiding a show that is already public." : "This saves the show privately. Publish it from the Live hub when it is ready."} For now, Parapost Live supports YouTube Live and Twitch Live links so viewers can watch inside Parapost without Parapost paying live video hosting costs.
           </p>
 
           <div style={heroActionsStyle} className="parapost-live-create-hero-actions">
@@ -419,27 +392,17 @@ export default function CreateLiveDraftPage() {
           </div>
 
           <label style={labelStyle}>
-            External live link
+            Live link
             <input
               value={externalUrl}
               onChange={(event) => setExternalUrl(event.target.value)}
-              placeholder="Paste a future YouTube, Twitch, StreamYard, or external live link. Leave blank for a draft."
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={labelStyle}>
-            Embed URL / iframe code
-            <input
-              value={embedUrlInput}
-              onChange={(event) => setEmbedUrlInput(event.target.value)}
-              placeholder="Optional: paste StreamYard iframe code or an embed URL for inline playback."
+              placeholder="Paste a YouTube Live or Twitch Live link. Leave blank for a draft."
               style={inputStyle}
             />
           </label>
 
           <p style={helperStyle}>
-            StreamYard On-Air links are saved to both the external link and embed field by default. If StreamYard gives you iframe code, paste it above so Dashboard and Profile can use the inline player.
+            Using StreamYard, Restream, Evmux, or OBS? Send your broadcast to YouTube or Twitch first, then paste that YouTube/Twitch live link here. This keeps viewers inside Parapost and keeps Parapost live video costs down.
           </p>
 
           <div style={previewWrapStyle} className="parapost-live-create-preview">
@@ -463,7 +426,7 @@ export default function CreateLiveDraftPage() {
               <strong style={{ color: "#fff" }}>Automatic thumbnail preview</strong>
               <span>{detectedMeta.helper}</span>
               <span>
-                Saved embed URL: {extractEmbedUrl(embedUrlInput) || detectedMeta.embedUrl || (detectedMeta.provider === "streamyard" && detectedMeta.externalUrl) ? "Yes" : "No"}
+                Inline Parapost player: {detectedMeta.embedUrl ? "Yes" : "No — use a YouTube Live or Twitch Live link"}
               </span>
               <span>
                 Saved thumbnail URL: {detectedMeta.thumbnailUrl ? "Yes" : "Fallback card until supported link is added"}
@@ -481,7 +444,7 @@ export default function CreateLiveDraftPage() {
               ) : (
                 <>This draft saves as <b>status: draft</b>, <b>visibility: private</b>, and <b>is_hidden: true</b>.</>
               )}
-              No RTMP and no video hosting inside Parapost.
+              No RTMP and no video hosting inside Parapost for this launch version.
             </span>
           </div>
 

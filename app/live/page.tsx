@@ -48,12 +48,12 @@ function formatLiveDate(value?: string | null) {
 }
 
 function getProviderLabel(provider?: string | null) {
-  if (!provider) return "External provider";
+  if (!provider) return "Live provider";
   if (provider === "youtube") return "YouTube";
   if (provider === "twitch") return "Twitch";
-  if (provider === "facebook") return "Facebook";
-  if (provider === "streamyard") return "StreamYard destination";
-  return "External provider";
+  if (provider === "facebook") return "Unsupported external provider";
+  if (provider === "streamyard") return "Unsupported external provider";
+  return "Live provider";
 }
 
 function getLiveDisplayStatus(stream: LiveStreamRow) {
@@ -415,15 +415,15 @@ export default function ParapostLivePage() {
 
           <p style={subtitleStyle}>
             Discover live paranormal podcasts, investigations, interviews, and
-            community broadcasts. Shows are streamed through trusted external
-            providers while Parapost keeps everything easy to find in one place.
+            community broadcasts. For launch, Parapost Live supports YouTube Live
+            and Twitch Live links so viewers can watch inside Parapost.
           </p>
 
           <div style={ruleGridStyle}>
             <div style={ruleCardStyle}>
               <strong style={ruleTitleStyle}>Live broadcasts</strong>
               <span style={ruleTextStyle}>
-                Open the active stream link to watch a show while it is live.
+                Watch YouTube Live and Twitch Live shows directly inside Parapost.
               </span>
             </div>
 
@@ -438,8 +438,8 @@ export default function ParapostLivePage() {
             <div style={ruleCardStyle}>
               <strong style={ruleTitleStyle}>Replay links</strong>
               <span style={ruleTextStyle}>
-                Creators can keep an external replay link available after a show
-                has ended.
+                Replays can remain available inside Parapost when the YouTube or
+                Twitch player supports playback.
               </span>
             </div>
           </div>
@@ -562,22 +562,24 @@ export default function ParapostLivePage() {
                       </div>
 
 
-                  <div style={actionRowStyle}>
-                    {stream.external_url ? (
-                      <a
-                        href={stream.external_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={publicActionStyle}
-                      >
-                        {getPublicActionLabel(stream)}
-                      </a>
-                    ) : (
-                      <span style={linkPendingStyle}>
-                        Stream link coming soon
+                  {stream.embed_url ? (
+                    <div style={livePlayerWrapStyle}>
+                      <iframe
+                        src={stream.embed_url}
+                        title={stream.title}
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowFullScreen
+                        style={livePlayerFrameStyle}
+                      />
+                    </div>
+                  ) : (
+                    <div style={emptyStateStyle}>
+                      <strong style={{ color: "#fff" }}>Inline player not available.</strong>
+                      <span>
+                        For now, Parapost Live only plays YouTube Live and Twitch Live links inside Parapost.
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <LiveChatPanel
                     liveStreamId={stream.id}
@@ -729,17 +731,6 @@ export default function ParapostLivePage() {
                             Edit Show
                           </Link>
 
-                          {stream.external_url ? (
-                            <a
-                              href={stream.external_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={secondaryLinkActionStyle}
-                            >
-                              Open Link
-                            </a>
-                          ) : null}
-
                           {!isPublished &&
                           stream.status !== "ended" &&
                           stream.status !== "cancelled" ? (
@@ -836,9 +827,10 @@ export default function ParapostLivePage() {
         ) : null}
 
         <section style={footerNoteStyle}>
-          <strong>How Parapost Live works:</strong> Parapost is an external
-          stream hub. Creators broadcast through StreamYard, YouTube, Twitch,
-          Facebook, or another provider and share the outside stream link here.
+          <strong>How Parapost Live works:</strong> For launch, creators broadcast through
+          StreamYard, Restream, Evmux, OBS, or another tool to YouTube or Twitch.
+          They paste the YouTube/Twitch live link into Parapost, and viewers watch
+          inside Parapost with Parapost live comments.
         </section>
       </div>
 
@@ -1340,6 +1332,24 @@ const metaValueStyle: CSSProperties = {
   fontSize: 13,
   lineHeight: 1.35,
   textTransform: "capitalize",
+};
+
+const livePlayerWrapStyle: CSSProperties = {
+  position: "relative",
+  width: "100%",
+  aspectRatio: "16 / 9",
+  overflow: "hidden",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "#05070d",
+};
+
+const livePlayerFrameStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  border: 0,
 };
 
 const actionRowStyle: CSSProperties = {
