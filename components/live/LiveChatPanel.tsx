@@ -19,6 +19,31 @@ type LiveChatMessageRow = {
   user_id: string;
   message: string;
   created_at: string;
+  updated_at?: string | null;
+  edited_at?: string | null;
+};
+
+type LiveChatLikeRow = {
+  id: string;
+  live_stream_id: string;
+  message_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+type LiveChatMuteRow = {
+  id: string;
+  live_stream_id: string;
+  muted_user_id: string;
+  muted_by: string;
+  expires_at: string | null;
+};
+
+type LiveChatBlockRow = {
+  id: string;
+  live_stream_id: string;
+  blocked_user_id: string;
+  blocked_by: string;
 };
 
 type ProfilePreview = {
@@ -65,6 +90,15 @@ function formatChatTime(value: string) {
   });
 }
 
+function isMuteActive(mute?: LiveChatMuteRow | null) {
+  if (!mute) return false;
+  if (!mute.expires_at) return true;
+
+  const expiresAt = new Date(mute.expires_at).getTime();
+
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
 function getChatStatusLabel(status: LiveStatus) {
   if (status === "live") return "Live discussion";
   if (status === "ended") return "Replay discussion";
@@ -88,17 +122,29 @@ export default function LiveChatPanel({
 }: LiveChatPanelProps) {
   const [messages, setMessages] = useState<LiveChatMessageRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfilePreview>>({});
+  const [likes, setLikes] = useState<LiveChatLikeRow[]>([]);
+  const [viewerMute, setViewerMute] = useState<LiveChatMuteRow | null>(null);
+  const [viewerBlock, setViewerBlock] = useState<LiveChatBlockRow | null>(null);
   const [draft, setDraft] = useState("");
   const [editingMessageId, setEditingMessageId] = useState("");
   const [editingDraft, setEditingDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [busyMessageId, setBusyMessageId] = useState("");
+  const [busyLikeId, setBusyLikeId] = useState("");
+  const [busyModerationKey, setBusyModerationKey] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  const canSend = canCommentForStatus(status) && Boolean(currentUserId);
+  const viewerIsMuted = isMuteActive(viewerMute);
+  const viewerIsBlocked = Boolean(viewerBlock);
+  const isCreator = Boolean(currentUserId) && currentUserId === creatorUserId;
+  const canSend =
+    canCommentForStatus(status) &&
+    Boolean(currentUserId) &&
+    !viewerIsMuted &&
+    !viewerIsBlocked;
   const visibleLimit = maxVisibleMessages ?? (compact ? 4 : 100);
 
   const visibleMessages = useMemo(() => {
@@ -107,6 +153,28 @@ export default function LiveChatPanel({
   }, [expanded, messages, visibleLimit]);
 
   const hiddenMessageCount = Math.max(messages.length - visibleMessages.length, 0);
+
+  const likeCountByMessageId = useMemo(() => {
+    const nextCounts: Record<string, number> = {};
+
+    for (const like of likes) {
+      nextCounts[like.message_id] = (nextCounts[like.message_id] || 0) + 1;
+    }
+
+    return nextCounts;
+  }, [likes]);
+
+  const currentUserLikedMessageIds = useMemo(() => {
+    const nextLiked = new Set<string>();
+
+    for (const like of likes) {
+      if (like.user_id === currentUserId) {
+        nextLiked.add(like.message_id);
+      }
+    }
+
+    return nextLiked;
+  }, [currentUserId, likes]);
 
   const loadProfiles = useCallback(async (userIds: string[]) => {
     const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
@@ -132,12 +200,49 @@ export default function LiveChatPanel({
     }));
   }, []);
 
+  const loadLikes = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("live_chat_message_likes")
+      .select("id, live_stream_id, message_id, user_id, created_at")
+      .eq("live_stream_id", liveStreamId);
+
+    if (error) return;
+
+    setLikes((data || []) as LiveChatLikeRow[]);
+  }, [liveStreamId]);
+
+  const loadViewerModerationState = useCallback(async () => {
+    if (!currentUserId) {
+      setViewerMute(null);
+      setViewerBlock(null);
+      return;
+    }
+
+    const [{ data: muteData }, { data: blockData }] = await Promise.all([
+      supabase
+        .from("live_chat_mutes")
+        .select("id, live_stream_id, muted_user_id, muted_by, expires_at")
+        .eq("live_stream_id", liveStreamId)
+        .eq("muted_user_id", currentUserId)
+        .maybeSingle(),
+      supabase
+        .from("live_chat_blocks")
+        .select("id, live_stream_id, blocked_user_id, blocked_by")
+        .eq("live_stream_id", liveStreamId)
+        .eq("blocked_user_id", currentUserId)
+        .maybeSingle(),
+    ]);
+
+    setViewerMute((muteData as LiveChatMuteRow | null) || null);
+    setViewerBlock((blockData as LiveChatBlockRow | null) || null);
+  }, [currentUserId, liveStreamId]);
+
   const loadMessages = useCallback(async () => {
     setLoading(true);
 
     const { data, error } = await supabase
       .from("live_chat_messages")
-      .select("id, live_stream_id, user_id, message, created_at")
+      .select("id, live_stream_id, user_id, message, created_at, updated_at, edited_at")
       .eq("live_stream_id", liveStreamId)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -157,6 +262,8 @@ export default function LiveChatPanel({
 
   useEffect(() => {
     void loadMessages();
+    void loadLikes();
+    void loadViewerModerationState();
 
     const channel = supabase
       .channel(`live-chat-${liveStreamId}`)
@@ -212,6 +319,43 @@ export default function LiveChatPanel({
         },
         () => {
           void loadMessages();
+          void loadLikes();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "live_chat_message_likes",
+          filter: `live_stream_id=eq.${liveStreamId}`,
+        },
+        () => {
+          void loadLikes();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "live_chat_mutes",
+          filter: `live_stream_id=eq.${liveStreamId}`,
+        },
+        () => {
+          void loadViewerModerationState();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "live_chat_blocks",
+          filter: `live_stream_id=eq.${liveStreamId}`,
+        },
+        () => {
+          void loadViewerModerationState();
         }
       )
       .subscribe();
@@ -219,7 +363,13 @@ export default function LiveChatPanel({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [liveStreamId, loadMessages, loadProfiles]);
+  }, [
+    liveStreamId,
+    loadLikes,
+    loadMessages,
+    loadProfiles,
+    loadViewerModerationState,
+  ]);
 
   useEffect(() => {
     if (compact && !expanded) return;
@@ -261,6 +411,48 @@ export default function LiveChatPanel({
     setDraft("");
     setExpanded(true);
     await loadMessages();
+  };
+
+  const toggleLike = async (message: LiveChatMessageRow) => {
+    if (!currentUserId || !canCommentForStatus(status)) return;
+
+    const alreadyLiked = currentUserLikedMessageIds.has(message.id);
+
+    setBusyLikeId(message.id);
+    setNotice("");
+
+    if (alreadyLiked) {
+      const { error } = await supabase
+        .from("live_chat_message_likes")
+        .delete()
+        .eq("message_id", message.id)
+        .eq("user_id", currentUserId);
+
+      setBusyLikeId("");
+
+      if (error) {
+        setNotice(error.message || "Could not remove this like.");
+        return;
+      }
+
+      await loadLikes();
+      return;
+    }
+
+    const { error } = await supabase.from("live_chat_message_likes").insert({
+      live_stream_id: liveStreamId,
+      message_id: message.id,
+      user_id: currentUserId,
+    });
+
+    setBusyLikeId("");
+
+    if (error) {
+      setNotice(error.message || "Could not like this comment.");
+      return;
+    }
+
+    await loadLikes();
   };
 
   const startEditMessage = (message: LiveChatMessageRow) => {
@@ -342,6 +534,83 @@ export default function LiveChatPanel({
     }
 
     await loadMessages();
+    await loadLikes();
+  };
+
+  const muteUser = async (message: LiveChatMessageRow) => {
+    if (!isCreator || message.user_id === currentUserId) return;
+
+    const profile = profiles[message.user_id];
+    const ok = window.confirm(
+      `Mute ${getDisplayName(profile)} from commenting on this Live discussion for 24 hours?`
+    );
+
+    if (!ok) return;
+
+    setBusyModerationKey(`mute-${message.user_id}`);
+    setNotice("");
+
+    const { error } = await supabase.from("live_chat_mutes").upsert(
+      {
+        live_stream_id: liveStreamId,
+        muted_user_id: message.user_id,
+        muted_by: currentUserId,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        onConflict: "live_stream_id,muted_user_id",
+      }
+    );
+
+    setBusyModerationKey("");
+
+    if (error) {
+      setNotice(error.message || "Could not mute this member.");
+      return;
+    }
+
+    setNotice(`${getDisplayName(profile)} is muted from this Live discussion for 24 hours.`);
+  };
+
+  const blockUser = async (message: LiveChatMessageRow) => {
+    if (!isCreator || message.user_id === currentUserId) return;
+
+    const profile = profiles[message.user_id];
+    const ok = window.confirm(
+      `Block ${getDisplayName(profile)} from commenting on this Live discussion?`
+    );
+
+    if (!ok) return;
+
+    setBusyModerationKey(`block-${message.user_id}`);
+    setNotice("");
+
+    const { error } = await supabase.from("live_chat_blocks").upsert(
+      {
+        live_stream_id: liveStreamId,
+        blocked_user_id: message.user_id,
+        blocked_by: currentUserId,
+      },
+      {
+        onConflict: "live_stream_id,blocked_user_id",
+      }
+    );
+
+    setBusyModerationKey("");
+
+    if (error) {
+      setNotice(error.message || "Could not block this member.");
+      return;
+    }
+
+    setNotice(`${getDisplayName(profile)} is blocked from this Live discussion.`);
+  };
+
+  const getClosedMessage = () => {
+    if (status === "upcoming") return "Comments open when this show starts.";
+    if (viewerIsBlocked) return "You cannot comment on this Live discussion.";
+    if (viewerIsMuted) return "You are muted from commenting on this Live discussion.";
+    return "Comments are not available for this show.";
   };
 
   return (
@@ -364,7 +633,7 @@ export default function LiveChatPanel({
           <div style={emptyStyle}>Loading comments...</div>
         ) : messages.length === 0 ? (
           <div style={emptyStyle}>
-            {status === "live"
+            {canCommentForStatus(status)
               ? "No comments yet. Start the conversation."
               : "Comments open when the show starts."}
           </div>
@@ -375,7 +644,12 @@ export default function LiveChatPanel({
               currentUserId === message.user_id ||
               currentUserId === creatorUserId;
             const canEdit = currentUserId === message.user_id;
+            const canModerateUser =
+              isCreator && Boolean(message.user_id) && message.user_id !== currentUserId;
             const isEditing = editingMessageId === message.id;
+            const likeCount = likeCountByMessageId[message.id] || 0;
+            const likedByCurrentUser = currentUserLikedMessageIds.has(message.id);
+            const wasEdited = Boolean(message.edited_at || message.updated_at);
 
             return (
               <div key={message.id} style={messageRowStyle}>
@@ -396,6 +670,7 @@ export default function LiveChatPanel({
                     <strong style={nameStyle}>{getDisplayName(profile)}</strong>
                     <span style={timeStyle}>
                       {formatChatTime(message.created_at)}
+                      {wasEdited ? " · edited" : ""}
                     </span>
 
                     <div style={messageActionWrapStyle}>
@@ -453,6 +728,55 @@ export default function LiveChatPanel({
                   ) : (
                     <p style={messageTextStyle}>{message.message}</p>
                   )}
+
+                  {!isEditing ? (
+                    <div style={commentFooterStyle}>
+                      <button
+                        type="button"
+                        disabled={
+                          !currentUserId ||
+                          busyLikeId === message.id ||
+                          !canCommentForStatus(status)
+                        }
+                        onClick={() => toggleLike(message)}
+                        style={{
+                          ...likeButtonStyle,
+                          color: likedByCurrentUser ? "#f9a8d4" : "#c4b5fd",
+                          opacity:
+                            !currentUserId ||
+                            busyLikeId === message.id ||
+                            !canCommentForStatus(status)
+                              ? 0.55
+                              : 1,
+                        }}
+                      >
+                        {likedByCurrentUser ? "Liked" : "Like"}
+                        {likeCount > 0 ? ` ${likeCount}` : ""}
+                      </button>
+
+                      {canModerateUser ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={busyModerationKey === `mute-${message.user_id}`}
+                            onClick={() => muteUser(message)}
+                            style={moderationButtonStyle}
+                          >
+                            Mute 24h
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={busyModerationKey === `block-${message.user_id}`}
+                            onClick={() => blockUser(message)}
+                            style={blockButtonStyle}
+                          >
+                            Block
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );
@@ -478,8 +802,20 @@ export default function LiveChatPanel({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             maxLength={500}
-            placeholder={status === "ended" ? "Add a replay comment..." : "Write a comment..."}
-            style={inputStyle}
+            disabled={!canSend || sending}
+            placeholder={
+              viewerIsBlocked
+                ? "You cannot comment on this discussion."
+                : viewerIsMuted
+                  ? "You are muted from commenting."
+                  : status === "ended"
+                    ? "Add a replay comment..."
+                    : "Write a comment..."
+            }
+            style={{
+              ...inputStyle,
+              opacity: !canSend ? 0.62 : 1,
+            }}
           />
 
           <button
@@ -498,12 +834,12 @@ export default function LiveChatPanel({
           </button>
         </form>
       ) : (
-        <div style={closedStyle}>
-          {status === "upcoming"
-            ? "Comments open when this show starts."
-            : "Comments are not available for this show."}
-        </div>
+        <div style={closedStyle}>{getClosedMessage()}</div>
       )}
+
+      {canCommentForStatus(status) && !canSend ? (
+        <div style={closedStyle}>{getClosedMessage()}</div>
+      ) : null}
 
       {notice ? <div style={noticeStyle}>{notice}</div> : null}
     </section>
@@ -681,6 +1017,38 @@ const messageTextStyle: CSSProperties = {
   fontSize: 13,
   lineHeight: 1.45,
   overflowWrap: "anywhere",
+};
+
+const commentFooterStyle: CSSProperties = {
+  marginTop: 7,
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: 9,
+};
+
+const likeButtonStyle: CSSProperties = {
+  border: 0,
+  background: "transparent",
+  padding: 0,
+  fontSize: 11.5,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const moderationButtonStyle: CSSProperties = {
+  border: 0,
+  background: "transparent",
+  color: "#fbbf24",
+  padding: 0,
+  fontSize: 11,
+  fontWeight: 850,
+  cursor: "pointer",
+};
+
+const blockButtonStyle: CSSProperties = {
+  ...moderationButtonStyle,
+  color: "#fca5a5",
 };
 
 const editFormStyle: CSSProperties = {
