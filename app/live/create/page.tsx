@@ -140,7 +140,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
       externalUrl: url.toString(),
       embedUrl: `https://www.youtube.com/embed/${youtubeId}`,
       thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
-      helper: "YouTube Live detected. Parapost will automatically create the inline player for Dashboard, Profile, and Live hub.",
+      helper: "YouTube Live detected. Parapost will automatically create the inline player for Dashboard and Profile.",
     };
   }
 
@@ -152,7 +152,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
       externalUrl: url.toString(),
       embedUrl: `https://player.twitch.tv/?channel=${encodeURIComponent(twitchChannel)}`,
       thumbnailUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${encodeURIComponent(twitchChannel)}-640x360.jpg`,
-      helper: "Twitch Live detected. Parapost will automatically create the inline player for Dashboard, Profile, and Live hub.",
+      helper: "Twitch Live detected. Parapost will automatically create the inline player for Dashboard and Profile.",
     };
   }
 
@@ -165,7 +165,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
   };
 }
 
-export default function CreateLiveDraftPage() {
+export default function CreateLiveShowPage() {
   const [editingStreamId, setEditingStreamId] = useState("");
   const [existingStream, setExistingStream] = useState<LiveStreamRow | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
@@ -315,7 +315,7 @@ export default function CreateLiveDraftPage() {
       return;
     }
 
-    setMessage(isEditing ? "Parapost Live show updated. Published shows stay public and visible after editing." : "Parapost Live show saved. Publish it from the Live hub when you are ready.");
+    setMessage(isEditing ? "Parapost Live show updated. Published shows stay public and visible after editing." : "Parapost Live show saved. Publish it from Live Manager when you are ready.");
 
     if (!isEditing) {
       setTitle("");
@@ -332,11 +332,11 @@ export default function CreateLiveDraftPage() {
           <div style={badgeStyle}>Creator setup</div>
           <h1 style={titleStyle}>{isEditing ? "Edit Live Show" : "Create Live Show"}</h1>
           <p style={subtitleStyle}>
-            {isEditing ? "Update your Live show details." : "Set up your Live show with a YouTube Live or Twitch Live link."} Viewers can watch and comment inside Parapost.
+            {isEditing ? "Update your Live show details." : "Set up your Live show with a YouTube Live or Twitch Live link."} Viewers watch and comment from the Dashboard and Profile.
           </p>
 
           <div style={heroActionsStyle} className="parapost-live-create-hero-actions">
-            <Link href="/live" style={smallLinkStyle}>Back to Live</Link>
+            <Link href="/live" style={smallLinkStyle}>Back to Live Manager</Link>
             <Link href="/dashboard" style={smallLinkStyle}>Dashboard</Link>
           </div>
         </div>
@@ -360,7 +360,7 @@ export default function CreateLiveDraftPage() {
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Add a description for this Live show."
+              placeholder="Add a short description. Viewers can open more details when they want the full description."
               style={textareaStyle}
               maxLength={1200}
             />
@@ -402,7 +402,7 @@ export default function CreateLiveDraftPage() {
           </label>
 
           <p style={helperStyle}>
-            Using StreamYard, Restream, Evmux, or OBS? Send your broadcast to YouTube or Twitch first, then paste that YouTube/Twitch Live link here.
+            Using StreamYard, Restream, Evmux, or OBS? Send your broadcast to YouTube or Twitch, then paste that YouTube/Twitch Live link here.
           </p>
 
           <div style={previewWrapStyle} className="parapost-live-create-preview">
@@ -423,13 +423,13 @@ export default function CreateLiveDraftPage() {
             </div>
 
             <div style={previewTextStyle}>
-              <strong style={{ color: "#fff" }}>Thumbnail preview</strong>
+              <strong style={{ color: "#fff" }}>Show preview</strong>
               <span>{detectedMeta.helper}</span>
               <span>
-                Parapost player: {detectedMeta.embedUrl ? "Yes" : "Add a YouTube Live or Twitch Live link"}
+                Inline player: {detectedMeta.embedUrl ? "Yes" : "Add a YouTube Live or Twitch Live link"}
               </span>
               <span>
-                Thumbnail preview: {detectedMeta.thumbnailUrl ? "Yes" : "Preview image will appear after a supported link is added"}
+                Show preview: {detectedMeta.thumbnailUrl ? "Yes" : "Preview image will appear after a supported link is added"}
               </span>
             </div>
           </div>
@@ -439,10 +439,10 @@ export default function CreateLiveDraftPage() {
             <span>
               {isEditing ? (
                 existingStream?.visibility === "public" && !existingStream?.is_hidden
-                  ? "This show is visible on the Live hub, dashboard timeline, and profile timeline."
-                  : "This show is saved and can be published from the Live hub when you are ready."
+                  ? "This show is visible on the Dashboard and Profile."
+                  : "This show is saved and can be published from Live Manager when you are ready."
               ) : (
-                <>Your Live show is saved first. Publish it from the Live hub when you are ready for it to appear.</>
+                <>Your Live show is saved first. Publish it from Live Manager when you are ready for it to appear on the Dashboard and Profile.</>
               )}
               
             </span>
