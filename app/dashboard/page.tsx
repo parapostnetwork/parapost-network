@@ -17,6 +17,7 @@ import {
 } from "react";
 import Link from "next/link";
 import DashboardReelsSection from "./DashboardReelsSection";
+import LiveChatPanel from "@/components/live/LiveChatPanel";
 import { supabase } from "@/lib/supabase";
 
 // Dashboard launch polish: original layout preserved with cleaner professional Parapost surfaces.
@@ -399,6 +400,9 @@ function formatDashboardLiveDate(value?: string | null) {
 
 function getDashboardLiveStatusLabel(stream: { status?: string | null; scheduled_at?: string | null }) {
   if (stream.status === "live") return "Live Now";
+  if (stream.status === "ended") return "Replay";
+  if (stream.status === "cancelled") return "Cancelled";
+  if (stream.status === "draft") return "Not Published";
 
   if (stream.status === "upcoming" && stream.scheduled_at) {
     const scheduledTime = new Date(stream.scheduled_at).getTime();
@@ -414,8 +418,24 @@ function getDashboardLiveStatusLabel(stream: { status?: string | null; scheduled
   return "Upcoming Live";
 }
 
+function getDashboardLiveChatStatus(status?: string | null): "draft" | "upcoming" | "live" | "ended" | "cancelled" {
+  if (
+    status === "draft" ||
+    status === "upcoming" ||
+    status === "live" ||
+    status === "ended" ||
+    status === "cancelled"
+  ) {
+    return status;
+  }
+
+  return "upcoming";
+}
+
 function getDashboardLiveActionLabel(stream: { status?: string | null }) {
-  return stream.status === "live" ? "Watch Live" : "View Live Show";
+  if (stream.status === "live") return "Watch Live";
+  if (stream.status === "ended") return "Watch Replay";
+  return "View Live Show";
 }
 
 const ONLINE_STATUS_TIMEOUT_MS = 3 * 60 * 1000;
@@ -3965,7 +3985,7 @@ export default function DashboardPage() {
                     return (
                       <div key={`feed-item-${item.type}-${item.id}`} style={{ display: "contents" }}>
                         {item.type === "live_stream" ? (
-                          <DashboardLiveStreamCard stream={item.liveStream} />
+                          <DashboardLiveStreamCard stream={item.liveStream} currentUserId={currentUserId} />
                         ) : item.type === "post" ? (
                           <PostCard
                             post={item.post}
@@ -9991,30 +10011,47 @@ function MiniFeedStat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }) {
+function DashboardLiveStreamCard({
+  stream,
+  currentUserId,
+}: {
+  stream: DashboardLiveStreamItem;
+  currentUserId: string;
+}) {
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+
   const creatorProfile = stream.profile;
   const creatorName = creatorProfile?.full_name || creatorProfile?.username || "Parapost creator";
   const creatorHandle = creatorProfile?.username || "member";
   const isLive = stream.status === "live";
+  const isReplay = stream.status === "ended";
+  const isPlayable = (isLive || isReplay) && Boolean(stream.embed_url);
+  const chatStatus = getDashboardLiveChatStatus(stream.status);
+  const hasLongDescription = Boolean(stream.description && stream.description.length > 150);
   const scheduleLabel = isLive
     ? `Started ${formatDashboardLiveDate(stream.started_at || stream.updated_at || stream.created_at)}`
-    : `Scheduled ${formatDashboardLiveDate(stream.scheduled_at)}`;
+    : isReplay
+      ? `Replay from ${formatDashboardLiveDate(stream.ended_at || stream.started_at || stream.updated_at || stream.created_at)}`
+      : `Scheduled ${formatDashboardLiveDate(stream.scheduled_at)}`;
   const providerLabel = stream.provider
     ? stream.provider.charAt(0).toUpperCase() + stream.provider.slice(1)
-    : "External stream";
-  const liveEmbedUrl = isLive ? stream.embed_url || "" : "";
+    : "Live stream";
 
   return (
     <article
-      className={`dashboard-live-feed-card ${isLive ? "dashboard-live-feed-card-live" : "dashboard-live-feed-card-upcoming"}`}
+      className={`dashboard-live-feed-card ${isLive ? "dashboard-live-feed-card-live" : isReplay ? "dashboard-live-feed-card-replay" : "dashboard-live-feed-card-upcoming"}`}
       style={{
         ...postCardStyle,
         position: "relative",
         overflow: "hidden",
-        borderColor: isLive ? "rgba(74,222,128,0.38)" : "rgba(251,191,36,0.26)",
+        borderColor: isLive
+          ? "rgba(74,222,128,0.38)"
+          : isReplay
+            ? "rgba(148,163,184,0.22)"
+            : "rgba(251,191,36,0.26)",
         boxShadow: isLive
           ? "0 20px 58px rgba(0,0,0,0.34), 0 0 34px rgba(34,197,94,0.12)"
-          : "0 18px 46px rgba(0,0,0,0.30), 0 0 28px rgba(245,158,11,0.10)",
+          : "0 18px 46px rgba(0,0,0,0.30)",
       }}
     >
       <div
@@ -10023,8 +10060,10 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
           position: "absolute",
           inset: 0,
           background: isLive
-            ? "radial-gradient(circle at 18% 0%, rgba(34,197,94,0.20), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%)"
-            : "radial-gradient(circle at 18% 0%, rgba(245,158,11,0.18), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 16%, transparent), transparent 34%)",
+            ? "radial-gradient(circle at 18% 0%, rgba(34,197,94,0.18), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 16%, transparent), transparent 34%)"
+            : isReplay
+              ? "radial-gradient(circle at 18% 0%, rgba(148,163,184,0.12), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 12%, transparent), transparent 34%)"
+              : "radial-gradient(circle at 18% 0%, rgba(245,158,11,0.16), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 14%, transparent), transparent 34%)",
           pointerEvents: "none",
         }}
       />
@@ -10038,50 +10077,55 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
               {creatorName}
             </Link>
             <span style={postMetaStyle}>
-              @{creatorHandle} · {isLive ? "is live now" : "scheduled a live show"}
+              @{creatorHandle} · {isLive ? "is live now" : isReplay ? "shared a replay" : "scheduled a live show"}
             </span>
           </div>
 
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "7px 10px",
-              borderRadius: 999,
-              color: isLive ? "#dcfce7" : "#fef3c7",
-              background: isLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
-              border: isLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
-              fontSize: 12,
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {isLive ? "●" : "◎"} {getDashboardLiveStatusLabel(stream)}
-          </span>
+          {!isReplay ? (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "7px 10px",
+                borderRadius: 999,
+                color: isLive ? "#dcfce7" : "#fef3c7",
+                background: isLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
+                border: isLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
+                fontSize: 12,
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isLive ? "●" : "◎"} {getDashboardLiveStatusLabel(stream)}
+            </span>
+          ) : null}
         </header>
 
         <div
           style={{
             marginTop: 14,
-            borderRadius: 24,
+            borderRadius: 20,
             overflow: "hidden",
             border: "1px solid rgba(255,255,255,0.12)",
             background: "rgba(0,0,0,0.28)",
+            maxWidth: 760,
+            marginLeft: "auto",
+            marginRight: "auto",
           }}
         >
-          {isLive && liveEmbedUrl ? (
+          {isPlayable ? (
             <iframe
-              src={liveEmbedUrl}
+              src={stream.embed_url || ""}
               title={stream.title || "Parapost Live Show"}
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen
               style={{
                 width: "100%",
                 aspectRatio: "16 / 9",
-                minHeight: 220,
+                minHeight: 200,
                 border: 0,
                 display: "block",
                 background: "#05070a",
@@ -10094,7 +10138,7 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
                 alt=""
                 style={{
                   width: "100%",
-                  maxHeight: 340,
+                  maxHeight: 300,
                   objectFit: "cover",
                   display: "block",
                   background: "#05070a",
@@ -10112,14 +10156,14 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
                 }}
               >
                 <strong style={{ color: "#ffffff", fontSize: 18 }}>
-                  {isLive ? "Live now on Parapost" : "Scheduled Live Show"}
+                  Scheduled Live Show
                 </strong>
               </div>
             </div>
           ) : (
             <div
               style={{
-                minHeight: 190,
+                minHeight: 180,
                 display: "grid",
                 placeItems: "center",
                 textAlign: "center",
@@ -10129,7 +10173,7 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
               }}
             >
               <div>
-                <div style={{ fontSize: 46, marginBottom: 8 }}>{isLive ? "LIVE" : "LIVE"}</div>
+                <div style={{ fontSize: 42, marginBottom: 8 }}>LIVE</div>
                 <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>{providerLabel}</div>
               </div>
             </div>
@@ -10139,7 +10183,7 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
         <div style={{ marginTop: 14 }}>
           <div
             style={{
-              color: isLive ? "#bbf7d0" : "#fde68a",
+              color: isLive ? "#bbf7d0" : isReplay ? "#cbd5e1" : "#fde68a",
               fontSize: 12,
               fontWeight: 900,
               textTransform: "uppercase",
@@ -10150,34 +10194,78 @@ function DashboardLiveStreamCard({ stream }: { stream: DashboardLiveStreamItem }
             {scheduleLabel}
           </div>
 
-          <h3 style={{ margin: 0, color: "#ffffff", fontSize: "1.25rem", lineHeight: 1.18, letterSpacing: "-0.035em" }}>
+          <h3 style={{ margin: 0, color: "#ffffff", fontSize: "1.18rem", lineHeight: 1.18, letterSpacing: "-0.035em" }}>
             {stream.title || "Parapost Live Show"}
           </h3>
 
           {stream.description ? (
-            <p style={{ ...postContentStyle, marginTop: 10 }}>{stream.description}</p>
+            <>
+              <p
+                style={{
+                  ...postContentStyle,
+                  marginTop: 10,
+                  display: descriptionExpanded ? "block" : "-webkit-box",
+                  WebkitLineClamp: descriptionExpanded ? "unset" : 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: descriptionExpanded ? "visible" : "hidden",
+                }}
+              >
+                {stream.description}
+              </p>
+
+              {hasLongDescription ? (
+                <button
+                  type="button"
+                  onClick={() => setDescriptionExpanded((value) => !value)}
+                  style={{
+                    border: 0,
+                    background: "transparent",
+                    color: "#c4b5fd",
+                    padding: "4px 0 0",
+                    fontSize: 13,
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
+                >
+                  {descriptionExpanded ? "Show less" : "More"}
+                </button>
+              ) : null}
+            </>
           ) : null}
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                minHeight: 38,
-                borderRadius: 999,
-                padding: "9px 13px",
-                color: isLive ? "#dcfce7" : "#fef3c7",
-                background: isLive ? "rgba(34,197,94,0.14)" : "rgba(245,158,11,0.14)",
-                border: isLive ? "1px solid rgba(74,222,128,0.26)" : "1px solid rgba(251,191,36,0.24)",
-                fontSize: 13,
-                fontWeight: 850,
-              }}
-            >
-              {isLive
-                ? "Live now — watch from this timeline."
-                : "Scheduled — this card will become the live show here when the creator starts it."}
-            </span>
-          </div>
+          {!isReplay ? (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  minHeight: 34,
+                  borderRadius: 999,
+                  padding: "7px 12px",
+                  color: isLive ? "#dcfce7" : "#fef3c7",
+                  background: isLive ? "rgba(34,197,94,0.14)" : "rgba(245,158,11,0.14)",
+                  border: isLive ? "1px solid rgba(74,222,128,0.26)" : "1px solid rgba(251,191,36,0.24)",
+                  fontSize: 12.5,
+                  fontWeight: 850,
+                }}
+              >
+                {isLive
+                  ? "Watch and comment here on Parapost."
+                  : "This becomes the live player when the show starts."}
+              </span>
+            </div>
+          ) : null}
+
+          {(isLive || isReplay) && stream.id ? (
+            <LiveChatPanel
+              liveStreamId={stream.id}
+              creatorUserId={stream.user_id}
+              currentUserId={currentUserId}
+              status={chatStatus}
+              compact
+              maxVisibleMessages={4}
+            />
+          ) : null}
         </div>
       </div>
     </article>

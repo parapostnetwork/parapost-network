@@ -3,7 +3,6 @@
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import LiveChatPanel from "@/components/live/LiveChatPanel";
 
 type LiveStatus = "draft" | "upcoming" | "live" | "ended" | "cancelled";
 type LiveVisibility = "private" | "friends" | "public";
@@ -25,7 +24,7 @@ type LiveStreamRow = {
   started_at: string | null;
   ended_at: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at: string | null;
 };
 
 const LIVE_SELECT =
@@ -45,15 +44,6 @@ function formatLiveDate(value?: string | null) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function getProviderLabel(provider?: string | null) {
-  if (!provider) return "Live provider";
-  if (provider === "youtube") return "YouTube";
-  if (provider === "twitch") return "Twitch";
-  if (provider === "facebook") return "Unsupported external provider";
-  if (provider === "streamyard") return "Unsupported external provider";
-  return "Live provider";
 }
 
 function isScheduledTimeDue(value?: string | null) {
@@ -77,64 +67,81 @@ function getEffectiveLiveStatus(stream: LiveStreamRow): LiveStatus {
   return stream.status;
 }
 
-function getLiveDisplayStatus(stream: LiveStreamRow) {
-  const effectiveStatus = getEffectiveLiveStatus(stream);
+function getStatusLabel(stream: LiveStreamRow) {
+  const status = getEffectiveLiveStatus(stream);
 
-  if (effectiveStatus === "live") return "Live Now";
-  if (effectiveStatus === "ended") return "Replay";
-  if (effectiveStatus === "cancelled") return "Cancelled";
-  if (effectiveStatus === "draft") return "Not Published";
-
-  if (effectiveStatus === "upcoming" && stream.scheduled_at) {
-    const scheduledTime = new Date(stream.scheduled_at).getTime();
-
-    if (Number.isFinite(scheduledTime)) {
-      const msUntilLive = scheduledTime - Date.now();
-      const twoHours = 2 * 60 * 60 * 1000;
-
-      if (msUntilLive > 0 && msUntilLive <= twoHours) return "Live Soon";
-    }
+  if (status === "live") return "Live Now";
+  if (status === "ended") return "Replay";
+  if (status === "cancelled") return "Cancelled";
+  if (status === "upcoming") {
+    if (stream.scheduled_at && isScheduledTimeDue(stream.scheduled_at)) return "Ready to Go Live";
+    return "Scheduled";
   }
 
-  return "Upcoming";
+  return "Not Published";
 }
 
-function getPublicActionLabel(stream: LiveStreamRow) {
-  if (stream.status === "live") return "Watch Live";
-  if (stream.status === "ended") return "Watch Replay";
-  return "Open Stream";
+function getProviderLabel(provider?: string | null) {
+  if (provider === "youtube") return "YouTube Live";
+  if (provider === "twitch") return "Twitch Live";
+  return "Live link";
+}
+
+function sortOwnedShows(streams: LiveStreamRow[]) {
+  const rank: Record<LiveStatus, number> = {
+    live: 0,
+    upcoming: 1,
+    draft: 2,
+    ended: 3,
+    cancelled: 4,
+  };
+
+  return [...streams].sort((a, b) => {
+    const rankDifference = rank[getEffectiveLiveStatus(a)] - rank[getEffectiveLiveStatus(b)];
+
+    if (rankDifference !== 0) return rankDifference;
+
+    const aDate = new Date(a.scheduled_at || a.updated_at || a.created_at).getTime();
+    const bDate = new Date(b.scheduled_at || b.updated_at || b.created_at).getTime();
+
+    if (getEffectiveLiveStatus(a) === "ended") return bDate - aDate;
+
+    return aDate - bDate;
+  });
 }
 
 function getOwnerHint(stream: LiveStreamRow) {
+  const status = getEffectiveLiveStatus(stream);
   const isPublished = stream.visibility === "public" && !stream.is_hidden;
-  const effectiveStatus = getEffectiveLiveStatus(stream);
 
-  if (effectiveStatus === "live" && isPublished) {
-    return "This show is visible in the Live hub, dashboard timeline, and your profile timeline. Remember to end the YouTube/Twitch broadcast when the show is finished.";
+  if (status === "live" && isPublished) {
+    return "This show is live on the Dashboard and Profile. End the show here when the broadcast is finished.";
   }
 
-  if (effectiveStatus === "upcoming" && isPublished) {
-    return "This scheduled show is visible in the Live hub, dashboard timeline, and your profile timeline.";
+  if (status === "ended" && isPublished) {
+    return "This replay can stay visible on the Dashboard and Profile with comments open.";
   }
 
-  if (effectiveStatus === "ended" && isPublished) {
-    return "This replay remains visible in the Live hub until you hide or delete it.";
+  if (status === "upcoming" && isPublished) {
+    return "This show is scheduled and will appear on the Dashboard and Profile.";
   }
 
-  if (effectiveStatus === "cancelled") {
-    return "Cancelled shows are hidden from the public Live hub.";
+  if (status === "cancelled") {
+    return "This show is cancelled and hidden from viewers.";
   }
 
-  return "This show is saved but not published yet. Publish it when the title, schedule, thumbnail, and live link are ready.";
+  return "This show is saved. Publish it when you are ready for it to appear.";
 }
 
-function getStatusPillStyle(status: LiveStatus): CSSProperties {
+function getStatusPillStyle(stream: LiveStreamRow): CSSProperties {
+  const status = getEffectiveLiveStatus(stream);
+
   if (status === "live") {
     return {
       ...statusPillStyle,
       color: "#dcfce7",
       background: "rgba(34,197,94,0.18)",
-      border: "1px solid rgba(74,222,128,0.30)",
+      border: "1px solid rgba(74,222,128,0.32)",
       boxShadow: "0 0 22px rgba(34,197,94,0.16)",
     };
   }
@@ -144,7 +151,7 @@ function getStatusPillStyle(status: LiveStatus): CSSProperties {
       ...statusPillStyle,
       color: "#e5e7eb",
       background: "rgba(148,163,184,0.14)",
-      border: "1px solid rgba(148,163,184,0.20)",
+      border: "1px solid rgba(148,163,184,0.24)",
     };
   }
 
@@ -152,7 +159,7 @@ function getStatusPillStyle(status: LiveStatus): CSSProperties {
     return {
       ...statusPillStyle,
       color: "#fecaca",
-      background: "rgba(127,29,29,0.24)",
+      background: "rgba(127,29,29,0.22)",
       border: "1px solid rgba(248,113,113,0.28)",
     };
   }
@@ -162,79 +169,38 @@ function getStatusPillStyle(status: LiveStatus): CSSProperties {
       ...statusPillStyle,
       color: "#fef3c7",
       background: "rgba(245,158,11,0.16)",
-      border: "1px solid rgba(251,191,36,0.26)",
+      border: "1px solid rgba(251,191,36,0.28)",
     };
   }
 
   return statusPillStyle;
 }
 
-function sortPublicStreams(streams: LiveStreamRow[]) {
-  const rank: Record<LiveStatus, number> = {
-    live: 0,
-    upcoming: 1,
-    ended: 2,
-    draft: 3,
-    cancelled: 4,
-  };
-
-  return [...streams].sort((a, b) => {
-    const rankDifference = rank[getEffectiveLiveStatus(a)] - rank[getEffectiveLiveStatus(b)];
-
-    if (rankDifference !== 0) return rankDifference;
-
-    const aDate = new Date(a.scheduled_at || a.created_at).getTime();
-    const bDate = new Date(b.scheduled_at || b.created_at).getTime();
-
-    if (getEffectiveLiveStatus(a) === "ended") return bDate - aDate;
-
-    return aDate - bDate;
-  });
-}
-
 export default function ParapostLivePage() {
   const [currentUserId, setCurrentUserId] = useState("");
-  const [liveStreams, setLiveStreams] = useState<LiveStreamRow[]>([]);
+  const [ownedStreams, setOwnedStreams] = useState<LiveStreamRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [busyId, setBusyId] = useState("");
 
-  const publicStreams = useMemo(
-    () =>
-      sortPublicStreams(
-        liveStreams.filter(
-          (stream) =>
-            stream.visibility === "public" &&
-            !stream.is_hidden &&
-            (stream.status === "upcoming" ||
-              stream.status === "live" ||
-              stream.status === "ended")
-        )
-      ),
-    [liveStreams]
+  const sortedOwnedStreams = useMemo(() => sortOwnedShows(ownedStreams), [ownedStreams]);
+
+  const liveCount = useMemo(
+    () => sortedOwnedStreams.filter((stream) => getEffectiveLiveStatus(stream) === "live").length,
+    [sortedOwnedStreams]
   );
 
-  const ownedStreams = useMemo(
-    () => liveStreams.filter((stream) => stream.user_id === currentUserId),
-    [currentUserId, liveStreams]
-  );
-
-  const liveNowCount = useMemo(
-    () => publicStreams.filter((stream) => getEffectiveLiveStatus(stream) === "live").length,
-    [publicStreams]
-  );
-
-  const upcomingCount = useMemo(
-    () => publicStreams.filter((stream) => getEffectiveLiveStatus(stream) === "upcoming").length,
-    [publicStreams]
+  const scheduledCount = useMemo(
+    () => sortedOwnedStreams.filter((stream) => getEffectiveLiveStatus(stream) === "upcoming").length,
+    [sortedOwnedStreams]
   );
 
   const replayCount = useMemo(
-    () => publicStreams.filter((stream) => stream.status === "ended").length,
-    [publicStreams]
+    () => sortedOwnedStreams.filter((stream) => getEffectiveLiveStatus(stream) === "ended").length,
+    [sortedOwnedStreams]
   );
 
-  const loadLiveHub = useCallback(async () => {
+  const loadLiveManager = useCallback(async () => {
     setLoading(true);
     setMessage("");
 
@@ -245,8 +211,8 @@ export default function ParapostLivePage() {
 
     if (userError || !user) {
       setCurrentUserId("");
-      setLiveStreams([]);
-      setMessage("Sign in to view Parapost Live.");
+      setOwnedStreams([]);
+      setMessage("Sign in to manage your Live shows.");
       setLoading(false);
       return;
     }
@@ -256,12 +222,13 @@ export default function ParapostLivePage() {
     const { data, error } = await supabase
       .from("live_streams")
       .select(LIVE_SELECT)
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(100);
 
     if (error) {
-      setLiveStreams([]);
-      setMessage(error.message || "Could not load Parapost Live.");
+      setOwnedStreams([]);
+      setMessage(error.message || "Could not load your Live shows.");
       setLoading(false);
       return;
     }
@@ -270,7 +237,6 @@ export default function ParapostLivePage() {
 
     const ownedDueShows = rows.filter(
       (stream) =>
-        stream.user_id === user.id &&
         stream.status === "upcoming" &&
         stream.visibility === "public" &&
         !stream.is_hidden &&
@@ -298,23 +264,24 @@ export default function ParapostLivePage() {
       const { data: refreshedData, error: refreshedError } = await supabase
         .from("live_streams")
         .select(LIVE_SELECT)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(100);
 
       if (!refreshedError) {
-        setLiveStreams((refreshedData || []) as LiveStreamRow[]);
+        setOwnedStreams((refreshedData || []) as LiveStreamRow[]);
         setLoading(false);
         return;
       }
     }
 
-    setLiveStreams(rows);
+    setOwnedStreams(rows);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    void loadLiveHub();
-  }, [loadLiveHub]);
+    void loadLiveManager();
+  }, [loadLiveManager]);
 
   const updateOwnedStream = async (
     stream: LiveStreamRow,
@@ -333,7 +300,10 @@ export default function ParapostLivePage() {
 
     const { error } = await supabase
       .from("live_streams")
-      .update(payload)
+      .update({
+        ...payload,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", stream.id)
       .eq("user_id", currentUserId);
 
@@ -345,12 +315,12 @@ export default function ParapostLivePage() {
     }
 
     setMessage(successMessage);
-    await loadLiveHub();
+    await loadLiveManager();
   };
 
   const publishScheduledShow = async (stream: LiveStreamRow) => {
     if (!stream.scheduled_at) {
-      setMessage("Add a scheduled date and time before publishing this show as Upcoming.");
+      setMessage("Add a scheduled date and time before publishing this show.");
       return;
     }
 
@@ -363,8 +333,8 @@ export default function ParapostLivePage() {
         started_at: null,
         ended_at: null,
       },
-      "Publish this show in the Parapost Live hub as an upcoming event?",
-      "The show is now published as Upcoming in the Live hub, dashboard timeline, and your profile timeline."
+      "Publish this show so it appears on the Dashboard and Profile?",
+      "The show is now published and will appear on the Dashboard and Profile."
     );
   };
 
@@ -378,8 +348,8 @@ export default function ParapostLivePage() {
         started_at: new Date().toISOString(),
         ended_at: null,
       },
-      "Publish this show and mark it Live on Parapost now?",
-      "The show is now public and marked Live on Parapost. It will appear live on the dashboard timeline and your profile timeline. Start or confirm the YouTube/Twitch broadcast as well."
+      "Mark this show Live on Parapost now?",
+      "The show is now Live on the Dashboard and Profile. Start or confirm the YouTube/Twitch broadcast as well."
     );
   };
 
@@ -388,15 +358,17 @@ export default function ParapostLivePage() {
       stream,
       {
         status: "live",
-        started_at: new Date().toISOString(),
+        visibility: "public",
+        is_hidden: false,
+        started_at: stream.started_at || new Date().toISOString(),
         ended_at: null,
       },
-      "Mark this published show Live on Parapost now?",
-      "The show is now marked Live on Parapost. It will appear live on the dashboard timeline and your profile timeline. Start or confirm the YouTube/Twitch broadcast as well."
+      "Mark this show Live now?",
+      "The show is now marked Live on Parapost."
     );
   };
 
-  const endLive = async (stream: LiveStreamRow) => {
+  const endShow = async (stream: LiveStreamRow) => {
     await updateOwnedStream(
       stream,
       {
@@ -404,7 +376,7 @@ export default function ParapostLivePage() {
         ended_at: new Date().toISOString(),
       },
       "End this show on Parapost?",
-      "The show is now marked as ended on Parapost. End the YouTube/Twitch broadcast as well."
+      "The show is now marked as ended. It can remain available as a replay with comments."
     );
   };
 
@@ -415,8 +387,8 @@ export default function ParapostLivePage() {
         visibility: "private",
         is_hidden: true,
       },
-      "Hide this show from the public Live hub?",
-      "The show is now hidden from the public Live hub."
+      "Hide this show from viewers?",
+      "The show is now hidden from viewers."
     );
   };
 
@@ -429,8 +401,8 @@ export default function ParapostLivePage() {
         is_hidden: true,
         ended_at: new Date().toISOString(),
       },
-      "Cancel this show and remove it from the public Live hub?",
-      "The show is cancelled and hidden from the public Live hub."
+      "Cancel this show and hide it from viewers?",
+      "The show is cancelled and hidden from viewers."
     );
   };
 
@@ -438,7 +410,7 @@ export default function ParapostLivePage() {
     if (!currentUserId || stream.user_id !== currentUserId) return;
 
     const ok = window.confirm(
-      "Delete this Live record permanently from Parapost? This cannot be undone."
+      "Delete this Live show permanently from Parapost? This cannot be undone."
     );
 
     if (!ok) return;
@@ -455,20 +427,20 @@ export default function ParapostLivePage() {
     setBusyId("");
 
     if (error) {
-      setMessage(error.message || "Could not delete this Live record.");
+      setMessage(error.message || "Could not delete this Live show.");
       return;
     }
 
-    setMessage("Live record deleted from Parapost.");
-    await loadLiveHub();
+    setMessage("Live show deleted from Parapost.");
+    await loadLiveManager();
   };
 
   return (
-    <main style={pageStyle} className="parapost-live-page">
+    <main style={pageStyle} className="parapost-live-manager-page">
       <div style={shellStyle}>
-        <section style={heroCardStyle} className="parapost-live-hero">
+        <section style={heroCardStyle}>
           <div style={topRowStyle}>
-            <div style={badgeStyle}>Parapost Live hub</div>
+            <div style={badgeStyle}>Live Manager</div>
 
             <Link href="/dashboard" style={backLinkStyle}>
               Back to Dashboard
@@ -477,1017 +449,620 @@ export default function ParapostLivePage() {
 
           <div style={logoOrbStyle}>LIVE</div>
 
-          <h1 style={titleStyle}>Parapost Live</h1>
+          <h1 style={titleStyle}>Manage Your Live Shows</h1>
 
           <p style={subtitleStyle}>
-            Discover live paranormal podcasts, investigations, interviews, and
-            community broadcasts. For launch, Parapost Live supports YouTube Live
-            and Twitch Live links so viewers can watch inside Parapost.
+            Create, schedule, publish, end, and manage your Parapost Live shows.
+            Viewers watch and comment from the Dashboard and Profile.
           </p>
 
-          <div style={ruleGridStyle}>
-            <div style={ruleCardStyle}>
-              <strong style={ruleTitleStyle}>Live broadcasts</strong>
-              <span style={ruleTextStyle}>
-                Watch YouTube Live and Twitch Live shows directly inside Parapost.
-              </span>
-            </div>
+          <div style={heroActionRowStyle}>
+            <Link href="/live/create" style={primaryLinkStyle}>
+              Create Live Show
+            </Link>
 
-            <div style={ruleCardStyle}>
-              <strong style={ruleTitleStyle}>Upcoming events</strong>
-              <span style={ruleTextStyle}>
-                Find scheduled podcasts, investigations, and community shows
-                before they begin.
-              </span>
-            </div>
-
-            <div style={ruleCardStyle}>
-              <strong style={ruleTitleStyle}>Replays</strong>
-              <span style={ruleTextStyle}>
-                Replays can remain available inside Parapost when the YouTube or
-                Twitch player supports playback.
-              </span>
-            </div>
+            <button type="button" onClick={() => void loadLiveManager()} style={secondaryButtonStyle}>
+              Refresh
+            </button>
           </div>
 
-          <div style={statusStripStyle} className="parapost-live-status-strip">
-            <div>
-              <span style={statusNumberStyle}>{publicStreams.length}</span>
-              <span style={statusLabelStyle}>Published shows</span>
+          <div style={statsGridStyle}>
+            <div style={statCardStyle}>
+              <span style={statNumberStyle}>{liveCount}</span>
+              <span style={statLabelStyle}>Live now</span>
             </div>
-
-            <div>
-              <span style={statusNumberStyle}>{liveNowCount}</span>
-              <span style={statusLabelStyle}>Live now</span>
+            <div style={statCardStyle}>
+              <span style={statNumberStyle}>{scheduledCount}</span>
+              <span style={statLabelStyle}>Scheduled</span>
             </div>
-
-            <div>
-              <span style={statusNumberStyle}>{upcomingCount}</span>
-              <span style={statusLabelStyle}>Upcoming</span>
-            </div>
-
-            <div>
-              <span style={statusNumberStyle}>{replayCount}</span>
-              <span style={statusLabelStyle}>Replays</span>
+            <div style={statCardStyle}>
+              <span style={statNumberStyle}>{replayCount}</span>
+              <span style={statLabelStyle}>Replays</span>
             </div>
           </div>
         </section>
 
-        <section style={panelStyle} className="parapost-live-panel">
+        {message ? <div style={messageStyle}>{message}</div> : null}
+
+        <section style={managerSectionStyle}>
           <div style={sectionHeaderStyle}>
             <div>
-              <div style={eyebrowStyle}>Community broadcasts</div>
-              <h2 style={sectionTitleStyle}>Live shows and upcoming events</h2>
+              <div style={sectionEyebrowStyle}>Creator tools</div>
+              <h2 style={sectionTitleStyle}>Your Live Shows</h2>
             </div>
 
-            {currentUserId ? (
-              <Link href="/live/create" style={createLinkStyle}>
-                Create Live Show
-              </Link>
-            ) : null}
+            <Link href="/live/create" style={smallCreateLinkStyle}>
+              New Show
+            </Link>
           </div>
 
           {loading ? (
-            <div style={emptyStateStyle}>Loading Parapost Live...</div>
-          ) : !currentUserId ? (
-            <div style={emptyStateStyle}>{message}</div>
-          ) : publicStreams.length === 0 ? (
+            <div style={emptyStateStyle}>Loading your Live shows...</div>
+          ) : sortedOwnedStreams.length === 0 ? (
             <div style={emptyStateStyle}>
-              <strong style={{ color: "#fff" }}>No public Live shows yet.</strong>
-              <span>
-                Published podcasts, investigations, interviews, and broadcasts
-                will appear here.
-              </span>
+              <strong style={{ color: "#fff" }}>No Live shows yet.</strong>
+              <span>Create your first Live show and add a YouTube Live or Twitch Live link.</span>
+              <Link href="/live/create" style={inlineCreateLinkStyle}>
+                Create Live Show
+              </Link>
             </div>
           ) : (
-            <div style={listStyle}>
-              {publicStreams.map((stream) => {
+            <div style={showGridStyle}>
+              {sortedOwnedStreams.map((stream) => {
+                const isBusy = busyId === stream.id;
+                const effectiveStatus = getEffectiveLiveStatus(stream);
+                const isPublished = stream.visibility === "public" && !stream.is_hidden;
+                const isEnded = effectiveStatus === "ended";
+                const isLive = effectiveStatus === "live";
                 const providerLabel = getProviderLabel(stream.provider);
 
                 return (
-                  <article
-                    key={`public-${stream.id}`}
-                    style={liveCardStyle}
-                    className="parapost-live-card"
-                  >
-                    <div
-                      style={thumbnailWrapStyle}
-                      className="parapost-live-thumbnail"
-                    >
+                  <article key={stream.id} style={showCardStyle}>
+                    <div style={thumbWrapStyle}>
                       {stream.thumbnail_url ? (
-                        <img
-                          src={stream.thumbnail_url}
-                          alt=""
-                          style={thumbnailImageStyle}
-                        />
+                        <img src={stream.thumbnail_url} alt="" style={thumbImageStyle} />
                       ) : (
-                        <div style={fallbackThumbStyle} className="parapost-live-fallback-thumb">
+                        <div style={fallbackThumbStyle}>
                           <span style={fallbackBadgeStyle}>PARAPOST LIVE</span>
-                          <strong style={fallbackTitleStyle}>
-                            {stream.title}
-                          </strong>
-                          <span style={fallbackProviderStyle}>
-                            {providerLabel}
-                          </span>
+                          <strong style={fallbackTitleStyle}>{stream.title || "Live Show"}</strong>
+                          <span style={fallbackProviderStyle}>{providerLabel}</span>
                         </div>
                       )}
                     </div>
 
-                    <div style={liveContentStyle}>
-                      <div
-                        style={liveCardHeaderStyle}
-                        className="parapost-live-card-header"
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <h3 style={liveTitleStyle}>{stream.title}</h3>
-                          <p style={liveDescriptionStyle}>
-                            {stream.description || "Live community broadcast."}
-                          </p>
-                        </div>
+                    <div style={showBodyStyle}>
+                      <div style={showTopLineStyle}>
+                        <span style={getStatusPillStyle(stream)}>
+                          {getStatusLabel(stream)}
+                        </span>
 
-                        <span style={getStatusPillStyle(getEffectiveLiveStatus(stream))}>
-                          {getLiveDisplayStatus(stream)}
+                        <span style={publishedLabelStyle}>
+                          {isPublished ? "Visible" : "Hidden"}
                         </span>
                       </div>
 
-                      <div
-                        style={publicMetaGridStyle}
-                        className="parapost-live-meta-grid"
-                      >
-                        <div>
-                          <span style={metaLabelStyle}>Provider</span>
-                          <strong style={metaValueStyle}>{providerLabel}</strong>
-                        </div>
+                      <h3 style={showTitleStyle}>{stream.title || "Untitled Live Show"}</h3>
 
-                        <div>
-                          <span style={metaLabelStyle}>Scheduled</span>
-                          <strong style={metaValueStyle}>
-                            {formatLiveDate(stream.scheduled_at)}
-                          </strong>
-                        </div>
+                      <div style={showMetaStyle}>
+                        <span>{providerLabel}</span>
+                        <span>·</span>
+                        <span>
+                          {isLive
+                            ? `Started ${formatLiveDate(stream.started_at || stream.updated_at || stream.created_at)}`
+                            : isEnded
+                              ? `Ended ${formatLiveDate(stream.ended_at || stream.updated_at || stream.created_at)}`
+                              : `Scheduled ${formatLiveDate(stream.scheduled_at)}`}
+                        </span>
                       </div>
 
+                      {stream.description ? (
+                        <p style={showDescriptionStyle}>{stream.description}</p>
+                      ) : null}
 
-                  {stream.embed_url ? (
-                    <div style={livePlayerWrapStyle}>
-                      <iframe
-                        src={stream.embed_url}
-                        title={stream.title}
-                        allow="autoplay; fullscreen; picture-in-picture"
-                        allowFullScreen
-                        style={livePlayerFrameStyle}
-                      />
-                    </div>
-                  ) : (
-                    <div style={emptyStateStyle}>
-                      <strong style={{ color: "#fff" }}>Inline player not available.</strong>
-                      <span>
-                        Add a YouTube Live or Twitch Live link so viewers can watch inside Parapost.
-                      </span>
-                    </div>
-                  )}
+                      <p style={hintStyle}>{getOwnerHint(stream)}</p>
 
-                  <LiveChatPanel
-                    liveStreamId={stream.id}
-                    creatorUserId={stream.user_id}
-                    currentUserId={currentUserId}
-                    status={getEffectiveLiveStatus(stream)}
-                  />
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-    </section>
+                      <div style={actionGridStyle}>
+                        <Link href={`/live/create?edit=${stream.id}`} style={actionLinkStyle}>
+                          Edit
+                        </Link>
 
-
-
-        {currentUserId ? (
-          <section style={creatorPanelStyle} className="parapost-live-panel">
-            <div style={sectionHeaderStyle}>
-              <div>
-                <div style={eyebrowStyle}>Creator studio</div>
-                <h2 style={sectionTitleStyle}>Manage your Live shows</h2>
-              </div>
-
-              <Link href="/live/create" style={createLinkStyle}>
-                Create Live Show
-              </Link>
-            </div>
-
-            {ownedStreams.length === 0 ? (
-              <div style={emptyStateStyle}>
-                <strong style={{ color: "#fff" }}>No Live shows yet.</strong>
-                <span>
-                  Create a Live show, add your YouTube or Twitch link, and publish it
-                  when your show is ready.
-                </span>
-              </div>
-            ) : (
-              <div style={listStyle}>
-                {ownedStreams.map((stream) => {
-                  const isBusy = busyId === stream.id;
-                  const providerLabel = getProviderLabel(stream.provider);
-                  const isPublished =
-                    stream.visibility === "public" && !stream.is_hidden;
-
-                  return (
-                    <article
-                      key={`owner-${stream.id}`}
-                      style={creatorCardStyle}
-                      className="parapost-live-card"
-                    >
-                      <div
-                        style={thumbnailWrapStyle}
-                        className="parapost-live-thumbnail"
-                      >
-                        {stream.thumbnail_url ? (
-                          <img
-                            src={stream.thumbnail_url}
-                            alt=""
-                            style={thumbnailImageStyle}
-                          />
-                        ) : (
-                          <div style={fallbackThumbStyle} className="parapost-live-fallback-thumb">
-                            <span style={fallbackBadgeStyle}>PARAPOST LIVE</span>
-                            <strong style={fallbackTitleStyle}>
-                              {stream.title}
-                            </strong>
-                            <span style={fallbackProviderStyle}>
-                              {providerLabel}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={liveContentStyle}>
-                        <div
-                          style={liveCardHeaderStyle}
-                          className="parapost-live-card-header"
-                        >
-                          <div style={{ minWidth: 0 }}>
-                            <h3 style={liveTitleStyle}>{stream.title}</h3>
-                            <p style={liveDescriptionStyle}>
-                              {stream.description || "No description yet."}
-                            </p>
-                            <p style={liveHintStyle}>{getOwnerHint(stream)}</p>
-                          </div>
-
-                          <span style={getStatusPillStyle(getEffectiveLiveStatus(stream))}>
-                            {getLiveDisplayStatus(stream)}
-                          </span>
-                        </div>
-
-                        <div
-                          style={metaGridStyle}
-                          className="parapost-live-meta-grid"
-                        >
-                          <div>
-                            <span style={metaLabelStyle}>Provider</span>
-                            <strong style={metaValueStyle}>
-                              {providerLabel}
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span style={metaLabelStyle}>Published</span>
-                            <strong style={metaValueStyle}>
-                              {isPublished ? "Yes" : "Not yet"}
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span style={metaLabelStyle}>Visible in Parapost</span>
-                            <strong style={metaValueStyle}>
-                              {isPublished ? "Yes" : "No"}
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span style={metaLabelStyle}>Scheduled</span>
-                            <strong style={metaValueStyle}>
-                              {formatLiveDate(stream.scheduled_at)}
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span style={metaLabelStyle}>Started</span>
-                            <strong style={metaValueStyle}>
-                              {formatLiveDate(stream.started_at)}
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span style={metaLabelStyle}>Ended</span>
-                            <strong style={metaValueStyle}>
-                              {formatLiveDate(stream.ended_at)}
-                            </strong>
-                          </div>
-                        </div>
-
-                        <div
-                          style={actionRowStyle}
-                          className="parapost-live-actions"
-                        >
-                          <Link
-                            href={`/live/create?edit=${stream.id}`}
-                            style={secondaryLinkActionStyle}
-                          >
-                            Edit Show
-                          </Link>
-
-                          {!isPublished &&
-                          stream.status !== "ended" &&
-                          stream.status !== "cancelled" ? (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => publishScheduledShow(stream)}
-                              style={secondaryActionStyle}
-                            >
-                              Publish Upcoming
-                            </button>
-                          ) : null}
-
-                          {!isPublished &&
-                          stream.status !== "ended" &&
-                          stream.status !== "cancelled" ? (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => publishAndStartShow(stream)}
-                              style={primaryActionStyle}
-                            >
-                              Publish &amp; Go Live
-                            </button>
-                          ) : null}
-
-                          {isPublished &&
-                          getEffectiveLiveStatus(stream) !== "live" &&
-                          stream.status !== "ended" &&
-                          stream.status !== "cancelled" ? (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => markLive(stream)}
-                              style={primaryActionStyle}
-                            >
-                              Mark Live
-                            </button>
-                          ) : null}
-
-                          {getEffectiveLiveStatus(stream) === "live" ? (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => endLive(stream)}
-                              style={primaryActionStyle}
-                            >
-                              End Live
-                            </button>
-                          ) : null}
-
-                          {isPublished ? (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => hideShow(stream)}
-                              style={secondaryActionStyle}
-                            >
-                              Hide from Hub
-                            </button>
-                          ) : null}
-
-                          {stream.status !== "cancelled" &&
-                          stream.status !== "ended" &&
-                          stream.status !== "live" ? (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => cancelShow(stream)}
-                              style={secondaryActionStyle}
-                            >
-                              Cancel Show
-                            </button>
-                          ) : null}
-
+                        {!isPublished || effectiveStatus === "draft" || effectiveStatus === "cancelled" ? (
                           <button
                             type="button"
                             disabled={isBusy}
-                            onClick={() => deleteStream(stream)}
-                            style={dangerActionStyle}
+                            onClick={() => void publishScheduledShow(stream)}
+                            style={actionButtonStyle}
                           >
-                            Delete Record
+                            Publish
                           </button>
-                        </div>
+                        ) : null}
+
+                        {effectiveStatus !== "live" && effectiveStatus !== "ended" ? (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => void publishAndStartShow(stream)}
+                            style={actionButtonStyle}
+                          >
+                            Go Live Now
+                          </button>
+                        ) : null}
+
+                        {effectiveStatus === "upcoming" && isScheduledTimeDue(stream.scheduled_at) ? (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => void markLive(stream)}
+                            style={actionButtonStyle}
+                          >
+                            Confirm Live
+                          </button>
+                        ) : null}
+
+                        {effectiveStatus === "live" ? (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => void endShow(stream)}
+                            style={dangerButtonStyle}
+                          >
+                            End Show
+                          </button>
+                        ) : null}
+
+                        {isPublished ? (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => void hideShow(stream)}
+                            style={secondaryActionButtonStyle}
+                          >
+                            Hide
+                          </button>
+                        ) : null}
+
+                        {effectiveStatus !== "ended" && effectiveStatus !== "cancelled" ? (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => void cancelShow(stream)}
+                            style={secondaryActionButtonStyle}
+                          >
+                            Cancel
+                          </button>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => void deleteStream(stream)}
+                          style={deleteButtonStyle}
+                        >
+                          Delete
+                        </button>
                       </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-
-            {message ? <div style={noteStyle}>{message}</div> : null}
-          </section>
-        ) : null}
-
-        <section style={footerNoteStyle}>
-          <strong>How Parapost Live works:</strong> Creators can broadcast through
-          StreamYard, Restream, Evmux, OBS, or another tool to YouTube or Twitch.
-          Then they paste the YouTube/Twitch Live link into Parapost so viewers can
-          watch and comment inside Parapost.
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
       </div>
-
-      <style jsx global>{`
-        .parapost-live-page {
-          overflow-x: hidden;
-          touch-action: pan-y;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .parapost-live-page *,
-        .parapost-live-page *::before,
-        .parapost-live-page *::after {
-          box-sizing: border-box;
-        }
-
-        .parapost-live-card {
-          transition:
-            border-color 180ms ease,
-            box-shadow 180ms ease,
-            transform 180ms ease;
-        }
-
-        .parapost-live-card:hover {
-          border-color: rgba(216, 180, 254, 0.2) !important;
-          box-shadow:
-            0 18px 46px rgba(0, 0, 0, 0.28),
-            0 0 30px rgba(168, 85, 247, 0.1) !important;
-          transform: translateY(-1px);
-        }
-
-        @media (max-width: 980px) {
-          .parapost-live-page {
-            padding: max(18px, env(safe-area-inset-top)) 12px
-              calc(88px + env(safe-area-inset-bottom)) !important;
-          }
-
-          .parapost-live-actions {
-            display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 8px !important;
-          }
-
-          .parapost-live-actions > * {
-            width: 100% !important;
-            min-height: 42px !important;
-            padding-left: 10px !important;
-            padding-right: 10px !important;
-            touch-action: manipulation;
-          }
-        }
-
-        @media (max-width: 820px) {
-          .parapost-live-card {
-            grid-template-columns: 1fr !important;
-            border-radius: 22px !important;
-          }
-
-          .parapost-live-thumbnail {
-            min-height: 210px !important;
-          }
-
-          .parapost-live-card-header {
-            display: grid !important;
-            gap: 10px !important;
-          }
-
-          .parapost-live-meta-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          }
-        }
-
-        @media (max-width: 760px) {
-          .parapost-live-page {
-            padding: max(14px, env(safe-area-inset-top)) 10px
-              calc(96px + env(safe-area-inset-bottom)) !important;
-          }
-
-          .parapost-live-hero,
-          .parapost-live-panel {
-            border-radius: 24px !important;
-            padding: 16px !important;
-          }
-
-          .parapost-live-status-strip {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 10px !important;
-          }
-
-          .parapost-live-card {
-            padding: 10px !important;
-          }
-
-          .parapost-live-thumbnail {
-            min-height: 190px !important;
-          }
-        }
-
-        @media (max-width: 560px) {
-          .parapost-live-actions {
-            grid-template-columns: 1fr !important;
-          }
-
-          .parapost-live-actions > * {
-            justify-content: center !important;
-          }
-        }
-
-        @media (max-width: 430px) {
-          .parapost-live-status-strip,
-          .parapost-live-meta-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          .parapost-live-thumbnail {
-            min-height: 172px !important;
-          }
-        }
-      `}</style>
     </main>
   );
 }
 
 const pageStyle: CSSProperties = {
-height: "100dvh",
-minHeight: "100dvh",
-position: "relative",
-overflowY: "auto",
-overflowX: "hidden",
-overscrollBehaviorY: "auto",
-WebkitOverflowScrolling: "touch",
-touchAction: "pan-y",
-boxSizing: "border-box",
-background:
-"radial-gradient(circle at 14% 0%, rgba(168,85,247,0.28), transparent 34%), radial-gradient(circle at 88% 14%, rgba(236,72,153,0.14), transparent 34%), linear-gradient(180deg, #05050b 0%, #07090d 52%, #05050b 100%)",
-color: "#fff",
-padding:
-"max(18px, env(safe-area-inset-top)) 14px calc(80px + env(safe-area-inset-bottom))",
+  minHeight: "100vh",
+  padding: "28px 16px 56px",
+  background:
+    "radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 22%, transparent), transparent 32%), linear-gradient(180deg, #050611 0%, #090b18 48%, #050611 100%)",
 };
 
-
 const shellStyle: CSSProperties = {
-  width: "100%",
-  maxWidth: 1080,
+  width: "min(1120px, 100%)",
   margin: "0 auto",
   display: "grid",
   gap: 18,
 };
 
 const heroCardStyle: CSSProperties = {
-  borderRadius: 32,
-  border: "1px solid rgba(216,180,254,0.20)",
-  background:
-    "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(255,255,255,0.055) 36%, rgba(10,13,24,0.94) 100%)",
-  boxShadow:
-    "0 24px 70px rgba(0,0,0,0.34), 0 0 40px rgba(168,85,247,0.15)",
-  padding: 24,
+  borderRadius: 28,
+  border: "1px solid rgba(216,180,254,0.16)",
+  background: "rgba(8,10,22,0.86)",
+  boxShadow: "0 28px 90px rgba(0,0,0,0.45)",
+  padding: 22,
   overflow: "hidden",
 };
 
 const topRowStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "space-between",
   alignItems: "center",
+  justifyContent: "space-between",
   gap: 12,
   flexWrap: "wrap",
-  marginBottom: 28,
 };
 
 const badgeStyle: CSSProperties = {
   display: "inline-flex",
+  minHeight: 30,
   alignItems: "center",
-  minHeight: 34,
   borderRadius: 999,
-  padding: "0 13px",
+  padding: "0 11px",
   color: "#f3e8ff",
-  background: "rgba(168,85,247,0.18)",
-  border: "1px solid rgba(216,180,254,0.22)",
-  fontSize: 12,
+  background: "rgba(168,85,247,0.16)",
+  border: "1px solid rgba(216,180,254,0.18)",
+  fontSize: 11,
   fontWeight: 950,
-  letterSpacing: "0.08em",
   textTransform: "uppercase",
+  letterSpacing: "0.08em",
 };
 
 const backLinkStyle: CSSProperties = {
-  minHeight: 36,
-  borderRadius: 999,
-  padding: "0 14px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "#fff",
+  color: "#c4b5fd",
   textDecoration: "none",
-  background: "rgba(255,255,255,0.07)",
-  border: "1px solid rgba(255,255,255,0.12)",
   fontSize: 13,
   fontWeight: 850,
 };
 
 const logoOrbStyle: CSSProperties = {
-  width: 84,
-  height: 84,
-  borderRadius: 28,
+  width: 74,
+  height: 74,
+  borderRadius: 24,
   display: "grid",
   placeItems: "center",
-  background: "linear-gradient(135deg, #a855f7, #7c3aed 52%, #ec4899)",
+  marginTop: 20,
   color: "#fff",
   fontSize: 17,
   fontWeight: 1000,
-  letterSpacing: "0.06em",
-  boxShadow: "0 18px 42px rgba(168,85,247,0.34)",
-  marginBottom: 18,
+  letterSpacing: "-0.06em",
+  background:
+    "linear-gradient(135deg, color-mix(in srgb, var(--parapost-accent, #a855f7) 92%, #ec4899), #111827)",
+  boxShadow: "0 18px 54px color-mix(in srgb, var(--parapost-accent, #a855f7) 28%, transparent)",
 };
 
 const titleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: "clamp(38px, 8vw, 72px)",
+  margin: "16px 0 0",
+  color: "#fff",
+  fontSize: "clamp(2rem, 5vw, 4rem)",
   lineHeight: 0.95,
   letterSpacing: "-0.07em",
-  fontWeight: 1000,
 };
 
 const subtitleStyle: CSSProperties = {
-  margin: "16px 0 0",
-  maxWidth: 760,
-  color: "#d1d5db",
-  fontSize: 16,
-  lineHeight: 1.65,
+  maxWidth: 680,
+  margin: "14px 0 0",
+  color: "#cbd5e1",
+  fontSize: "1rem",
+  lineHeight: 1.6,
 };
 
-const ruleGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-  gap: 12,
-  marginTop: 24,
+const heroActionRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 18,
 };
 
-const ruleCardStyle: CSSProperties = {
-  borderRadius: 22,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.055)",
-  padding: 15,
-  display: "grid",
-  gap: 8,
-};
-
-const ruleTitleStyle: CSSProperties = {
+const primaryLinkStyle: CSSProperties = {
+  minHeight: 42,
+  borderRadius: 999,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0 17px",
   color: "#fff",
-  fontSize: 14,
+  textDecoration: "none",
+  fontSize: 13,
   fontWeight: 950,
+  background:
+    "linear-gradient(135deg, color-mix(in srgb, var(--parapost-accent, #a855f7) 92%, #ec4899), #7c3aed)",
+  boxShadow: "0 16px 34px color-mix(in srgb, var(--parapost-accent, #a855f7) 22%, transparent)",
 };
 
-const ruleTextStyle: CSSProperties = {
-  color: "#aeb6c4",
+const secondaryButtonStyle: CSSProperties = {
+  minHeight: 42,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#e5e7eb",
+  padding: "0 15px",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const statsGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+  gap: 10,
+  marginTop: 18,
+};
+
+const statCardStyle: CSSProperties = {
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.045)",
+  padding: 14,
+};
+
+const statNumberStyle: CSSProperties = {
+  display: "block",
+  color: "#fff",
+  fontSize: 26,
+  fontWeight: 1000,
+  letterSpacing: "-0.05em",
+};
+
+const statLabelStyle: CSSProperties = {
+  display: "block",
+  marginTop: 2,
+  color: "#9ca3af",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const messageStyle: CSSProperties = {
+  borderRadius: 18,
+  border: "1px solid rgba(216,180,254,0.16)",
+  background: "rgba(168,85,247,0.10)",
+  color: "#f5f3ff",
+  padding: "12px 14px",
   fontSize: 13,
   lineHeight: 1.5,
 };
 
-const statusStripStyle: CSSProperties = {
-  marginTop: 24,
+const managerSectionStyle: CSSProperties = {
   borderRadius: 24,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(0,0,0,0.20)",
-  padding: 14,
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-  gap: 10,
-};
-
-const statusNumberStyle: CSSProperties = {
-  display: "block",
-  color: "#fff",
-  fontSize: 28,
-  fontWeight: 1000,
-  lineHeight: 1,
-};
-
-const statusLabelStyle: CSSProperties = {
-  display: "block",
-  color: "#9ca3af",
-  fontSize: 12,
-  marginTop: 6,
-  fontWeight: 800,
-};
-
-const panelStyle: CSSProperties = {
-  borderRadius: 28,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(10,13,24,0.82)",
-  boxShadow: "0 18px 44px rgba(0,0,0,0.24)",
-  padding: 18,
-};
-
-const creatorPanelStyle: CSSProperties = {
-  ...panelStyle,
-  border: "1px solid rgba(216,180,254,0.18)",
+  border: "1px solid rgba(216,180,254,0.14)",
+  background: "rgba(8,10,22,0.78)",
+  padding: 16,
 };
 
 const sectionHeaderStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "space-between",
   alignItems: "center",
+  justifyContent: "space-between",
   gap: 12,
   flexWrap: "wrap",
   marginBottom: 14,
 };
 
-const eyebrowStyle: CSSProperties = {
+const sectionEyebrowStyle: CSSProperties = {
   color: "#a78bfa",
   fontSize: 11,
   fontWeight: 950,
-  letterSpacing: "0.08em",
   textTransform: "uppercase",
-  marginBottom: 6,
+  letterSpacing: "0.09em",
 };
 
 const sectionTitleStyle: CSSProperties = {
-  margin: 0,
+  margin: "3px 0 0",
   color: "#fff",
-  fontSize: 23,
-  fontWeight: 1000,
-  letterSpacing: "-0.04em",
+  fontSize: 22,
+  letterSpacing: "-0.045em",
 };
 
-const createLinkStyle: CSSProperties = {
-  minHeight: 38,
+const smallCreateLinkStyle: CSSProperties = {
+  minHeight: 36,
   borderRadius: 999,
-  padding: "0 14px",
-  border: "1px solid rgba(216,180,254,0.28)",
-  background:
-    "linear-gradient(135deg, rgba(168,85,247,0.95), rgba(124,58,237,0.95))",
-  color: "#fff",
-  textDecoration: "none",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: 13,
-  fontWeight: 900,
-  boxShadow: "0 12px 28px rgba(168,85,247,0.24)",
+  padding: "0 13px",
+  color: "#fff",
+  textDecoration: "none",
+  fontSize: 12,
+  fontWeight: 950,
+  background: "rgba(168,85,247,0.22)",
+  border: "1px solid rgba(216,180,254,0.20)",
 };
 
 const emptyStateStyle: CSSProperties = {
-  minHeight: 150,
-  borderRadius: 22,
+  minHeight: 180,
+  borderRadius: 20,
   border: "1px dashed rgba(255,255,255,0.14)",
   background: "rgba(255,255,255,0.035)",
   color: "#9ca3af",
   display: "grid",
   placeItems: "center",
   textAlign: "center",
-  padding: 22,
   gap: 8,
-  lineHeight: 1.5,
+  padding: 20,
+  fontSize: 14,
 };
 
-const listStyle: CSSProperties = {
+const inlineCreateLinkStyle: CSSProperties = {
+  ...smallCreateLinkStyle,
+  marginTop: 4,
+};
+
+const showGridStyle: CSSProperties = {
   display: "grid",
   gap: 14,
 };
 
-const liveCardStyle: CSSProperties = {
-  borderRadius: 24,
+const showCardStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(180px, 280px) minmax(0, 1fr)",
+  gap: 14,
+  borderRadius: 22,
   border: "1px solid rgba(255,255,255,0.10)",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.035))",
+  background: "rgba(255,255,255,0.04)",
   padding: 12,
-  display: "grid",
-  gridTemplateColumns: "minmax(210px, 300px) 1fr",
-  gap: 14,
 };
 
-const creatorCardStyle: CSSProperties = {
-  ...liveCardStyle,
-  border: "1px solid rgba(216,180,254,0.14)",
-};
-
-const thumbnailWrapStyle: CSSProperties = {
+const thumbWrapStyle: CSSProperties = {
   borderRadius: 18,
   overflow: "hidden",
-  minHeight: 168,
+  border: "1px solid rgba(255,255,255,0.10)",
+  minHeight: 150,
   background: "#05070d",
 };
 
-const thumbnailImageStyle: CSSProperties = {
+const thumbImageStyle: CSSProperties = {
   width: "100%",
   height: "100%",
-  minHeight: 168,
+  minHeight: 150,
   objectFit: "cover",
   display: "block",
 };
 
 const fallbackThumbStyle: CSSProperties = {
-  width: "100%",
-  height: "100%",
-  minHeight: 168,
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "flex-end",
-  gap: 8,
+  minHeight: 150,
+  display: "grid",
+  placeItems: "center",
+  textAlign: "center",
+  gap: 6,
   padding: 16,
-  boxSizing: "border-box",
   background:
-    "radial-gradient(circle at 20% 15%, rgba(168,85,247,0.55), transparent 32%), radial-gradient(circle at 80% 25%, rgba(236,72,153,0.28), transparent 34%), linear-gradient(135deg, #111827, #07090d)",
+    "linear-gradient(135deg, color-mix(in srgb, var(--parapost-accent, #a855f7) 24%, transparent), rgba(255,255,255,0.05))",
 };
 
 const fallbackBadgeStyle: CSSProperties = {
-  color: "#f3e8ff",
+  color: "#c4b5fd",
   fontSize: 11,
-  fontWeight: 1000,
-  letterSpacing: "0.08em",
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.10em",
 };
 
 const fallbackTitleStyle: CSSProperties = {
   color: "#fff",
-  fontSize: 21,
-  lineHeight: 1.05,
+  fontSize: 18,
+  lineHeight: 1.15,
 };
 
 const fallbackProviderStyle: CSSProperties = {
-  color: "#d1d5db",
-  fontSize: 13,
-  fontWeight: 800,
+  color: "#9ca3af",
+  fontSize: 12,
+  fontWeight: 850,
 };
 
-const liveContentStyle: CSSProperties = {
+const showBodyStyle: CSSProperties = {
   minWidth: 0,
   display: "grid",
-  alignContent: "space-between",
-  gap: 12,
+  alignContent: "start",
+  gap: 8,
 };
 
-const liveCardHeaderStyle: CSSProperties = {
+const showTopLineStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 12,
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
 };
 
-const liveTitleStyle: CSSProperties = {
+const statusPillStyle: CSSProperties = {
+  minHeight: 28,
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: 999,
+  padding: "0 10px",
+  color: "#e9d5ff",
+  background: "rgba(168,85,247,0.16)",
+  border: "1px solid rgba(216,180,254,0.20)",
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
+
+const publishedLabelStyle: CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 12,
+  fontWeight: 850,
+};
+
+const showTitleStyle: CSSProperties = {
   margin: 0,
   color: "#fff",
-  fontSize: 17,
-  fontWeight: 950,
+  fontSize: 20,
+  lineHeight: 1.15,
+  letterSpacing: "-0.04em",
 };
 
-const liveDescriptionStyle: CSSProperties = {
-  margin: "6px 0 0",
-  color: "#aeb6c4",
-  fontSize: 13,
+const showMetaStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  flexWrap: "wrap",
+  color: "#9ca3af",
+  fontSize: 12.5,
+  fontWeight: 750,
+};
+
+const showDescriptionStyle: CSSProperties = {
+  margin: 0,
+  color: "#cbd5e1",
+  fontSize: 13.5,
   lineHeight: 1.5,
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
 };
 
-const liveHintStyle: CSSProperties = {
-  margin: "8px 0 0",
-  color: "#c4b5fd",
+const hintStyle: CSSProperties = {
+  margin: 0,
+  color: "#9ca3af",
   fontSize: 12.5,
   lineHeight: 1.45,
 };
 
-const statusPillStyle: CSSProperties = {
-  flexShrink: 0,
-  minHeight: 30,
+const actionGridStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 4,
+};
+
+const actionLinkStyle: CSSProperties = {
+  minHeight: 34,
   borderRadius: 999,
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: "0 11px",
-  color: "#f3e8ff",
-  background: "rgba(168,85,247,0.18)",
-  border: "1px solid rgba(216,180,254,0.18)",
+  padding: "0 12px",
+  color: "#fff",
+  textDecoration: "none",
   fontSize: 12,
   fontWeight: 900,
+  background: "rgba(168,85,247,0.20)",
+  border: "1px solid rgba(216,180,254,0.22)",
 };
 
-const publicMetaGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-  gap: 10,
-};
-
-const metaGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-  gap: 10,
-};
-
-const metaLabelStyle: CSSProperties = {
-  display: "block",
-  color: "#7d8593",
-  fontSize: 11,
-  fontWeight: 900,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  marginBottom: 4,
-};
-
-const metaValueStyle: CSSProperties = {
-  color: "#e5e7eb",
-  fontSize: 13,
-  lineHeight: 1.35,
-  textTransform: "capitalize",
-};
-
-const livePlayerWrapStyle: CSSProperties = {
-  position: "relative",
-  width: "100%",
-  aspectRatio: "16 / 9",
-  overflow: "hidden",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "#05070d",
-};
-
-const livePlayerFrameStyle: CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  width: "100%",
-  height: "100%",
-  border: 0,
-};
-
-const actionRowStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 8,
-  alignItems: "center",
-};
-
-const primaryActionStyle: CSSProperties = {
-  minHeight: 36,
+const actionButtonStyle: CSSProperties = {
+  minHeight: 34,
   borderRadius: 999,
-  padding: "0 13px",
-  border: "1px solid rgba(216,180,254,0.28)",
-  background: "rgba(168,85,247,0.22)",
+  border: "1px solid rgba(216,180,254,0.22)",
+  background: "rgba(168,85,247,0.18)",
   color: "#fff",
+  padding: "0 12px",
   fontSize: 12,
   fontWeight: 900,
   cursor: "pointer",
 };
 
-const secondaryActionStyle: CSSProperties = {
-  ...primaryActionStyle,
+const secondaryActionButtonStyle: CSSProperties = {
+  ...actionButtonStyle,
   background: "rgba(255,255,255,0.06)",
+  color: "#d1d5db",
+  border: "1px solid rgba(255,255,255,0.12)",
 };
 
-const dangerActionStyle: CSSProperties = {
-  ...primaryActionStyle,
+const dangerButtonStyle: CSSProperties = {
+  ...actionButtonStyle,
+  background: "rgba(239,68,68,0.18)",
+  color: "#fee2e2",
   border: "1px solid rgba(248,113,113,0.28)",
-  background: "rgba(127,29,29,0.24)",
 };
 
-const secondaryLinkActionStyle: CSSProperties = {
-  ...secondaryActionStyle,
-  textDecoration: "none",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
+const deleteButtonStyle: CSSProperties = {
+  ...dangerButtonStyle,
+  background: "rgba(127,29,29,0.20)",
 };
 
-const publicActionStyle: CSSProperties = {
-  ...primaryActionStyle,
-  minHeight: 40,
-  padding: "0 16px",
-  textDecoration: "none",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background:
-    "linear-gradient(135deg, rgba(168,85,247,0.95), rgba(124,58,237,0.95))",
-  boxShadow: "0 12px 28px rgba(168,85,247,0.20)",
-};
-
-const linkPendingStyle: CSSProperties = {
-  color: "#9ca3af",
-  fontSize: 13,
-  fontWeight: 800,
-};
-
-const noteStyle: CSSProperties = {
-  marginTop: 12,
-  color: "#fca5a5",
-  fontSize: 13,
-  lineHeight: 1.5,
-};
-
-const footerNoteStyle: CSSProperties = {
-  borderRadius: 22,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.035)",
-  color: "#aeb6c4",
-  padding: 16,
-  fontSize: 13,
-  lineHeight: 1.55,
-};

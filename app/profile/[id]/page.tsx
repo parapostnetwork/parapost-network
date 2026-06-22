@@ -15,6 +15,7 @@ import {
 import MutualFriendsPreviewCard from "@/components/profile/MutualFriendsPreviewCard";
 import ProfileAboutSection from "@/components/profile/ProfileAboutSection";
 import ProfilePhotosSection from "@/components/profile/ProfilePhotosSection";
+import LiveChatPanel from "@/components/live/LiveChatPanel";
 
 type ProfileRow = {
   id: string;
@@ -1058,6 +1059,9 @@ function formatProfileLiveDate(value?: string | null) {
 
 function getProfileLiveStatusLabel(stream: { status?: string | null; scheduled_at?: string | null }) {
   if (stream.status === "live") return "Live Now";
+  if (stream.status === "ended") return "Replay";
+  if (stream.status === "cancelled") return "Cancelled";
+  if (stream.status === "draft") return "Not Published";
 
   if (stream.status === "upcoming" && stream.scheduled_at) {
     const scheduledTime = new Date(stream.scheduled_at).getTime();
@@ -1071,6 +1075,20 @@ function getProfileLiveStatusLabel(stream: { status?: string | null; scheduled_a
   }
 
   return "Upcoming Live";
+}
+
+function getProfileLiveChatStatus(status?: string | null): "draft" | "upcoming" | "live" | "ended" | "cancelled" {
+  if (
+    status === "draft" ||
+    status === "upcoming" ||
+    status === "live" ||
+    status === "ended" ||
+    status === "cancelled"
+  ) {
+    return status;
+  }
+
+  return "upcoming";
 }
 
 
@@ -2884,7 +2902,7 @@ const closeProfileMobileSearch = useCallback(() => {
     } else {
       const nextProfileLiveStreams = ((liveStreamsResult.data as ProfileLiveStream[]) || [])
         .filter((stream) => Boolean(stream.id && stream.user_id))
-        .filter((stream) => stream.status === "upcoming" || stream.status === "live")
+        .filter((stream) => stream.status === "upcoming" || stream.status === "live" || stream.status === "ended")
         .map((stream) => ({
           ...stream,
           created_at: getProfileLiveTimestamp(stream),
@@ -15204,23 +15222,32 @@ return (
                       {profileFeedItems.map((item) => {
                         if (item.feedKind === "live_stream") {
                           const isLive = item.status === "live";
-                          const liveEmbedUrl = isLive ? item.embed_url || "" : "";
+                          const isReplay = item.status === "ended";
+                          const liveEmbedUrl = (isLive || isReplay) ? item.embed_url || "" : "";
+                          const chatStatus = getProfileLiveChatStatus(item.status);
+                          const hasLongDescription = Boolean(item.description && item.description.length > 150);
                           const scheduleLabel = isLive
                             ? `Started ${formatProfileLiveDate(item.started_at || item.updated_at || item.created_at)}`
-                            : `Scheduled ${formatProfileLiveDate(item.scheduled_at)}`;
+                            : isReplay
+                              ? `Replay from ${formatProfileLiveDate(item.ended_at || item.started_at || item.updated_at || item.created_at)}`
+                              : `Scheduled ${formatProfileLiveDate(item.scheduled_at)}`;
 
                           return (
                             <article
                               key={`profile-live-${item.id}`}
-                              className={`profile-feed-card profile-live-feed-card ${isLive ? "profile-live-feed-card-live" : "profile-live-feed-card-upcoming"}`}
+                              className={`profile-feed-card profile-live-feed-card ${isLive ? "profile-live-feed-card-live" : isReplay ? "profile-live-feed-card-replay" : "profile-live-feed-card-upcoming"}`}
                               style={{
                                 ...postCardStyle,
                                 position: "relative",
                                 overflow: "hidden",
-                                borderColor: isLive ? "rgba(74,222,128,0.38)" : "rgba(251,191,36,0.26)",
+                                borderColor: isLive
+                                  ? "rgba(74,222,128,0.38)"
+                                  : isReplay
+                                    ? "rgba(148,163,184,0.22)"
+                                    : "rgba(251,191,36,0.26)",
                                 boxShadow: isLive
                                   ? "0 22px 54px rgba(0,0,0,0.34), 0 0 34px rgba(34,197,94,0.12)"
-                                  : "0 18px 46px rgba(0,0,0,0.30), 0 0 28px rgba(245,158,11,0.10)",
+                                  : "0 18px 46px rgba(0,0,0,0.30)",
                               }}
                             >
                               <div
@@ -15230,7 +15257,9 @@ return (
                                   inset: 0,
                                   background: isLive
                                     ? "radial-gradient(circle at 18% 0%, rgba(34,197,94,0.20), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%)"
-                                    : "radial-gradient(circle at 18% 0%, rgba(245,158,11,0.18), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 16%, transparent), transparent 34%)",
+                                    : isReplay
+                                      ? "radial-gradient(circle at 18% 0%, rgba(148,163,184,0.12), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 12%, transparent), transparent 34%)"
+                                      : "radial-gradient(circle at 18% 0%, rgba(245,158,11,0.18), transparent 34%), radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--parapost-accent, #a855f7) 16%, transparent), transparent 34%)",
                                   pointerEvents: "none",
                                 }}
                               />
@@ -15250,41 +15279,46 @@ return (
                                       {profileDisplayName || "Parapost Member"}
                                     </strong>
                                     <span style={postMetaStyle}>
-                                      @{profileDisplayUsername || "new-member"} {isLive ? "is live now" : "scheduled a live show"} · {formatTimeAgo(item.created_at)}
+                                      @{profileDisplayUsername || "new-member"} {isLive ? "is live now" : isReplay ? "shared a replay" : "scheduled a live show"} · {formatTimeAgo(item.created_at)}
                                     </span>
                                   </div>
 
-                                  <span
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 7,
-                                      padding: "7px 10px",
-                                      borderRadius: 999,
-                                      color: isLive ? "#dcfce7" : "#fef3c7",
-                                      background: isLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
-                                      border: isLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
-                                      fontSize: 12,
-                                      fontWeight: 900,
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.05em",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {isLive ? "●" : "◎"} {getProfileLiveStatusLabel(item)}
-                                  </span>
+                                  {!isReplay ? (
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 7,
+                                        padding: "7px 10px",
+                                        borderRadius: 999,
+                                        color: isLive ? "#dcfce7" : "#fef3c7",
+                                        background: isLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
+                                        border: isLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
+                                        fontSize: 12,
+                                        fontWeight: 900,
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.05em",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {isLive ? "●" : "◎"} {getProfileLiveStatusLabel(item)}
+                                    </span>
+                                  ) : null}
                                 </header>
 
                                 <div
                                   style={{
                                     marginTop: 14,
-                                    borderRadius: 24,
+                                    borderRadius: 20,
                                     overflow: "hidden",
                                     border: "1px solid rgba(255,255,255,0.12)",
                                     background: "rgba(0,0,0,0.28)",
+                                    maxWidth: 760,
+                                    marginLeft: "auto",
+                                    marginRight: "auto",
                                   }}
                                 >
-                                  {isLive && liveEmbedUrl ? (
+                                  {(isLive || isReplay) && liveEmbedUrl ? (
                                     <iframe
                                       src={liveEmbedUrl}
                                       title={item.title || "Parapost Live Show"}
@@ -15293,7 +15327,7 @@ return (
                                       style={{
                                         width: "100%",
                                         aspectRatio: "16 / 9",
-                                        minHeight: 220,
+                                        minHeight: 200,
                                         border: 0,
                                         display: "block",
                                         background: "#05070a",
@@ -15306,7 +15340,7 @@ return (
                                         alt=""
                                         style={{
                                           width: "100%",
-                                          maxHeight: 340,
+                                          maxHeight: 300,
                                           objectFit: "cover",
                                           display: "block",
                                           background: "#05070a",
@@ -15324,14 +15358,14 @@ return (
                                         }}
                                       >
                                         <strong style={{ color: "#ffffff", fontSize: 18 }}>
-                                          {isLive ? "Live now on Parapost" : "Scheduled Live Show"}
+                                          Scheduled Live Show
                                         </strong>
                                       </div>
                                     </div>
                                   ) : (
                                     <div
                                       style={{
-                                        minHeight: 190,
+                                        minHeight: 180,
                                         display: "grid",
                                         placeItems: "center",
                                         textAlign: "center",
@@ -15341,9 +15375,9 @@ return (
                                       }}
                                     >
                                       <div>
-                                        <div style={{ fontSize: 46, marginBottom: 8 }}>LIVE</div>
+                                        <div style={{ fontSize: 42, marginBottom: 8 }}>LIVE</div>
                                         <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>
-                                          {item.provider ? item.provider.charAt(0).toUpperCase() + item.provider.slice(1) : "External stream"}
+                                          {item.provider ? item.provider.charAt(0).toUpperCase() + item.provider.slice(1) : "Live stream"}
                                         </div>
                                       </div>
                                     </div>
@@ -15353,7 +15387,7 @@ return (
                                 <div style={{ marginTop: 14 }}>
                                   <div
                                     style={{
-                                      color: isLive ? "#bbf7d0" : "#fde68a",
+                                      color: isLive ? "#bbf7d0" : isReplay ? "#cbd5e1" : "#fde68a",
                                       fontSize: 12,
                                       fontWeight: 900,
                                       textTransform: "uppercase",
@@ -15364,34 +15398,78 @@ return (
                                     {scheduleLabel}
                                   </div>
 
-                                  <h3 style={{ margin: 0, color: "#ffffff", fontSize: "1.25rem", lineHeight: 1.18, letterSpacing: "-0.035em" }}>
+                                  <h3 style={{ margin: 0, color: "#ffffff", fontSize: "1.18rem", lineHeight: 1.18, letterSpacing: "-0.035em" }}>
                                     {item.title || "Parapost Live Show"}
                                   </h3>
 
                                   {item.description ? (
-                                    <p style={{ ...postContentStyle, marginTop: 10 }}>{renderLinkedText(item.description)}</p>
+                                    <>
+                                      <p
+                                        style={{
+                                          ...postContentStyle,
+                                          marginTop: 10,
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
+                                          overflow: "hidden",
+                                        }}
+                                      >
+                                        {renderLinkedText(item.description)}
+                                      </p>
+
+                                      {hasLongDescription ? (
+                                        <details style={{ marginTop: 6 }}>
+                                          <summary
+                                            style={{
+                                              color: "#c4b5fd",
+                                              fontSize: 13,
+                                              fontWeight: 900,
+                                              cursor: "pointer",
+                                            }}
+                                          >
+                                            More
+                                          </summary>
+                                          <p style={{ ...postContentStyle, marginTop: 8 }}>
+                                            {renderLinkedText(item.description)}
+                                          </p>
+                                        </details>
+                                      ) : null}
+                                    </>
                                   ) : null}
 
-                                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-                                    <span
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        minHeight: 38,
-                                        borderRadius: 999,
-                                        padding: "9px 13px",
-                                        color: isLive ? "#dcfce7" : "#fef3c7",
-                                        background: isLive ? "rgba(34,197,94,0.14)" : "rgba(245,158,11,0.14)",
-                                        border: isLive ? "1px solid rgba(74,222,128,0.26)" : "1px solid rgba(251,191,36,0.24)",
-                                        fontSize: 13,
-                                        fontWeight: 850,
-                                      }}
-                                    >
-                                      {isLive
-                                        ? "Live now — watch from this profile timeline."
-                                        : "Scheduled — this card will become the live show here when the creator starts it."}
-                                    </span>
-                                  </div>
+                                  {!isReplay ? (
+                                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+                                      <span
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          minHeight: 34,
+                                          borderRadius: 999,
+                                          padding: "7px 12px",
+                                          color: isLive ? "#dcfce7" : "#fef3c7",
+                                          background: isLive ? "rgba(34,197,94,0.14)" : "rgba(245,158,11,0.14)",
+                                          border: isLive ? "1px solid rgba(74,222,128,0.26)" : "1px solid rgba(251,191,36,0.24)",
+                                          fontSize: 12.5,
+                                          fontWeight: 850,
+                                        }}
+                                      >
+                                        {isLive
+                                          ? "Watch and comment here on Parapost."
+                                          : "This becomes the live player when the show starts."}
+                                      </span>
+                                    </div>
+                                  ) : null}
+
+                                  {(isLive || isReplay) && item.id ? (
+                                    <LiveChatPanel
+                                      liveStreamId={item.id}
+                                      creatorUserId={item.user_id}
+                                      currentUserId={viewerId}
+                                      status={chatStatus}
+                                      compact
+                                      maxVisibleMessages={4}
+                                    />
+                                  ) : null}
                                 </div>
                               </div>
                             </article>

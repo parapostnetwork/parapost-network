@@ -5,6 +5,7 @@ import {
   FormEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -32,6 +33,9 @@ type LiveChatPanelProps = {
   creatorUserId: string;
   currentUserId: string;
   status: LiveStatus;
+  compact?: boolean;
+  maxVisibleMessages?: number;
+  showHeader?: boolean;
 };
 
 function getDisplayName(profile?: ProfilePreview) {
@@ -61,22 +65,48 @@ function formatChatTime(value: string) {
   });
 }
 
+function getChatStatusLabel(status: LiveStatus) {
+  if (status === "live") return "Live discussion";
+  if (status === "ended") return "Replay discussion";
+  if (status === "upcoming") return "Opens when live";
+  if (status === "cancelled") return "Closed";
+  return "Not published";
+}
+
+function canCommentForStatus(status: LiveStatus) {
+  return status === "live" || status === "ended";
+}
+
 export default function LiveChatPanel({
   liveStreamId,
   creatorUserId,
   currentUserId,
   status,
+  compact = false,
+  maxVisibleMessages,
+  showHeader = true,
 }: LiveChatPanelProps) {
   const [messages, setMessages] = useState<LiveChatMessageRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfilePreview>>({});
   const [draft, setDraft] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState("");
+  const [editingDraft, setEditingDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [busyMessageId, setBusyMessageId] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  const canSend = status === "live" && Boolean(currentUserId);
+  const canSend = canCommentForStatus(status) && Boolean(currentUserId);
+  const visibleLimit = maxVisibleMessages ?? (compact ? 4 : 100);
+
+  const visibleMessages = useMemo(() => {
+    if (expanded || messages.length <= visibleLimit) return messages;
+    return messages.slice(Math.max(messages.length - visibleLimit, 0));
+  }, [expanded, messages, visibleLimit]);
+
+  const hiddenMessageCount = Math.max(messages.length - visibleMessages.length, 0);
 
   const loadProfiles = useCallback(async (userIds: string[]) => {
     const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
@@ -113,7 +143,7 @@ export default function LiveChatPanel({
       .limit(100);
 
     if (error) {
-      setNotice(error.message || "Could not load Live chat.");
+      setNotice(error.message || "Could not load Live comments.");
       setLoading(false);
       return;
     }
@@ -155,9 +185,30 @@ export default function LiveChatPanel({
       .on(
         "postgres_changes",
         {
+          event: "UPDATE",
+          schema: "public",
+          table: "live_chat_messages",
+          filter: `live_stream_id=eq.${liveStreamId}`,
+        },
+        (payload) => {
+          const updatedMessage = payload.new as LiveChatMessageRow;
+
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === updatedMessage.id ? updatedMessage : message
+            )
+          );
+
+          void loadProfiles([updatedMessage.user_id]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
           event: "DELETE",
           schema: "public",
           table: "live_chat_messages",
+          filter: `live_stream_id=eq.${liveStreamId}`,
         },
         () => {
           void loadMessages();
@@ -171,11 +222,13 @@ export default function LiveChatPanel({
   }, [liveStreamId, loadMessages, loadProfiles]);
 
   useEffect(() => {
+    if (compact && !expanded) return;
+
     endRef.current?.scrollIntoView({
       block: "nearest",
       behavior: "smooth",
     });
-  }, [messages.length]);
+  }, [compact, expanded, messages.length]);
 
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -185,7 +238,7 @@ export default function LiveChatPanel({
     if (!canSend || sending || !message) return;
 
     if (message.length > 500) {
-      setNotice("Live chat messages can be up to 500 characters.");
+      setNotice("Comments can be up to 500 characters.");
       return;
     }
 
@@ -201,11 +254,61 @@ export default function LiveChatPanel({
     setSending(false);
 
     if (error) {
-      setNotice(error.message || "Could not send your Live chat message.");
+      setNotice(error.message || "Could not send your comment.");
       return;
     }
 
     setDraft("");
+    setExpanded(true);
+    await loadMessages();
+  };
+
+  const startEditMessage = (message: LiveChatMessageRow) => {
+    if (currentUserId !== message.user_id) return;
+
+    setEditingMessageId(message.id);
+    setEditingDraft(message.message);
+    setNotice("");
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessageId("");
+    setEditingDraft("");
+  };
+
+  const saveEditedMessage = async (message: LiveChatMessageRow) => {
+    if (currentUserId !== message.user_id) return;
+
+    const nextMessage = editingDraft.trim();
+
+    if (!nextMessage) {
+      setNotice("Comment cannot be empty.");
+      return;
+    }
+
+    if (nextMessage.length > 500) {
+      setNotice("Comments can be up to 500 characters.");
+      return;
+    }
+
+    setBusyMessageId(message.id);
+    setNotice("");
+
+    const { error } = await supabase
+      .from("live_chat_messages")
+      .update({ message: nextMessage })
+      .eq("id", message.id)
+      .eq("user_id", currentUserId);
+
+    setBusyMessageId("");
+
+    if (error) {
+      setNotice(error.message || "Could not edit this comment.");
+      return;
+    }
+
+    setEditingMessageId("");
+    setEditingDraft("");
     await loadMessages();
   };
 
@@ -215,7 +318,7 @@ export default function LiveChatPanel({
 
     if (!canDelete) return;
 
-    const ok = window.confirm("Remove this Live chat message?");
+    const ok = window.confirm("Remove this comment?");
 
     if (!ok) return;
 
@@ -230,41 +333,49 @@ export default function LiveChatPanel({
     setBusyMessageId("");
 
     if (error) {
-      setNotice(error.message || "Could not remove this Live chat message.");
+      setNotice(error.message || "Could not remove this comment.");
       return;
+    }
+
+    if (editingMessageId === message.id) {
+      cancelEditMessage();
     }
 
     await loadMessages();
   };
 
   return (
-    <section style={panelStyle}>
-      <div style={headerStyle}>
-        <div>
-          <div style={eyebrowStyle}>Parapost Live Chat</div>
-          <strong style={titleStyle}>Join the conversation</strong>
+    <section style={compact ? compactPanelStyle : panelStyle}>
+      {showHeader ? (
+        <div style={compact ? compactHeaderStyle : headerStyle}>
+          <div>
+            <div style={eyebrowStyle}>Parapost Comments</div>
+            <strong style={titleStyle}>
+              {status === "ended" ? "Replay discussion" : "Join the conversation"}
+            </strong>
+          </div>
+
+          <span style={statusStyle}>{getChatStatusLabel(status)}</span>
         </div>
+      ) : null}
 
-        <span style={statusStyle}>
-          {status === "live" ? "Chat open" : "Read only"}
-        </span>
-      </div>
-
-      <div style={messagesStyle}>
+      <div style={compact ? compactMessagesStyle : messagesStyle}>
         {loading ? (
-          <div style={emptyStyle}>Loading Live chat...</div>
+          <div style={emptyStyle}>Loading comments...</div>
         ) : messages.length === 0 ? (
           <div style={emptyStyle}>
             {status === "live"
-              ? "No messages yet. Start the conversation."
-              : "No Live chat messages yet."}
+              ? "No comments yet. Start the conversation."
+              : "Comments open when the show starts."}
           </div>
         ) : (
-          messages.map((message) => {
+          visibleMessages.map((message) => {
             const profile = profiles[message.user_id];
             const canDelete =
               currentUserId === message.user_id ||
               currentUserId === creatorUserId;
+            const canEdit = currentUserId === message.user_id;
+            const isEditing = editingMessageId === message.id;
 
             return (
               <div key={message.id} style={messageRowStyle}>
@@ -287,19 +398,61 @@ export default function LiveChatPanel({
                       {formatChatTime(message.created_at)}
                     </span>
 
-                    {canDelete ? (
-                      <button
-                        type="button"
-                        disabled={busyMessageId === message.id}
-                        onClick={() => deleteMessage(message)}
-                        style={removeButtonStyle}
-                      >
-                        Remove
-                      </button>
-                    ) : null}
+                    <div style={messageActionWrapStyle}>
+                      {canEdit && !isEditing ? (
+                        <button
+                          type="button"
+                          onClick={() => startEditMessage(message)}
+                          style={editButtonStyle}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+
+                      {canDelete ? (
+                        <button
+                          type="button"
+                          disabled={busyMessageId === message.id}
+                          onClick={() => deleteMessage(message)}
+                          style={removeButtonStyle}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
-                  <p style={messageTextStyle}>{message.message}</p>
+                  {isEditing ? (
+                    <div style={editFormStyle}>
+                      <input
+                        value={editingDraft}
+                        onChange={(event) => setEditingDraft(event.target.value)}
+                        maxLength={500}
+                        style={editInputStyle}
+                      />
+
+                      <div style={editActionRowStyle}>
+                        <button
+                          type="button"
+                          disabled={busyMessageId === message.id}
+                          onClick={() => saveEditedMessage(message)}
+                          style={saveEditButtonStyle}
+                        >
+                          Save
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={cancelEditMessage}
+                          style={cancelEditButtonStyle}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={messageTextStyle}>{message.message}</p>
+                  )}
                 </div>
               </div>
             );
@@ -309,13 +462,23 @@ export default function LiveChatPanel({
         <div ref={endRef} />
       </div>
 
-      {status === "live" ? (
+      {hiddenMessageCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          style={viewMoreButtonStyle}
+        >
+          View {hiddenMessageCount} earlier comment{hiddenMessageCount === 1 ? "" : "s"}
+        </button>
+      ) : null}
+
+      {canCommentForStatus(status) ? (
         <form onSubmit={submitMessage} style={formStyle}>
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             maxLength={500}
-            placeholder="Write a Live chat message..."
+            placeholder={status === "ended" ? "Add a replay comment..." : "Write a comment..."}
             style={inputStyle}
           />
 
@@ -337,8 +500,8 @@ export default function LiveChatPanel({
       ) : (
         <div style={closedStyle}>
           {status === "upcoming"
-            ? "Chat opens when this show goes Live."
-            : "This Live chat is read-only because the show is no longer live."}
+            ? "Comments open when this show starts."
+            : "Comments are not available for this show."}
         </div>
       )}
 
@@ -355,6 +518,11 @@ const panelStyle: CSSProperties = {
   overflow: "hidden",
 };
 
+const compactPanelStyle: CSSProperties = {
+  ...panelStyle,
+  marginTop: 12,
+};
+
 const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -362,6 +530,11 @@ const headerStyle: CSSProperties = {
   gap: 10,
   padding: "12px 13px",
   borderBottom: "1px solid rgba(255,255,255,0.08)",
+};
+
+const compactHeaderStyle: CSSProperties = {
+  ...headerStyle,
+  padding: "10px 12px",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -391,6 +564,7 @@ const statusStyle: CSSProperties = {
   border: "1px solid rgba(216,180,254,0.18)",
   fontSize: 11,
   fontWeight: 900,
+  whiteSpace: "nowrap",
 };
 
 const messagesStyle: CSSProperties = {
@@ -403,8 +577,15 @@ const messagesStyle: CSSProperties = {
   gap: 10,
 };
 
+const compactMessagesStyle: CSSProperties = {
+  ...messagesStyle,
+  minHeight: 0,
+  maxHeight: 240,
+  padding: 10,
+};
+
 const emptyStyle: CSSProperties = {
-  minHeight: 120,
+  minHeight: 88,
   display: "grid",
   placeItems: "center",
   color: "#9ca3af",
@@ -467,8 +648,24 @@ const timeStyle: CSSProperties = {
   fontSize: 11,
 };
 
-const removeButtonStyle: CSSProperties = {
+const messageActionWrapStyle: CSSProperties = {
   marginLeft: "auto",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const editButtonStyle: CSSProperties = {
+  border: 0,
+  background: "transparent",
+  color: "#c4b5fd",
+  padding: 0,
+  fontSize: 11,
+  fontWeight: 850,
+  cursor: "pointer",
+};
+
+const removeButtonStyle: CSSProperties = {
   border: 0,
   background: "transparent",
   color: "#fca5a5",
@@ -484,6 +681,60 @@ const messageTextStyle: CSSProperties = {
   fontSize: 13,
   lineHeight: 1.45,
   overflowWrap: "anywhere",
+};
+
+const editFormStyle: CSSProperties = {
+  marginTop: 8,
+  display: "grid",
+  gap: 8,
+};
+
+const editInputStyle: CSSProperties = {
+  minWidth: 0,
+  minHeight: 36,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.12)",
+  outline: "none",
+  background: "rgba(255,255,255,0.065)",
+  color: "#fff",
+  padding: "0 10px",
+  fontSize: 13,
+};
+
+const editActionRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const saveEditButtonStyle: CSSProperties = {
+  minHeight: 30,
+  borderRadius: 999,
+  border: "1px solid rgba(216,180,254,0.26)",
+  background: "rgba(168,85,247,0.22)",
+  color: "#fff",
+  padding: "0 11px",
+  fontSize: 11,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const cancelEditButtonStyle: CSSProperties = {
+  ...saveEditButtonStyle,
+  background: "rgba(255,255,255,0.06)",
+  color: "#cbd5e1",
+};
+
+const viewMoreButtonStyle: CSSProperties = {
+  width: "100%",
+  minHeight: 34,
+  border: 0,
+  borderTop: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.035)",
+  color: "#c4b5fd",
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 const formStyle: CSSProperties = {
