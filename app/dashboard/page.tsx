@@ -169,6 +169,8 @@ type DashboardLiveStreamItem = {
 const DASHBOARD_LIVE_SELECT =
   "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at";
 
+const DASHBOARD_LIVE_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+
 type MixedFeedItem =
   | { type: "post"; id: string; created_at: string; post: Post }
   | { type: "shared_post"; id: string; created_at: string; sharedPost: SharedPostItem }
@@ -398,13 +400,54 @@ function formatDashboardLiveDate(value?: string | null) {
   });
 }
 
-function getDashboardLiveStatusLabel(stream: { status?: string | null; scheduled_at?: string | null }) {
-  if (stream.status === "live") return "Live Now";
-  if (stream.status === "ended") return "Replay";
-  if (stream.status === "cancelled") return "Cancelled";
-  if (stream.status === "draft") return "Not Published";
+function isDashboardLiveStale(stream: {
+  status?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  scheduled_at?: string | null;
+  created_at?: string | null;
+}) {
+  if (stream.status !== "live") return false;
 
-  if (stream.status === "upcoming" && stream.scheduled_at) {
+  const anchor =
+    stream.started_at ||
+    stream.updated_at ||
+    stream.scheduled_at ||
+    stream.created_at;
+
+  if (!anchor) return false;
+
+  const anchorTime = new Date(anchor).getTime();
+
+  return Number.isFinite(anchorTime) && Date.now() - anchorTime > DASHBOARD_LIVE_STALE_AFTER_MS;
+}
+
+function getDashboardEffectiveLiveStatus(stream: {
+  status?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  scheduled_at?: string | null;
+  created_at?: string | null;
+}) {
+  if (isDashboardLiveStale(stream)) return "ended";
+  return stream.status;
+}
+
+function getDashboardLiveStatusLabel(stream: {
+  status?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  scheduled_at?: string | null;
+  created_at?: string | null;
+}) {
+  const effectiveStatus = getDashboardEffectiveLiveStatus(stream);
+
+  if (effectiveStatus === "live") return "Live Now";
+  if (effectiveStatus === "ended") return "Replay";
+  if (effectiveStatus === "cancelled") return "Cancelled";
+  if (effectiveStatus === "draft") return "Not Published";
+
+  if (effectiveStatus === "upcoming" && stream.scheduled_at) {
     const scheduledTime = new Date(stream.scheduled_at).getTime();
 
     if (Number.isFinite(scheduledTime)) {
@@ -1582,7 +1625,7 @@ export default function DashboardPage() {
         !blockedUserIds.includes(stream.user_id) &&
         stream.visibility === "public" &&
         !stream.is_hidden &&
-        (stream.status === "upcoming" || stream.status === "live")
+        (stream.status === "upcoming" || stream.status === "live" || stream.status === "ended")
     );
 
     const postItems = visiblePostsForViewer.map((post) => ({
@@ -2294,7 +2337,7 @@ export default function DashboardPage() {
       .select(DASHBOARD_LIVE_SELECT)
       .eq("visibility", "public")
       .eq("is_hidden", false)
-      .in("status", ["upcoming", "live"])
+      .in("status", ["upcoming", "live", "ended"])
       .order("updated_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(80);
@@ -2308,7 +2351,7 @@ export default function DashboardPage() {
     const streamRows = ((data || []) as Omit<DashboardLiveStreamItem, "profile">[])
       .filter((stream) => Boolean(stream.id && stream.user_id))
       .filter((stream) => !blockedIds.includes(stream.user_id))
-      .filter((stream) => stream.status === "upcoming" || stream.status === "live");
+      .filter((stream) => stream.status === "upcoming" || stream.status === "live" || stream.status === "ended");
 
     const liveProfileIds = [...new Set(streamRows.map((stream) => stream.user_id).filter(Boolean))];
 
@@ -10024,10 +10067,11 @@ function DashboardLiveStreamCard({
   const creatorProfile = stream.profile;
   const creatorName = creatorProfile?.full_name || creatorProfile?.username || "Parapost creator";
   const creatorHandle = creatorProfile?.username || "member";
-  const isLive = stream.status === "live";
-  const isReplay = stream.status === "ended";
+  const effectiveStatus = getDashboardEffectiveLiveStatus(stream);
+  const isLive = effectiveStatus === "live";
+  const isReplay = effectiveStatus === "ended";
   const isPlayable = (isLive || isReplay) && Boolean(stream.embed_url);
-  const chatStatus = getDashboardLiveChatStatus(stream.status);
+  const chatStatus = getDashboardLiveChatStatus(effectiveStatus);
   const hasLongDescription = Boolean(stream.description && stream.description.length > 150);
   const scheduleLabel = isLive
     ? `Started ${formatDashboardLiveDate(stream.started_at || stream.updated_at || stream.created_at)}`

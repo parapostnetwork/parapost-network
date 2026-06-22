@@ -157,6 +157,8 @@ type ProfileLiveStream = {
 const PROFILE_LIVE_SELECT =
   "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at";
 
+const PROFILE_LIVE_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+
 type ProfileFeedItem =
   | (Post & { feedKind: "post" })
   | (SharedProfilePost & { feedKind: "shared_post" })
@@ -1057,13 +1059,54 @@ function formatProfileLiveDate(value?: string | null) {
   });
 }
 
-function getProfileLiveStatusLabel(stream: { status?: string | null; scheduled_at?: string | null }) {
-  if (stream.status === "live") return "Live Now";
-  if (stream.status === "ended") return "Replay";
-  if (stream.status === "cancelled") return "Cancelled";
-  if (stream.status === "draft") return "Not Published";
+function isProfileLiveStale(stream: {
+  status?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  scheduled_at?: string | null;
+  created_at?: string | null;
+}) {
+  if (stream.status !== "live") return false;
 
-  if (stream.status === "upcoming" && stream.scheduled_at) {
+  const anchor =
+    stream.started_at ||
+    stream.updated_at ||
+    stream.scheduled_at ||
+    stream.created_at;
+
+  if (!anchor) return false;
+
+  const anchorTime = new Date(anchor).getTime();
+
+  return Number.isFinite(anchorTime) && Date.now() - anchorTime > PROFILE_LIVE_STALE_AFTER_MS;
+}
+
+function getProfileEffectiveLiveStatus(stream: {
+  status?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  scheduled_at?: string | null;
+  created_at?: string | null;
+}) {
+  if (isProfileLiveStale(stream)) return "ended";
+  return stream.status;
+}
+
+function getProfileLiveStatusLabel(stream: {
+  status?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  scheduled_at?: string | null;
+  created_at?: string | null;
+}) {
+  const effectiveStatus = getProfileEffectiveLiveStatus(stream);
+
+  if (effectiveStatus === "live") return "Live Now";
+  if (effectiveStatus === "ended") return "Replay";
+  if (effectiveStatus === "cancelled") return "Cancelled";
+  if (effectiveStatus === "draft") return "Not Published";
+
+  if (effectiveStatus === "upcoming" && stream.scheduled_at) {
     const scheduledTime = new Date(stream.scheduled_at).getTime();
 
     if (Number.isFinite(scheduledTime)) {
@@ -2728,7 +2771,7 @@ const closeProfileMobileSearch = useCallback(() => {
         .eq("user_id", profileId)
         .eq("visibility", "public")
         .eq("is_hidden", false)
-        .in("status", ["upcoming", "live"])
+        .in("status", ["upcoming", "live", "ended"])
         .order("updated_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
         .limit(50),
@@ -15221,10 +15264,11 @@ return (
                     <div className="profile-feed-stack profile-feed-list-all-posts" style={feedStackStyle}>
                       {profileFeedItems.map((item) => {
                         if (item.feedKind === "live_stream") {
-                          const isLive = item.status === "live";
-                          const isReplay = item.status === "ended";
+                          const effectiveStatus = getProfileEffectiveLiveStatus(item);
+                          const isLive = effectiveStatus === "live";
+                          const isReplay = effectiveStatus === "ended";
                           const liveEmbedUrl = (isLive || isReplay) ? item.embed_url || "" : "";
-                          const chatStatus = getProfileLiveChatStatus(item.status);
+                          const chatStatus = getProfileLiveChatStatus(effectiveStatus);
                           const hasLongDescription = Boolean(item.description && item.description.length > 150);
                           const scheduleLabel = isLive
                             ? `Started ${formatProfileLiveDate(item.started_at || item.updated_at || item.created_at)}`
