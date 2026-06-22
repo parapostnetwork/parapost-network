@@ -15460,7 +15460,7 @@ return (
                                     </div>
                                   ) : null}
 
-                                  {(isLive || isReplay) && item.id ? (
+                                  {isLive && item.id ? (
                                     <LiveChatPanel
                                       liveStreamId={item.id}
                                       creatorUserId={item.user_id}
@@ -15469,6 +15469,46 @@ return (
                                       compact
                                       maxVisibleMessages={4}
                                     />
+                                  ) : null}
+
+                                  {isReplay && item.id ? (
+                                    <details
+                                      style={{
+                                        marginTop: 14,
+                                        borderRadius: 18,
+                                        border: "1px solid rgba(216,180,254,0.18)",
+                                        background: "rgba(168,85,247,0.08)",
+                                        overflow: "hidden",
+                                      }}
+                                    >
+                                      <summary
+                                        style={{
+                                          minHeight: 42,
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          padding: "0 14px",
+                                          color: "#f5f3ff",
+                                          fontSize: 13,
+                                          fontWeight: 950,
+                                          cursor: "pointer",
+                                          listStyle: "none",
+                                        }}
+                                      >
+                                        View replay discussion / add comment
+                                      </summary>
+
+                                      <div style={{ padding: "0 10px 10px" }}>
+                                        <LiveChatPanel
+                                          liveStreamId={item.id}
+                                          creatorUserId={item.user_id}
+                                          currentUserId={viewerId}
+                                          status={chatStatus}
+                                          compact
+                                          maxVisibleMessages={4}
+                                        />
+                                      </div>
+                                    </details>
                                   ) : null}
                                 </div>
                               </div>

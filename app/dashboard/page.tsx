@@ -10019,6 +10019,7 @@ function DashboardLiveStreamCard({
   currentUserId: string;
 }) {
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [showReplayDiscussion, setShowReplayDiscussion] = useState(false);
 
   const creatorProfile = stream.profile;
   const creatorName = creatorProfile?.full_name || creatorProfile?.username || "Parapost creator";
@@ -10256,7 +10257,7 @@ function DashboardLiveStreamCard({
             </div>
           ) : null}
 
-          {(isLive || isReplay) && stream.id ? (
+          {isLive && stream.id ? (
             <LiveChatPanel
               liveStreamId={stream.id}
               creatorUserId={stream.user_id}
@@ -10266,11 +10267,87 @@ function DashboardLiveStreamCard({
               maxVisibleMessages={4}
             />
           ) : null}
+
+          {isReplay && stream.id ? (
+            <div style={replayDiscussionWrapStyle}>
+              {!showReplayDiscussion ? (
+                <button
+                  type="button"
+                  onClick={() => setShowReplayDiscussion(true)}
+                  style={replayDiscussionButtonStyle}
+                >
+                  View replay discussion / add comment
+                </button>
+              ) : (
+                <>
+                  <div style={replayDiscussionHeaderStyle}>
+                    <strong>Replay discussion</strong>
+                    <button
+                      type="button"
+                      onClick={() => setShowReplayDiscussion(false)}
+                      style={replayDiscussionCloseButtonStyle}
+                    >
+                      Hide discussion
+                    </button>
+                  </div>
+
+                  <LiveChatPanel
+                    liveStreamId={stream.id}
+                    creatorUserId={stream.user_id}
+                    currentUserId={currentUserId}
+                    status={chatStatus}
+                    compact
+                    maxVisibleMessages={4}
+                  />
+                </>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </article>
   );
 }
+
+
+const replayDiscussionWrapStyle: CSSProperties = {
+  marginTop: 14,
+};
+
+const replayDiscussionButtonStyle: CSSProperties = {
+  width: "100%",
+  minHeight: 42,
+  borderRadius: 999,
+  border: "1px solid rgba(216,180,254,0.22)",
+  background:
+    "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(124,58,237,0.12))",
+  color: "#f5f3ff",
+  padding: "0 14px",
+  fontSize: 13,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const replayDiscussionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  marginBottom: 8,
+  color: "#f5f3ff",
+  fontSize: 13,
+};
+
+const replayDiscussionCloseButtonStyle: CSSProperties = {
+  border: 0,
+  background: "transparent",
+  color: "#c4b5fd",
+  padding: 0,
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
 
 function PostCard({
   post,
