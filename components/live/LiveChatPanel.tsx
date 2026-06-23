@@ -155,6 +155,8 @@ export default function LiveChatPanel({
   }, [expanded, messages, visibleLimit]);
 
   const hiddenMessageCount = Math.max(messages.length - visibleMessages.length, 0);
+  const shouldUseMobileDiscussionGate =
+    compact && isMobileCompact && status !== "ended";
 
   const likeCountByMessageId = useMemo(() => {
     const nextCounts: Record<string, number> = {};
@@ -660,17 +662,17 @@ export default function LiveChatPanel({
         </div>
       ) : null}
 
-      {compact && isMobileCompact && !mobileDiscussionOpen ? (
+      {shouldUseMobileDiscussionGate && !mobileDiscussionOpen ? (
         <button
           type="button"
           onClick={() => setMobileDiscussionOpen(true)}
           style={mobileOpenDiscussionButtonStyle}
         >
-          {status === "ended" ? "View replay discussion / add comment" : "Join live discussion"}
+          "Join live discussion"
         </button>
       ) : null}
 
-      {compact && isMobileCompact && mobileDiscussionOpen ? (
+      {shouldUseMobileDiscussionGate && mobileDiscussionOpen ? (
         <button
           type="button"
           onClick={() => setMobileDiscussionOpen(false)}
@@ -680,7 +682,7 @@ export default function LiveChatPanel({
         </button>
       ) : null}
 
-      {!(compact && isMobileCompact && !mobileDiscussionOpen) ? (
+      {!(shouldUseMobileDiscussionGate && !mobileDiscussionOpen) ? (
         <>
       <div style={compact ? compactMessagesStyle : messagesStyle}>
         {loading ? (

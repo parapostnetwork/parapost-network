@@ -5993,9 +5993,7 @@ return (
      overflowX: "hidden",
      overflowY: "visible",
      WebkitOverflowScrolling: "touch",
-     overscrollBehaviorY: "contain",
-     isolation: "isolate",
-     position: "relative",
+     overscrollBehaviorY: "auto",
      animation: "profileFadeIn 220ms ease-out",
    }}
   >
@@ -6003,71 +6001,58 @@ return (
 
       html,
       body {
-        background: #07090d !important;
+        background-color: #07090d !important;
       }
 
       .profile-polish-surface,
-      .profile-mobile-scroll-root,
+      .profile-mobile-scroll-root {
+        background:
+          radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 14%, transparent), transparent 34%),
+          linear-gradient(180deg, #07090d 0%, #090b14 48%, #07090d 100%) !important;
+        background-color: #07090d !important;
+      }
+
       .profile-page-shell,
       .profile-layout-grid,
+      .profile-center-column,
       .profile-stream-stack {
-        background-color: #07090d;
-      }
-
-      .profile-polish-surface::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        pointer-events: none;
-        background:
-          radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%),
-          linear-gradient(180deg, #07090d 0%, #090b14 48%, #07090d 100%);
-      }
-
-      .profile-data-waiting,
-      .profile-data-ready {
-        background:
-          radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%),
-          linear-gradient(180deg, #07090d 0%, #090b14 48%, #07090d 100%) !important;
+        background-color: transparent !important;
       }
 
       @media (max-width: 720px) {
         html,
         body {
-          background: #07090d !important;
-          overscroll-behavior-y: none;
+          background-color: #07090d !important;
+          overflow-x: hidden !important;
         }
 
         .profile-polish-surface {
-          min-height: 100svh !important;
-          padding-bottom: calc(170px + env(safe-area-inset-bottom)) !important;
+          min-height: 100dvh !important;
           background:
-            radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%),
+            radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 14%, transparent), transparent 34%),
             linear-gradient(180deg, #07090d 0%, #090b14 48%, #07090d 100%) !important;
+          background-color: #07090d !important;
         }
 
-        .profile-page-shell,
-        .profile-layout-grid,
-        .profile-center-column,
-        .profile-stream-stack {
-          background: transparent !important;
-          min-width: 0 !important;
+        .profile-page-shell {
+          padding-bottom: calc(180px + env(safe-area-inset-bottom)) !important;
         }
 
         .profile-stream-stack {
-          min-height: 100svh !important;
-          padding-bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+          min-height: 100dvh !important;
+          padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
         }
 
         .profile-feed-card,
         .profile-feed-section-card,
-        .profile-hero-shell {
-          background-color: rgba(8, 10, 18, 0.92) !important;
+        .profile-hero-shell,
+        .profile-content-card,
+        .profile-empty-state-card {
+          background-clip: padding-box !important;
         }
       }
 
-      .profile-badges-viewer-overlay {
+            .profile-badges-viewer-overlay {
         isolation: isolate;
       }
 
