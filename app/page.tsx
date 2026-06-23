@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type AuthMode = "signin" | "signup";
@@ -25,6 +25,68 @@ function getSafeAuthOrigin() {
   return LIVE_SITE_ORIGIN;
 }
 
+async function clearLocalAuthSessionSilently() {
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore cleanup errors. The next auth call will show the real issue.
+    }
+  }
+}
+
+function getFriendlySigninError(message: string, passwordHasEdgeSpaces: boolean) {
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes("email not confirmed")) {
+    return "Your email still needs to be verified. Please check your inbox for the newest Parapost Network verification email.";
+  }
+
+  if (lowerMessage.includes("invalid login credentials")) {
+    return passwordHasEdgeSpaces
+      ? "We could not sign you in. Your password has a space at the beginning or end. Remove the extra space unless your password intentionally starts or ends with one, or use Forgot Password."
+      : "We could not sign you in. Type your password manually instead of using autofill. If it still fails, use Forgot Password and sign in with the newest reset password.";
+  }
+
+  if (
+    lowerMessage.includes("refresh token") ||
+    lowerMessage.includes("invalid token") ||
+    lowerMessage.includes("session") ||
+    lowerMessage.includes("jwt")
+  ) {
+    return "Your saved sign-in session expired. Refresh the page, then sign in again. If it still happens, use Forgot Password.";
+  }
+
+  if (lowerMessage.includes("rate limit") || lowerMessage.includes("too many")) {
+    return "Too many attempts. Please wait a few minutes and try again.";
+  }
+
+  if (lowerMessage.includes("network") || lowerMessage.includes("fetch")) {
+    return "Network problem while signing in. Check your connection and try again.";
+  }
+
+  return message || "We could not sign you in. Please try again.";
+}
+
+function getFriendlySignupError(message: string) {
+  const lowerMessage = message.toLowerCase();
+
+  if (
+    lowerMessage.includes("already registered") ||
+    lowerMessage.includes("already")
+  ) {
+    return "This email may already have an account. Choose Sign In instead, or use Forgot Password if you need a new password.";
+  }
+
+  if (lowerMessage.includes("rate limit") || lowerMessage.includes("too many")) {
+    return "Too many attempts. Please wait a few minutes and try again.";
+  }
+
+  return message || "We could not create the account. Please try again.";
+}
+
 export default function Home() {
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
@@ -33,11 +95,46 @@ export default function Home() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [authMessage, setAuthMessage] = useState("");
   const [authError, setAuthError] = useState("");
 
   const isLogin = authMode === "signin";
   const authOrigin = useMemo(() => getSafeAuthOrigin(), []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const verifySavedSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (!isActive) return;
+
+        if (error) {
+          await clearLocalAuthSessionSilently();
+          return;
+        }
+
+        if (data.session?.user) {
+          window.location.replace("/dashboard");
+          return;
+        }
+      } catch {
+        await clearLocalAuthSessionSilently();
+      } finally {
+        if (isActive) {
+          setCheckingSession(false);
+        }
+      }
+    };
+
+    void verifySavedSession();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const switchMode = (mode: AuthMode) => {
     setAuthMode(mode);
@@ -53,6 +150,7 @@ export default function Home() {
     event?.preventDefault();
 
     const cleanEmail = email.trim().toLowerCase();
+    const passwordHasEdgeSpaces = password !== password.trim();
 
     setAuthMessage("");
     setAuthError("");
@@ -76,40 +174,24 @@ export default function Home() {
       setLoading(true);
 
       if (isLogin) {
+        await clearLocalAuthSessionSilently();
+
         const { error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
         });
 
         if (error) {
-          const lowerMessage = error.message.toLowerCase();
-
-          if (lowerMessage.includes("email not confirmed")) {
-            setAuthError(
-              "Your email still needs to be verified. Please check your inbox for the newest Parapost Network verification email."
-            );
-            return;
-          }
-
-          if (lowerMessage.includes("invalid login credentials")) {
-            setAuthError(
-              "We could not sign you in. Please check your email and password. If you recently changed your password, use the newest password reset email."
-            );
-            return;
-          }
-
-          if (lowerMessage.includes("rate limit")) {
-            setAuthError("Too many attempts. Please wait a few minutes and try again.");
-            return;
-          }
-
-          setAuthError(error.message);
+          await clearLocalAuthSessionSilently();
+          setAuthError(getFriendlySigninError(error.message, passwordHasEdgeSpaces));
           return;
         }
 
-        window.location.href = "/dashboard";
+        window.location.replace("/dashboard");
         return;
       }
+
+      await clearLocalAuthSessionSilently();
 
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -120,19 +202,7 @@ export default function Home() {
       });
 
       if (error) {
-        const lowerMessage = error.message.toLowerCase();
-
-        if (
-          lowerMessage.includes("already registered") ||
-          lowerMessage.includes("already")
-        ) {
-          setAuthError(
-            "This email may already have an account. Choose Sign In instead, or use Forgot Password if you need a new password."
-          );
-          return;
-        }
-
-        setAuthError(error.message);
+        setAuthError(getFriendlySignupError(error.message));
         return;
       }
 
@@ -149,9 +219,9 @@ export default function Home() {
       window.location.href = "/dashboard";
     } catch (err) {
       if (err instanceof Error) {
-        setAuthError(err.message);
+        setAuthError(getFriendlySigninError(err.message, false));
       } else {
-        setAuthError("Unexpected error during authentication.");
+        setAuthError("Unexpected error during authentication. Refresh the page and try again.");
       }
     } finally {
       setLoading(false);
@@ -171,6 +241,7 @@ export default function Home() {
 
     try {
       setLoading(true);
+      await clearLocalAuthSessionSilently();
 
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: `${authOrigin}/reset-password`,
@@ -186,7 +257,7 @@ export default function Home() {
           return;
         }
 
-        setAuthError(error.message);
+        setAuthError(error.message || "Could not send the reset email. Please try again.");
         return;
       }
 
@@ -411,22 +482,28 @@ export default function Home() {
                 ) : null}
 
                 {isLogin ? (
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={loading}
-                    className="self-end text-sm font-bold text-purple-300 hover:text-purple-200 disabled:opacity-60"
-                  >
-                    Forgot Password?
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={loading || checkingSession}
+                      className="self-end text-sm font-bold text-purple-300 hover:text-purple-200 disabled:opacity-60"
+                    >
+                      Forgot Password?
+                    </button>
+
+                    <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold leading-5 text-zinc-400">
+                      Trouble signing in? Type your password manually. Saved passwords can be old after a reset.
+                    </p>
+                  </div>
                 ) : null}
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || checkingSession}
                   className="min-h-[54px] rounded-2xl bg-purple-500 px-4 text-base font-black text-white shadow-lg shadow-purple-950/35 transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-[50px] xl:min-h-[54px]"
                 >
-                  {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+                  {checkingSession ? "Checking session..." : loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
                 </button>
               </form>
 
