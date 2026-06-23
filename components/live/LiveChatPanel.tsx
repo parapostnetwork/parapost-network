@@ -134,6 +134,8 @@ export default function LiveChatPanel({
   const [busyLikeId, setBusyLikeId] = useState("");
   const [busyModerationKey, setBusyModerationKey] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [mobileDiscussionOpen, setMobileDiscussionOpen] = useState(false);
+  const [isMobileCompact, setIsMobileCompact] = useState(false);
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement | null>(null);
 
@@ -372,6 +374,35 @@ export default function LiveChatPanel({
   ]);
 
   useEffect(() => {
+    if (!compact || typeof window === "undefined") {
+      setIsMobileCompact(false);
+      return;
+    }
+
+    const query = window.matchMedia("(max-width: 760px)");
+
+    const updateMobileState = () => {
+      setIsMobileCompact(query.matches);
+    };
+
+    updateMobileState();
+
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", updateMobileState);
+
+      return () => {
+        query.removeEventListener("change", updateMobileState);
+      };
+    }
+
+    query.addListener(updateMobileState);
+
+    return () => {
+      query.removeListener(updateMobileState);
+    };
+  }, [compact]);
+
+  useEffect(() => {
     if (compact && !expanded) return;
 
     endRef.current?.scrollIntoView({
@@ -410,6 +441,7 @@ export default function LiveChatPanel({
 
     setDraft("");
     setExpanded(true);
+    setMobileDiscussionOpen(true);
     await loadMessages();
   };
 
@@ -628,6 +660,28 @@ export default function LiveChatPanel({
         </div>
       ) : null}
 
+      {compact && isMobileCompact && !mobileDiscussionOpen ? (
+        <button
+          type="button"
+          onClick={() => setMobileDiscussionOpen(true)}
+          style={mobileOpenDiscussionButtonStyle}
+        >
+          {status === "ended" ? "View replay discussion / add comment" : "Join live discussion"}
+        </button>
+      ) : null}
+
+      {compact && isMobileCompact && mobileDiscussionOpen ? (
+        <button
+          type="button"
+          onClick={() => setMobileDiscussionOpen(false)}
+          style={mobileHideDiscussionButtonStyle}
+        >
+          Hide discussion
+        </button>
+      ) : null}
+
+      {!(compact && isMobileCompact && !mobileDiscussionOpen) ? (
+        <>
       <div style={compact ? compactMessagesStyle : messagesStyle}>
         {loading ? (
           <div style={emptyStyle}>Loading comments...</div>
@@ -841,10 +895,41 @@ export default function LiveChatPanel({
         <div style={closedStyle}>{getClosedMessage()}</div>
       ) : null}
 
+        </>
+
+      ) : null}
+
       {notice ? <div style={noticeStyle}>{notice}</div> : null}
     </section>
   );
 }
+
+const mobileOpenDiscussionButtonStyle: CSSProperties = {
+  width: "100%",
+  minHeight: 42,
+  border: 0,
+  borderTop: "1px solid rgba(255,255,255,0.08)",
+  background:
+    "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(34,197,94,0.10))",
+  color: "#f5f3ff",
+  padding: "0 14px",
+  fontSize: 13,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const mobileHideDiscussionButtonStyle: CSSProperties = {
+  width: "100%",
+  minHeight: 34,
+  border: 0,
+  borderTop: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.035)",
+  color: "#c4b5fd",
+  padding: "0 12px",
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+};
 
 const panelStyle: CSSProperties = {
   marginTop: 4,
@@ -916,7 +1001,7 @@ const messagesStyle: CSSProperties = {
 const compactMessagesStyle: CSSProperties = {
   ...messagesStyle,
   minHeight: 0,
-  maxHeight: 240,
+  maxHeight: 220,
   padding: 10,
 };
 

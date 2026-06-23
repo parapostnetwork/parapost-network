@@ -200,7 +200,7 @@ export default function CreateLiveShowPage() {
 
     let cancelled = false;
 
-    const loadExistingDraft = async () => {
+    const loadExistingShow = async () => {
       setLoadingExisting(true);
       setError("");
       setMessage("");
@@ -243,7 +243,7 @@ export default function CreateLiveShowPage() {
       setLoadingExisting(false);
     };
 
-    void loadExistingDraft();
+    void loadExistingShow();
 
     return () => {
       cancelled = true;
@@ -332,7 +332,7 @@ export default function CreateLiveShowPage() {
           <div style={badgeStyle}>Creator setup</div>
           <h1 style={titleStyle}>{isEditing ? "Edit Live Show" : "Create Live Show"}</h1>
           <p style={subtitleStyle}>
-            {isEditing ? "Update your Live show details." : "Set up your Live show with a YouTube Live or Twitch Live link."} Viewers watch and comment from the Dashboard and Profile.
+            {isEditing ? "Update your Live show details." : "Set up your Live show with a YouTube Live or Twitch Live link."} Viewers can watch and comment inside Parapost.
           </p>
 
           <div style={heroActionsStyle} className="parapost-live-create-hero-actions">
@@ -360,7 +360,7 @@ export default function CreateLiveShowPage() {
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Add a short description. Viewers can open more details when they want the full description."
+              placeholder="Add a description for this Live show."
               style={textareaStyle}
               maxLength={1200}
             />
@@ -402,11 +402,11 @@ export default function CreateLiveShowPage() {
           </label>
 
           <p style={helperStyle}>
-            Using StreamYard, Restream, Evmux, or OBS? Send your broadcast to YouTube or Twitch, then paste that YouTube/Twitch Live link here.
+            Using StreamYard, Restream, Evmux, or OBS? Send your broadcast to YouTube or Twitch first, then paste that YouTube/Twitch Live link here.
           </p>
 
           <div style={previewWrapStyle} className="parapost-live-create-preview">
-            <div style={previewMediaStyle}>
+            <div className="parapost-live-create-preview-media" style={previewMediaStyle}>
               {detectedMeta.thumbnailUrl ? (
                 <img
                   src={detectedMeta.thumbnailUrl}
@@ -422,14 +422,14 @@ export default function CreateLiveShowPage() {
               )}
             </div>
 
-            <div style={previewTextStyle}>
-              <strong style={{ color: "#fff" }}>Show preview</strong>
+            <div className="parapost-live-create-preview-text" style={previewTextStyle}>
+              <strong style={{ color: "#fff" }}>Thumbnail preview</strong>
               <span>{detectedMeta.helper}</span>
               <span>
-                Inline player: {detectedMeta.embedUrl ? "Yes" : "Add a YouTube Live or Twitch Live link"}
+                Parapost player: {detectedMeta.embedUrl ? "Yes" : "Add a YouTube Live or Twitch Live link"}
               </span>
               <span>
-                Show preview: {detectedMeta.thumbnailUrl ? "Yes" : "Preview image will appear after a supported link is added"}
+                Thumbnail preview: {detectedMeta.thumbnailUrl ? "Yes" : "Preview image will appear after a supported link is added"}
               </span>
             </div>
           </div>
@@ -439,10 +439,10 @@ export default function CreateLiveShowPage() {
             <span>
               {isEditing ? (
                 existingStream?.visibility === "public" && !existingStream?.is_hidden
-                  ? "This show is visible on the Dashboard and Profile."
+                  ? "This show is visible on Dashboard and Profile."
                   : "This show is saved and can be published from Live Manager when you are ready."
               ) : (
-                <>Your Live show is saved first. Publish it from Live Manager when you are ready for it to appear on the Dashboard and Profile.</>
+                <>Your Live show is saved first. Publish it from Live Manager when you are ready for it to appear.</>
               )}
               
             </span>
@@ -524,24 +524,59 @@ export default function CreateLiveShowPage() {
             }
           }
 
-          @media (max-width: 760px) {
-            html,
-            body {
+          @media (max-width: 900px) {
+            .parapost-live-create-shell {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+
+            .parapost-live-create-preview {
+              grid-template-columns: minmax(0, 1fr) !important;
+              width: 100% !important;
               overflow: hidden !important;
             }
 
+            .parapost-live-create-preview-media,
+            .parapost-live-create-preview-text {
+              min-width: 0 !important;
+              width: 100% !important;
+            }
+
+            .parapost-live-create-preview-media {
+              aspect-ratio: 16 / 9 !important;
+              min-height: 0 !important;
+              overflow: hidden !important;
+            }
+
+            .parapost-live-create-preview-media img,
+            .parapost-live-fallback-thumb {
+              width: 100% !important;
+              height: 100% !important;
+              min-height: 0 !important;
+              object-fit: cover !important;
+            }
+          }
+
+          @media (max-width: 760px) {
+            html,
+            body {
+              background: #05050b !important;
+              overflow-x: hidden !important;
+            }
+
             .parapost-live-create-page {
-              min-height: 100dvh !important;
-              height: 100dvh !important;
-              max-height: 100dvh !important;
-              overflow-y: auto !important;
+              min-height: 100svh !important;
+              height: auto !important;
+              max-height: none !important;
+              overflow-y: visible !important;
               overflow-x: hidden !important;
               padding: 12px 10px calc(150px + env(safe-area-inset-bottom)) !important;
               scroll-padding-bottom: calc(150px + env(safe-area-inset-bottom));
             }
 
             .parapost-live-create-shell {
-              max-width: 420px !important;
+              max-width: 100% !important;
+              width: 100% !important;
               gap: 12px !important;
             }
 
@@ -562,8 +597,15 @@ export default function CreateLiveShowPage() {
             }
 
             .parapost-live-create-preview {
-              grid-template-columns: 1fr !important;
+              grid-template-columns: minmax(0, 1fr) !important;
               gap: 12px !important;
+              padding: 10px !important;
+            }
+
+            .parapost-live-create-preview-text {
+              display: grid !important;
+              gap: 6px !important;
+              overflow-wrap: anywhere !important;
             }
           }
 
@@ -581,8 +623,10 @@ export default function CreateLiveShowPage() {
               min-height: 46px !important;
             }
 
-            .parapost-live-create-form [style*="grid-template-columns"] {
-              grid-template-columns: 1fr !important;
+            .parapost-live-create-form [style*="grid-template-columns"],
+            .parapost-live-create-two-column {
+              grid-template-columns: minmax(0, 1fr) !important;
+              width: 100% !important;
             }
 
             .parapost-live-create-hero-actions,
@@ -625,6 +669,8 @@ export default function CreateLiveShowPage() {
 
 const pageStyle: CSSProperties = {
   minHeight: "100dvh",
+  height: "auto",
+  overflowX: "hidden",
   background:
     "radial-gradient(circle at 14% 0%, rgba(168,85,247,0.28), transparent 34%), radial-gradient(circle at 86% 18%, rgba(236,72,153,0.13), transparent 34%), linear-gradient(180deg, #05050b 0%, #07090d 52%, #05050b 100%)",
   color: "#fff",
@@ -752,6 +798,8 @@ const helperStyle: CSSProperties = {
 
 const previewWrapStyle: CSSProperties = {
   display: "grid",
+  minWidth: 0,
+  overflow: "hidden",
   gridTemplateColumns: "minmax(210px, 340px) 1fr",
   gap: 14,
   alignItems: "stretch",

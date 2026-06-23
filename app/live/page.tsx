@@ -437,6 +437,63 @@ export default function ParapostLivePage() {
 
   return (
     <main style={pageStyle} className="parapost-live-manager-page">
+      <style>{`
+        @media (max-width: 760px) {
+          .parapost-live-manager-page {
+            padding: 18px 10px 130px !important;
+            overflow-x: hidden;
+          }
+
+          .parapost-live-manager-show-card {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 12px !important;
+            padding: 10px !important;
+            overflow: hidden !important;
+          }
+
+          .parapost-live-manager-thumb {
+            width: 100% !important;
+            min-height: 0 !important;
+            aspect-ratio: 16 / 9 !important;
+            border-radius: 16px !important;
+          }
+
+          .parapost-live-manager-thumb img {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            object-fit: cover !important;
+          }
+
+          .parapost-live-manager-show-body {
+            min-width: 0 !important;
+            width: 100% !important;
+          }
+
+          .parapost-live-manager-actions {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+            width: 100% !important;
+          }
+
+          .parapost-live-manager-actions a,
+          .parapost-live-manager-actions button {
+            width: 100% !important;
+            min-width: 0 !important;
+            white-space: normal !important;
+            line-height: 1.15 !important;
+            text-align: center !important;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .parapost-live-manager-actions {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+        }
+      `}</style>
       <div style={shellStyle}>
         <section style={heroCardStyle}>
           <div style={topRowStyle}>
@@ -517,8 +574,8 @@ export default function ParapostLivePage() {
                 const providerLabel = getProviderLabel(stream.provider);
 
                 return (
-                  <article key={stream.id} style={showCardStyle}>
-                    <div style={thumbWrapStyle}>
+                  <article key={stream.id} className="parapost-live-manager-show-card" style={showCardStyle}>
+                    <div className="parapost-live-manager-thumb" style={thumbWrapStyle}>
                       {stream.thumbnail_url ? (
                         <img src={stream.thumbnail_url} alt="" style={thumbImageStyle} />
                       ) : (
@@ -530,7 +587,7 @@ export default function ParapostLivePage() {
                       )}
                     </div>
 
-                    <div style={showBodyStyle}>
+                    <div className="parapost-live-manager-show-body" style={showBodyStyle}>
                       <div style={showTopLineStyle}>
                         <span style={getStatusPillStyle(stream)}>
                           {getStatusLabel(stream)}
@@ -561,7 +618,7 @@ export default function ParapostLivePage() {
 
                       <p style={hintStyle}>{getOwnerHint(stream)}</p>
 
-                      <div style={actionGridStyle}>
+                      <div className="parapost-live-manager-actions" style={actionGridStyle}>
                         <Link href={`/live/create?edit=${stream.id}`} style={actionLinkStyle}>
                           Edit
                         </Link>
@@ -655,6 +712,7 @@ export default function ParapostLivePage() {
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
+  overflowX: "hidden",
   padding: "28px 16px 56px",
   background:
     "radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 22%, transparent), transparent 32%), linear-gradient(180deg, #050611 0%, #090b18 48%, #050611 100%)",
@@ -886,6 +944,8 @@ const showGridStyle: CSSProperties = {
 
 const showCardStyle: CSSProperties = {
   display: "grid",
+  minWidth: 0,
+  overflow: "hidden",
   gridTemplateColumns: "minmax(180px, 280px) minmax(0, 1fr)",
   gap: 14,
   borderRadius: 22,
@@ -896,6 +956,7 @@ const showCardStyle: CSSProperties = {
 
 const thumbWrapStyle: CSSProperties = {
   borderRadius: 18,
+  minWidth: 0,
   overflow: "hidden",
   border: "1px solid rgba(255,255,255,0.10)",
   minHeight: 150,
@@ -943,6 +1004,7 @@ const fallbackProviderStyle: CSSProperties = {
 
 const showBodyStyle: CSSProperties = {
   minWidth: 0,
+  overflow: "hidden",
   display: "grid",
   alignContent: "start",
   gap: 8,
@@ -978,6 +1040,7 @@ const publishedLabelStyle: CSSProperties = {
 
 const showTitleStyle: CSSProperties = {
   margin: 0,
+  overflowWrap: "anywhere",
   color: "#fff",
   fontSize: 20,
   lineHeight: 1.15,
@@ -1007,6 +1070,7 @@ const showDescriptionStyle: CSSProperties = {
 
 const hintStyle: CSSProperties = {
   margin: 0,
+  overflowWrap: "anywhere",
   color: "#9ca3af",
   fontSize: 12.5,
   lineHeight: 1.45,

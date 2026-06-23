@@ -5993,11 +5993,79 @@ return (
      overflowX: "hidden",
      overflowY: "visible",
      WebkitOverflowScrolling: "touch",
-     overscrollBehaviorY: "auto",
+     overscrollBehaviorY: "contain",
+     isolation: "isolate",
+     position: "relative",
      animation: "profileFadeIn 220ms ease-out",
    }}
   >
     <style>{`
+
+      html,
+      body {
+        background: #07090d !important;
+      }
+
+      .profile-polish-surface,
+      .profile-mobile-scroll-root,
+      .profile-page-shell,
+      .profile-layout-grid,
+      .profile-stream-stack {
+        background-color: #07090d;
+      }
+
+      .profile-polish-surface::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%),
+          linear-gradient(180deg, #07090d 0%, #090b14 48%, #07090d 100%);
+      }
+
+      .profile-data-waiting,
+      .profile-data-ready {
+        background:
+          radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%),
+          linear-gradient(180deg, #07090d 0%, #090b14 48%, #07090d 100%) !important;
+      }
+
+      @media (max-width: 720px) {
+        html,
+        body {
+          background: #07090d !important;
+          overscroll-behavior-y: none;
+        }
+
+        .profile-polish-surface {
+          min-height: 100svh !important;
+          padding-bottom: calc(170px + env(safe-area-inset-bottom)) !important;
+          background:
+            radial-gradient(circle at top left, color-mix(in srgb, var(--parapost-accent, #a855f7) 18%, transparent), transparent 34%),
+            linear-gradient(180deg, #07090d 0%, #090b14 48%, #07090d 100%) !important;
+        }
+
+        .profile-page-shell,
+        .profile-layout-grid,
+        .profile-center-column,
+        .profile-stream-stack {
+          background: transparent !important;
+          min-width: 0 !important;
+        }
+
+        .profile-stream-stack {
+          min-height: 100svh !important;
+          padding-bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+        }
+
+        .profile-feed-card,
+        .profile-feed-section-card,
+        .profile-hero-shell {
+          background-color: rgba(8, 10, 18, 0.92) !important;
+        }
+      }
 
       .profile-badges-viewer-overlay {
         isolation: isolate;
