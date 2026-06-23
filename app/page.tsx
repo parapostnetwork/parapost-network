@@ -107,6 +107,47 @@ export default function Home() {
 
     const verifySavedSession = async () => {
       try {
+        const currentUrl = new URL(window.location.href);
+        const hashParams = new URLSearchParams(
+          currentUrl.hash.startsWith("#") ? currentUrl.hash.slice(1) : currentUrl.hash
+        );
+
+        const verifiedFromEmail =
+          currentUrl.searchParams.get("verified") === "1" ||
+          hashParams.get("verified") === "1";
+
+        const authErrorDescription =
+          currentUrl.searchParams.get("error_description") ||
+          hashParams.get("error_description") ||
+          currentUrl.searchParams.get("error") ||
+          hashParams.get("error");
+
+        if (authErrorDescription) {
+          await clearLocalAuthSessionSilently();
+
+          if (!isActive) return;
+
+          setAuthMode("signin");
+          setAuthError(
+            "That verification link could not be completed. Please use the newest Parapost email, or sign in and use Forgot Password if needed."
+          );
+          window.history.replaceState(null, "", "/");
+          return;
+        }
+
+        if (verifiedFromEmail) {
+          await clearLocalAuthSessionSilently();
+
+          if (!isActive) return;
+
+          setAuthMode("signin");
+          setPassword("");
+          setConfirmPassword("");
+          setAuthMessage("Email verified. Please sign in with your email and password.");
+          window.history.replaceState(null, "", "/");
+          return;
+        }
+
         const { data, error } = await supabase.auth.getSession();
 
         if (!isActive) return;
@@ -197,7 +238,7 @@ export default function Home() {
         email: cleanEmail,
         password,
         options: {
-          emailRedirectTo: `${authOrigin}/dashboard`,
+          emailRedirectTo: `${authOrigin}/?verified=1`,
         },
       });
 
@@ -211,7 +252,7 @@ export default function Home() {
         setPassword("");
         setConfirmPassword("");
         setAuthMessage(
-          "Account created. Check your email and verify your account. After verifying, come back to parapost.net and use Sign In."
+          "Account created. Check your email and verify your account. After verifying, Parapost will bring you back to Sign In."
         );
         return;
       }
