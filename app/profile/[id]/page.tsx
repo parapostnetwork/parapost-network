@@ -4225,7 +4225,7 @@ useEffect(() => {
             <img
               src={commentProfile.avatar_url}
               alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }}
             />
           ) : (
             <span>{getInitial(commentName, commentHandle)}</span>
@@ -15108,7 +15108,7 @@ return (
                       }}
                     >
                       {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                        <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
                       ) : (
                         <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                       )}
@@ -15365,10 +15365,11 @@ return (
                                 <header style={postHeaderStyle}>
                                   <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                     {profile?.avatar_url ? (
-                                      <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                      <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
                                     ) : (
                                       <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                     )}
+                                  {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
                                   </div>
 
                                   <div style={postAuthorTextStyle}>
@@ -15639,11 +15640,12 @@ return (
                               <header style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
-                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
-                                </div>
+                                {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                  </div>
 
                                 <div style={postAuthorTextStyle}>
                                   <strong style={postAuthorNameStyle}>
@@ -15757,11 +15759,12 @@ return (
                               <header style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
-                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
-                                </div>
+                                {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                  </div>
 
                                 <div style={postAuthorTextStyle}>
                                   <strong style={postAuthorNameStyle}>
@@ -15832,11 +15835,12 @@ return (
                               <header style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
-                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
-                                </div>
+                                {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                  </div>
 
                                 <div style={postAuthorTextStyle}>
                                   <strong style={postAuthorNameStyle}>
@@ -15865,7 +15869,7 @@ return (
                                 <div style={sharedPostProfileHeaderStyle}>
                                   <Link href={`/profile/${originalPost.user_id}`} style={sharedPostAvatarMiniStyle}>
                                     {originalCreator?.avatar_url ? (
-                                      <img src={originalCreator.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                      <img src={originalCreator.avatar_url} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
                                     ) : (
                                       <span>{getInitial(originalCreator?.full_name, originalCreator?.username)}</span>
                                     )}
@@ -15969,11 +15973,12 @@ return (
                             <header style={postHeaderStyle}>
                               <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                 {profile?.avatar_url ? (
-                                  <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                  <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
                                 ) : (
                                   <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                 )}
-                              </div>
+                              {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                  </div>
 
                               <div style={postAuthorTextStyle}>
                                 <strong style={postAuthorNameStyle}>
@@ -17712,28 +17717,49 @@ const postHeaderStyle: CSSProperties = {
 const postAuthorAvatarStyle: CSSProperties = {
   width: "46px",
   height: "46px",
+  minWidth: "46px",
   borderRadius: "999px",
-  overflow: "hidden",
+  padding: "3px",
+  display: "grid",
+  placeItems: "center",
+  position: "relative",
+  overflow: "visible",
+  isolation: "isolate",
   flexShrink: 0,
-  border: "1px solid var(--parapost-accent-strong-glow)",
-  background: "#05070a",
-  boxShadow: "0 8px 18px rgba(0,0,0,0.22)",
+  boxSizing: "border-box",
+  textDecoration: "none",
+  background: "linear-gradient(135deg, var(--parapost-accent-soft), rgba(15,23,42,0.98))",
+  boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 12px 24px rgba(0,0,0,0.28)",
 };
 
 const postAuthorAvatarOnlineStyle: CSSProperties = {
-  border: "1px solid rgba(34,211,238,0.72)",
-  boxShadow:
-    "0 0 0 1px var(--parapost-accent-active-border), 0 0 16px rgba(34,211,238,0.14)",
+  background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
+  boxShadow: "0 0 0 1px rgba(255,255,255,0.10), 0 0 22px var(--parapost-accent-glow)",
 };
 
 const postAuthorAvatarOfflineStyle: CSSProperties = {
-  border: "1px solid var(--parapost-accent-strong-glow)",
-  boxShadow: "0 0 0 1px rgba(255,255,255,0.055), 0 8px 18px rgba(0,0,0,0.22)",
+  background: "linear-gradient(135deg, var(--parapost-accent-soft), rgba(15,23,42,0.98))",
+  boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 12px 24px rgba(0,0,0,0.28)",
+};
+
+const postAuthorOnlineDotStyle: CSSProperties = {
+  position: "absolute",
+  right: -1,
+  bottom: -1,
+  width: 12,
+  height: 12,
+  borderRadius: 999,
+  background: "#22c55e",
+  border: "2px solid #07090d",
+  boxShadow: "0 0 10px rgba(34,197,94,0.65)",
+  zIndex: 5,
+  pointerEvents: "none",
 };
 
 const postAuthorFallbackStyle: CSSProperties = {
   width: "100%",
   height: "100%",
+  borderRadius: "999px",
   display: "grid",
   placeItems: "center",
   background: "linear-gradient(135deg, var(--parapost-accent-1), #111827)",
