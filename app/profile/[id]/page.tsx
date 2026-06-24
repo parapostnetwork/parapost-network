@@ -6051,25 +6051,6 @@ return (
           background-clip: padding-box !important;
         }
 
-        .profile-feed-card,
-        .profile-live-feed-card,
-        .profile-shared-reel-post-card,
-        .profile-achievement-feed-card {
-          contain: paint !important;
-          isolation: isolate !important;
-          will-change: auto !important;
-          backface-visibility: hidden !important;
-        }
-
-        .profile-feed-card iframe,
-        .profile-feed-card img,
-        .profile-feed-card video {
-          backface-visibility: hidden !important;
-        }
-
-        .profile-live-feed-card iframe {
-          background-color: #05070a !important;
-        }
       }
 
             .profile-badges-viewer-overlay {
@@ -17782,21 +17763,17 @@ const postAuthorAvatarImageClipStyle: CSSProperties = {
   zIndex: 1,
   background: "rgba(2,6,23,0.92)",
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
-  contain: "paint",
 };
 
 const postAuthorAvatarImageStyle: CSSProperties = {
-  position: "absolute",
-  top: "-4%",
-  left: "4%",
-  width: "108%",
-  height: "108%",
-  minWidth: "108%",
-  minHeight: "108%",
-  maxWidth: "none",
+  width: "100%",
+  height: "100%",
+  minWidth: "100%",
+  minHeight: "100%",
+  maxWidth: "100%",
   borderRadius: "999px",
   objectFit: "cover",
-  objectPosition: "center center",
+  objectPosition: "62% center",
   display: "block",
   flexShrink: 0,
 };
