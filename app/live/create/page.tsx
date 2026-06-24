@@ -553,7 +553,12 @@ export default function CreateLiveShowPage() {
               width: 100% !important;
               height: 100% !important;
               min-height: 0 !important;
-              object-fit: cover !important;
+            }
+
+            .parapost-live-create-preview-media img {
+              object-fit: contain !important;
+              object-position: center center !important;
+              background: #05070d !important;
             }
           }
 
@@ -811,6 +816,7 @@ const previewWrapStyle: CSSProperties = {
 
 const previewMediaStyle: CSSProperties = {
   minHeight: 182,
+  aspectRatio: "16 / 9",
   borderRadius: 18,
   overflow: "hidden",
   background: "#05070d",
@@ -819,8 +825,10 @@ const previewMediaStyle: CSSProperties = {
 const previewImageStyle: CSSProperties = {
   width: "100%",
   height: "100%",
-  objectFit: "cover",
+  objectFit: "contain",
+  objectPosition: "center center",
   display: "block",
+  background: "#05070d",
 };
 
 const fallbackThumbStyle: CSSProperties = {

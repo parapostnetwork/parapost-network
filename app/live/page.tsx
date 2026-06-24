@@ -463,7 +463,9 @@ export default function ParapostLivePage() {
             height: 100% !important;
             min-height: 0 !important;
             max-height: none !important;
-            object-fit: cover !important;
+            object-fit: contain !important;
+            object-position: center center !important;
+            background: #05070d !important;
           }
 
           .parapost-live-manager-show-body {
@@ -960,6 +962,7 @@ const thumbWrapStyle: CSSProperties = {
   overflow: "hidden",
   border: "1px solid rgba(255,255,255,0.10)",
   minHeight: 150,
+  aspectRatio: "16 / 9",
   background: "#05070d",
 };
 
@@ -967,8 +970,10 @@ const thumbImageStyle: CSSProperties = {
   width: "100%",
   height: "100%",
   minHeight: 150,
-  objectFit: "cover",
+  objectFit: "contain",
+  objectPosition: "center center",
   display: "block",
+  background: "#05070d",
 };
 
 const fallbackThumbStyle: CSSProperties = {
