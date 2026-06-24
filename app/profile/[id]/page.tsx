@@ -6052,14 +6052,14 @@ return (
         }
 
         .profile-feed-avatar-image {
-          width: 118% !important;
-          height: 118% !important;
-          min-width: 118% !important;
-          min-height: 118% !important;
+          width: 108% !important;
+          height: 108% !important;
+          min-width: 108% !important;
+          min-height: 108% !important;
           max-width: none !important;
           object-fit: cover !important;
           object-position: center center !important;
-          transform: translateX(8%) translateY(-2%) !important;
+          transform: translateX(5%) translateY(-1%) !important;
           transform-origin: center center !important;
         }
 
