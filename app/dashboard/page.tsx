@@ -10573,11 +10573,13 @@ function PostCard({
 
       <PostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" />
 
-      {commentCount > 0 || shareCount > 0 ? (
+      {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
         <div style={postStatsSummaryStyle}>
-          <span>{commentCount} Comments</span>
-          <span>·</span>
-          <span>{shareCount} Shares</span>
+          {likeCount > 0 ? <span>{likeCount} {likeCount === 1 ? "Like" : "Likes"}</span> : null}
+          {likeCount > 0 && (commentCount > 0 || shareCount > 0) ? <span>·</span> : null}
+          {commentCount > 0 ? <span>{commentCount} {commentCount === 1 ? "Comment" : "Comments"}</span> : null}
+          {commentCount > 0 && shareCount > 0 ? <span>·</span> : null}
+          {shareCount > 0 ? <span>{shareCount} {shareCount === 1 ? "Share" : "Shares"}</span> : null}
         </div>
       ) : null}
 
@@ -10636,6 +10638,7 @@ function PostCard({
           onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
+          onCloseComments={onToggleComments}
         />
       ) : null}
     </article>
@@ -10830,6 +10833,7 @@ function DashboardCommentsPanel({
   onCancelEditComment,
   onDeleteComment,
   onReportComment,
+  onCloseComments,
 }: {
   postId: string;
   comments: DashboardComment[];
@@ -10849,12 +10853,26 @@ function DashboardCommentsPanel({
   onCancelEditComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
+  onCloseComments: () => void;
 }) {
   return (
     <section style={dashboardCommentsPanelStyle} onClick={(event) => event.stopPropagation()}>
       <div style={dashboardCommentsHeaderStyle}>
-        <strong>Comments</strong>
-        <span>{loading ? "Loading..." : `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}</span>
+        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+          <strong style={{ color: "#f8fafc" }}>Comments</strong>
+          <span style={dashboardCommentsCountStyle}>
+            {loading ? "Loading..." : `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={onCloseComments}
+          style={dashboardCommentsCloseButtonStyle}
+          aria-label="Close comments"
+        >
+          Close comments
+        </button>
       </div>
 
       <div style={dashboardCommentComposerStyle}>
@@ -11275,6 +11293,7 @@ function SharedPostCard({
           onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
+          onCloseComments={onToggleComments}
         />
       ) : null}
     </article>
@@ -15115,16 +15134,23 @@ const softButtonStyle: CSSProperties = { border: "1px solid rgba(255,255,255,0.1
 const softDangerButtonStyle: CSSProperties = { ...softButtonStyle, color: "#fecaca", border: "1px solid rgba(248,113,113,0.24)" };
 const postStatsSummaryStyle: CSSProperties = { display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 9, alignItems: "center", color: "#d1d5db", fontSize: 13, borderBottom: "1px solid rgba(255,255,255,0.10)", paddingBottom: 11, marginTop: 13 };
 const postStatusLinkStyle: CSSProperties = { color: "var(--parapost-accent-readable-text)", fontWeight: 900, textDecoration: "none" };
-const postActionsStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: 12, padding: 0, background: "transparent" };
+const postActionsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 8,
+  marginTop: 12,
+  paddingTop: 10,
+  borderTop: "1px solid rgba(255,255,255,0.08)",
+  background: "transparent",
+};
 
 const dashboardCommentsPanelStyle: CSSProperties = {
-  marginTop: "12px",
-  borderRadius: "22px",
-  border: "1px solid color-mix(in srgb, var(--parapost-accent-1) 20%, rgba(255,255,255,0.09))",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.028))",
-  padding: "12px",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.045)",
+  marginTop: "10px",
+  borderRadius: "18px",
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(5,7,12,0.38)",
+  padding: "10px",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.035)",
 };
 
 const dashboardCommentsHeaderStyle: CSSProperties = {
@@ -15132,18 +15158,40 @@ const dashboardCommentsHeaderStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "12px",
-  padding: "2px 2px 10px",
+  padding: "0 0 10px",
   color: "#f8fafc",
   fontSize: "13px",
+};
+
+const dashboardCommentsCountStyle: CSSProperties = {
+  color: "#9ca3af",
+  fontSize: "12px",
+  fontWeight: 800,
+};
+
+const dashboardCommentsCloseButtonStyle: CSSProperties = {
+  appearance: "none",
+  WebkitAppearance: "none",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.055)",
+  color: "#e9d5ff",
+  borderRadius: "999px",
+  padding: "7px 11px",
+  fontFamily: "inherit",
+  fontSize: "12px",
+  fontWeight: 900,
+  lineHeight: 1,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 
 const dashboardCommentComposerStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr auto",
-  gap: "10px",
+  gap: "8px",
   alignItems: "end",
-  paddingBottom: "12px",
-  borderBottom: "1px solid rgba(255,255,255,0.075)",
+  paddingBottom: "10px",
+  borderBottom: "1px solid rgba(255,255,255,0.065)",
 };
 
 const dashboardCommentTextareaStyle: CSSProperties = {
@@ -15182,9 +15230,9 @@ const dashboardCommentsEmptyStyle: CSSProperties = {
 
 const dashboardCommentsListStyle: CSSProperties = {
   display: "grid",
-  gap: "10px",
-  paddingTop: "12px",
-  maxHeight: "330px",
+  gap: "8px",
+  paddingTop: "10px",
+  maxHeight: "260px",
   overflowY: "auto",
 };
 
@@ -15197,10 +15245,10 @@ const dashboardCommentRowStyle: CSSProperties = {
 const dashboardCommentBubbleStyle: CSSProperties = {
   flex: 1,
   minWidth: 0,
-  borderRadius: "17px",
-  background: "rgba(255,255,255,0.055)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  padding: "10px 11px",
+  borderRadius: "15px",
+  background: "rgba(255,255,255,0.045)",
+  border: "1px solid rgba(255,255,255,0.06)",
+  padding: "9px 10px",
 };
 
 const dashboardCommentTopLineStyle: CSSProperties = {
@@ -15307,10 +15355,10 @@ const dashboardCommentEditSecondaryButtonStyle: CSSProperties = {
 };
 
 const actionButtonStyle: CSSProperties = {
-  minHeight: 34,
-  borderRadius: 0,
-  border: "0",
-  background: "transparent",
+  minHeight: 38,
+  borderRadius: "14px",
+  border: "1px solid rgba(255,255,255,0.075)",
+  background: "rgba(255,255,255,0.035)",
   color: "#e5e7eb",
   display: "inline-flex",
   alignItems: "center",
@@ -15319,14 +15367,14 @@ const actionButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "none",
-  padding: "0 6px",
+  padding: "0 8px",
 };
 const activeActionButtonStyle: CSSProperties = {
   ...actionButtonStyle,
-  color: "var(--parapost-accent-readable-text)",
-  background: "transparent",
-  border: "0",
-  boxShadow: "none",
+  color: "#fff",
+  background: "linear-gradient(135deg, color-mix(in srgb, var(--parapost-accent-1) 34%, rgba(255,255,255,0.04)), rgba(255,255,255,0.045))",
+  border: "1px solid color-mix(in srgb, var(--parapost-accent-1) 34%, rgba(255,255,255,0.08))",
+  boxShadow: "0 0 18px color-mix(in srgb, var(--parapost-accent-2) 16%, transparent)",
 };
 
 
