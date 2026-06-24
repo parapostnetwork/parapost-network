@@ -6051,6 +6051,18 @@ return (
           background-clip: padding-box !important;
         }
 
+        .profile-feed-avatar-image {
+          width: 118% !important;
+          height: 118% !important;
+          min-width: 118% !important;
+          min-height: 118% !important;
+          max-width: none !important;
+          object-fit: cover !important;
+          object-position: center center !important;
+          transform: translateX(8%) translateY(-2%) !important;
+          transform-origin: center center !important;
+        }
+
       }
 
             .profile-badges-viewer-overlay {
@@ -15367,7 +15379,7 @@ return (
                                   <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                     {profile?.avatar_url ? (
                                       <span style={postAuthorAvatarImageClipStyle}>
-                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                        <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
                                       </span>
                                     ) : (
                                       <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
@@ -15644,7 +15656,7 @@ return (
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
-                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                        <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
                                       </span>
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
@@ -15765,7 +15777,7 @@ return (
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
-                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                        <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
                                       </span>
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
@@ -15843,7 +15855,7 @@ return (
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
-                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                        <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
                                       </span>
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
@@ -15983,7 +15995,7 @@ return (
                               <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                 {profile?.avatar_url ? (
                                   <span style={postAuthorAvatarImageClipStyle}>
-                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                        <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
                                       </span>
                                 ) : (
                                   <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
@@ -17773,7 +17785,7 @@ const postAuthorAvatarImageStyle: CSSProperties = {
   maxWidth: "100%",
   borderRadius: "999px",
   objectFit: "cover",
-  objectPosition: "62% center",
+  objectPosition: "center center",
   display: "block",
   flexShrink: 0,
 };
