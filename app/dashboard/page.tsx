@@ -10149,12 +10149,18 @@ function DashboardLiveStreamCard({
           ) : null}
         </header>
 
-        <div style={dashboardLiveMediaOuterStyle}>
-          <div style={dashboardLiveMediaAvatarStyle}>
-            <Avatar profile={creatorProfile} size={42} href={`/profile/${stream.user_id}`} />
-          </div>
-
-          <div style={dashboardLiveMediaClipStyle}>
+        <div
+          style={{
+            marginTop: 14,
+            borderRadius: 20,
+            overflow: "hidden",
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(0,0,0,0.28)",
+            maxWidth: 760,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
           {isPlayable ? (
             <iframe
               src={stream.embed_url || ""}
@@ -10217,7 +10223,6 @@ function DashboardLiveStreamCard({
               </div>
             </div>
           )}
-          </div>
         </div>
 
         <div style={{ marginTop: 14 }}>
@@ -10348,37 +10353,6 @@ function DashboardLiveStreamCard({
   );
 }
 
-
-const dashboardLiveMediaOuterStyle: CSSProperties = {
-  marginTop: 14,
-  maxWidth: 760,
-  marginLeft: "auto",
-  marginRight: "auto",
-  position: "relative",
-  overflow: "visible",
-  paddingTop: 12,
-};
-
-const dashboardLiveMediaClipStyle: CSSProperties = {
-  borderRadius: 20,
-  overflow: "hidden",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(0,0,0,0.28)",
-  position: "relative",
-  zIndex: 1,
-};
-
-const dashboardLiveMediaAvatarStyle: CSSProperties = {
-  position: "absolute",
-  top: 0,
-  left: 14,
-  zIndex: 6,
-  borderRadius: 999,
-  padding: 2,
-  background: "rgba(7,9,13,0.96)",
-  boxShadow: "0 10px 28px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.12)",
-  overflow: "visible",
-};
 
 const replayDiscussionWrapStyle: CSSProperties = {
   marginTop: 14,

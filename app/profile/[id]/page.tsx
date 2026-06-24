@@ -15403,33 +15403,18 @@ return (
                                   ) : null}
                                 </header>
 
-                                <div style={profileLiveMediaOuterStyle}>
-                                  <div style={profileLiveMediaAvatarStyle}>
-                                    <Link
-                                      href={`/profile/${item.user_id}`}
-                                      style={{
-                                        ...postAuthorAvatarStyle,
-                                        ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle),
-                                        width: 42,
-                                        height: 42,
-                                        minWidth: 42,
-                                        border: "2px solid #07090d",
-                                        overflow: "hidden",
-                                      }}
-                                    >
-                                      {profile?.avatar_url ? (
-                                        <img
-                                          src={profile.avatar_url}
-                                          alt=""
-                                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                                        />
-                                      ) : (
-                                        <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
-                                      )}
-                                    </Link>
-                                  </div>
-
-                                  <div style={profileLiveMediaClipStyle}>
+                                <div
+                                  style={{
+                                    marginTop: 14,
+                                    borderRadius: 20,
+                                    overflow: "hidden",
+                                    border: "1px solid rgba(255,255,255,0.12)",
+                                    background: "rgba(0,0,0,0.28)",
+                                    maxWidth: 760,
+                                    marginLeft: "auto",
+                                    marginRight: "auto",
+                                  }}
+                                >
                                   {(isLive || isReplay) && liveEmbedUrl ? (
                                     <iframe
                                       src={liveEmbedUrl}
@@ -15494,7 +15479,6 @@ return (
                                       </div>
                                     </div>
                                   )}
-                                  </div>
                                 </div>
 
                                 <div style={{ marginTop: 14 }}>
@@ -17813,37 +17797,6 @@ const profileDashboardComposerTopRowStyle: CSSProperties = {
   gridTemplateColumns: "auto minmax(0,1fr) auto",
   gap: 12,
   alignItems: "center",
-};
-
-const profileLiveMediaOuterStyle: CSSProperties = {
-  marginTop: 14,
-  maxWidth: 760,
-  marginLeft: "auto",
-  marginRight: "auto",
-  position: "relative",
-  overflow: "visible",
-  paddingTop: 12,
-};
-
-const profileLiveMediaClipStyle: CSSProperties = {
-  borderRadius: 20,
-  overflow: "hidden",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(0,0,0,0.28)",
-  position: "relative",
-  zIndex: 1,
-};
-
-const profileLiveMediaAvatarStyle: CSSProperties = {
-  position: "absolute",
-  top: 0,
-  left: 14,
-  zIndex: 6,
-  borderRadius: 999,
-  padding: 2,
-  background: "rgba(7,9,13,0.96)",
-  boxShadow: "0 10px 28px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.12)",
-  overflow: "visible",
 };
 
 const profileComposerAvatarStyle: CSSProperties = {
