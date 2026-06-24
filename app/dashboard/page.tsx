@@ -108,7 +108,6 @@ type Post = {
   image_url?: string | null;
   created_at: string;
   user_id: string;
-  is_hidden?: boolean | null;
   images?: PostImage[];
 };
 
@@ -1547,8 +1546,6 @@ export default function DashboardPage() {
   const [followingMap, setFollowingMap] = useState<FollowMap>({});
   const [likeCounts, setLikeCounts] = useState<CountMap>({});
   const [commentCounts, setCommentCounts] = useState<CountMap>({});
-  const [commentLikeCounts, setCommentLikeCounts] = useState<CountMap>({});
-  const [userCommentLikes, setUserCommentLikes] = useState<ToggleMap>({});
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, DashboardComment[]>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
@@ -1930,43 +1927,6 @@ export default function DashboardPage() {
       nextCommentPreviews[postId] = nextCommentPreviews[postId].slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT);
     });
 
-    const visibleCommentIds = [...new Set(visibleComments.map((comment) => comment.id).filter(Boolean))];
-
-    if (visibleCommentIds.length > 0) {
-      const { data: commentLikesData, error: commentLikesError } = await supabase
-        .from("comment_likes")
-        .select("comment_id, user_id")
-        .in("comment_id", visibleCommentIds);
-
-      if (!commentLikesError) {
-        const nextCommentLikeCounts: CountMap = {};
-        const nextUserCommentLikes: ToggleMap = {};
-
-        for (const like of commentLikesData || []) {
-          const commentId = String(like.comment_id || "");
-          if (!commentId) continue;
-          nextCommentLikeCounts[commentId] = (nextCommentLikeCounts[commentId] || 0) + 1;
-          if (userId && like.user_id === userId) nextUserCommentLikes[commentId] = true;
-        }
-
-        setCommentLikeCounts((prev) => {
-          const next = { ...prev };
-          visibleCommentIds.forEach((commentId) => {
-            next[commentId] = nextCommentLikeCounts[commentId] || 0;
-          });
-          return next;
-        });
-
-        setUserCommentLikes((prev) => {
-          const next = { ...prev };
-          visibleCommentIds.forEach((commentId) => {
-            next[commentId] = !!nextUserCommentLikes[commentId];
-          });
-          return next;
-        });
-      }
-    }
-
     const commenterIds = [
       ...new Set(visibleComments.map((comment) => comment.user_id).filter(Boolean)),
     ];
@@ -2268,7 +2228,7 @@ export default function DashboardPage() {
 
     const { data: postRows, error: postsError } = await supabase
       .from("posts")
-      .select("id, content, image_url, created_at, user_id, is_hidden")
+      .select("id, content, image_url, created_at, user_id")
       .in("id", postIds);
 
     if (postsError) {
@@ -2280,7 +2240,7 @@ export default function DashboardPage() {
     const sharedPostImagesMap = await fetchPostImagesMap(((postRows || []) as Post[]).map((post) => post.id));
     const postMap = new Map<string, Post>();
     for (const post of (postRows || []) as Post[]) {
-      if (!post?.id || post.is_hidden === true || blockedIds.includes(post.user_id)) continue;
+      if (!post?.id || blockedIds.includes(post.user_id)) continue;
       postMap.set(post.id, {
         ...post,
         images: sharedPostImagesMap[post.id] || [],
@@ -2485,7 +2445,7 @@ export default function DashboardPage() {
 
     const { data: postsData, error: postsError } = await supabase
       .from("posts")
-      .select("id, content, image_url, created_at, user_id, is_hidden")
+      .select("id, content, image_url, created_at, user_id")
       .order("created_at", { ascending: false })
       .limit(80);
 
@@ -2495,9 +2455,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const visiblePostsBase = ((postsData || []) as Post[]).filter(
-      (post) => post.is_hidden !== true && !blockedIds.includes(post.user_id)
-    );
+    const visiblePostsBase = ((postsData || []) as Post[]).filter((post) => !blockedIds.includes(post.user_id));
     const postImagesMap = await fetchPostImagesMap(visiblePostsBase.map((post) => post.id));
     const visiblePosts = attachImagesToPosts(visiblePostsBase, postImagesMap);
     const visibleSharedPosts = await fetchSharedPosts(blockedIds);
@@ -3222,7 +3180,7 @@ export default function DashboardPage() {
           image_url: primaryImageUrl,
         },
       ])
-      .select("id, content, image_url, created_at, user_id, is_hidden")
+      .select("id, content, image_url, created_at, user_id")
       .single();
 
     if (insertError || !insertedPost) {
@@ -3285,54 +3243,6 @@ export default function DashboardPage() {
       }
       setUserLikes((prev) => ({ ...prev, [postId]: true }));
       setLikeCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
-    }
-  };
-
-  const handleDashboardCommentLikeToggle = async (commentId: string) => {
-    if (!commentId) return;
-
-    if (!currentUserId) {
-      alert("You must be logged in to like a comment.");
-      return;
-    }
-
-    const alreadyLiked = !!userCommentLikes[commentId];
-
-    if (alreadyLiked) {
-      const { error } = await supabase
-        .from("comment_likes")
-        .delete()
-        .eq("user_id", currentUserId)
-        .eq("comment_id", commentId);
-
-      if (error) {
-        alert(`Unlike comment error: ${error.message}`);
-        return;
-      }
-
-      setUserCommentLikes((prev) => ({ ...prev, [commentId]: false }));
-      setCommentLikeCounts((prev) => ({
-        ...prev,
-        [commentId]: Math.max((prev[commentId] || 1) - 1, 0),
-      }));
-    } else {
-      const { error } = await supabase.from("comment_likes").insert([
-        {
-          user_id: currentUserId,
-          comment_id: commentId,
-        },
-      ]);
-
-      if (error) {
-        alert(`Like comment error: ${error.message}`);
-        return;
-      }
-
-      setUserCommentLikes((prev) => ({ ...prev, [commentId]: true }));
-      setCommentLikeCounts((prev) => ({
-        ...prev,
-        [commentId]: (prev[commentId] || 0) + 1,
-      }));
     }
   };
 
@@ -3449,43 +3359,6 @@ export default function DashboardPage() {
           [postId]: nextComments,
         }));
 
-        const nextCommentIds = [...new Set(nextComments.map((comment) => comment.id).filter(Boolean))];
-
-        if (nextCommentIds.length > 0) {
-          const { data: commentLikesData, error: commentLikesError } = await supabase
-            .from("comment_likes")
-            .select("comment_id, user_id")
-            .in("comment_id", nextCommentIds);
-
-          if (!commentLikesError) {
-            const nextCommentLikeCounts: CountMap = {};
-            const nextUserCommentLikes: ToggleMap = {};
-
-            for (const like of commentLikesData || []) {
-              const commentId = String(like.comment_id || "");
-              if (!commentId) continue;
-              nextCommentLikeCounts[commentId] = (nextCommentLikeCounts[commentId] || 0) + 1;
-              if (currentUserId && like.user_id === currentUserId) nextUserCommentLikes[commentId] = true;
-            }
-
-            setCommentLikeCounts((prev) => {
-              const next = { ...prev };
-              nextCommentIds.forEach((commentId) => {
-                next[commentId] = nextCommentLikeCounts[commentId] || 0;
-              });
-              return next;
-            });
-
-            setUserCommentLikes((prev) => {
-              const next = { ...prev };
-              nextCommentIds.forEach((commentId) => {
-                next[commentId] = !!nextUserCommentLikes[commentId];
-              });
-              return next;
-            });
-          }
-        }
-
         const commenterIds = [
           ...new Set(nextComments.map((comment) => comment.user_id).filter(Boolean)),
         ];
@@ -3512,7 +3385,7 @@ export default function DashboardPage() {
         setCommentsLoadingPostId((current) => (current === postId ? null : current));
       }
     },
-    [blockedUserIds, currentUserId]
+    [blockedUserIds]
   );
 
   const handleToggleDashboardComments = useCallback(
@@ -3585,9 +3458,6 @@ export default function DashboardPage() {
         ...prev,
         [postId]: (prev[postId] || 0) + 1,
       }));
-
-      setCommentLikeCounts((prev) => ({ ...prev, [savedComment.id]: 0 }));
-      setUserCommentLikes((prev) => ({ ...prev, [savedComment.id]: false }));
 
       if (currentProfile) {
         setProfilesMap((prev) => ({
@@ -3679,8 +3549,6 @@ export default function DashboardPage() {
     if (!currentUserId) return;
     if (!window.confirm("Delete this comment?")) return;
 
-    await supabase.from("comment_likes").delete().eq("comment_id", commentId);
-
     const { error } = await supabase
       .from("comments")
       .delete()
@@ -3701,18 +3569,6 @@ export default function DashboardPage() {
       ...prev,
       [postId]: Math.max((prev[postId] || 1) - 1, 0),
     }));
-
-    setCommentLikeCounts((prev) => {
-      const next = { ...prev };
-      delete next[commentId];
-      return next;
-    });
-
-    setUserCommentLikes((prev) => {
-      const next = { ...prev };
-      delete next[commentId];
-      return next;
-    });
 
     if (editingCommentId === commentId) {
       setEditingCommentId(null);
@@ -3819,28 +3675,6 @@ export default function DashboardPage() {
     const { error } = await supabase.from("posts").delete().eq("id", postId).eq("user_id", currentUserId);
     if (error) {
       alert(`Delete post error: ${error.message}`);
-      return;
-    }
-
-    setPosts((prev) => prev.filter((post) => post.id !== postId));
-    setSharedPostItems((prev) =>
-      prev.filter((item) => item.post_id !== postId && item.original_post.id !== postId)
-    );
-    setOpenPostMenuId(null);
-  };
-
-  const handleHidePost = async (postId: string) => {
-    if (!currentUserId || !postId) return;
-    if (!window.confirm("Hide this post from your feed and profile?")) return;
-
-    const { error } = await supabase
-      .from("posts")
-      .update({ is_hidden: true })
-      .eq("id", postId)
-      .eq("user_id", currentUserId);
-
-    if (error) {
-      alert(`Hide post error: ${error.message}`);
       return;
     }
 
@@ -4214,8 +4048,6 @@ export default function DashboardPage() {
                             setOpenPostMenuId={setOpenPostMenuId}
                             commentsOpen={openCommentsPostId === item.post.id}
                             comments={commentsByPostId[item.post.id] || []}
-                            commentLikeCounts={commentLikeCounts}
-                            userCommentLikes={userCommentLikes}
                             commentsLoading={commentsLoadingPostId === item.post.id}
                             commentDraft={commentDrafts[item.post.id] || ""}
                             postingComment={postingCommentPostId === item.post.id}
@@ -4232,7 +4064,6 @@ export default function DashboardPage() {
                             onAddComment={() => handleAddDashboardComment(item.post.id, item.post.user_id)}
                             onDeleteComment={(commentId) => handleDeleteDashboardComment(item.post.id, commentId)}
                             onReportComment={(commentId, commentOwnerId) => handleReportDashboardComment(commentId, commentOwnerId)}
-                            onToggleCommentLike={handleDashboardCommentLikeToggle}
                             onShare={() => handleShare(item.post.id)}
                             onStartEdit={() => handleStartEditPost(item.post)}
                             onSaveEdit={() => handleSavePostEdit(item.post.id)}
@@ -4241,7 +4072,6 @@ export default function DashboardPage() {
                               setEditingPostContent("");
                             }}
                             onDelete={() => handleDeletePost(item.post.id)}
-                            onHide={() => handleHidePost(item.post.id)}
                             onReport={() => handleReportPost(item.post.id, item.post.user_id)}
                           />
                         ) : item.type === "shared_post" ? (
@@ -4262,8 +4092,6 @@ export default function DashboardPage() {
                             setOpenPostMenuId={setOpenPostMenuId}
                             commentsOpen={openCommentsPostId === item.sharedPost.post_id}
                             comments={commentsByPostId[item.sharedPost.post_id] || []}
-                            commentLikeCounts={commentLikeCounts}
-                            userCommentLikes={userCommentLikes}
                             commentsLoading={commentsLoadingPostId === item.sharedPost.post_id}
                             commentDraft={commentDrafts[item.sharedPost.post_id] || ""}
                             postingComment={postingCommentPostId === item.sharedPost.post_id}
@@ -4280,7 +4108,6 @@ export default function DashboardPage() {
                             onAddComment={() => handleAddDashboardComment(item.sharedPost.post_id, item.sharedPost.original_post.user_id)}
                             onDeleteComment={(commentId) => handleDeleteDashboardComment(item.sharedPost.post_id, commentId)}
                             onReportComment={(commentId, commentOwnerId) => handleReportDashboardComment(commentId, commentOwnerId)}
-                            onToggleCommentLike={handleDashboardCommentLikeToggle}
                             onShareOriginal={() => handleShare(item.sharedPost.post_id)}
                             onStartEditOriginal={() => handleStartEditPost(item.sharedPost.original_post)}
                             onSaveEditOriginal={() => handleSavePostEdit(item.sharedPost.original_post.id)}
@@ -4289,7 +4116,6 @@ export default function DashboardPage() {
                               setEditingPostContent("");
                             }}
                             onDeleteOriginal={() => handleDeletePost(item.sharedPost.original_post.id)}
-                            onHideOriginal={() => handleHidePost(item.sharedPost.original_post.id)}
                             onRemoveShare={() => handleDeleteSharedPostShare(item.sharedPost.id, item.sharedPost.post_id)}
                             onReportOriginal={() => handleReportPost(item.sharedPost.original_post.id, item.sharedPost.original_post.user_id)}
                           />
@@ -10608,8 +10434,6 @@ function PostCard({
   setOpenPostMenuId,
   commentsOpen,
   comments,
-  commentLikeCounts,
-  userCommentLikes,
   commentsLoading,
   commentDraft,
   postingComment,
@@ -10626,13 +10450,11 @@ function PostCard({
   onAddComment,
   onDeleteComment,
   onReportComment,
-  onToggleCommentLike,
   onShare,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
   onDelete,
-  onHide,
   onReport,
 }: {
   post: Post;
@@ -10652,8 +10474,6 @@ function PostCard({
   setOpenPostMenuId: (value: string | null | ((prev: string | null) => string | null)) => void;
   commentsOpen: boolean;
   comments: DashboardComment[];
-  commentLikeCounts: CountMap;
-  userCommentLikes: ToggleMap;
   commentsLoading: boolean;
   commentDraft: string;
   postingComment: boolean;
@@ -10670,13 +10490,11 @@ function PostCard({
   onAddComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
-  onToggleCommentLike: (commentId: string) => void;
   onShare: () => void;
   onStartEdit: () => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onDelete: () => void;
-  onHide: () => void;
   onReport: () => void;
 }) {
   const isPostOwner = currentUserId === post.user_id;
@@ -10721,7 +10539,6 @@ function PostCard({
                 {isPostOwner ? (
                   <>
                     <button type="button" style={menuItemStyle} onClick={onStartEdit}>Edit post</button>
-                    <button type="button" style={menuItemStyle} onClick={onHide}>Hide post</button>
                     <button type="button" style={{ ...menuItemStyle, color: "#fca5a5" }} onClick={onDelete}>Delete post</button>
                   </>
                 ) : (
@@ -10786,8 +10603,6 @@ function PostCard({
           postId={post.id}
           comments={comments}
           commentCount={commentCount}
-          commentLikeCounts={commentLikeCounts}
-          userCommentLikes={userCommentLikes}
           profilesMap={profilesMap}
           currentUserId={currentUserId}
           onToggleComments={onToggleComments}
@@ -10800,7 +10615,6 @@ function PostCard({
           onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
-          onToggleCommentLike={onToggleCommentLike}
         />
       ) : null}
 
@@ -10808,8 +10622,6 @@ function PostCard({
         <DashboardCommentsPanel
           postId={post.id}
           comments={comments}
-          commentLikeCounts={commentLikeCounts}
-          userCommentLikes={userCommentLikes}
           profilesMap={profilesMap}
           currentUserId={currentUserId}
           loading={commentsLoading}
@@ -10826,7 +10638,6 @@ function PostCard({
           onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
-          onToggleCommentLike={onToggleCommentLike}
           onCloseComments={onToggleComments}
         />
       ) : null}
@@ -10839,8 +10650,6 @@ function DashboardCommentsPreview({
   postId,
   comments,
   commentCount,
-  commentLikeCounts,
-  userCommentLikes,
   profilesMap,
   currentUserId,
   onToggleComments,
@@ -10853,13 +10662,10 @@ function DashboardCommentsPreview({
   onCancelEditComment,
   onDeleteComment,
   onReportComment,
-  onToggleCommentLike,
 }: {
   postId: string;
   comments: DashboardComment[];
   commentCount: number;
-  commentLikeCounts: CountMap;
-  userCommentLikes: ToggleMap;
   profilesMap: Record<string, ProfilePreview>;
   currentUserId: string;
   onToggleComments: () => void;
@@ -10872,7 +10678,6 @@ function DashboardCommentsPreview({
   onCancelEditComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
-  onToggleCommentLike: (commentId: string) => void;
 }) {
   const previewComments = comments.slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT);
   const hiddenCommentCount = Math.max(commentCount - previewComments.length, 0);
@@ -10895,8 +10700,6 @@ function DashboardCommentsPreview({
           const canManage = !!currentUserId && comment.user_id === currentUserId;
           const isEditingComment = editingCommentId === comment.id;
           const isSavingComment = savingCommentId === comment.id;
-          const commentLikeCount = commentLikeCounts[comment.id] || 0;
-          const commentIsLiked = !!userCommentLikes[comment.id];
 
           return (
             <div key={`preview-${postId}-${comment.id}`} style={dashboardCommentRowStyle}>
@@ -10957,47 +10760,32 @@ function DashboardCommentsPreview({
                   <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
                 )}
 
-                {!isEditingComment && currentUserId ? (
+                {!isEditingComment && canManage ? (
                   <div style={dashboardCommentActionRowStyle}>
                     <button
                       type="button"
-                      onClick={() => onToggleCommentLike(comment.id)}
-                      style={commentIsLiked ? dashboardCommentLikeButtonActiveStyle : dashboardCommentLikeButtonStyle}
+                      onClick={() => onStartEditComment(comment)}
+                      style={dashboardCommentEditActionButtonStyle}
                     >
-                      {commentIsLiked ? "Liked" : "Like"}
+                      Edit
                     </button>
-                    {commentLikeCount > 0 ? <span style={dashboardCommentLikeCountStyle}>{commentLikeCount}</span> : null}
-
-                    {canManage ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onStartEditComment(comment)}
-                          style={dashboardCommentEditActionButtonStyle}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteComment(comment.id)}
-                          style={dashboardCommentDeleteButtonStyle}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => onReportComment(comment.id, comment.user_id)}
-                        style={dashboardCommentDeleteButtonStyle}
-                      >
-                        Report
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => onDeleteComment(comment.id)}
+                      style={dashboardCommentDeleteButtonStyle}
+                    >
+                      Delete
+                    </button>
                   </div>
-                ) : !isEditingComment && commentLikeCount > 0 ? (
+                ) : !isEditingComment && currentUserId ? (
                   <div style={dashboardCommentActionRowStyle}>
-                    <span style={dashboardCommentLikeCountStyle}>{commentLikeCount} {commentLikeCount === 1 ? "Like" : "Likes"}</span>
+                    <button
+                      type="button"
+                      onClick={() => onReportComment(comment.id, comment.user_id)}
+                      style={dashboardCommentDeleteButtonStyle}
+                    >
+                      Report
+                    </button>
                   </div>
                 ) : null}
               </div>
@@ -11029,8 +10817,6 @@ function DashboardCommentsPreview({
 function DashboardCommentsPanel({
   postId,
   comments,
-  commentLikeCounts,
-  userCommentLikes,
   profilesMap,
   currentUserId,
   loading,
@@ -11047,13 +10833,10 @@ function DashboardCommentsPanel({
   onCancelEditComment,
   onDeleteComment,
   onReportComment,
-  onToggleCommentLike,
   onCloseComments,
 }: {
   postId: string;
   comments: DashboardComment[];
-  commentLikeCounts: CountMap;
-  userCommentLikes: ToggleMap;
   profilesMap: Record<string, ProfilePreview>;
   currentUserId: string;
   loading: boolean;
@@ -11070,7 +10853,6 @@ function DashboardCommentsPanel({
   onCancelEditComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
-  onToggleCommentLike: (commentId: string) => void;
   onCloseComments: () => void;
 }) {
   return (
@@ -11134,8 +10916,6 @@ function DashboardCommentsPanel({
             const canManage = !!currentUserId && comment.user_id === currentUserId;
             const isEditingComment = editingCommentId === comment.id;
             const isSavingComment = savingCommentId === comment.id;
-            const commentLikeCount = commentLikeCounts[comment.id] || 0;
-            const commentIsLiked = !!userCommentLikes[comment.id];
 
             return (
               <div key={`${postId}-${comment.id}`} style={dashboardCommentRowStyle}>
@@ -11196,35 +10976,25 @@ function DashboardCommentsPanel({
                     <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
                   )}
 
-                {!isEditingComment && currentUserId ? (
-                  <div style={dashboardCommentActionRowStyle}>
-                    <button
-                      type="button"
-                      onClick={() => onToggleCommentLike(comment.id)}
-                      style={commentIsLiked ? dashboardCommentLikeButtonActiveStyle : dashboardCommentLikeButtonStyle}
-                    >
-                      {commentIsLiked ? "Liked" : "Like"}
-                    </button>
-                    {commentLikeCount > 0 ? <span style={dashboardCommentLikeCountStyle}>{commentLikeCount}</span> : null}
-
-                    {canManage ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onStartEditComment(comment)}
-                          style={dashboardCommentEditActionButtonStyle}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteComment(comment.id)}
-                          style={dashboardCommentDeleteButtonStyle}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    ) : (
+                  {!isEditingComment && canManage ? (
+                    <div style={dashboardCommentActionRowStyle}>
+                      <button
+                        type="button"
+                        onClick={() => onStartEditComment(comment)}
+                        style={dashboardCommentEditActionButtonStyle}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteComment(comment.id)}
+                        style={dashboardCommentDeleteButtonStyle}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : !isEditingComment && currentUserId ? (
+                    <div style={dashboardCommentActionRowStyle}>
                       <button
                         type="button"
                         onClick={() => onReportComment(comment.id, comment.user_id)}
@@ -11232,13 +11002,8 @@ function DashboardCommentsPanel({
                       >
                         Report
                       </button>
-                    )}
-                  </div>
-                ) : !isEditingComment && commentLikeCount > 0 ? (
-                  <div style={dashboardCommentActionRowStyle}>
-                    <span style={dashboardCommentLikeCountStyle}>{commentLikeCount} {commentLikeCount === 1 ? "Like" : "Likes"}</span>
-                  </div>
-                ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );
@@ -11266,8 +11031,6 @@ function SharedPostCard({
   setOpenPostMenuId,
   commentsOpen,
   comments,
-  commentLikeCounts,
-  userCommentLikes,
   commentsLoading,
   commentDraft,
   postingComment,
@@ -11284,13 +11047,11 @@ function SharedPostCard({
   onAddComment,
   onDeleteComment,
   onReportComment,
-  onToggleCommentLike,
   onShareOriginal,
   onStartEditOriginal,
   onSaveEditOriginal,
   onCancelEditOriginal,
   onDeleteOriginal,
-  onHideOriginal,
   onRemoveShare,
   onReportOriginal,
 }: {
@@ -11310,8 +11071,6 @@ function SharedPostCard({
   setOpenPostMenuId: (value: string | null | ((prev: string | null) => string | null)) => void;
   commentsOpen: boolean;
   comments: DashboardComment[];
-  commentLikeCounts: CountMap;
-  userCommentLikes: ToggleMap;
   commentsLoading: boolean;
   commentDraft: string;
   postingComment: boolean;
@@ -11328,13 +11087,11 @@ function SharedPostCard({
   onAddComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
-  onToggleCommentLike: (commentId: string) => void;
   onShareOriginal: () => void;
   onStartEditOriginal: () => void;
   onSaveEditOriginal: () => void;
   onCancelEditOriginal: () => void;
   onDeleteOriginal: () => void;
-  onHideOriginal: () => void;
   onRemoveShare: () => void;
   onReportOriginal: () => void;
 }) {
@@ -11390,9 +11147,6 @@ function SharedPostCard({
                   <>
                     <button type="button" style={menuItemStyle} onClick={onStartEditOriginal}>
                       Edit original post
-                    </button>
-                    <button type="button" style={menuItemStyle} onClick={onHideOriginal}>
-                      Hide original post
                     </button>
                     <button
                       type="button"
@@ -11504,8 +11258,6 @@ function SharedPostCard({
           postId={originalPost.id}
           comments={comments}
           commentCount={commentCount}
-          commentLikeCounts={commentLikeCounts}
-          userCommentLikes={userCommentLikes}
           profilesMap={profilesMap}
           currentUserId={currentUserId}
           onToggleComments={onToggleComments}
@@ -11518,7 +11270,6 @@ function SharedPostCard({
           onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
-          onToggleCommentLike={onToggleCommentLike}
         />
       ) : null}
 
@@ -11526,8 +11277,6 @@ function SharedPostCard({
         <DashboardCommentsPanel
           postId={originalPost.id}
           comments={comments}
-          commentLikeCounts={commentLikeCounts}
-          userCommentLikes={userCommentLikes}
           profilesMap={profilesMap}
           currentUserId={currentUserId}
           loading={commentsLoading}
@@ -11544,7 +11293,6 @@ function SharedPostCard({
           onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
-          onToggleCommentLike={onToggleCommentLike}
           onCloseComments={onToggleComments}
         />
       ) : null}
@@ -15563,26 +15311,9 @@ const dashboardCommentDeleteButtonStyle: CSSProperties = {
 const dashboardCommentActionRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "10px",
+  gap: "12px",
   marginTop: "7px",
   flexWrap: "wrap",
-};
-
-const dashboardCommentLikeButtonStyle: CSSProperties = {
-  ...dashboardCommentInlineActionButtonStyle,
-  color: "#c4b5fd",
-  fontWeight: 900,
-};
-
-const dashboardCommentLikeButtonActiveStyle: CSSProperties = {
-  ...dashboardCommentLikeButtonStyle,
-  color: "#f5f3ff",
-};
-
-const dashboardCommentLikeCountStyle: CSSProperties = {
-  color: "#9ca3af",
-  fontSize: "12px",
-  fontWeight: 850,
 };
 
 const dashboardCommentEditActionButtonStyle: CSSProperties = {
