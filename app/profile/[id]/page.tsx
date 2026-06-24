@@ -17771,9 +17771,11 @@ const postAuthorAvatarImageStyle: CSSProperties = {
   minHeight: "100%",
   borderRadius: "999px",
   objectFit: "cover",
-  objectPosition: "center",
+  objectPosition: "50% 50%",
   display: "block",
   flexShrink: 0,
+  transform: "translateX(6%) scale(1.08)",
+  transformOrigin: "center center",
 };
 
 const postAuthorOnlineDotStyle: CSSProperties = {
