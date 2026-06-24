@@ -66,11 +66,18 @@ export default function ProfileSettingsPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarRefreshKey, setAvatarRefreshKey] = useState(0);
+  const [localAvatarPreviewUrl, setLocalAvatarPreviewUrl] = useState("");
   const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const displayName = useMemo(() => getDisplayName(form, username), [form, username]);
   const bioCharacters = form.bio.trim().length;
   const avatarPreviewUrl = form.avatar_url.trim();
+  const displayedAvatarPreviewUrl = localAvatarPreviewUrl
+    ? localAvatarPreviewUrl
+    : avatarPreviewUrl
+      ? `${avatarPreviewUrl}${avatarPreviewUrl.includes("?") ? "&" : "?"}v=${avatarRefreshKey}`
+      : "";
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +142,14 @@ export default function ProfileSettingsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (localAvatarPreviewUrl) {
+        URL.revokeObjectURL(localAvatarPreviewUrl);
+      }
+    };
+  }, [localAvatarPreviewUrl]);
+
   const handleAvatarFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     if (!userId || avatarUploading) return;
 
@@ -157,6 +172,17 @@ export default function ProfileSettingsPage() {
       return;
     }
 
+    const objectPreviewUrl = URL.createObjectURL(file);
+
+    setLocalAvatarPreviewUrl((previousUrl) => {
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+      return objectPreviewUrl;
+    });
+    setForm((prev) => ({
+      ...prev,
+      avatar_url: objectPreviewUrl,
+    }));
+    setAvatarRefreshKey(Date.now());
     setAvatarUploading(true);
 
     try {
@@ -185,6 +211,11 @@ export default function ProfileSettingsPage() {
         throw new Error("Avatar uploaded, but no public URL was returned.");
       }
 
+      setForm((prev) => ({
+        ...prev,
+        avatar_url: nextAvatarUrl,
+      }));
+
       const { data: updatedProfile, error: updateError } = await supabase
         .from("profiles")
         .update({ avatar_url: nextAvatarUrl })
@@ -196,14 +227,24 @@ export default function ProfileSettingsPage() {
 
       const savedAvatarUrl = updatedProfile?.avatar_url || nextAvatarUrl;
 
+      setLocalAvatarPreviewUrl((previousUrl) => {
+        if (previousUrl) URL.revokeObjectURL(previousUrl);
+        return "";
+      });
       setForm((prev) => ({
         ...prev,
         avatar_url: savedAvatarUrl,
       }));
+      setAvatarRefreshKey(Date.now());
 
-      setStatusMessage("Avatar uploaded and saved.");
+      setStatusMessage("Avatar uploaded and saved. Your new avatar should now show across Parapost.");
     } catch (error) {
       console.error("Avatar upload error:", error);
+      setLocalAvatarPreviewUrl((previousUrl) => {
+        if (previousUrl) URL.revokeObjectURL(previousUrl);
+        return "";
+      });
+      setAvatarRefreshKey(Date.now());
       setErrorMessage(`Avatar upload failed: ${getAvatarErrorMessage(error)}`);
     } finally {
       setAvatarUploading(false);
@@ -329,13 +370,18 @@ export default function ProfileSettingsPage() {
                 className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full text-3xl font-black ring-1 ring-white/15"
                 style={{ background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))" }}
               >
-                {avatarPreviewUrl ? (
+                {displayedAvatarPreviewUrl ? (
                   <img
-                    src={avatarPreviewUrl}
+                    key={displayedAvatarPreviewUrl}
+                    src={displayedAvatarPreviewUrl}
                     alt="Profile avatar preview"
                     className="h-full w-full object-cover object-center"
+                    onLoad={(event) => {
+                      event.currentTarget.style.display = "block";
+                    }}
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
+                      setAvatarRefreshKey(Date.now());
                     }}
                   />
                 ) : (
@@ -462,12 +508,17 @@ export default function ProfileSettingsPage() {
                   <input
                     type="text"
                     value={form.avatar_url}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      setLocalAvatarPreviewUrl((previousUrl) => {
+                        if (previousUrl) URL.revokeObjectURL(previousUrl);
+                        return "";
+                      });
+                      setAvatarRefreshKey(Date.now());
                       setForm((prev) => ({
                         ...prev,
                         avatar_url: event.target.value,
-                      }))
-                    }
+                      }));
+                    }}
                     className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none placeholder:text-white/35 focus:border-purple-300/50"
                     placeholder="Paste image URL or upload above"
                   />
