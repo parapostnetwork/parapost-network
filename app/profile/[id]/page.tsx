@@ -15365,7 +15365,9 @@ return (
                                 <header style={postHeaderStyle}>
                                   <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                     {profile?.avatar_url ? (
-                                      <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
+                                      <span style={postAuthorAvatarImageClipStyle}>
+                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                      </span>
                                     ) : (
                                       <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                     )}
@@ -15640,7 +15642,9 @@ return (
                               <header style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
-                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
+                                    <span style={postAuthorAvatarImageClipStyle}>
+                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                      </span>
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
@@ -15759,7 +15763,9 @@ return (
                               <header style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
-                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
+                                    <span style={postAuthorAvatarImageClipStyle}>
+                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                      </span>
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
@@ -15835,7 +15841,9 @@ return (
                               <header style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
-                                    <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
+                                    <span style={postAuthorAvatarImageClipStyle}>
+                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                      </span>
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
@@ -15973,7 +15981,9 @@ return (
                             <header style={postHeaderStyle}>
                               <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                 {profile?.avatar_url ? (
-                                  <img src={profile?.avatar_url || ""} alt="" style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }} />
+                                  <span style={postAuthorAvatarImageClipStyle}>
+                                        <img src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                      </span>
                                 ) : (
                                   <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                 )}
@@ -17740,6 +17750,30 @@ const postAuthorAvatarOnlineStyle: CSSProperties = {
 const postAuthorAvatarOfflineStyle: CSSProperties = {
   background: "linear-gradient(135deg, var(--parapost-accent-soft), rgba(15,23,42,0.98))",
   boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 12px 24px rgba(0,0,0,0.28)",
+};
+
+const postAuthorAvatarImageClipStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  borderRadius: "999px",
+  overflow: "hidden",
+  display: "block",
+  position: "relative",
+  zIndex: 1,
+  background: "rgba(2,6,23,0.92)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10)",
+};
+
+const postAuthorAvatarImageStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  minWidth: "100%",
+  minHeight: "100%",
+  borderRadius: "999px",
+  objectFit: "cover",
+  objectPosition: "center",
+  display: "block",
+  flexShrink: 0,
 };
 
 const postAuthorOnlineDotStyle: CSSProperties = {
