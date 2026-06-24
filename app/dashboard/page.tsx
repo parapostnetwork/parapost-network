@@ -10150,15 +10150,21 @@ function DashboardLiveStreamCard({
         </header>
 
         <div
+          className="dashboard-live-media-frame"
           style={{
             marginTop: 14,
             borderRadius: 20,
             overflow: "hidden",
             border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(0,0,0,0.28)",
+            background: "#05070a",
             maxWidth: 760,
             marginLeft: "auto",
             marginRight: "auto",
+            width: "100%",
+            aspectRatio: "16 / 9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           {isPlayable ? (
@@ -10169,22 +10175,37 @@ function DashboardLiveStreamCard({
               allowFullScreen
               style={{
                 width: "100%",
-                aspectRatio: "16 / 9",
-                minHeight: 200,
+                height: "100%",
+                minHeight: 0,
                 border: 0,
                 display: "block",
                 background: "#05070a",
               }}
             />
           ) : stream.thumbnail_url ? (
-            <div style={{ position: "relative" }}>
+            <div
+              className="dashboard-live-thumbnail-wrap"
+              style={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#05070a",
+              }}
+            >
               <img
+                className="dashboard-live-thumbnail-image"
                 src={stream.thumbnail_url}
                 alt=""
                 style={{
                   width: "100%",
-                  maxHeight: 300,
-                  objectFit: "cover",
+                  height: "100%",
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                  objectPosition: "center center",
                   display: "block",
                   background: "#05070a",
                 }}
@@ -10208,6 +10229,8 @@ function DashboardLiveStreamCard({
           ) : (
             <div
               style={{
+                width: "100%",
+                height: "100%",
                 minHeight: 180,
                 display: "grid",
                 placeItems: "center",
