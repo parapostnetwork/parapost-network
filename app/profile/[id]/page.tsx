@@ -6050,6 +6050,26 @@ return (
         .profile-empty-state-card {
           background-clip: padding-box !important;
         }
+
+        .profile-feed-card,
+        .profile-live-feed-card,
+        .profile-shared-reel-post-card,
+        .profile-achievement-feed-card {
+          contain: paint !important;
+          isolation: isolate !important;
+          will-change: auto !important;
+          backface-visibility: hidden !important;
+        }
+
+        .profile-feed-card iframe,
+        .profile-feed-card img,
+        .profile-feed-card video {
+          backface-visibility: hidden !important;
+        }
+
+        .profile-live-feed-card iframe {
+          background-color: #05070a !important;
+        }
       }
 
             .profile-badges-viewer-overlay {
@@ -17725,9 +17745,9 @@ const postHeaderStyle: CSSProperties = {
 };
 
 const postAuthorAvatarStyle: CSSProperties = {
-  width: "46px",
-  height: "46px",
-  minWidth: "46px",
+  width: "52px",
+  height: "52px",
+  minWidth: "52px",
   borderRadius: "999px",
   padding: "3px",
   display: "grid",
@@ -17738,18 +17758,18 @@ const postAuthorAvatarStyle: CSSProperties = {
   flexShrink: 0,
   boxSizing: "border-box",
   textDecoration: "none",
-  background: "linear-gradient(135deg, var(--parapost-accent-soft), rgba(15,23,42,0.98))",
-  boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 12px 24px rgba(0,0,0,0.28)",
+  background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
+  boxShadow: "0 0 0 1px rgba(255,255,255,0.10), 0 0 22px var(--parapost-accent-glow), 0 12px 24px rgba(0,0,0,0.30)",
 };
 
 const postAuthorAvatarOnlineStyle: CSSProperties = {
   background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
-  boxShadow: "0 0 0 1px rgba(255,255,255,0.10), 0 0 22px var(--parapost-accent-glow)",
+  boxShadow: "0 0 0 1px rgba(255,255,255,0.12), 0 0 24px var(--parapost-accent-glow), 0 12px 28px rgba(0,0,0,0.32)",
 };
 
 const postAuthorAvatarOfflineStyle: CSSProperties = {
-  background: "linear-gradient(135deg, var(--parapost-accent-soft), rgba(15,23,42,0.98))",
-  boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 12px 24px rgba(0,0,0,0.28)",
+  background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), rgba(15,23,42,0.98))",
+  boxShadow: "0 0 0 1px rgba(255,255,255,0.10), 0 0 16px color-mix(in srgb, var(--parapost-accent-1) 28%, transparent), 0 12px 24px rgba(0,0,0,0.28)",
 };
 
 const postAuthorAvatarImageClipStyle: CSSProperties = {
@@ -17761,34 +17781,37 @@ const postAuthorAvatarImageClipStyle: CSSProperties = {
   position: "relative",
   zIndex: 1,
   background: "rgba(2,6,23,0.92)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+  contain: "paint",
 };
 
 const postAuthorAvatarImageStyle: CSSProperties = {
-  width: "100%",
-  height: "100%",
-  minWidth: "100%",
-  minHeight: "100%",
+  position: "absolute",
+  top: "-4%",
+  left: "4%",
+  width: "108%",
+  height: "108%",
+  minWidth: "108%",
+  minHeight: "108%",
+  maxWidth: "none",
   borderRadius: "999px",
   objectFit: "cover",
-  objectPosition: "50% 50%",
+  objectPosition: "center center",
   display: "block",
   flexShrink: 0,
-  transform: "translateX(6%) scale(1.08)",
-  transformOrigin: "center center",
 };
 
 const postAuthorOnlineDotStyle: CSSProperties = {
   position: "absolute",
   right: -1,
   bottom: -1,
-  width: 12,
-  height: 12,
+  width: 14,
+  height: 14,
   borderRadius: 999,
   background: "#22c55e",
   border: "2px solid #07090d",
-  boxShadow: "0 0 10px rgba(34,197,94,0.65)",
-  zIndex: 5,
+  boxShadow: "0 0 12px rgba(34,197,94,0.75)",
+  zIndex: 8,
   pointerEvents: "none",
 };
 
