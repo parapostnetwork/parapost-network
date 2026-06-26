@@ -1236,6 +1236,33 @@ function getDashboardShowcaseLabel(showcase: DashboardShowcaseItem) {
   );
 }
 
+
+function normalizeDashboardShowcaseComparableText(value?: string | null) {
+  return (value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase();
+}
+
+function getDashboardShowcaseOverlayText(showcase: Pick<DashboardShowcaseItem, "cover_text" | "title">) {
+  const coverText = (showcase.cover_text || "").trim();
+  const titleText = (showcase.title || "").trim();
+
+  if (!coverText) return "";
+
+  // A Showcase name belongs in the header/footer only.
+  // Middle overlay text should only appear when the creator added separate cover text.
+  if (
+    titleText &&
+    normalizeDashboardShowcaseComparableText(coverText) === normalizeDashboardShowcaseComparableText(titleText)
+  ) {
+    return "";
+  }
+
+  return coverText;
+}
+
+
 function SearchIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -2955,6 +2982,12 @@ export default function DashboardPage() {
 
     const cleanTitle = dashboardShowcaseTitle.trim();
     const cleanCoverText = dashboardShowcaseCoverText.trim();
+    const savedTitle = cleanTitle || "Showcase";
+    const safeCoverText =
+      cleanCoverText &&
+      normalizeDashboardShowcaseComparableText(cleanCoverText) !== normalizeDashboardShowcaseComparableText(savedTitle)
+        ? cleanCoverText
+        : "";
 
     if (!cleanTitle && !cleanCoverText && !dashboardShowcaseMediaPreviewUrl) {
       setDashboardShowcaseError("Add a title, text, photo, or video first.");
@@ -2975,8 +3008,8 @@ export default function DashboardPage() {
 
       const insertPayload = {
         user_id: activeUserId,
-        title: cleanTitle || cleanCoverText || "Showcase",
-        cover_text: cleanCoverText,
+        title: savedTitle,
+        cover_text: safeCoverText || null,
         media_url: dashboardShowcaseMediaPreviewUrl || null,
         media_type: dashboardShowcaseMediaPreviewUrl ? dashboardShowcaseMediaType : "text",
         media_filename: dashboardShowcaseMediaFileName || null,
@@ -9402,7 +9435,7 @@ function ShowcaseQuickActions({
         </button>
 
         {visibleFriendShowcases.map((showcase) => {
-          const coverText = (showcase.cover_text || showcase.title || showcase.profile?.full_name || "Showcase").trim();
+          const coverText = getDashboardShowcaseOverlayText(showcase);
           const x = Number(showcase.text_position_x ?? 50);
           const y = Number(showcase.text_position_y ?? 50);
           const mediaType = showcase.media_type === "image" || showcase.media_type === "video" ? showcase.media_type : "text";
@@ -9467,7 +9500,7 @@ function DashboardShowcaseViewerModal({
     ? visibleShowcases[(activeIndex + 1) % visibleShowcases.length]
     : null;
 
-  const coverText = (showcase.cover_text || showcase.title || showcase.profile?.full_name || "Showcase").trim();
+  const coverText = getDashboardShowcaseOverlayText(showcase);
   const x = Number(showcase.text_position_x ?? 50);
   const y = Number(showcase.text_position_y ?? 50);
   const mediaType = showcase.media_type === "image" || showcase.media_type === "video" ? showcase.media_type : "text";
@@ -9737,43 +9770,45 @@ function DashboardShowcaseViewerModal({
             }}
           />
 
-          <span
-            style={{
-              position: "absolute",
-              zIndex: 3,
-              left: `${Number.isFinite(x) ? x : 50}%`,
-              top: `${Number.isFinite(y) ? y : 50}%`,
-              transform: "translate(-50%, -50%)",
-              width: getShowcaseOverlayTextWidth(coverText),
-              maxWidth: getShowcaseOverlayTextWidth(coverText),
-              maxHeight: "74%",
-              color: "#ffffff",
-              fontWeight: 950,
-              lineHeight: 1.05,
-              letterSpacing: "-0.035em",
-              textAlign: "center",
-              textShadow: "0 4px 24px rgba(0,0,0,0.55)",
-              pointerEvents: "none",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
-              overflow: "hidden",
-              boxSizing: "border-box",
-              fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
-              fontSize: `${Math.min(
-                48,
-                Math.max(
-                  16,
-                  getShowcaseOverlayDisplayFontSize(
-                    coverText,
-                    showcase.overlay_font_size || SHOWCASE_OVERLAY_DEFAULT_FONT_SIZE
-                  )
-                )
-              )}px`,
-            }}
-          >
-            {coverText}
-          </span>
+                    {coverText ? (
+                      <span
+                        style={{
+                        position: "absolute",
+                        zIndex: 3,
+                        left: `${Number.isFinite(x) ? x : 50}%`,
+                        top: `${Number.isFinite(y) ? y : 50}%`,
+                        transform: "translate(-50%, -50%)",
+                        width: getShowcaseOverlayTextWidth(coverText),
+                        maxWidth: getShowcaseOverlayTextWidth(coverText),
+                        maxHeight: "74%",
+                        color: "#ffffff",
+                        fontWeight: 950,
+                        lineHeight: 1.05,
+                        letterSpacing: "-0.035em",
+                        textAlign: "center",
+                        textShadow: "0 4px 24px rgba(0,0,0,0.55)",
+                        pointerEvents: "none",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
+                        overflow: "hidden",
+                        boxSizing: "border-box",
+                        fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
+                        fontSize: `${Math.min(
+                          48,
+                          Math.max(
+                            16,
+                            getShowcaseOverlayDisplayFontSize(
+                              coverText,
+                              showcase.overlay_font_size || SHOWCASE_OVERLAY_DEFAULT_FONT_SIZE
+                            )
+                          )
+                        )}px`,
+                      }}
+                    >
+                      {coverText}
+                    </span>
+                  ) : null}
 
           {hasMultipleShowcases && previousShowcase ? (
             <button
