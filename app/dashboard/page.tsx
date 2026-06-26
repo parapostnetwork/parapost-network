@@ -9504,7 +9504,7 @@ function ShowcaseQuickActions({
           <span style={dashboardProfileShowcaseLabelStyle}>New</span>
         </button>
 
-        {visibleFriendShowcases.map((showcase, index) => {
+        {visibleFriendShowcases.map((showcase) => {
           const coverText = getDashboardShowcaseOverlayText(showcase);
           const x = Number(showcase.text_position_x ?? 50);
           const y = Number(showcase.text_position_y ?? 50);
@@ -9523,18 +9523,12 @@ function ShowcaseQuickActions({
                   <img
                     src={showcase.media_url}
                     alt=""
-                    loading={index === 0 ? "eager" : "lazy"}
+                    loading="lazy"
                     decoding="async"
                     style={dashboardProfileShowcaseCoverMediaStyle}
                   />
                 ) : showcase.media_url && mediaType === "video" ? (
-                  <video
-                    src={showcase.media_url}
-                    muted
-                    playsInline
-                    preload={index === 0 ? "metadata" : "none"}
-                    style={dashboardProfileShowcaseCoverMediaStyle}
-                  />
+                  <span style={dashboardProfileShowcaseVideoPreviewStyle} aria-hidden="true">▶</span>
                 ) : null}
 
                 <span style={{ ...dashboardProfileShowcaseCoverShadeStyle, opacity: showcase.media_url ? 1 : 0 }} />
@@ -14375,6 +14369,20 @@ const dashboardProfileShowcaseCoverMediaStyle: CSSProperties = {
   height: "100%",
   objectFit: "cover",
   zIndex: 0,
+};
+
+const dashboardProfileShowcaseVideoPreviewStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 0,
+  display: "grid",
+  placeItems: "center",
+  background:
+    "radial-gradient(circle at 36% 18%, rgba(255,255,255,0.16), transparent 24%), linear-gradient(135deg, rgba(88,28,135,0.96), color-mix(in srgb, var(--parapost-accent-3) 58%, transparent))",
+  color: "#ffffff",
+  fontSize: 20,
+  fontWeight: 950,
+  textShadow: "0 2px 10px rgba(0,0,0,0.52)",
 };
 
 const dashboardProfileShowcaseCoverShadeStyle: CSSProperties = {
