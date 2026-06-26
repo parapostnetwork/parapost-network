@@ -1,5 +1,6 @@
 "use client";
 // DASHBOARD SHOWCASE OVERLAY FIX v7 - title stays in header/footer; middle overlay uses cover_text only and hides cover_text when it matches title.
+// DASHBOARD LOADING PERFORMANCE PASS v1 - page shell, Showcases, and first timeline batch render faster; heavy extras load after first paint.
 
 import {
   ChangeEvent,
@@ -2417,101 +2418,147 @@ export default function DashboardPage() {
     if (shouldShowFeedLoading) setFetchingPosts(true);
 
     try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    let userId = "";
-    let blockedIds: string[] = [];
+      let userId = "";
+      let blockedIds: string[] = [];
 
-    if (!userError && user) {
-      userId = user.id;
-      setCurrentUserId(user.id);
-      setUserEmail(user.email || "");
+      if (!userError && user) {
+        userId = user.id;
+        setCurrentUserId(user.id);
+        setUserEmail(user.email || "");
 
-      await supabase
-        .from("profiles")
-        .update({ is_online: true, last_seen_at: new Date().toISOString() })
-        .eq("id", user.id);
+        // Presence is useful, but it should never block the feed from appearing.
+        void supabase
+          .from("profiles")
+          .update({ is_online: true, last_seen_at: new Date().toISOString() })
+          .eq("id", user.id)
+          .then(({ error }) => {
+            if (error) logDashboardNetworkIssue("Dashboard presence update skipped", error);
+          });
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
-        .eq("id", user.id)
-        .maybeSingle();
+        const [{ data: profileData }, { data: blocksData, error: blocksError }] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+            .eq("id", user.id)
+            .maybeSingle(),
+          supabase
+            .from("blocked_users")
+            .select("blocker_id, blocked_id")
+            .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`),
+        ]);
 
-      setCurrentProfile((profileData as ProfilePreview | null) || null);
+        setCurrentProfile((profileData as ProfilePreview | null) || null);
 
-      const { data: blocksData, error: blocksError } = await supabase
-        .from("blocked_users")
-        .select("blocker_id, blocked_id")
-        .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`);
+        if (blocksError) {
+          logDashboardNetworkIssue("Dashboard blocked users skipped", blocksError);
+          blockedIds = [];
+        } else {
+          blockedIds = buildDashboardBlockedUserIds((blocksData as BlockedUserRow[]) || [], user.id);
+        }
 
-      if (blocksError) {
-        logDashboardNetworkIssue("Dashboard blocked users skipped", blocksError);
-        blockedIds = [];
+        setBlockedUserIds(blockedIds);
+
+        // Start these immediately, but do not make the timeline wait for them.
+        void fetchFollowData(user.id).catch((error) => logDashboardNetworkIssue("Dashboard following skipped", error));
+        void fetchNotifications(user.id).catch((error) => logDashboardNetworkIssue("Dashboard notifications skipped", error));
+        void fetchRecentlyViewed(user.id, blockedIds).catch((error) => logDashboardNetworkIssue("Dashboard recently viewed skipped", error));
+        void fetchPeopleToDiscover(user.id, blockedIds).catch((error) => logDashboardNetworkIssue("Dashboard discover skipped", error));
+        void fetchFriendShowcases(user.id, blockedIds).catch((error) => logDashboardNetworkIssue("Dashboard showcases skipped", error));
       } else {
-        blockedIds = buildDashboardBlockedUserIds((blocksData as BlockedUserRow[]) || [], user.id);
+        setCurrentUserId("");
+        setUserEmail("");
+        setCurrentProfile(null);
+        setBlockedUserIds([]);
+        setFollowedUserIds([]);
+        setFollowingMap({});
+        setNotificationsCount(0);
+        setParachatUnreadCount(0);
+        setPendingFriendRequestCount(0);
+        setRecentlyViewed([]);
+        setFriendShowcases([]);
+        setDiscoverProfiles([]);
       }
 
-      setBlockedUserIds(blockedIds);
+      const { data: postsData, error: postsError } = await supabase
+        .from("posts")
+        .select("id, content, image_url, created_at, user_id")
+        .order("created_at", { ascending: false })
+        .limit(80);
 
-      await Promise.all([
-        fetchFollowData(user.id),
-        fetchNotifications(user.id),
-        fetchRecentlyViewed(user.id, blockedIds),
-        fetchFriendShowcases(user.id, blockedIds),
-        fetchPeopleToDiscover(user.id, blockedIds),
-      ]);
-    } else {
-      setCurrentUserId("");
-      setUserEmail("");
-      setCurrentProfile(null);
-      setBlockedUserIds([]);
-      await Promise.all([fetchFollowData(), fetchNotifications(), fetchRecentlyViewed(), fetchFriendShowcases(), fetchPeopleToDiscover()]);
-    }
+      if (postsError) {
+        console.error("Error fetching posts:", postsError.message);
+        if (!hasLoadedDashboardOnceRef.current) setPosts([]);
+        return;
+      }
 
-    const { data: postsData, error: postsError } = await supabase
-      .from("posts")
-      .select("id, content, image_url, created_at, user_id")
-      .order("created_at", { ascending: false })
-      .limit(80);
+      const visiblePostsBase = ((postsData || []) as Post[]).filter((post) => !blockedIds.includes(post.user_id));
+      const firstVisiblePostIds = visiblePostsBase.slice(0, FEED_INITIAL_BATCH_SIZE).map((post) => post.id);
+      const firstVisibleProfileIds = [
+        userId,
+        ...visiblePostsBase.slice(0, FEED_INITIAL_BATCH_SIZE).map((post) => post.user_id),
+      ];
 
-    if (postsError) {
-      console.error("Error fetching posts:", postsError.message);
-      if (!hasLoadedDashboardOnceRef.current) setPosts([]);
-      return;
-    }
+      // First paint: show the timeline as soon as the post rows arrive.
+      // Images, shared posts, live cards, profile maps, and counts continue below.
+      setPosts(visiblePostsBase.map((post) => ({ ...post, images: [] })));
+      hasLoadedDashboardOnceRef.current = true;
+      setFetchingPosts(false);
 
-    const visiblePostsBase = ((postsData || []) as Post[]).filter((post) => !blockedIds.includes(post.user_id));
-    const postImagesMap = await fetchPostImagesMap(visiblePostsBase.map((post) => post.id));
-    const visiblePosts = attachImagesToPosts(visiblePostsBase, postImagesMap);
-    const visibleSharedPosts = await fetchSharedPosts(blockedIds);
-    const visibleShared = await fetchSharedReels(blockedIds);
-    const visibleLiveStreams = await fetchLiveFeedStreams(blockedIds);
+      void fetchProfileMap(firstVisibleProfileIds, blockedIds).catch((error) =>
+        logDashboardNetworkIssue("Dashboard first profile map skipped", error)
+      );
+      void fetchCounts(userId || undefined, firstVisiblePostIds).catch((error) =>
+        logDashboardNetworkIssue("Dashboard first counts skipped", error)
+      );
 
-    setPosts(visiblePosts);
+      const postImagesTask = fetchPostImagesMap(visiblePostsBase.map((post) => post.id))
+        .then((postImagesMap) => {
+          setPosts((currentPosts) =>
+            currentPosts.map((post) => ({
+              ...post,
+              images: postImagesMap[post.id] || post.images || [],
+            }))
+          );
+        })
+        .catch((error) => logDashboardNetworkIssue("Dashboard post images skipped", error));
 
-    const profileIds = [
-      userId,
-      ...visiblePosts.map((post) => post.user_id),
-      ...visibleSharedPosts.map((share) => share.user_id),
-      ...visibleSharedPosts.map((share) => share.original_post.user_id),
-      ...visibleShared.map((share) => share.user_id),
-      ...visibleShared.map((share) => share.reel_user_id),
-      ...visibleShared.map((share) => share.creator_profile_id || ""),
-      ...visibleLiveStreams.map((stream) => stream.user_id),
-    ];
+      const feedExtrasTask = Promise.all([
+        fetchSharedPosts(blockedIds),
+        fetchSharedReels(blockedIds),
+        fetchLiveFeedStreams(blockedIds),
+      ])
+        .then(([visibleSharedPosts, visibleShared, visibleLiveStreams]) => {
+          const profileIds = [
+            userId,
+            ...visiblePostsBase.map((post) => post.user_id),
+            ...visibleSharedPosts.map((share) => share.user_id),
+            ...visibleSharedPosts.map((share) => share.original_post.user_id),
+            ...visibleShared.map((share) => share.user_id),
+            ...visibleShared.map((share) => share.reel_user_id),
+            ...visibleShared.map((share) => share.creator_profile_id || ""),
+            ...visibleLiveStreams.map((stream) => stream.user_id),
+          ];
 
-    const countPostIds = [
-      ...new Set([
-        ...visiblePosts.map((post) => post.id),
-        ...visibleSharedPosts.map((share) => share.post_id),
-      ]),
-    ];
+          const countPostIds = [
+            ...new Set([
+              ...visiblePostsBase.map((post) => post.id),
+              ...visibleSharedPosts.map((share) => share.post_id),
+            ]),
+          ];
 
-    await Promise.all([fetchProfileMap(profileIds, blockedIds), fetchCounts(userId || undefined, countPostIds)]);
+          return Promise.all([
+            fetchProfileMap(profileIds, blockedIds),
+            fetchCounts(userId || undefined, countPostIds),
+          ]);
+        })
+        .catch((error) => logDashboardNetworkIssue("Dashboard feed extras skipped", error));
+
+      await Promise.allSettled([postImagesTask, feedExtrasTask]);
     } catch (error) {
       // Supabase/network hiccups can throw TypeError: Failed to fetch.
       // Keep the current timeline on screen and avoid logging raw TypeError objects.
