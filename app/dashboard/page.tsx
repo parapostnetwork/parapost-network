@@ -1,4 +1,5 @@
 "use client";
+// DASHBOARD SHOWCASE OVERLAY FIX v7 - title stays in header/footer; middle overlay uses cover_text only and hides cover_text when it matches title.
 
 import {
   ChangeEvent,
