@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import DashboardReelsSection from "./DashboardReelsSection";
 import LiveChatPanel from "@/components/live/LiveChatPanel";
 import { supabase } from "@/lib/supabase";
@@ -2963,42 +2964,70 @@ export default function DashboardPage() {
     setDashboardShowcaseSaving(true);
     setDashboardShowcaseError("");
 
-    const now = Date.now();
-    const expiresAt =
-      dashboardShowcaseDuration === "24h"
-        ? new Date(now + 24 * 60 * 60 * 1000).toISOString()
-        : dashboardShowcaseDuration === "30d"
-          ? new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString()
-          : null;
+    try {
+      const now = Date.now();
+      const expiresAt =
+        dashboardShowcaseDuration === "24h"
+          ? new Date(now + 24 * 60 * 60 * 1000).toISOString()
+          : dashboardShowcaseDuration === "30d"
+            ? new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString()
+            : null;
 
-    const insertPayload = {
-      user_id: activeUserId,
-      title: cleanTitle || cleanCoverText || "Showcase",
-      cover_text: cleanCoverText,
-      media_url: dashboardShowcaseMediaPreviewUrl || null,
-      media_type: dashboardShowcaseMediaPreviewUrl ? dashboardShowcaseMediaType : "text",
-      media_filename: dashboardShowcaseMediaFileName || null,
-      font_key: dashboardShowcaseFontKey,
-      text_position_x: dashboardShowcaseTextPosition.x,
-      text_position_y: dashboardShowcaseTextPosition.y,
-      overlay_font_size: clampShowcaseOverlayFontSize(dashboardShowcaseOverlayFontSize),
-      duration: dashboardShowcaseDuration,
-      visibility: dashboardShowcaseVisibility,
-      expires_at: expiresAt,
-    };
+      const insertPayload = {
+        user_id: activeUserId,
+        title: cleanTitle || cleanCoverText || "Showcase",
+        cover_text: cleanCoverText,
+        media_url: dashboardShowcaseMediaPreviewUrl || null,
+        media_type: dashboardShowcaseMediaPreviewUrl ? dashboardShowcaseMediaType : "text",
+        media_filename: dashboardShowcaseMediaFileName || null,
+        font_key: dashboardShowcaseFontKey,
+        text_position_x: dashboardShowcaseTextPosition.x,
+        text_position_y: dashboardShowcaseTextPosition.y,
+        overlay_font_size: clampShowcaseOverlayFontSize(dashboardShowcaseOverlayFontSize),
+        duration: dashboardShowcaseDuration,
+        visibility: dashboardShowcaseVisibility,
+        expires_at: expiresAt,
+      };
 
-    const { error } = await supabase.from("profile_showcases").insert(insertPayload);
+      const { data, error } = await supabase
+        .from("profile_showcases")
+        .insert(insertPayload)
+        .select(
+          "id,user_id,title,cover_text,media_url,media_type,media_filename,font_key,text_position_x,text_position_y,overlay_font_size,duration,visibility,expires_at,created_at"
+        )
+        .single();
 
-    if (error) {
+      if (error || !data) {
+        console.error("Could not create dashboard Showcase:", error);
+        setDashboardShowcaseError(
+          `Could not create Showcase: ${error?.message || "No data returned."}`
+        );
+        return;
+      }
+
+      const createdShowcase: DashboardShowcaseItem = {
+        ...(data as Omit<DashboardShowcaseItem, "profile">),
+        profile: currentProfile,
+      };
+
+      setFriendShowcases((prev) => [
+        createdShowcase,
+        ...prev.filter((item) => item.id !== createdShowcase.id),
+      ]);
+
+      void fetchFriendShowcases(activeUserId);
+
+      handleCloseDashboardShowcaseComposer();
+    } catch (error) {
       console.error("Could not create dashboard Showcase:", error);
-      setDashboardShowcaseError(`Could not create Showcase: ${error.message}`);
+      setDashboardShowcaseError(
+        error instanceof Error
+          ? `Could not create Showcase: ${error.message}`
+          : "Could not create Showcase. Please try again."
+      );
+    } finally {
       setDashboardShowcaseSaving(false);
-      return;
     }
-
-    await fetchFriendShowcases(activeUserId);
-    setDashboardShowcaseSaving(false);
-    handleCloseDashboardShowcaseComposer();
   };
 
   const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -9429,9 +9458,11 @@ function DashboardShowcaseViewerModal({
   const visibleShowcases = showcases.slice(0, 18);
   const activeIndex = Math.max(0, visibleShowcases.findIndex((item) => item.id === showcase.id));
   const hasMultipleShowcases = visibleShowcases.length > 1;
+
   const previousShowcase = hasMultipleShowcases
     ? visibleShowcases[(activeIndex - 1 + visibleShowcases.length) % visibleShowcases.length]
     : null;
+
   const nextShowcase = hasMultipleShowcases
     ? visibleShowcases[(activeIndex + 1) % visibleShowcases.length]
     : null;
@@ -9440,6 +9471,7 @@ function DashboardShowcaseViewerModal({
   const x = Number(showcase.text_position_x ?? 50);
   const y = Number(showcase.text_position_y ?? 50);
   const mediaType = showcase.media_type === "image" || showcase.media_type === "video" ? showcase.media_type : "text";
+
   const profileName = showcase.profile?.full_name || showcase.profile?.username || "Parapost member";
   const profileHandle = showcase.profile?.username ? `@${showcase.profile.username}` : "Showcase";
 
@@ -9483,7 +9515,9 @@ function DashboardShowcaseViewerModal({
     };
   }, []);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -9492,87 +9526,160 @@ function DashboardShowcaseViewerModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 9999,
-        display: "grid",
-        placeItems: "center",
-        padding: "18px 12px",
-        background: "rgba(0,0,0,0.82)",
-        backdropFilter: "blur(18px)",
+        zIndex: 2147483647,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "18px",
+        background:
+          "radial-gradient(circle at 50% 0%, var(--parapost-accent-active-border), transparent 42%), rgba(0,0,0,0.90)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
       }}
     >
       <div
         onClick={(event) => event.stopPropagation()}
         style={{
-          position: "relative",
-          width: "min(720px, 96vw)",
-          maxHeight: "92vh",
+          width: "min(760px, calc(100vw - 32px))",
+          height: "min(900px, calc(100dvh - 32px))",
+          maxHeight: "calc(100dvh - 32px)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+          borderRadius: "30px",
+          border: "1px solid rgba(255,255,255,0.14)",
+          background:
+            "radial-gradient(circle at 16% 0%, var(--parapost-accent-active-border), transparent 34%), radial-gradient(circle at 96% 10%, rgba(34,211,238,0.11), transparent 30%), linear-gradient(180deg, rgba(17,19,28,0.996), rgba(5,7,12,0.998))",
+          boxShadow: "0 42px 120px rgba(0,0,0,0.72), 0 0 0 1px rgba(255,255,255,0.035)",
+          padding: "16px",
           overflow: "hidden",
-          borderRadius: 30,
-          border: "1px solid rgba(255,255,255,0.16)",
-          background: "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(2,6,23,0.98))",
-          boxShadow: "0 30px 100px rgba(0,0,0,0.66)",
         }}
       >
         <div
           style={{
-            position: "absolute",
-            top: 12,
-            left: 14,
-            right: 58,
-            zIndex: 8,
             display: "flex",
-            gap: 5,
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            flex: "0 0 auto",
+            paddingBottom: "12px",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
           }}
-          aria-hidden="true"
         >
-          {visibleShowcases.length > 0 ? visibleShowcases.map((item, index) => (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "42px minmax(0, 1fr)",
+              gap: "12px",
+              alignItems: "center",
+              minWidth: 0,
+            }}
+          >
             <span
-              key={`showcase-progress-${item.id}`}
               style={{
-                height: 3,
-                flex: 1,
-                borderRadius: 999,
-                background: index === activeIndex ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.26)",
-                boxShadow: index === activeIndex ? "0 0 14px rgba(255,255,255,0.42)" : "none",
+                width: "42px",
+                height: "42px",
+                display: "grid",
+                placeItems: "center",
+                borderRadius: "15px",
+                background:
+                  "linear-gradient(135deg, var(--parapost-accent-2), var(--parapost-accent-1) 60%, var(--parapost-accent-3))",
+                boxShadow: "0 16px 34px var(--parapost-accent-strong-glow)",
+                overflow: "hidden",
               }}
-            />
-          )) : null}
-        </div>
+            >
+              <img
+                src="/parapost-icon-white.png"
+                alt=""
+                aria-hidden="true"
+                style={{
+                  width: "26px",
+                  height: "26px",
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
+            </span>
 
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close Showcase viewer"
-          style={{
-            position: "absolute",
-            top: 14,
-            right: 14,
-            zIndex: 10,
-            width: 38,
-            height: 38,
-            borderRadius: 999,
-            border: "1px solid rgba(255,255,255,0.20)",
-            background: "rgba(0,0,0,0.52)",
-            color: "white",
-            fontSize: 24,
-            lineHeight: 1,
-            cursor: "pointer",
-            boxShadow: "0 10px 28px rgba(0,0,0,0.32)",
-          }}
-        >
-          ×
-        </button>
+            <span style={{ minWidth: 0 }}>
+              <p
+                style={{
+                  margin: 0,
+                  color: "var(--parapost-accent-text)",
+                  fontSize: "11px",
+                  fontWeight: 950,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                Parapost Showcase
+              </p>
+
+              <h3
+                style={{
+                  margin: "3px 0 0",
+                  color: "#ffffff",
+                  fontSize: "20px",
+                  fontWeight: 950,
+                  letterSpacing: "-0.035em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {getDashboardShowcaseLabel(showcase)}
+              </h3>
+
+              <p
+                style={{
+                  margin: "5px 0 0",
+                  color: "#9ca3af",
+                  fontSize: "12px",
+                  fontWeight: 850,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {profileName} · {profileHandle}
+              </p>
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close Showcase viewer"
+            style={{
+              width: "44px",
+              height: "44px",
+              flexShrink: 0,
+              borderRadius: "16px",
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(255,255,255,0.08)",
+              color: "#ffffff",
+              fontSize: "28px",
+              lineHeight: 1,
+              cursor: "pointer",
+              fontWeight: 900,
+              fontFamily: "inherit",
+            }}
+          >
+            ×
+          </button>
+        </div>
 
         <div
           style={{
             position: "relative",
-            width: "100%",
-            aspectRatio: "4 / 3",
-            maxHeight: "calc(92vh - 86px)",
-            display: "grid",
-            placeItems: "center",
+            flex: "1 1 auto",
+            minHeight: "420px",
+            borderRadius: "28px",
             overflow: "hidden",
-            background: "#020617",
+            border: "1px solid rgba(255,255,255,0.14)",
+            background:
+              "radial-gradient(circle at 20% 0%, rgba(34,211,238,0.30), transparent 34%), linear-gradient(135deg, rgba(20,184,166,0.78), var(--parapost-accent-2) 52%, var(--parapost-accent-2))",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 30px 80px rgba(0,0,0,0.46)",
           }}
         >
           {showcase.media_url && mediaType === "image" ? (
@@ -9580,10 +9687,14 @@ function DashboardShowcaseViewerModal({
               src={showcase.media_url}
               alt=""
               style={{
+                position: "absolute",
+                inset: 0,
                 width: "100%",
                 height: "100%",
                 objectFit: "contain",
+                objectPosition: "center center",
                 display: "block",
+                backgroundColor: "#05060a",
               }}
             />
           ) : showcase.media_url && mediaType === "video" ? (
@@ -9595,10 +9706,14 @@ function DashboardShowcaseViewerModal({
               playsInline
               preload="metadata"
               style={{
+                position: "absolute",
+                inset: 0,
                 width: "100%",
                 height: "100%",
                 objectFit: "contain",
+                objectPosition: "center center",
                 display: "block",
+                backgroundColor: "#05060a",
               }}
             />
           ) : (
@@ -9607,7 +9722,7 @@ function DashboardShowcaseViewerModal({
                 position: "absolute",
                 inset: 0,
                 background:
-                  "radial-gradient(circle at 28% 18%, color-mix(in srgb, var(--parapost-accent-2) 38%, transparent), transparent 34%), radial-gradient(circle at 75% 78%, color-mix(in srgb, var(--parapost-accent-1) 32%, transparent), transparent 38%), linear-gradient(145deg, rgba(17,24,39,1), rgba(2,6,23,1))",
+                  "radial-gradient(circle at 22% 0%, rgba(34,211,238,0.30), transparent 34%), linear-gradient(135deg, rgba(20,184,166,0.82), var(--parapost-accent-strong-glow) 45%, var(--parapost-accent-2))",
               }}
             />
           )}
@@ -9616,58 +9731,49 @@ function DashboardShowcaseViewerModal({
             style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.08) 28%, rgba(0,0,0,0.44))",
+              background:
+                "linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.08) 42%, rgba(0,0,0,0.48))",
               pointerEvents: "none",
             }}
           />
 
-          <div
+          <span
             style={{
               position: "absolute",
-              top: 32,
-              left: 18,
-              right: 64,
-              zIndex: 6,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              color: "white",
-            }}
-          >
-            <Avatar profile={showcase.profile} size={42} />
-            <div style={{ minWidth: 0 }}>
-              <strong style={{ display: "block", fontSize: 14, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {profileName}
-              </strong>
-              <span style={{ display: "block", marginTop: 2, color: "rgba(255,255,255,0.72)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {profileHandle}
-              </span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              position: "absolute",
+              zIndex: 3,
               left: `${Number.isFinite(x) ? x : 50}%`,
               top: `${Number.isFinite(y) ? y : 50}%`,
               transform: "translate(-50%, -50%)",
+              width: getShowcaseOverlayTextWidth(coverText),
               maxWidth: getShowcaseOverlayTextWidth(coverText),
-              color: "white",
-              textAlign: "center",
-              fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
-              fontSize: `${getShowcaseOverlayDisplayFontSize(
-                coverText,
-                showcase.overlay_font_size || SHOWCASE_OVERLAY_DEFAULT_FONT_SIZE
-              )}px`,
+              maxHeight: "74%",
+              color: "#ffffff",
               fontWeight: 950,
               lineHeight: 1.05,
-              textShadow: "0 5px 22px rgba(0,0,0,0.9)",
+              letterSpacing: "-0.035em",
+              textAlign: "center",
+              textShadow: "0 4px 24px rgba(0,0,0,0.55)",
+              pointerEvents: "none",
+              whiteSpace: "pre-wrap",
               wordBreak: "break-word",
-              padding: "0 10px",
+              overflowWrap: "anywhere",
+              overflow: "hidden",
+              boxSizing: "border-box",
+              fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
+              fontSize: `${Math.min(
+                48,
+                Math.max(
+                  16,
+                  getShowcaseOverlayDisplayFontSize(
+                    coverText,
+                    showcase.overlay_font_size || SHOWCASE_OVERLAY_DEFAULT_FONT_SIZE
+                  )
+                )
+              )}px`,
             }}
           >
             {coverText}
-          </div>
+          </span>
 
           {hasMultipleShowcases && previousShowcase ? (
             <button
@@ -9724,22 +9830,40 @@ function DashboardShowcaseViewerModal({
 
         <div
           style={{
-            display: "flex",
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) auto",
             alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "14px 16px 16px",
-            color: "white",
-            borderTop: "1px solid rgba(255,255,255,0.08)",
+            gap: "12px",
+            flex: "0 0 auto",
+            paddingTop: "2px",
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <strong style={{ display: "block", fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <strong
+              style={{
+                display: "block",
+                color: "#ffffff",
+                fontSize: "15px",
+                fontWeight: 950,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {getDashboardShowcaseLabel(showcase)}
             </strong>
-            <span style={{ display: "block", marginTop: 3, color: "rgba(255,255,255,0.62)", fontSize: 12 }}>
-              Dashboard viewer · stays on this page
-            </span>
+
+            <p
+              style={{
+                margin: "4px 0 0",
+                color: "#9ca3af",
+                fontSize: "12px",
+                fontWeight: 800,
+              }}
+            >
+              Visibility: {showcase.visibility || "public"} ·{" "}
+              {showcase.duration === "permanent" ? "Stays until removed" : showcase.duration || "Showcase"}
+            </p>
           </div>
 
           <Link
@@ -9749,22 +9873,23 @@ function DashboardShowcaseViewerModal({
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              minHeight: 34,
-              padding: "0 12px",
+              minHeight: 38,
+              padding: "0 14px",
               borderRadius: 999,
               border: "1px solid rgba(255,255,255,0.16)",
               background: "rgba(255,255,255,0.08)",
               color: "white",
               textDecoration: "none",
               fontSize: 12,
-              fontWeight: 900,
+              fontWeight: 950,
             }}
           >
             View Profile
           </Link>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
