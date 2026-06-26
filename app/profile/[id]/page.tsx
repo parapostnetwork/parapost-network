@@ -966,6 +966,17 @@ function getShowcaseOverlayTextWidth(text: string) {
   return "82%";
 }
 
+
+function getProfileShowcaseOverlayText(showcase: Pick<ProfileShowcase, "coverText" | "title">) {
+  const coverText = (showcase.coverText || "").trim();
+  if (!coverText) return "";
+
+  const title = (showcase.title || "").trim();
+  if (title && coverText.toLowerCase() === title.toLowerCase()) return "";
+
+  return coverText;
+}
+
 function clampShowcaseTextPercent(value: number, min: number, max: number) {
   if (Number.isNaN(value)) return 50;
   return Math.max(min, Math.min(max, value));
@@ -13628,7 +13639,7 @@ return (
 
                     {visibleProfileShowcases.map((showcase) => {
                       const fontOption = getShowcaseFontOption(showcase.fontKey);
-                      const coverText = (showcase.coverText || showcase.title).trim();
+                      const coverText = getProfileShowcaseOverlayText(showcase);
 
                       return (
                         <button
@@ -13661,17 +13672,19 @@ return (
                               }}
                             />
 
-                            <span
-                              style={{
-                                ...profileShowcaseCoverTextStyle,
-                                left: `${showcase.textPosition?.x || 50}%`,
-                                top: `${showcase.textPosition?.y || 50}%`,
-                                fontFamily: fontOption.family,
-                                fontSize: `${getShowcaseTileFontSize(showcase.overlayFontSize)}px`,
-                              }}
-                            >
-                              {coverText}
-                            </span>
+                            {coverText ? (
+                              <span
+                                style={{
+                                  ...profileShowcaseCoverTextStyle,
+                                  left: `${showcase.textPosition?.x || 50}%`,
+                                  top: `${showcase.textPosition?.y || 50}%`,
+                                  fontFamily: fontOption.family,
+                                  fontSize: `${getShowcaseTileFontSize(showcase.overlayFontSize)}px`,
+                                }}
+                              >
+                                {coverText}
+                              </span>
+                            ) : null}
                           </span>
 
                           {canManageProfileShowcases ? (
@@ -14200,28 +14213,28 @@ return (
 
                               <div style={profileShowcaseViewerShadeStyle} />
 
-                              {(activeProfileShowcase.coverText || "").trim() ? (
+                              {getProfileShowcaseOverlayText(activeProfileShowcase) ? (
                                 <span
                                   style={{
                                     ...profileShowcaseViewerOverlayTextStyle,
-                                    left: `${getShowcaseSafeTextPosition(activeProfileShowcase.textPosition, (activeProfileShowcase.coverText || "").trim()).x}%`,
-                                    top: `${getShowcaseSafeTextPosition(activeProfileShowcase.textPosition, (activeProfileShowcase.coverText || "").trim()).y}%`,
-                                    width: getShowcaseOverlayTextWidth((activeProfileShowcase.coverText || "").trim()),
-                                    maxWidth: getShowcaseOverlayTextWidth((activeProfileShowcase.coverText || "").trim()),
+                                    left: `${getShowcaseSafeTextPosition(activeProfileShowcase.textPosition, getProfileShowcaseOverlayText(activeProfileShowcase)).x}%`,
+                                    top: `${getShowcaseSafeTextPosition(activeProfileShowcase.textPosition, getProfileShowcaseOverlayText(activeProfileShowcase)).y}%`,
+                                    width: getShowcaseOverlayTextWidth(getProfileShowcaseOverlayText(activeProfileShowcase)),
+                                    maxWidth: getShowcaseOverlayTextWidth(getProfileShowcaseOverlayText(activeProfileShowcase)),
                                     fontFamily: getShowcaseFontOption(activeProfileShowcase.fontKey).family,
                                     fontSize: `${Math.min(
                                       48,
                                       Math.max(
                                         16,
                                         getShowcaseOverlayDisplayFontSize(
-                                          (activeProfileShowcase.coverText || "").trim(),
+                                          getProfileShowcaseOverlayText(activeProfileShowcase),
                                           activeProfileShowcase.overlayFontSize
                                         )
                                       )
                                     )}px`,
                                   }}
                                 >
-                                  {(activeProfileShowcase.coverText || "").trim()}
+                                  {getProfileShowcaseOverlayText(activeProfileShowcase)}
                                 </span>
                               ) : null}
                             </div>
