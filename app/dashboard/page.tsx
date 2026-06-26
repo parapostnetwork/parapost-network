@@ -9402,7 +9402,7 @@ function ShowcaseQuickActions({
         </button>
 
         {visibleFriendShowcases.map((showcase) => {
-          const coverText = (showcase.cover_text || showcase.title || showcase.profile?.full_name || "Showcase").trim();
+          const coverText = (showcase.cover_text || "").trim();
           const x = Number(showcase.text_position_x ?? 50);
           const y = Number(showcase.text_position_y ?? 50);
           const mediaType = showcase.media_type === "image" || showcase.media_type === "video" ? showcase.media_type : "text";
@@ -9737,43 +9737,45 @@ function DashboardShowcaseViewerModal({
             }}
           />
 
-          <span
-            style={{
-              position: "absolute",
-              zIndex: 3,
-              left: `${Number.isFinite(x) ? x : 50}%`,
-              top: `${Number.isFinite(y) ? y : 50}%`,
-              transform: "translate(-50%, -50%)",
-              width: getShowcaseOverlayTextWidth(coverText),
-              maxWidth: getShowcaseOverlayTextWidth(coverText),
-              maxHeight: "74%",
-              color: "#ffffff",
-              fontWeight: 950,
-              lineHeight: 1.05,
-              letterSpacing: "-0.035em",
-              textAlign: "center",
-              textShadow: "0 4px 24px rgba(0,0,0,0.55)",
-              pointerEvents: "none",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
-              overflow: "hidden",
-              boxSizing: "border-box",
-              fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
-              fontSize: `${Math.min(
-                48,
-                Math.max(
-                  16,
-                  getShowcaseOverlayDisplayFontSize(
-                    coverText,
-                    showcase.overlay_font_size || SHOWCASE_OVERLAY_DEFAULT_FONT_SIZE
-                  )
-                )
-              )}px`,
-            }}
-          >
-            {coverText}
-          </span>
+                    {coverText ? (
+                      <span
+                        style={{
+                        position: "absolute",
+                        zIndex: 3,
+                        left: `${Number.isFinite(x) ? x : 50}%`,
+                        top: `${Number.isFinite(y) ? y : 50}%`,
+                        transform: "translate(-50%, -50%)",
+                        width: getShowcaseOverlayTextWidth(coverText),
+                        maxWidth: getShowcaseOverlayTextWidth(coverText),
+                        maxHeight: "74%",
+                        color: "#ffffff",
+                        fontWeight: 950,
+                        lineHeight: 1.05,
+                        letterSpacing: "-0.035em",
+                        textAlign: "center",
+                        textShadow: "0 4px 24px rgba(0,0,0,0.55)",
+                        pointerEvents: "none",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
+                        overflow: "hidden",
+                        boxSizing: "border-box",
+                        fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
+                        fontSize: `${Math.min(
+                          48,
+                          Math.max(
+                            16,
+                            getShowcaseOverlayDisplayFontSize(
+                              coverText,
+                              showcase.overlay_font_size || SHOWCASE_OVERLAY_DEFAULT_FONT_SIZE
+                            )
+                          )
+                        )}px`,
+                      }}
+                    >
+                      {coverText}
+                    </span>
+                  ) : null}
 
           {hasMultipleShowcases && previousShowcase ? (
             <button
