@@ -1,5 +1,9 @@
 "use client";
 
+// PROFILE MOBILE MENU SUBSECTIONS FIX v4 - fixes missing Avatar component and keeps menu subsections inside profile menu.
+
+// PROFILE MOBILE MENU SUBSECTIONS FIX v3 - menu rows open in-menu sections; Back/X returns to menu instead of dumping back to profile.
+
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
 
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -203,6 +207,15 @@ type FeelingActivityOption = {
   helper: string;
   icon: FeelingActivityIconKey;
 };
+
+type ProfileMobileMenuSection =
+  | "main"
+  | "search"
+  | "myProfile"
+  | "notifications"
+  | "friends"
+  | "profileSettings"
+  | "settingsSupport";
 
 type ShowcaseDuration = "24h" | "30d" | "permanent";
 type ShowcaseCreatorMode = "media" | "text";
@@ -1007,6 +1020,70 @@ function getShowcaseSafeTextPosition(
 function getShowcaseTileFontSize(size?: number | null) {
   const clamped = clampShowcaseOverlayFontSize(size);
   return Math.max(10, Math.min(16, Math.round(clamped / 2.7)));
+}
+
+
+function ProfileMobileMenuAvatar({ profile, size = 54 }: { profile?: ProfileRow | null; size?: number }) {
+  const initial = (profile?.full_name || profile?.username || "P").trim().charAt(0).toUpperCase() || "P";
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        borderRadius: "999px",
+        padding: 3,
+        display: "grid",
+        placeItems: "center",
+        overflow: "hidden",
+        background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
+        boxShadow: "0 0 0 1px rgba(255,255,255,0.12), 0 0 22px var(--parapost-accent-glow)",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          borderRadius: "999px",
+          overflow: "hidden",
+          display: "grid",
+          placeItems: "center",
+          border: "2px solid #07090d",
+          background: "rgba(7,9,13,0.96)",
+        }}
+      >
+        {profile?.avatar_url ? (
+          <img
+            src={profile.avatar_url}
+            alt={profile.full_name || profile.username || "Profile"}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              display: "block",
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "grid",
+              placeItems: "center",
+              color: "white",
+              fontWeight: 950,
+              fontSize: Math.max(14, Math.round(size * 0.36)),
+              background: "linear-gradient(135deg, var(--parapost-accent-1), #111827)",
+            }}
+          >
+            {initial}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function formatTimeAgo(dateString: string) {
@@ -2121,6 +2198,7 @@ export default function ProfilePage() {
   const [isBlockedByProfile, setIsBlockedByProfile] = useState(false);
   const [profileBlockLoading, setProfileBlockLoading] = useState(false);
   const [profileMainMenuOpen, setProfileMainMenuOpen] = useState(false);
+  const [profileMobileMenuSection, setProfileMobileMenuSection] = useState<ProfileMobileMenuSection>("main");
   const [isClientMounted, setIsClientMounted] = useState(false);
   const [showcaseComposerOpen, setShowcaseComposerOpen] = useState(false);
   const [activeProfileShowcase, setActiveProfileShowcase] = useState<ProfileShowcase | null>(null);
@@ -2209,6 +2287,12 @@ export default function ProfilePage() {
       setProfileMainMenuOpen(false);
     }
   }, [isOwnProfile, profileMainMenuOpen]);
+
+  useEffect(() => {
+    if (profileMainMenuOpen) {
+      setProfileMobileMenuSection("main");
+    }
+  }, [profileMainMenuOpen]);
 
   useEffect(() => {
     if (!viewerId || !profileId || isOwnProfile) {
@@ -12893,7 +12977,10 @@ return (
               role="dialog"
               aria-modal="true"
               aria-label="Profile mobile menu"
-              onClick={() => setProfileMainMenuOpen(false)}
+              onClick={() => {
+                setProfileMainMenuOpen(false);
+                setProfileMobileMenuSection("main");
+              }}
             >
               <div
                 className="profile-mobile-main-menu-sheet"
@@ -12904,131 +12991,283 @@ return (
                 <div style={profileMobileMainMenuTopBarStyle}>
                   <button
                     type="button"
-                    onClick={() => setProfileMainMenuOpen(false)}
+                    onClick={() => {
+                      if (profileMobileMenuSection === "main") {
+                        setProfileMainMenuOpen(false);
+                        return;
+                      }
+
+                      setProfileMobileMenuSection("main");
+                    }}
                     style={profileMobileMainMenuTextButtonStyle}
-                    aria-label="Close menu"
+                    aria-label={profileMobileMenuSection === "main" ? "Close menu" : "Back to menu"}
                   >
-                    Close
+                    {profileMobileMenuSection === "main" ? "Close" : "‹ Back"}
                   </button>
 
-                  <h2 style={profileMobileMainMenuTitleStyle}>Menu</h2>
+                  <h2 style={profileMobileMainMenuTitleStyle}>
+                    {profileMobileMenuSection === "main"
+                      ? "Menu"
+                      : profileMobileMenuSection === "search"
+                        ? "Search"
+                        : profileMobileMenuSection === "myProfile"
+                          ? "My Profile"
+                          : profileMobileMenuSection === "notifications"
+                            ? "Notifications"
+                            : profileMobileMenuSection === "friends"
+                              ? "Friends"
+                              : profileMobileMenuSection === "profileSettings"
+                                ? "Profile Settings"
+                                : "Settings & Support"}
+                  </h2>
 
                   <button
                     type="button"
-                    onClick={() => setProfileMainMenuOpen(false)}
+                    onClick={() => {
+                      if (profileMobileMenuSection === "main") {
+                        setProfileMainMenuOpen(false);
+                        return;
+                      }
+
+                      setProfileMobileMenuSection("main");
+                    }}
                     style={profileMobileMainMenuCloseButtonStyle}
-                    aria-label="Close menu"
+                    aria-label={profileMobileMenuSection === "main" ? "Close menu" : "Back to menu"}
                   >
                     ×
                   </button>
                 </div>
 
                 <div className="profile-mobile-main-menu-scroll" style={profileMobileMainMenuScrollStyle}>
-                  <div style={profileMobileMainMenuSectionStyle}>Profile Shortcuts</div>
-
-                  <button
-                    type="button"
-                    style={profileMobileMainMenuRowStyle}
-                    onClick={() => {
-                      setProfileMainMenuOpen(false);
-                      openProfileMobileSearch();
-                    }}
-                  >
-                    <span style={profileMobileMainMenuLabelStyle}>Search Parapost</span>
-                    <span style={profileMobileMainMenuArrowStyle}>›</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    style={profileMobileMainMenuRowStyle}
-                    onClick={() => {
-                      setProfileMainMenuOpen(false);
-                      router.push(viewerId ? `/profile/${viewerId}` : "/dashboard");
-                    }}
-                  >
-                    <span style={profileMobileMainMenuLabelStyle}>My Profile</span>
-                    <span style={profileMobileMainMenuArrowStyle}>›</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    style={profileMobileMainMenuRowStyle}
-                    onClick={() => {
-                      setProfileMainMenuOpen(false);
-                      router.push("/notifications");
-                    }}
-                  >
-                    <span style={profileMobileMainMenuLabelStyle}>Notifications</span>
-                    <span style={profileMobileMainMenuArrowStyle}>›</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    style={profileMobileMainMenuRowStyle}
-                    onClick={() => {
-                      setProfileMainMenuOpen(false);
-                      router.push("/friends");
-                    }}
-                  >
-                    <span style={profileMobileMainMenuLabelStyle}>Friends</span>
-                    <span style={profileMobileMainMenuArrowStyle}>›</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    style={profileMobileMainMenuRowStyle}
-                    onClick={() => {
-                      setProfileMainMenuOpen(false);
-                      router.push("/settings/profile");
-                    }}
-                  >
-                    <span style={profileMobileMainMenuLabelStyle}>Profile Settings</span>
-                    <span style={profileMobileMainMenuArrowStyle}>›</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    style={profileMobileMainMenuRowStyle}
-                    onClick={() => {
-                      setProfileMainMenuOpen(false);
-                      router.push("/settings");
-                    }}
-                  >
-                    <span style={profileMobileMainMenuLabelStyle}>Settings & Support</span>
-                    <span style={profileMobileMainMenuArrowStyle}>›</span>
-                  </button>
-
-                  <p style={profileMobileMainMenuInfoStyle}>
-                    Profile shortcuts for search, notifications, friends, and your account settings. Dashboard extras stay on the Dashboard menu.
-                  </p>
-
-                  {viewerId ? (
+                  {profileMobileMenuSection === "main" ? (
                     <>
-                      <div style={profileMobileMainMenuDividerStyle} />
+                      <div style={profileMobileMenuAccountCardStyle}>
+                        <ProfileMobileMenuAvatar profile={profile} size={54} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={profileMobileMenuAccountNameStyle}>{profile?.full_name || profile?.username || "My Profile"}</div>
+                          <div style={profileMobileMenuAccountMetaStyle}>{profile?.username ? `@${profile.username}` : viewerEmail || "Signed-in account"}</div>
+                        </div>
+                      </div>
+
+                      <div style={profileMobileMainMenuSectionStyle}>Profile Shortcuts</div>
+
+                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => setProfileMobileMenuSection("search")}>
+                        <span style={profileMobileMainMenuLabelStyle}>Search Parapost</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+
+                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => setProfileMobileMenuSection("myProfile")}>
+                        <span style={profileMobileMainMenuLabelStyle}>My Profile</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+
+                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => setProfileMobileMenuSection("notifications")}>
+                        <span style={profileMobileMainMenuLabelStyle}>Notifications</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+
+                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => setProfileMobileMenuSection("friends")}>
+                        <span style={profileMobileMainMenuLabelStyle}>Friends</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+
+                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => setProfileMobileMenuSection("profileSettings")}>
+                        <span style={profileMobileMainMenuLabelStyle}>Profile Settings</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+
+                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => setProfileMobileMenuSection("settingsSupport")}>
+                        <span style={profileMobileMainMenuLabelStyle}>Settings & Support</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+
+                      <p style={profileMobileMainMenuInfoStyle}>
+                        Profile shortcuts stay inside this menu first. Use Back or × to return here without leaving the Profile page.
+                      </p>
+
+                      {viewerId ? (
+                        <>
+                          <div style={profileMobileMainMenuDividerStyle} />
+
+                          <button
+                            type="button"
+                            style={profileMobileMainMenuRowStyle}
+                            onClick={() => {
+                              setProfileMainMenuOpen(false);
+                              setProfileMobileMenuSection("main");
+                              router.push("/dashboard");
+                            }}
+                          >
+                            <span style={profileMobileMainMenuLabelStyle}>Home Feed</span>
+                            <span style={profileMobileMainMenuArrowStyle}>›</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            style={profileMobileMainMenuLogoutStyle}
+                            onClick={() => {
+                              setProfileMainMenuOpen(false);
+                              setProfileMobileMenuSection("main");
+                              handleProfileLogout();
+                            }}
+                          >
+                            <span style={profileMobileMainMenuLabelStyle}>Log out</span>
+                          </button>
+                        </>
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  {profileMobileMenuSection === "search" ? (
+                    <div style={profileMobileMenuPanelStyle}>
+                      <div style={profileMobileMainMenuSectionStyle}>Search Parapost</div>
+                      <p style={profileMobileMainMenuInfoStyle}>Search members and profiles without leaving this Profile menu.</p>
+                      {renderParapostProfileSearch("profile-mobile-menu-search-field")}
+                    </div>
+                  ) : null}
+
+                  {profileMobileMenuSection === "myProfile" ? (
+                    <div style={profileMobileMenuPanelStyle}>
+                      <div style={profileMobileMenuAccountCardStyle}>
+                        <ProfileMobileMenuAvatar profile={profile} size={58} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={profileMobileMenuAccountNameStyle}>{profile?.full_name || profile?.username || "My Profile"}</div>
+                          <div style={profileMobileMenuAccountMetaStyle}>{profile?.username ? `@${profile.username}` : viewerEmail || "Profile"}</div>
+                        </div>
+                      </div>
 
                       <button
                         type="button"
                         style={profileMobileMainMenuRowStyle}
                         onClick={() => {
                           setProfileMainMenuOpen(false);
-                          router.push("/dashboard");
+                          setProfileMobileMenuSection("main");
+                          router.push(viewerId ? `/profile/${viewerId}` : "/dashboard");
                         }}
                       >
-                        <span style={profileMobileMainMenuLabelStyle}>Home Feed</span>
+                        <span style={profileMobileMainMenuLabelStyle}>View Profile</span>
                         <span style={profileMobileMainMenuArrowStyle}>›</span>
                       </button>
 
+                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => setProfileMobileMenuSection("profileSettings")}>
+                        <span style={profileMobileMainMenuLabelStyle}>Edit Profile</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {profileMobileMenuSection === "notifications" ? (
+                    <div style={profileMobileMenuPanelStyle}>
+                      <div style={profileMobileMainMenuSectionStyle}>Notifications</div>
+                      <p style={profileMobileMainMenuInfoStyle}>
+                        Open your notifications from here, or use Back/× to return to the Profile menu.
+                      </p>
                       <button
                         type="button"
-                        style={profileMobileMainMenuLogoutStyle}
+                        style={profileMobileMainMenuRowStyle}
                         onClick={() => {
                           setProfileMainMenuOpen(false);
-                          handleProfileLogout();
+                          setProfileMobileMenuSection("main");
+                          router.push("/notifications");
                         }}
                       >
-                        <span style={profileMobileMainMenuLabelStyle}>Log out</span>
+                        <span style={profileMobileMainMenuLabelStyle}>Open Notifications Page</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
                       </button>
-                    </>
+                    </div>
+                  ) : null}
+
+                  {profileMobileMenuSection === "friends" ? (
+                    <div style={profileMobileMenuPanelStyle}>
+                      <div style={profileMobileMainMenuSectionStyle}>Friends</div>
+                      <p style={profileMobileMainMenuInfoStyle}>Manage your friends, requests, and profile connections.</p>
+                      <button
+                        type="button"
+                        style={profileMobileMainMenuRowStyle}
+                        onClick={() => {
+                          setProfileMainMenuOpen(false);
+                          setProfileMobileMenuSection("main");
+                          router.push("/friends");
+                        }}
+                      >
+                        <span style={profileMobileMainMenuLabelStyle}>Open Friends List</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {profileMobileMenuSection === "profileSettings" ? (
+                    <div style={profileMobileMenuPanelStyle}>
+                      <div style={profileMobileMainMenuSectionStyle}>Profile Settings</div>
+                      <p style={profileMobileMainMenuInfoStyle}>Update your profile, avatar, bio, visibility, and public profile information.</p>
+                      <button
+                        type="button"
+                        style={profileMobileMainMenuRowStyle}
+                        onClick={() => {
+                          setProfileMainMenuOpen(false);
+                          setProfileMobileMenuSection("main");
+                          router.push("/settings/profile");
+                        }}
+                      >
+                        <span style={profileMobileMainMenuLabelStyle}>Open Profile Settings</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+                      <button
+                        type="button"
+                        style={profileMobileMainMenuRowStyle}
+                        onClick={() => {
+                          setProfileMainMenuOpen(false);
+                          setProfileMobileMenuSection("main");
+                          router.push("/settings/profile-visibility");
+                        }}
+                      >
+                        <span style={profileMobileMainMenuLabelStyle}>Profile Visibility</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {profileMobileMenuSection === "settingsSupport" ? (
+                    <div style={profileMobileMenuPanelStyle}>
+                      <div style={profileMobileMainMenuSectionStyle}>Settings & Support</div>
+                      <p style={profileMobileMainMenuInfoStyle}>Account settings, privacy, safety, support, and legal pages.</p>
+                      <button
+                        type="button"
+                        style={profileMobileMainMenuRowStyle}
+                        onClick={() => {
+                          setProfileMainMenuOpen(false);
+                          setProfileMobileMenuSection("main");
+                          router.push("/settings");
+                        }}
+                      >
+                        <span style={profileMobileMainMenuLabelStyle}>Settings Home</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+                      <button
+                        type="button"
+                        style={profileMobileMainMenuRowStyle}
+                        onClick={() => {
+                          setProfileMainMenuOpen(false);
+                          setProfileMobileMenuSection("main");
+                          router.push("/settings/privacy-safety");
+                        }}
+                      >
+                        <span style={profileMobileMainMenuLabelStyle}>Privacy & Safety</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+                      <button
+                        type="button"
+                        style={profileMobileMainMenuRowStyle}
+                        onClick={() => {
+                          setProfileMainMenuOpen(false);
+                          setProfileMobileMenuSection("main");
+                          router.push("/settings/help-support");
+                        }}
+                      >
+                        <span style={profileMobileMainMenuLabelStyle}>Help & Support</span>
+                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -22185,6 +22424,43 @@ const profileMobileMainMenuArrowStyle: CSSProperties = {
   fontSize: "22px",
   lineHeight: 1,
   fontWeight: 600,
+};
+
+const profileMobileMenuPanelStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "14px",
+};
+
+const profileMobileMenuAccountCardStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "14px",
+  padding: "16px",
+  borderRadius: "22px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "linear-gradient(135deg, rgba(168,85,247,0.16), rgba(15,23,42,0.76))",
+  boxShadow: "0 18px 34px rgba(0,0,0,0.22)",
+};
+
+const profileMobileMenuAccountNameStyle: CSSProperties = {
+  color: "#ffffff",
+  fontSize: "18px",
+  fontWeight: 950,
+  letterSpacing: "-0.03em",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const profileMobileMenuAccountMetaStyle: CSSProperties = {
+  marginTop: "3px",
+  color: "rgba(226,232,240,0.62)",
+  fontSize: "14px",
+  fontWeight: 750,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 const profileMobileMainMenuInfoStyle: CSSProperties = {
