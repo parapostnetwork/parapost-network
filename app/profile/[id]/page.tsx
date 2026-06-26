@@ -13832,7 +13832,7 @@ return (
                               }}
                               placeholder="Give your Showcase a name"
                               style={profileShowcaseInputStyle}
-                              maxLength={16}
+                              maxLength={24}
                             />
                           </label>
 
@@ -13908,6 +13908,7 @@ return (
                                   placeholder="Add text over your Showcase"
                                   style={profileShowcaseTextareaStyle}
                                   rows={3}
+                                  maxLength={80}
                                 />
                               </label>
 
