@@ -1,10 +1,6 @@
 "use client";
 
-// PROFILE MOBILE MENU SUBSECTIONS FIX v4 - fixes missing Avatar component and keeps menu subsections inside profile menu.
-
-// PROFILE MOBILE MENU SUBSECTIONS FIX v3 - menu rows open in-menu sections; Back/X returns to menu instead of dumping back to profile.
-
-// PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
+// PROFILE MOBILE MENU MINIMAL FIX - keeps current menu structure, removes unrequested Avatar calls, and keeps menu sections inside the Profile menu.
 
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -1020,70 +1016,6 @@ function getShowcaseSafeTextPosition(
 function getShowcaseTileFontSize(size?: number | null) {
   const clamped = clampShowcaseOverlayFontSize(size);
   return Math.max(10, Math.min(16, Math.round(clamped / 2.7)));
-}
-
-
-function ProfileMobileMenuAvatar({ profile, size = 54 }: { profile?: ProfileRow | null; size?: number }) {
-  const initial = (profile?.full_name || profile?.username || "P").trim().charAt(0).toUpperCase() || "P";
-
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        minWidth: size,
-        borderRadius: "999px",
-        padding: 3,
-        display: "grid",
-        placeItems: "center",
-        overflow: "hidden",
-        background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
-        boxShadow: "0 0 0 1px rgba(255,255,255,0.12), 0 0 22px var(--parapost-accent-glow)",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          borderRadius: "999px",
-          overflow: "hidden",
-          display: "grid",
-          placeItems: "center",
-          border: "2px solid #07090d",
-          background: "rgba(7,9,13,0.96)",
-        }}
-      >
-        {profile?.avatar_url ? (
-          <img
-            src={profile.avatar_url}
-            alt={profile.full_name || profile.username || "Profile"}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
-              display: "block",
-            }}
-          />
-        ) : (
-          <span
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "grid",
-              placeItems: "center",
-              color: "white",
-              fontWeight: 950,
-              fontSize: Math.max(14, Math.round(size * 0.36)),
-              background: "linear-gradient(135deg, var(--parapost-accent-1), #111827)",
-            }}
-          >
-            {initial}
-          </span>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function formatTimeAgo(dateString: string) {
@@ -13042,7 +12974,6 @@ return (
                   {profileMobileMenuSection === "main" ? (
                     <>
                       <div style={profileMobileMenuAccountCardStyle}>
-                        <ProfileMobileMenuAvatar profile={profile} size={54} />
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={profileMobileMenuAccountNameStyle}>{profile?.full_name || profile?.username || "My Profile"}</div>
                           <div style={profileMobileMenuAccountMetaStyle}>{profile?.username ? `@${profile.username}` : viewerEmail || "Signed-in account"}</div>
@@ -13129,7 +13060,6 @@ return (
                   {profileMobileMenuSection === "myProfile" ? (
                     <div style={profileMobileMenuPanelStyle}>
                       <div style={profileMobileMenuAccountCardStyle}>
-                        <ProfileMobileMenuAvatar profile={profile} size={58} />
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={profileMobileMenuAccountNameStyle}>{profile?.full_name || profile?.username || "My Profile"}</div>
                           <div style={profileMobileMenuAccountMetaStyle}>{profile?.username ? `@${profile.username}` : viewerEmail || "Profile"}</div>
