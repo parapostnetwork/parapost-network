@@ -2121,9 +2121,7 @@ export default function DashboardPage() {
 
     setAcceptedFriendUserIds(friendIds);
 
-    // Dashboard Showcases are the user's own Showcases plus Showcases from accepted friends only.
-    // This keeps the homepage automatic: users create their own Showcase from Dashboard/profile,
-    // and friends' Showcases appear here without showing a separate “friend showcase” tile.
+    // Keep the same visibility rules, but do not make Showcase bubbles wait for profile lookups.
     const showcaseUserIds = [
       ...new Set([userId, ...friendIds].filter((id) => Boolean(id) && !blockedIds.includes(String(id)))),
     ] as string[];
@@ -2133,34 +2131,17 @@ export default function DashboardPage() {
       return [] as DashboardShowcaseItem[];
     }
 
-    const [{ data: profilesData, error: profilesError }, { data: showcaseData, error: showcaseError }] =
-      await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
-          .in("id", showcaseUserIds)
-          .limit(36),
-        supabase
-          .from("profile_showcases")
-          .select("id, user_id, title, cover_text, media_url, media_type, media_filename, font_key, text_position_x, text_position_y, overlay_font_size, duration, visibility, expires_at, created_at")
-          .in("user_id", showcaseUserIds)
-          .order("created_at", { ascending: false })
-          .limit(30),
-      ]);
-
-    if (profilesError) {
-      console.error("Error fetching dashboard friend profiles:", profilesError.message);
-    }
+    const { data: showcaseData, error: showcaseError } = await supabase
+      .from("profile_showcases")
+      .select("id, user_id, title, cover_text, media_url, media_type, media_filename, font_key, text_position_x, text_position_y, overlay_font_size, duration, visibility, expires_at, created_at")
+      .in("user_id", showcaseUserIds)
+      .order("created_at", { ascending: false })
+      .limit(24);
 
     if (showcaseError) {
       console.error("Error fetching dashboard friend showcases:", showcaseError.message);
       setFriendShowcases([]);
       return [] as DashboardShowcaseItem[];
-    }
-
-    const profileMap = new Map<string, ProfilePreview>();
-    for (const profile of (profilesData || []) as ProfilePreview[]) {
-      profileMap.set(profile.id, profile);
     }
 
     const now = Date.now();
@@ -2187,10 +2168,51 @@ export default function DashboardPage() {
       .filter((item) => !item.expires_at || new Date(item.expires_at).getTime() > now)
       .map((item) => ({
         ...item,
-        profile: profileMap.get(item.user_id) || null,
-      }));
+        profile: null,
+      })) as DashboardShowcaseItem[];
 
+    // First paint: show the Showcase row as soon as Showcase rows arrive.
     setFriendShowcases(nextItems);
+
+    const profileIds = [...new Set(nextItems.map((item) => item.user_id).filter(Boolean))].slice(0, 24);
+
+    if (profileIds.length > 0) {
+      void (async () => {
+        try {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+            .in("id", profileIds)
+            .limit(24);
+
+          if (profilesError) {
+            logDashboardNetworkIssue("Dashboard showcase profile enrichment skipped", profilesError);
+            return;
+          }
+
+          const profileMap = new Map<string, ProfilePreview>();
+          for (const profile of (profilesData || []) as ProfilePreview[]) {
+            profileMap.set(profile.id, profile);
+          }
+
+          setFriendShowcases((currentItems) =>
+            currentItems.map((item) => ({
+              ...item,
+              profile: profileMap.get(item.user_id) || item.profile || null,
+            }))
+          );
+
+          setSelectedDashboardShowcase((currentShowcase) => {
+            if (!currentShowcase) return currentShowcase;
+            const enrichedProfile = profileMap.get(currentShowcase.user_id);
+            return enrichedProfile ? { ...currentShowcase, profile: enrichedProfile } : currentShowcase;
+          });
+        } catch (error) {
+          logDashboardNetworkIssue("Dashboard showcase profile enrichment skipped", error);
+        }
+      })();
+    }
+
     return nextItems;
   }, []);
 
@@ -9482,7 +9504,7 @@ function ShowcaseQuickActions({
           <span style={dashboardProfileShowcaseLabelStyle}>New</span>
         </button>
 
-        {visibleFriendShowcases.map((showcase) => {
+        {visibleFriendShowcases.map((showcase, index) => {
           const coverText = getDashboardShowcaseOverlayText(showcase);
           const x = Number(showcase.text_position_x ?? 50);
           const y = Number(showcase.text_position_y ?? 50);
@@ -9498,9 +9520,21 @@ function ShowcaseQuickActions({
             >
               <span style={dashboardProfileShowcaseCoverCircleStyle}>
                 {showcase.media_url && mediaType === "image" ? (
-                  <img src={showcase.media_url} alt="" style={dashboardProfileShowcaseCoverMediaStyle} />
+                  <img
+                    src={showcase.media_url}
+                    alt=""
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                    style={dashboardProfileShowcaseCoverMediaStyle}
+                  />
                 ) : showcase.media_url && mediaType === "video" ? (
-                  <video src={showcase.media_url} muted playsInline preload="metadata" style={dashboardProfileShowcaseCoverMediaStyle} />
+                  <video
+                    src={showcase.media_url}
+                    muted
+                    playsInline
+                    preload={index === 0 ? "metadata" : "none"}
+                    style={dashboardProfileShowcaseCoverMediaStyle}
+                  />
                 ) : null}
 
                 <span style={{ ...dashboardProfileShowcaseCoverShadeStyle, opacity: showcase.media_url ? 1 : 0 }} />
