@@ -1,6 +1,6 @@
 "use client";
 
-// PROFILE MOBILE MENU FIX v1 - profile menu sections stay on Profile and route only the actual destination rows.
+// PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
 
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -2121,9 +2121,6 @@ export default function ProfilePage() {
   const [isBlockedByProfile, setIsBlockedByProfile] = useState(false);
   const [profileBlockLoading, setProfileBlockLoading] = useState(false);
   const [profileMainMenuOpen, setProfileMainMenuOpen] = useState(false);
-  const [profileMainMenuSection, setProfileMainMenuSection] = useState<
-    "main" | "discover" | "hub" | "creator" | "ads" | "settings"
-  >("main");
   const [isClientMounted, setIsClientMounted] = useState(false);
   const [showcaseComposerOpen, setShowcaseComposerOpen] = useState(false);
   const [activeProfileShowcase, setActiveProfileShowcase] = useState<ProfileShowcase | null>(null);
@@ -2647,65 +2644,6 @@ const closeProfileMobileSearch = useCallback(() => {
   setProfileSearchResults([]);
   setProfileSearchMessage("");
 }, []);
-
-const closeProfileMainMenu = useCallback(() => {
-  setProfileMainMenuOpen(false);
-  setProfileMainMenuSection("main");
-}, []);
-
-const goProfileMainMenuBack = useCallback(() => {
-  if (profileMainMenuSection !== "main") {
-    setProfileMainMenuSection("main");
-    return;
-  }
-
-  closeProfileMainMenu();
-}, [closeProfileMainMenu, profileMainMenuSection]);
-
-const openProfileMainMenuRoute = useCallback(
-  (href: string) => {
-    closeProfileMainMenu();
-    router.push(href);
-  },
-  [closeProfileMainMenu, router]
-);
-
-const openProfileMainMenuSearch = useCallback(() => {
-  closeProfileMainMenu();
-  openProfileMobileSearch();
-}, [closeProfileMainMenu, openProfileMobileSearch]);
-
-const openProfileMainMenuRecentlyViewed = useCallback(() => {
-  closeProfileMainMenu();
-  setRecentlyViewedViewerOpen(true);
-}, [closeProfileMainMenu]);
-
-const openProfileMainMenuComposer = useCallback(() => {
-  closeProfileMainMenu();
-  setActiveProfileTab("Posts");
-
-  window.setTimeout(() => {
-    document.getElementById("profile-composer")?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, 80);
-}, [closeProfileMainMenu]);
-
-const openProfileMainMenuShowcaseCreator = useCallback(() => {
-  closeProfileMainMenu();
-  setShowcaseComposerOpen(true);
-}, [closeProfileMainMenu]);
-
-const profileMainMenuTitle =
-  profileMainMenuSection === "main"
-    ? "Menu"
-    : profileMainMenuSection === "discover"
-      ? "Discover"
-      : profileMainMenuSection === "hub"
-        ? "Parapost Hub"
-        : profileMainMenuSection === "creator"
-          ? "Creator Tools"
-          : profileMainMenuSection === "ads"
-            ? "Ads & Sponsors"
-            : "Settings & Support";
 
 
   const loadPage = useCallback(async () => {
@@ -12926,7 +12864,6 @@ return (
                 event.stopPropagation();
                 closeProfileMobileSearch();
                 setProfileActionsOpen(false);
-                setProfileMainMenuSection("main");
                 setProfileMainMenuOpen((value) => !value);
               }}
               style={profileTopSearchIconButtonStyle}
@@ -12956,31 +12893,29 @@ return (
               role="dialog"
               aria-modal="true"
               aria-label="Profile mobile menu"
-              onClick={closeProfileMainMenu}
+              onClick={() => setProfileMainMenuOpen(false)}
             >
               <div
                 className="profile-mobile-main-menu-sheet"
                 style={profileMobileMainMenuSheetStyle}
                 onClick={(event) => event.stopPropagation()}
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
                 onWheel={(event) => event.stopPropagation()}
               >
                 <div style={profileMobileMainMenuTopBarStyle}>
                   <button
                     type="button"
-                    onClick={goProfileMainMenuBack}
+                    onClick={() => setProfileMainMenuOpen(false)}
                     style={profileMobileMainMenuTextButtonStyle}
-                    aria-label={profileMainMenuSection === "main" ? "Close menu" : "Back to menu"}
+                    aria-label="Close menu"
                   >
-                    {profileMainMenuSection === "main" ? "Close" : "Back"}
+                    Close
                   </button>
 
-                  <h2 style={profileMobileMainMenuTitleStyle}>{profileMainMenuTitle}</h2>
+                  <h2 style={profileMobileMainMenuTitleStyle}>Menu</h2>
 
                   <button
                     type="button"
-                    onClick={closeProfileMainMenu}
+                    onClick={() => setProfileMainMenuOpen(false)}
                     style={profileMobileMainMenuCloseButtonStyle}
                     aria-label="Close menu"
                   >
@@ -12989,216 +12924,110 @@ return (
                 </div>
 
                 <div className="profile-mobile-main-menu-scroll" style={profileMobileMainMenuScrollStyle}>
-                  {profileMainMenuSection === "main" ? (
+                  <div style={profileMobileMainMenuSectionStyle}>Profile Shortcuts</div>
+
+                  <button
+                    type="button"
+                    style={profileMobileMainMenuRowStyle}
+                    onClick={() => {
+                      setProfileMainMenuOpen(false);
+                      openProfileMobileSearch();
+                    }}
+                  >
+                    <span style={profileMobileMainMenuLabelStyle}>Search Parapost</span>
+                    <span style={profileMobileMainMenuArrowStyle}>›</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={profileMobileMainMenuRowStyle}
+                    onClick={() => {
+                      setProfileMainMenuOpen(false);
+                      router.push(viewerId ? `/profile/${viewerId}` : "/dashboard");
+                    }}
+                  >
+                    <span style={profileMobileMainMenuLabelStyle}>My Profile</span>
+                    <span style={profileMobileMainMenuArrowStyle}>›</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={profileMobileMainMenuRowStyle}
+                    onClick={() => {
+                      setProfileMainMenuOpen(false);
+                      router.push("/notifications");
+                    }}
+                  >
+                    <span style={profileMobileMainMenuLabelStyle}>Notifications</span>
+                    <span style={profileMobileMainMenuArrowStyle}>›</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={profileMobileMainMenuRowStyle}
+                    onClick={() => {
+                      setProfileMainMenuOpen(false);
+                      router.push("/friends");
+                    }}
+                  >
+                    <span style={profileMobileMainMenuLabelStyle}>Friends</span>
+                    <span style={profileMobileMainMenuArrowStyle}>›</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={profileMobileMainMenuRowStyle}
+                    onClick={() => {
+                      setProfileMainMenuOpen(false);
+                      router.push("/settings/profile");
+                    }}
+                  >
+                    <span style={profileMobileMainMenuLabelStyle}>Profile Settings</span>
+                    <span style={profileMobileMainMenuArrowStyle}>›</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={profileMobileMainMenuRowStyle}
+                    onClick={() => {
+                      setProfileMainMenuOpen(false);
+                      router.push("/settings");
+                    }}
+                  >
+                    <span style={profileMobileMainMenuLabelStyle}>Settings & Support</span>
+                    <span style={profileMobileMainMenuArrowStyle}>›</span>
+                  </button>
+
+                  <p style={profileMobileMainMenuInfoStyle}>
+                    Profile shortcuts for search, notifications, friends, and your account settings. Dashboard extras stay on the Dashboard menu.
+                  </p>
+
+                  {viewerId ? (
                     <>
-                      <div style={profileMobileMainMenuSectionStyle}>Profile Extras</div>
+                      <div style={profileMobileMainMenuDividerStyle} />
 
                       <button
                         type="button"
                         style={profileMobileMainMenuRowStyle}
-                        onClick={() => setProfileMainMenuSection("discover")}
+                        onClick={() => {
+                          setProfileMainMenuOpen(false);
+                          router.push("/dashboard");
+                        }}
                       >
-                        <span style={profileMobileMainMenuLabelStyle}>Discover</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        style={profileMobileMainMenuRowStyle}
-                        onClick={() => setProfileMainMenuSection("hub")}
-                      >
-                        <span style={profileMobileMainMenuLabelStyle}>Parapost Hub</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        style={profileMobileMainMenuRowStyle}
-                        onClick={() => setProfileMainMenuSection("creator")}
-                      >
-                        <span style={profileMobileMainMenuLabelStyle}>Creator Tools</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        style={profileMobileMainMenuRowStyle}
-                        onClick={() => setProfileMainMenuSection("ads")}
-                      >
-                        <span style={profileMobileMainMenuLabelStyle}>Ads & Sponsors</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        style={profileMobileMainMenuRowStyle}
-                        onClick={() => setProfileMainMenuSection("settings")}
-                      >
-                        <span style={profileMobileMainMenuLabelStyle}>Settings & Support</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <p style={profileMobileMainMenuInfoStyle}>
-                        Quick access to profile tools, discovery, Parapost areas, and account settings without leaving this menu by accident.
-                      </p>
-
-                      {viewerId ? (
-                        <>
-                          <div style={profileMobileMainMenuDividerStyle} />
-                          <button
-                            type="button"
-                            style={profileMobileMainMenuLogoutStyle}
-                            onClick={() => {
-                              closeProfileMainMenu();
-                              handleProfileLogout();
-                            }}
-                          >
-                            <span style={profileMobileMainMenuLabelStyle}>Log out</span>
-                          </button>
-                        </>
-                      ) : null}
-                    </>
-                  ) : null}
-
-                  {profileMainMenuSection === "discover" ? (
-                    <>
-                      <div style={profileMobileMainMenuSectionStyle}>Discover</div>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={openProfileMainMenuSearch}>
-                        <span style={profileMobileMainMenuLabelStyle}>Search Parapost</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={openProfileMainMenuRecentlyViewed}>
-                        <span style={profileMobileMainMenuLabelStyle}>Recently Viewed{recentlyViewedProfiles.length ? ` (${recentlyViewedProfiles.length})` : ""}</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      {viewerId ? (
-                        <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute(`/profile/${viewerId}`)}>
-                          <span style={profileMobileMainMenuLabelStyle}>My Profile</span>
-                          <span style={profileMobileMainMenuArrowStyle}>›</span>
-                        </button>
-                      ) : null}
-
-                      <p style={profileMobileMainMenuInfoStyle}>
-                        Find people, open your private recently viewed list, or return to your own profile.
-                      </p>
-                    </>
-                  ) : null}
-
-                  {profileMainMenuSection === "hub" ? (
-                    <>
-                      <div style={profileMobileMainMenuSectionStyle}>Parapost Hub</div>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/dashboard")}>
                         <span style={profileMobileMainMenuLabelStyle}>Home Feed</span>
                         <span style={profileMobileMainMenuArrowStyle}>›</span>
                       </button>
 
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/reels")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Parapost Reels</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
+                      <button
+                        type="button"
+                        style={profileMobileMainMenuLogoutStyle}
+                        onClick={() => {
+                          setProfileMainMenuOpen(false);
+                          handleProfileLogout();
+                        }}
+                      >
+                        <span style={profileMobileMainMenuLabelStyle}>Log out</span>
                       </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/live")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Live Hub</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/messages")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Parachat</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <p style={profileMobileMainMenuInfoStyle}>
-                        Jump to the main Parapost areas from your profile.
-                      </p>
-                    </>
-                  ) : null}
-
-                  {profileMainMenuSection === "creator" ? (
-                    <>
-                      <div style={profileMobileMainMenuSectionStyle}>Creator Tools</div>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={openProfileMainMenuComposer}>
-                        <span style={profileMobileMainMenuLabelStyle}>Create Post</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={openProfileMainMenuShowcaseCreator}>
-                        <span style={profileMobileMainMenuLabelStyle}>Create Showcase</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => { closeProfileMainMenu(); setActiveProfileTab("Reels"); }}>
-                        <span style={profileMobileMainMenuLabelStyle}>My Reels</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/live")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Live Studio</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <p style={profileMobileMainMenuInfoStyle}>
-                        Create from your profile without being sent back to the dashboard.
-                      </p>
-                    </>
-                  ) : null}
-
-                  {profileMainMenuSection === "ads" ? (
-                    <>
-                      <div style={profileMobileMainMenuSectionStyle}>Ads & Sponsors</div>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/settings/payments")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Payments & Promotions</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/settings/payments")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Sponsor Placements</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/settings/payments")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Advertise with Parapost Network</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <p style={profileMobileMainMenuInfoStyle}>
-                        Sponsor and payment tools stay grouped here instead of dropping you on the main dashboard.
-                      </p>
-                    </>
-                  ) : null}
-
-                  {profileMainMenuSection === "settings" ? (
-                    <>
-                      <div style={profileMobileMainMenuSectionStyle}>Settings & Support</div>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/settings")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Account Settings</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/settings")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Privacy & Safety</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/settings/payments")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Payments</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <button type="button" style={profileMobileMainMenuRowStyle} onClick={() => openProfileMainMenuRoute("/settings")}>
-                        <span style={profileMobileMainMenuLabelStyle}>Help & Legal</span>
-                        <span style={profileMobileMainMenuArrowStyle}>›</span>
-                      </button>
-
-                      <p style={profileMobileMainMenuInfoStyle}>
-                        Manage your account, privacy, payments, and support options.
-                      </p>
                     </>
                   ) : null}
                 </div>
