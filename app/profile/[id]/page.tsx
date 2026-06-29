@@ -13697,8 +13697,7 @@ return (
                         <div style={{ minWidth: 0 }}>
                           <div style={{ color: "#fff", fontWeight: 950, fontSize: 15, marginBottom: 4 }}>Showcases Coming Soon</div>
                           <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.45 }}>
-                            We are polishing Showcase speed before releasing it back to the community.
-                          </div>
+                          Something new is coming to Parapost - a better way to share your moments with the community.                          </div>
                         </div>
                         <span
                           style={{

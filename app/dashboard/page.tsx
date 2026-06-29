@@ -9520,7 +9520,7 @@ function ShowcaseQuickActions({
           <div style={{ minWidth: 0 }}>
             <div style={{ color: "#fff", fontWeight: 950, fontSize: 15, marginBottom: 4 }}>Showcases Coming Soon</div>
             <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.45 }}>
-              We are polishing Showcase speed before releasing it back to the community.
+              Get ready for a new way to share, connect, and be seen in the Parapost community.
             </div>
           </div>
           <span
