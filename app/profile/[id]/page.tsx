@@ -1,4 +1,5 @@
 "use client";
+// PROFILE SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or deletes from Profile.
 
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
 
@@ -2258,7 +2259,7 @@ export default function ProfilePage() {
     },
     [isOwnProfile, profileId, viewerId]
   );
-  const canCreateShowcase = canManageProfileShowcases;
+  const canCreateShowcase = false;
 
   const showcaseStorageKey = useMemo(
     () => (profileId ? `parapost-profile-showcases-${profileId}` : ""),
@@ -3411,6 +3412,14 @@ useEffect(() => {
 
   useEffect(() => {
     let cancelled = false;
+
+    setProfileShowcases([]);
+    setShowcasesLoaded(true);
+
+    // Showcases are paused for launch. Do not query profile_showcases until released again.
+    return () => {
+      cancelled = true;
+    };
 
     const loadProfileShowcases = async () => {
       const safeProfileId = typeof profileId === "string" ? profileId.trim() : "";
@@ -4886,6 +4895,10 @@ useEffect(() => {
   };
 
   const handleOpenShowcaseComposer = () => {
+    showFriendStatus("Showcases are coming soon. We are improving this feature before release.");
+    setShowcaseComposerOpen(false);
+    return;
+
     setShowcaseCreatorMode("media");
     setShowcaseTitle("");
     setShowcaseCoverText("");
@@ -4928,6 +4941,10 @@ useEffect(() => {
   };
 
   const handleCreateShowcase = async () => {
+    setShowcaseError("Showcases are coming soon. We are improving this feature before release.");
+    setShowcaseComposerOpen(false);
+    return;
+
     const trimmedTitle = showcaseTitle.trim();
 
     if (!trimmedTitle) {
@@ -4986,6 +5003,9 @@ useEffect(() => {
   };
 
   const handleDeleteShowcase = async (showcaseId: string) => {
+    showFriendStatus("Showcases are coming soon. Deleting from the profile page is paused for now.");
+    return;
+
     if (!canManageProfileShowcases) return;
 
     const confirmed = window.confirm("Delete this Showcase from your profile?");
@@ -13647,101 +13667,58 @@ return (
                   </div>
                 </div>
 
-                {!isProfileContentLocked && (canCreateShowcase || visibleProfileShowcases.length > 0) ? (
+                {!isProfileContentLocked ? (
                   <section className="profile-showcases-panel profile-stories-row" style={profileShowcasesPanelStyle} data-profile-showcases="true">
                     <h3 style={profileShowcasesTitleStyle}>Showcases</h3>
 
-                  <div className="profile-showcases-row" style={profileShowcasesRowStyle}>
-                    <button
-                      type="button"
-                      style={canCreateShowcase ? profileShowcaseNewItemStyle : profileShowcaseHiddenCreateItemStyle}
-                      onClick={() => {
-                        if (canCreateShowcase) handleOpenShowcaseComposer();
+                    <div
+                      className="profile-showcases-row"
+                      style={{
+                        ...profileShowcasesRowStyle,
+                        justifyContent: "center",
+                        overflowX: "hidden",
+                        minHeight: 92,
                       }}
-                      aria-label="Create a new Showcase"
                     >
-                      <span style={profileShowcasePlusCircleStyle}>+</span>
-                      <span style={profileShowcaseNewLabelStyle}>New</span>
-                    </button>
-
-                    {visibleProfileShowcases.map((showcase) => {
-                      const fontOption = getShowcaseFontOption(showcase.fontKey);
-                      const coverText = getProfileShowcaseOverlayText(showcase);
-
-                      return (
-                        <button
-                          key={showcase.id}
-                          type="button"
-                          style={profileShowcaseItemStyle}
-                          onClick={() => handleOpenShowcase(showcase)}
-                          aria-label={`Open ${showcase.title} Showcase`}
+                      <div
+                        style={{
+                          width: "100%",
+                          borderRadius: 22,
+                          border: "1px solid rgba(255,255,255,0.10)",
+                          background: "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(7,9,13,0.96))",
+                          padding: "16px 18px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 14,
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: "#fff", fontWeight: 950, fontSize: 15, marginBottom: 4 }}>Showcases Coming Soon</div>
+                          <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.45 }}>
+                            We are polishing Showcase speed before releasing it back to the community.
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            minWidth: 42,
+                            width: 42,
+                            height: 42,
+                            borderRadius: 999,
+                            display: "grid",
+                            placeItems: "center",
+                            background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2))",
+                            color: "#fff",
+                            fontWeight: 950,
+                            boxShadow: "0 0 22px var(--parapost-accent-glow)",
+                          }}
+                          aria-hidden="true"
                         >
-                          <span style={profileShowcaseCoverCircleStyle}>
-                            {showcase.mediaPreviewUrl && showcase.mediaType === "image" ? (
-                              <img
-                                src={showcase.mediaPreviewUrl}
-                                alt=""
-                                style={profileShowcaseCoverMediaStyle}
-                              />
-                            ) : showcase.mediaPreviewUrl && showcase.mediaType === "video" ? (
-                              <video
-                                src={showcase.mediaPreviewUrl}
-                                muted
-                                playsInline
-                                style={profileShowcaseCoverMediaStyle}
-                              />
-                            ) : null}
-
-                            <span
-                              style={{
-                                ...profileShowcaseCoverShadeStyle,
-                                opacity: showcase.mediaPreviewUrl ? 1 : 0,
-                              }}
-                            />
-
-                            {coverText ? (
-                              <span
-                                style={{
-                                  ...profileShowcaseCoverTextStyle,
-                                  left: `${showcase.textPosition?.x || 50}%`,
-                                  top: `${showcase.textPosition?.y || 50}%`,
-                                  fontFamily: fontOption.family,
-                                  fontSize: `${getShowcaseTileFontSize(showcase.overlayFontSize)}px`,
-                                }}
-                              >
-                                {coverText}
-                              </span>
-                            ) : null}
-                          </span>
-
-                          {canManageProfileShowcases ? (
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              style={profileShowcaseDeleteStyle}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                handleDeleteShowcase(showcase.id);
-                              }}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  handleDeleteShowcase(showcase.id);
-                                }
-                              }}
-                              aria-label={`Delete ${showcase.title} Showcase`}
-                            >
-                              ×
-                            </span>
-                          ) : null}
-
-                          <span style={profileShowcaseNewLabelStyle}>{showcase.title}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          ✦
+                        </span>
+                      </div>
+                    </div>
                   </section>
                 ) : null}
 

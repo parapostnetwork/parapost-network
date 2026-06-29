@@ -1,5 +1,5 @@
 "use client";
-// DASHBOARD SHOWCASE OVERLAY FIX v7 - title stays in header/footer; middle overlay uses cover_text only and hides cover_text when it matches title.
+// DASHBOARD SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or realtime listeners from Dashboard.
 // DASHBOARD LOADING PERFORMANCE PASS v1 - page shell, Showcases, and first timeline batch render faster; heavy extras load after first paint.
 
 import {
@@ -2120,6 +2120,11 @@ export default function DashboardPage() {
     ] as string[];
 
     setAcceptedFriendUserIds(friendIds);
+    setFriendShowcases([]);
+
+    // Showcases are paused for launch. Keep friend IDs for the Friends feed,
+    // but do not query profile_showcases until this feature is released again.
+    return [] as DashboardShowcaseItem[];
 
     // Keep the same visibility rules, but do not make Showcase bubbles wait for profile lookups.
     const showcaseUserIds = [
@@ -2139,7 +2144,7 @@ export default function DashboardPage() {
       .limit(24);
 
     if (showcaseError) {
-      console.error("Error fetching dashboard friend showcases:", showcaseError.message);
+      console.error("Error fetching dashboard friend showcases:", getDashboardErrorMessage(showcaseError));
       setFriendShowcases([]);
       return [] as DashboardShowcaseItem[];
     }
@@ -2716,7 +2721,6 @@ export default function DashboardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${currentUserId}` }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "profile_showcases" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "live_streams" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "recently_viewed_profiles" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "blocked_users" }, schedulePulseRefresh)
@@ -2965,14 +2969,8 @@ export default function DashboardPage() {
   }, [currentProfile, currentUserId]);
 
   const handleOpenDashboardShowcaseComposer = async () => {
-    const activeUserId = await getActiveDashboardUserId();
-
-    if (!activeUserId) {
-      alert("Please sign in to create a Showcase.");
-      return;
-    }
-
-    setShowcaseComposerOpen(true);
+    alert("Showcases are coming soon. We are improving this feature before release.");
+    setShowcaseComposerOpen(false);
     setDashboardShowcaseError("");
   };
 
@@ -3043,6 +3041,10 @@ export default function DashboardPage() {
   };
 
   const handleCreateDashboardShowcase = async () => {
+    setDashboardShowcaseError("Showcases are coming soon. We are improving this feature before release.");
+    setShowcaseComposerOpen(false);
+    return;
+
     const activeUserId = await getActiveDashboardUserId();
 
     if (!activeUserId) {
@@ -3121,13 +3123,10 @@ export default function DashboardPage() {
       void fetchFriendShowcases(activeUserId);
 
       handleCloseDashboardShowcaseComposer();
-    } catch (error) {
-      console.error("Could not create dashboard Showcase:", error);
-      setDashboardShowcaseError(
-        error instanceof Error
-          ? `Could not create Showcase: ${error.message}`
-          : "Could not create Showcase. Please try again."
-      );
+    } catch (error: unknown) {
+      const message = getDashboardErrorMessage(error);
+      console.error("Could not create dashboard Showcase:", message);
+      setDashboardShowcaseError(`Could not create Showcase: ${message}`);
     } finally {
       setDashboardShowcaseSaving(false);
     }
@@ -9485,7 +9484,9 @@ function ShowcaseQuickActions({
   onCreateShowcase: () => void;
   onOpenShowcase: (showcase: DashboardShowcaseItem) => void;
 }) {
-  const visibleFriendShowcases = friendShowcases.slice(0, 18);
+  void friendShowcases;
+  void onCreateShowcase;
+  void onOpenShowcase;
 
   return (
     <section className="dashboard-card dashboard-showcase-row" style={dashboardProfileShowcasesPanelStyle}>
@@ -9493,66 +9494,57 @@ function ShowcaseQuickActions({
         <h3 style={dashboardShowcasesTitleStyle}>Showcases</h3>
       </div>
 
-      <div className="dashboard-showcase-scroller" style={dashboardProfileShowcasesRowStyle}>
-        <button
-          type="button"
-          style={dashboardProfileShowcaseNewItemStyle}
-          onClick={onCreateShowcase}
-          aria-label="Create a new Showcase"
+      <div
+        className="dashboard-showcase-scroller"
+        style={{
+          ...dashboardProfileShowcasesRowStyle,
+          justifyContent: "center",
+          overflowX: "hidden",
+          minHeight: 92,
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            borderRadius: 22,
+            border: "1px solid rgba(255,255,255,0.10)",
+            background: "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(7,9,13,0.96))",
+            padding: "16px 18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+          }}
         >
-          <span style={dashboardProfileShowcasePlusCircleStyle}>+</span>
-          <span style={dashboardProfileShowcaseLabelStyle}>New</span>
-        </button>
-
-        {visibleFriendShowcases.map((showcase) => {
-          const coverText = getDashboardShowcaseOverlayText(showcase);
-          const x = Number(showcase.text_position_x ?? 50);
-          const y = Number(showcase.text_position_y ?? 50);
-          const mediaType = showcase.media_type === "image" || showcase.media_type === "video" ? showcase.media_type : "text";
-
-          return (
-            <button
-              key={showcase.id}
-              type="button"
-              onClick={() => onOpenShowcase(showcase)}
-              style={dashboardProfileShowcaseItemStyle}
-              aria-label={`Open ${getDashboardShowcaseLabel(showcase)} Showcase`}
-            >
-              <span style={dashboardProfileShowcaseCoverCircleStyle}>
-                {showcase.media_url && mediaType === "image" ? (
-                  <img
-                    src={showcase.media_url}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    style={dashboardProfileShowcaseCoverMediaStyle}
-                  />
-                ) : showcase.media_url && mediaType === "video" ? (
-                  <span style={dashboardProfileShowcaseVideoPreviewStyle} aria-hidden="true">▶</span>
-                ) : null}
-
-                <span style={{ ...dashboardProfileShowcaseCoverShadeStyle, opacity: showcase.media_url ? 1 : 0 }} />
-                <span
-                  style={{
-                    ...dashboardProfileShowcaseCoverTextStyle,
-                    left: `${Number.isFinite(x) ? x : 50}%`,
-                    top: `${Number.isFinite(y) ? y : 50}%`,
-                    fontFamily: getDashboardShowcaseFontFamily(showcase.font_key),
-                    fontSize: `${clampDashboardShowcaseFontSize(showcase.overlay_font_size)}px`,
-                  }}
-                >
-                  {coverText}
-                </span>
-              </span>
-              <span style={dashboardProfileShowcaseLabelStyle}>{getDashboardShowcaseLabel(showcase)}</span>
-            </button>
-          );
-        })}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: "#fff", fontWeight: 950, fontSize: 15, marginBottom: 4 }}>Showcases Coming Soon</div>
+            <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.45 }}>
+              We are polishing Showcase speed before releasing it back to the community.
+            </div>
+          </div>
+          <span
+            style={{
+              minWidth: 42,
+              width: 42,
+              height: 42,
+              borderRadius: 999,
+              display: "grid",
+              placeItems: "center",
+              background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2))",
+              color: "#fff",
+              fontWeight: 950,
+              boxShadow: "0 0 22px var(--parapost-accent-glow)",
+            }}
+            aria-hidden="true"
+          >
+            ✦
+          </span>
+        </div>
       </div>
     </section>
   );
 }
-
 function DashboardShowcaseViewerModal({
   showcase,
   showcases,
