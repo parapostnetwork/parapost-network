@@ -4005,6 +4005,8 @@ export default function DashboardPage() {
               <SidebarLink href="/reels" icon={<SidebarParapostReelIcon />} label="Explore Reels" />
               <SidebarLink href="/live" label="Live" />
               <SidebarLink href="/friends" label="Friends" badge={pendingFriendRequestCount || undefined} />
+              <SidebarLink href={currentUserId ? `/profile/${currentUserId}/followers` : "/dashboard"} label="Followers" />
+              <SidebarLink href={currentUserId ? `/profile/${currentUserId}/following` : "/dashboard"} label="Following" />
               <SidebarButton label="Groups" muted />
               <SidebarLink href="/messages" label="Parachat" badge={parachatUnreadCount || undefined} />
               <SidebarLink href="/notifications" label="Notifications" badge={notificationsCount || undefined} />
@@ -9520,7 +9522,7 @@ function ShowcaseQuickActions({
           <div style={{ minWidth: 0 }}>
             <div style={{ color: "#fff", fontWeight: 950, fontSize: 15, marginBottom: 4 }}>Showcases Coming Soon</div>
             <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.45 }}>
-              Get ready for a new way to share, connect, and be seen in the Parapost community.
+              A new way to share your moments with the Parapost community is coming soon.
             </div>
           </div>
           <span
@@ -11804,6 +11806,9 @@ function MobileDashboardMenuDrawer({
         {activeSection === "main" ? (
           <div style={mobileMenuListWrapStyle}>
             <div style={mobileMenuSectionHeadingStyle}>Dashboard Extras</div>
+            <MobileMenuLink href="/friends" label="Friends" badge={pendingFriendRequestCount || undefined} />
+            <MobileMenuLink href={currentUserId ? `/profile/${currentUserId}/followers` : "/dashboard"} label="Followers" />
+            <MobileMenuLink href={currentUserId ? `/profile/${currentUserId}/following` : "/dashboard"} label="Following" />
             <MobileMenuButton label="Discover" onClick={() => setActiveSection("discover")} />
             <MobileMenuButton label="Parapost Hub" onClick={() => setActiveSection("hub")} />
             <MobileMenuButton label="Creator Tools" onClick={() => setActiveSection("creator")} />

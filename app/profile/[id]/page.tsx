@@ -5920,26 +5920,39 @@ useEffect(() => {
             <button type="button" onClick={() => router.push("/")} style={primaryButtonStyle}>
               Sign in to connect
             </button>
-          ) : friendStatus === "none" ? (
-            <button type="button" onClick={handleSendFriendRequest} disabled={friendLoading} style={primaryButtonStyle}>
-              {friendLoading ? "Sending..." : "Add Friend"}
+          ) : !isOwnProfile ? (
+            <button
+              type="button"
+              onClick={handleFollowToggle}
+              disabled={followLoading}
+              style={isFollowing ? secondaryButtonStyle : primaryButtonStyle}
+            >
+              {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
             </button>
-          ) : friendStatus === "outgoing_request" ? (
-            <button type="button" onClick={handleCancelFriendRequest} disabled={friendLoading} style={secondaryButtonStyle}>
-              {friendLoading ? "Saving..." : "Friend Request Sent"}
-            </button>
-          ) : friendStatus === "incoming_request" ? (
-            <>
-              <button type="button" onClick={handleAcceptFriendRequest} disabled={friendLoading} style={primaryButtonStyle}>
-                {friendLoading ? "Saving..." : "Accept Request"}
+          ) : null}
+
+          {viewerId ? (
+            friendStatus === "none" ? (
+              <button type="button" onClick={handleSendFriendRequest} disabled={friendLoading} style={primaryButtonStyle}>
+                {friendLoading ? "Sending..." : "Add Friend"}
               </button>
-              <button type="button" onClick={handleDeclineFriendRequest} disabled={friendLoading} style={secondaryButtonStyle}>
-                Decline
+            ) : friendStatus === "outgoing_request" ? (
+              <button type="button" onClick={handleCancelFriendRequest} disabled={friendLoading} style={secondaryButtonStyle}>
+                {friendLoading ? "Saving..." : "Friend Request Sent"}
               </button>
-            </>
-          ) : (
-            <span style={pillMutedStyle}>Connected</span>
-          )}
+            ) : friendStatus === "incoming_request" ? (
+              <>
+                <button type="button" onClick={handleAcceptFriendRequest} disabled={friendLoading} style={primaryButtonStyle}>
+                  {friendLoading ? "Saving..." : "Accept Request"}
+                </button>
+                <button type="button" onClick={handleDeclineFriendRequest} disabled={friendLoading} style={secondaryButtonStyle}>
+                  Decline
+                </button>
+              </>
+            ) : (
+              <span style={pillMutedStyle}>Connected</span>
+            )
+          ) : null}
 
           <Link href="/dashboard" style={{ ...secondaryButtonStyle, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
             Back to feed
@@ -12999,6 +13012,30 @@ return (
                     style={profileMobileMainMenuRowStyle}
                     onClick={() => {
                       setProfileMainMenuOpen(false);
+                      router.push(viewerId ? `/profile/${viewerId}/followers` : "/dashboard");
+                    }}
+                  >
+                    <span style={profileMobileMainMenuLabelStyle}>Followers</span>
+                    <span style={profileMobileMainMenuArrowStyle}>›</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={profileMobileMainMenuRowStyle}
+                    onClick={() => {
+                      setProfileMainMenuOpen(false);
+                      router.push(viewerId ? `/profile/${viewerId}/following` : "/dashboard");
+                    }}
+                  >
+                    <span style={profileMobileMainMenuLabelStyle}>Following</span>
+                    <span style={profileMobileMainMenuArrowStyle}>›</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={profileMobileMainMenuRowStyle}
+                    onClick={() => {
+                      setProfileMainMenuOpen(false);
                       router.push("/settings/profile");
                     }}
                   >
@@ -13019,7 +13056,7 @@ return (
                   </button>
 
                   <p style={profileMobileMainMenuInfoStyle}>
-                    Profile shortcuts for search, notifications, friends, and your account settings. Dashboard extras stay on the Dashboard menu.
+                    Profile shortcuts for search, notifications, friends, followers, following, and your account settings. Dashboard extras stay on the Dashboard menu.
                   </p>
 
                   {viewerId ? (
@@ -13124,6 +13161,20 @@ return (
               <Link href="/friends" style={navItemLinkStyle}>
                 Friends
               </Link>
+              {viewerId ? (
+                <Link href={`/profile/${viewerId}/followers`} style={navItemLinkStyle}>
+                  Followers
+                </Link>
+              ) : (
+                <div style={navItemStyle}>Followers</div>
+              )}
+              {viewerId ? (
+                <Link href={`/profile/${viewerId}/following`} style={navItemLinkStyle}>
+                  Following
+                </Link>
+              ) : (
+                <div style={navItemStyle}>Following</div>
+              )}
               <Link href="/notifications" style={navItemLinkStyle}>
                 Notifications
              </Link>
@@ -13222,6 +13273,15 @@ return (
                         </button>
                       ) : (
                         <>
+                          <button
+                            type="button"
+                            onClick={handleFollowToggle}
+                            disabled={followLoading}
+                            className={isFollowing ? "profile-mobile-secondary-real" : "profile-mobile-primary-real"}
+                          >
+                            {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
+                          </button>
+
                           {friendStatus === "none" ? (
                             <button
                               type="button"
@@ -13380,6 +13440,15 @@ return (
                             </button>
                           ) : (
                             <>
+                              <button
+                                type="button"
+                                onClick={handleFollowToggle}
+                                disabled={followLoading}
+                                style={isFollowing ? profileGlassButtonStyle : profilePrimaryButtonStyle}
+                              >
+                                {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
+                              </button>
+
                               {friendStatus === "none" ? (
                                 <button
                                   type="button"
