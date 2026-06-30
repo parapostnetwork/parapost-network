@@ -8619,7 +8619,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-bottom-nav a[aria-label="Parachat"] span:last-child::after {
-            content: "Chat";
+            content: "Parachat";
             font-size: 10px !important;
           }
         }
@@ -12965,8 +12965,8 @@ function MobileBottomNav({
       </button>
 
       <Link href="/messages" style={mobileNavItemStyle} aria-label="Parachat">
-        <span style={{ ...mobileNavIconSlotStyle, position: "relative" }}>
-          <ChatIcon />
+        <span style={{ ...mobileNavIconSlotStyle, position: "relative", fontSize: 22, lineHeight: 1 }}>
+          ☏
           {parachatUnreadCount > 0 ? <span style={mobileNavBadgeStyle}>{parachatUnreadCount > 9 ? "9+" : parachatUnreadCount}</span> : null}
         </span>
         <span style={mobileNavLabelStyle}>Parachat</span>
