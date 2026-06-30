@@ -36,12 +36,17 @@ function getUsername(profile?: ProfileListRow | null) {
 
 function ProfileAvatar({ profile }: { profile: ProfileListRow }) {
   return (
-    <div style={avatarShellStyle}>
-      {profile.avatar_url ? (
-        <img src={profile.avatar_url} alt={getDisplayName(profile)} style={avatarImageStyle} />
-      ) : (
-        <span style={avatarFallbackStyle}>{getInitial(profile.full_name, profile.username)}</span>
-      )}
+    <div style={avatarShellStyle} aria-label={getDisplayName(profile)}>
+      <div style={avatarCropStyle}>
+        {profile.avatar_url ? (
+          <span
+            aria-hidden="true"
+            style={{ ...avatarPhotoStyle, backgroundImage: `url(${profile.avatar_url})` }}
+          />
+        ) : (
+          <span style={avatarFallbackStyle}>{getInitial(profile.full_name, profile.username)}</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -360,28 +365,44 @@ const avatarShellStyle: CSSProperties = {
   minWidth: 46,
   maxWidth: 46,
   flex: "0 0 46px",
+  alignSelf: "center",
   borderRadius: 999,
   display: "grid",
   placeItems: "center",
-  padding: 2,
-  overflow: "hidden",
+  overflow: "visible",
   boxSizing: "border-box",
   background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2))",
   boxShadow: "0 0 12px var(--parapost-accent-glow)",
+  lineHeight: 0,
 };
 
-const avatarImageStyle: CSSProperties = {
-  display: "block",
-  width: "100%",
-  height: "100%",
-  maxWidth: "100%",
-  maxHeight: "100%",
+const avatarCropStyle: CSSProperties = {
+  width: 40,
+  height: 40,
+  minWidth: 40,
+  maxWidth: 40,
+  minHeight: 40,
+  maxHeight: 40,
   borderRadius: 999,
-  objectFit: "contain",
-  objectPosition: "center center",
+  overflow: "hidden",
+  display: "block",
   background: "#07090d",
   border: "2px solid #07090d",
   boxSizing: "border-box",
+  flex: "0 0 40px",
+  lineHeight: 0,
+};
+
+const avatarPhotoStyle: CSSProperties = {
+  display: "block",
+  width: "100%",
+  height: "100%",
+  minWidth: "100%",
+  minHeight: "100%",
+  borderRadius: 999,
+  backgroundSize: "cover",
+  backgroundPosition: "center center",
+  backgroundRepeat: "no-repeat",
 };
 
 const avatarFallbackStyle: CSSProperties = {
@@ -391,8 +412,10 @@ const avatarFallbackStyle: CSSProperties = {
   display: "grid",
   placeItems: "center",
   background: "rgba(7,9,13,0.92)",
-  border: "2px solid #07090d",
+  color: "#fff",
   fontWeight: 950,
+  fontSize: 14,
+  lineHeight: 1,
 };
 
 const nameStyle: CSSProperties = {
