@@ -16984,18 +16984,27 @@ function ProfileStableBottomNav({
         style={profileStableBottomNavStyle}
       >
         <Link href="/dashboard" aria-label="Home" style={profileStableBottomNavItemStyle}>
-          <span style={profileStableBottomNavIconStyle}>⌂</span>
+          <span style={profileStableBottomNavIconStyle}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 3.4L3.5 10.6V20.2H9V14H15V20.2H20.5V10.6L12 3.4Z" />
+            </svg>
+          </span>
           <span style={profileStableBottomNavLabelStyle}>Home</span>
         </Link>
 
         <Link href="/reels" aria-label="Reels" style={profileStableBottomNavItemStyle}>
-          <span style={profileStableBottomNavIconStyle}>▣</span>
+          <span style={profileStableBottomNavIconStyle}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="15" rx="3" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M8 5L10 10M14 5L16 10M4 10H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </span>
           <span style={profileStableBottomNavLabelStyle}>Reels</span>
         </Link>
 
         <button
           type="button"
-          aria-label="Create a post"
+          aria-label="Create post"
           className="profile-stable-create-button"
           onClick={onCreatePost}
           style={profileStableCreateButtonStyle}
@@ -17006,7 +17015,9 @@ function ProfileStableBottomNav({
         </button>
 
         <Link href="/messages" aria-label="Parachat" style={profileStableBottomNavItemStyle}>
-          <span style={profileStableBottomNavIconStyle}>☏</span>
+          <span style={{ ...profileStableBottomNavIconStyle, position: "relative", fontSize: 22, lineHeight: 1 }}>
+            ☏
+          </span>
           <span style={profileStableBottomNavLabelStyle}>Parachat</span>
         </Link>
 
@@ -17016,7 +17027,12 @@ function ProfileStableBottomNav({
           aria-current="page"
           style={profileStableBottomNavItemActiveStyle}
         >
-          <span style={profileStableProfileDotStyle} />
+          <span style={profileStableBottomNavIconStyle}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+              <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </span>
           <span style={profileStableBottomNavLabelStyle}>Profile</span>
         </Link>
       </nav>
@@ -17028,15 +17044,17 @@ function ProfileStableBottomNav({
         }
 
         .profile-stable-bottom-nav {
-          width: auto !important;
-          max-width: none !important;
-          min-height: 88px !important;
-          padding: 10px !important;
-          border-radius: 28px 28px 0 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          transform: none !important;
-          bottom: 0 !important;
+          left: 50% !important;
+          right: auto !important;
+          bottom: max(10px, env(safe-area-inset-bottom)) !important;
+          width: min(calc(100vw - 22px), 520px) !important;
+          max-width: min(calc(100vw - 22px), 520px) !important;
+          min-height: 76px !important;
+          transform: translateX(-50%) !important;
+          grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+          gap: 2px !important;
+          padding: 8px 8px 10px !important;
+          border-radius: 24px !important;
         }
 
         .profile-stable-bottom-nav a,
@@ -17046,7 +17064,8 @@ function ProfileStableBottomNav({
         }
 
         .profile-stable-bottom-nav a {
-          min-height: 68px !important;
+          height: 56px !important;
+          min-height: 56px !important;
         }
 
         .profile-stable-create-button {
@@ -17059,50 +17078,12 @@ function ProfileStableBottomNav({
           transform: translateY(-18px) !important;
         }
 
-        @media (max-width: 760px) {
-          .profile-stable-bottom-nav {
-            width: auto !important;
-            left: max(14px, env(safe-area-inset-left)) !important;
-            right: max(14px, env(safe-area-inset-right)) !important;
-            transform: none !important;
-          }
-        }
-
-        @media (max-width: 430px) {
-          .profile-stable-bottom-nav {
-            min-height: 82px !important;
-            padding: 8px !important;
-            border-radius: 26px !important;
-            gap: 3px !important;
-          }
-
-          .profile-stable-bottom-nav a {
-            min-height: 62px !important;
-          }
-
-          .profile-stable-create-button {
-            width: 58px !important;
-            min-width: 58px !important;
-            height: 58px !important;
-            min-height: 58px !important;
-            transform: translateY(-18px) !important;
-          }
-        }
-
         @media (max-width: 370px) {
           .profile-stable-bottom-nav {
-            left: max(8px, env(safe-area-inset-left)) !important;
-            right: max(8px, env(safe-area-inset-right)) !important;
+            width: min(calc(100vw - 16px), 520px) !important;
+            max-width: min(calc(100vw - 16px), 520px) !important;
             min-height: 76px !important;
-            padding: 7px !important;
-          }
-
-          .profile-stable-create-button {
-            width: 58px !important;
-            min-width: 58px !important;
-            height: 58px !important;
-            min-height: 58px !important;
-            transform: translateY(-18px) !important;
+            padding: 7px 7px 9px !important;
           }
         }
       `}</style>
@@ -17115,72 +17096,73 @@ function ProfileStableBottomNav({
 
 const profileStableBottomNavStyle: CSSProperties = {
   position: "fixed",
-  left: "0",
-  right: "0",
-  bottom: "0",
-  zIndex: 2147483647,
-  width: "auto",
-  maxWidth: "none",
-  minHeight: "88px",
-  borderRadius: "28px 28px 0 0",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background:
-    "linear-gradient(180deg, rgba(10,14,22,0.98), rgba(5,7,12,1))",
-  boxShadow: "0 18px 50px rgba(0,0,0,0.65)",
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
+  left: "50%",
+  right: "auto",
+  bottom: "max(10px, env(safe-area-inset-bottom))",
+  zIndex: 160,
+  width: "min(calc(100vw - 22px), 520px)",
+  minHeight: 76,
+  transform: "translateX(-50%)",
   display: "grid",
-  gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr) 58px minmax(0,1fr) minmax(0,1fr)",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
   alignItems: "center",
-  gap: "2px",
-  padding: "10px",
+  justifyItems: "center",
+  gap: 2,
+  padding: "8px 8px 10px",
+  borderRadius: 24,
+  border: "1px solid rgba(255,255,255,0.105)",
+  background: "linear-gradient(180deg, rgba(9,11,20,0.965), rgba(5,7,13,0.975))",
+  backdropFilter: "blur(20px)",
+  WebkitBackdropFilter: "blur(20px)",
+  boxShadow: "0 18px 44px rgba(0,0,0,0.56)",
   pointerEvents: "auto",
   overflow: "visible",
-  transform: "none",
 };
 
 const profileStableBottomNavItemStyle: CSSProperties = {
-  minHeight: "68px",
   width: "100%",
   minWidth: 0,
+  height: 56,
+  color: "#dbe4f0",
+  textDecoration: "none",
+  display: "grid",
+  gridTemplateRows: "26px auto",
+  placeItems: "center",
+  alignContent: "center",
+  gap: 3,
+  fontSize: 10.5,
+  lineHeight: 1.05,
+  fontWeight: 850,
+  textAlign: "center",
+  borderRadius: 16,
   border: "none",
   background: "transparent",
-  borderRadius: "23px",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "5px",
-  color: "#9ca3af",
-  fontSize: "12px",
-  fontWeight: 900,
-  letterSpacing: "-0.01em",
   cursor: "pointer",
   touchAction: "manipulation",
   WebkitTapHighlightColor: "transparent",
   userSelect: "none",
   position: "relative",
   zIndex: 2,
-  padding: "7px 3px",
-  textDecoration: "none",
+  padding: 0,
 };
 
 const profileStableBottomNavItemActiveStyle: CSSProperties = {
   ...profileStableBottomNavItemStyle,
   color: "#ffffff",
-  background: "rgba(168,85,247,0.18)",
-  boxShadow: "inset 0 0 0 1px rgba(168,85,247,0.22)",
+  background: "rgba(255,255,255,0.045)",
+  boxShadow: "inset 0 -2px 0 var(--parapost-accent-2)",
 };
 
 const profileStableBottomNavIconStyle: CSSProperties = {
-  fontSize: "24px",
-  lineHeight: 1,
+  width: 28,
+  height: 28,
+  display: "grid",
+  placeItems: "center",
 };
 
 const profileStableBottomNavLabelStyle: CSSProperties = {
-  fontSize: "12px",
-  lineHeight: 1.1,
   maxWidth: "100%",
+  display: "block",
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
@@ -17188,36 +17170,28 @@ const profileStableBottomNavLabelStyle: CSSProperties = {
 
 const profileStableCreateButtonStyle: CSSProperties = {
   width: 58,
-  minWidth: 58,
   height: 58,
-  minHeight: 58,
   margin: 0,
+  transform: "translateY(-18px)",
   borderRadius: 999,
-  aspectRatio: "1 / 1",
-  border: "4px solid var(--parapost-accent-1)",
-  background: "#fff",
-  color: "#0b1020",
   display: "grid",
   placeItems: "center",
+  color: "#0b1020",
+  background: "#fff",
+  border: "4px solid var(--parapost-accent-1)",
   boxShadow: "0 0 0 4px color-mix(in srgb, var(--parapost-accent-3) 32%, transparent), 0 16px 38px var(--parapost-accent-strong-glow)",
   cursor: "pointer",
-  transform: "translateY(-18px)",
+  textDecoration: "none",
+  padding: 0,
+  font: "inherit",
+  justifySelf: "center",
   touchAction: "manipulation",
   WebkitTapHighlightColor: "transparent",
   userSelect: "none",
-  flexShrink: 0,
   position: "relative",
   zIndex: 3,
-  padding: 0,
 };
 
-const profileStableProfileDotStyle: CSSProperties = {
-  width: "20px",
-  height: "20px",
-  borderRadius: "999px",
-  background: "linear-gradient(135deg, var(--parapost-accent-2), #7c3aed)",
-  boxShadow: "0 0 18px rgba(168,85,247,0.45)",
-};
 
 const profileViewerBackToOptionsStyle: CSSProperties = {
   width: "100%",
