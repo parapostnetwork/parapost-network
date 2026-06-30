@@ -198,7 +198,7 @@ export default function ProfileFollowingPage() {
                 <div key={item.id} style={rowStyle}>
                   <Link href={`/profile/${item.id}`} style={profileLinkStyle}>
                     <ProfileAvatar profile={item} />
-                    <span style={{ minWidth: 0 }}>
+                    <span style={{ minWidth: 0, overflow: "hidden" }}>
                       <strong style={nameStyle}>{getDisplayName(item)}</strong>
                       <small style={usernameStyle}>{getUsername(item)}</small>
                       {item.bio ? <small style={bioStyle}>{item.bio}</small> : null}
@@ -334,6 +334,8 @@ const rowStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
+  minWidth: 0,
+  overflow: "hidden",
   border: "1px solid rgba(255,255,255,0.08)",
   background: "rgba(255,255,255,0.045)",
   borderRadius: 20,
@@ -345,6 +347,7 @@ const profileLinkStyle: CSSProperties = {
   alignItems: "center",
   gap: 12,
   minWidth: 0,
+  overflow: "hidden",
   color: "#fff",
   textDecoration: "none",
   flex: 1,
@@ -354,20 +357,28 @@ const avatarShellStyle: CSSProperties = {
   width: 54,
   height: 54,
   minWidth: 54,
+  maxWidth: 54,
+  flex: "0 0 54px",
   borderRadius: 999,
   display: "grid",
   placeItems: "center",
   padding: 3,
+  overflow: "hidden",
+  boxSizing: "border-box",
   background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2))",
   boxShadow: "0 0 20px var(--parapost-accent-glow)",
 };
 
 const avatarImageStyle: CSSProperties = {
+  display: "block",
   width: "100%",
   height: "100%",
+  maxWidth: "100%",
+  maxHeight: "100%",
   borderRadius: 999,
   objectFit: "cover",
   border: "2px solid #07090d",
+  boxSizing: "border-box",
 };
 
 const avatarFallbackStyle: CSSProperties = {
@@ -398,6 +409,9 @@ const usernameStyle: CSSProperties = {
 
 const bioStyle: CSSProperties = {
   display: "block",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
   color: "#cbd5e1",
   marginTop: 5,
   fontSize: 12,
@@ -405,6 +419,7 @@ const bioStyle: CSSProperties = {
 };
 
 const removeButtonStyle: CSSProperties = {
+  flex: "0 0 auto",
   border: "1px solid rgba(255,255,255,0.14)",
   background: "rgba(255,255,255,0.07)",
   color: "#e5e7eb",
