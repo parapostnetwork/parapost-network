@@ -17000,7 +17000,9 @@ function ProfileStableBottomNav({
           onClick={onCreatePost}
           style={profileStableCreateButtonStyle}
         >
-          +
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
         </button>
 
         <Link href="/messages" aria-label="Parachat" style={profileStableBottomNavItemStyle}>
@@ -17048,15 +17050,13 @@ function ProfileStableBottomNav({
         }
 
         .profile-stable-create-button {
-          width: 74px !important;
-          min-width: 74px !important;
-          height: 74px !important;
-          min-height: 74px !important;
+          width: 58px !important;
+          min-width: 58px !important;
+          height: 58px !important;
+          min-height: 58px !important;
           border-radius: 999px !important;
           aspect-ratio: 1 / 1 !important;
-          font-size: 44px !important;
-          line-height: 1 !important;
-          transform: translateY(-16px) !important;
+          transform: translateY(-18px) !important;
         }
 
         @media (max-width: 760px) {
@@ -17081,12 +17081,11 @@ function ProfileStableBottomNav({
           }
 
           .profile-stable-create-button {
-            width: 66px !important;
-            min-width: 66px !important;
-            height: 66px !important;
-            min-height: 66px !important;
-            font-size: 38px !important;
-            transform: translateY(-14px) !important;
+            width: 58px !important;
+            min-width: 58px !important;
+            height: 58px !important;
+            min-height: 58px !important;
+            transform: translateY(-18px) !important;
           }
         }
 
@@ -17103,8 +17102,7 @@ function ProfileStableBottomNav({
             min-width: 58px !important;
             height: 58px !important;
             min-height: 58px !important;
-            font-size: 34px !important;
-            transform: translateY(-11px) !important;
+            transform: translateY(-18px) !important;
           }
         }
       `}</style>
@@ -17132,9 +17130,9 @@ const profileStableBottomNavStyle: CSSProperties = {
   backdropFilter: "blur(18px)",
   WebkitBackdropFilter: "blur(18px)",
   display: "grid",
-  gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr) 74px minmax(0,1fr) minmax(0,1fr)",
+  gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr) 58px minmax(0,1fr) minmax(0,1fr)",
   alignItems: "center",
-  gap: "6px",
+  gap: "2px",
   padding: "10px",
   pointerEvents: "auto",
   overflow: "visible",
@@ -17189,24 +17187,21 @@ const profileStableBottomNavLabelStyle: CSSProperties = {
 };
 
 const profileStableCreateButtonStyle: CSSProperties = {
-  width: "74px",
-  minWidth: "74px",
-  height: "74px",
-  minHeight: "74px",
-  borderRadius: "999px",
+  width: 58,
+  minWidth: 58,
+  height: 58,
+  minHeight: 58,
+  margin: 0,
+  borderRadius: 999,
   aspectRatio: "1 / 1",
-  border: "3px solid rgba(255,255,255,0.88)",
-  background:
-    "linear-gradient(135deg, #ffffff 0%, #ffffff 42%, var(--parapost-accent-2) 43%, #ec4899 100%)",
-  color: "#05070a",
-  fontSize: "44px",
-  fontWeight: 900,
-  lineHeight: 1,
+  border: "4px solid var(--parapost-accent-1)",
+  background: "#fff",
+  color: "#0b1020",
   display: "grid",
   placeItems: "center",
-  boxShadow: "0 0 28px rgba(168,85,247,0.56)",
+  boxShadow: "0 0 0 4px color-mix(in srgb, var(--parapost-accent-3) 32%, transparent), 0 16px 38px var(--parapost-accent-strong-glow)",
   cursor: "pointer",
-  transform: "translateY(-16px)",
+  transform: "translateY(-18px)",
   touchAction: "manipulation",
   WebkitTapHighlightColor: "transparent",
   userSelect: "none",
