@@ -13668,21 +13668,30 @@ return (
                 </div>
 
                 {!isProfileContentLocked ? (
-                  <section className="profile-showcases-panel profile-stories-row" style={profileShowcasesPanelStyle} data-profile-showcases="true">
+                  <section className="profile-showcases-panel profile-showcases-coming-soon-panel" style={profileShowcasesPanelStyle} data-profile-showcases="true">
                     <h3 style={profileShowcasesTitleStyle}>Showcases</h3>
 
                     <div
-                      className="profile-showcases-row"
+                      className="profile-showcases-coming-soon-row"
                       style={{
-                        ...profileShowcasesRowStyle,
-                        justifyContent: "center",
+                        display: "flex",
+                        width: "100%",
+                        alignItems: "stretch",
+                        justifyContent: "stretch",
                         overflowX: "hidden",
-                        minHeight: 92,
+                        overflowY: "visible",
+                        padding: "0 14px 14px",
+                        boxSizing: "border-box",
+                        minHeight: "auto",
                       }}
                     >
                       <div
                         style={{
                           width: "100%",
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          flex: "1 1 100%",
+                          boxSizing: "border-box",
                           borderRadius: 22,
                           border: "1px solid rgba(255,255,255,0.10)",
                           background: "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(7,9,13,0.96))",
@@ -13691,13 +13700,15 @@ return (
                           alignItems: "center",
                           justifyContent: "space-between",
                           gap: 14,
+                          minHeight: 112,
                           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
                         }}
                       >
-                        <div style={{ minWidth: 0 }}>
+                        <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                           <div style={{ color: "#fff", fontWeight: 950, fontSize: 15, marginBottom: 4 }}>Showcases Coming Soon</div>
                           <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.45 }}>
-                          Something new is coming to Parapost - a better way to share your moments with the community.                          </div>
+                            A new way to share your moments with the Parapost community is coming soon.
+                          </div>
                         </div>
                         <span
                           style={{
@@ -14244,7 +14255,7 @@ return (
                             </div>
 
                             <div className="profile-showcase-viewer-footer" style={profileShowcaseViewerFooterStyle}>
-                              <div style={{ minWidth: 0 }}>
+                              <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                                 <strong style={profileShowcaseViewerFooterTitleStyle}>
                                   {activeProfileShowcase.title}
                                 </strong>
@@ -14289,7 +14300,7 @@ return (
                           onClick={(event) => event.stopPropagation()}
                         >
                           <div className="profile-badges-viewer-header" style={profileBadgesViewerHeaderStyle}>
-                            <div style={{ minWidth: 0 }}>
+                            <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                               <p style={profileBadgesViewerEyebrowStyle}>Community Reach</p>
                               <h3 className="profile-badges-viewer-title" style={profileBadgesViewerTitleStyle}>
                                 {profileAchievementPanelTitle}
@@ -14343,7 +14354,7 @@ return (
                                 )}
                               </div>
 
-                              <div style={{ minWidth: 0 }}>
+                              <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                                 <div style={profileAchievementHeroTopRowStyle}>
                                   <p style={profileBadgesViewerEyebrowStyle}>{highlightedProfileAchievementStatusLabel}</p>
                                 </div>
@@ -14491,7 +14502,7 @@ return (
                             onTouchMove={(event) => event.stopPropagation()}
                           >
                             <div className="profile-badges-viewer-header" style={profileBadgesViewerHeaderStyle}>
-                              <div style={{ minWidth: 0 }}>
+                              <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                                 <p style={profileBadgesViewerEyebrowStyle}>Parapost Network</p>
                                 <h3 className="profile-badges-viewer-title" style={profileBadgesViewerTitleStyle}>{profileBadgePanelTitle}</h3>
                                 <p style={profileBadgesViewerSubtextStyle}>
@@ -14533,7 +14544,7 @@ return (
                                   <ParaGhostBadgeIcon badge={highlightedProfileBadge} size="modal" />
                                 </div>
 
-                                <div style={{ minWidth: 0 }}>
+                                <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                                   <p style={profileBadgesViewerEyebrowStyle}>Featured Badge</p>
                                   <h4 style={profileBadgesViewerBadgeTitleStyle}>{highlightedProfileBadge.name}</h4>
                                   <p style={profileBadgesViewerBadgeDescriptionStyle}>
@@ -14615,7 +14626,7 @@ return (
                             onTouchMove={(event) => event.stopPropagation()}
                           >
                             <div className="profile-badges-viewer-header" style={profileBadgesViewerHeaderStyle}>
-                              <div style={{ minWidth: 0 }}>
+                              <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                                 <p style={profileBadgesViewerEyebrowStyle}>Parapost Network</p>
                                 <h3 className="profile-badges-viewer-title" style={profileBadgesViewerTitleStyle}>Profile Strength</h3>
                                 <p style={profileBadgesViewerSubtextStyle}>
@@ -14678,7 +14689,7 @@ return (
                             onTouchMove={(event) => event.stopPropagation()}
                           >
                             <div className="profile-badges-viewer-header" style={profileBadgesViewerHeaderStyle}>
-                              <div style={{ minWidth: 0 }}>
+                              <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                                 <p style={profileBadgesViewerEyebrowStyle}>Private to you</p>
                                 <h3 className="profile-badges-viewer-title" style={profileBadgesViewerTitleStyle}>Recently Viewed</h3>
                                 <p style={profileBadgesViewerSubtextStyle}>
@@ -14778,7 +14789,7 @@ return (
                             onTouchMove={(event) => event.stopPropagation()}
                           >
                             <div className="profile-badges-viewer-header" style={profileBadgesViewerHeaderStyle}>
-                              <div style={{ minWidth: 0 }}>
+                              <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                                 <p style={profileBadgesViewerEyebrowStyle}>Profile overview</p>
                                 <h3 className="profile-badges-viewer-title" style={profileBadgesViewerTitleStyle}>Profile Activity</h3>
                                 <p style={profileBadgesViewerSubtextStyle}>
@@ -14969,7 +14980,7 @@ return (
                               ? "▧"
                               : "◇"}
                     </div>
-                    <div style={{ minWidth: 0 }}>
+                    <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                       <p style={profileTabSummaryEyebrowStyle}>Profile section</p>
                       <h3 style={profileTabSummaryTitleStyle}>{activeProfileTabItem.label}</h3>
                       <p style={profileTabSummaryMetaStyle}>{activeProfileTabItem.summary}</p>
@@ -15913,7 +15924,7 @@ return (
                                     )}
                                   </Link>
 
-                                  <div style={{ minWidth: 0 }}>
+                                  <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                                     <Link href={`/profile/${originalPost.user_id}`} style={postAuthorNameStyle}>
                                       {originalName}
                                     </Link>
@@ -16165,7 +16176,7 @@ return (
 
             <div style={profileAchievementRightCardStyle}>
               <div style={rightPanelHeaderStyle}>
-                <div style={{ minWidth: 0 }}>
+                <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                   <p style={profileAchievementRightEyebrowStyle}>Community Reach</p>
                   <h3 style={rightPanelTitleStyle}>{profileAchievementPanelTitle}</h3>
                 </div>
