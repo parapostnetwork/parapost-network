@@ -13071,7 +13071,7 @@ return (
                           router.push("/dashboard");
                         }}
                       >
-                        <span style={profileMobileMainMenuLabelStyle}>Home Feed</span>
+                        <span style={profileMobileMainMenuLabelStyle}>Home</span>
                         <span style={profileMobileMainMenuArrowStyle}>›</span>
                       </button>
 
@@ -13149,7 +13149,7 @@ return (
               }}
             >
               <Link href="/dashboard" style={navItemLinkStyle}>
-                Home Feed
+                Home 
               </Link>
               {viewerId ? (
                 <Link href={`/profile/${viewerId}`} style={navItemLinkStyle}>
