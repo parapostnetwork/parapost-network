@@ -565,16 +565,22 @@ export default function CreateLiveShowPage() {
           @media (max-width: 760px) {
             html,
             body {
+              height: 100% !important;
+              max-height: 100% !important;
               background: #05050b !important;
+              overflow-y: hidden !important;
               overflow-x: hidden !important;
             }
 
             .parapost-live-create-page {
               min-height: 100svh !important;
-              height: auto !important;
-              max-height: none !important;
-              overflow-y: visible !important;
+              height: 100svh !important;
+              max-height: 100svh !important;
+              overflow-y: auto !important;
               overflow-x: hidden !important;
+              touch-action: pan-y !important;
+              overscroll-behavior-y: contain !important;
+              -webkit-overflow-scrolling: touch !important;
               padding: 12px 10px calc(150px + env(safe-area-inset-bottom)) !important;
               scroll-padding-bottom: calc(150px + env(safe-area-inset-bottom));
             }
@@ -674,8 +680,13 @@ export default function CreateLiveShowPage() {
 
 const pageStyle: CSSProperties = {
   minHeight: "100dvh",
-  height: "auto",
+  height: "100dvh",
+  maxHeight: "100dvh",
+  overflowY: "auto",
   overflowX: "hidden",
+  overscrollBehaviorY: "contain",
+  WebkitOverflowScrolling: "touch",
+  touchAction: "pan-y",
   background:
     "radial-gradient(circle at 14% 0%, rgba(168,85,247,0.28), transparent 34%), radial-gradient(circle at 86% 18%, rgba(236,72,153,0.13), transparent 34%), linear-gradient(180deg, #05050b 0%, #07090d 52%, #05050b 100%)",
   color: "#fff",
