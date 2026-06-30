@@ -335,11 +335,12 @@ const rowStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: 12,
   minWidth: 0,
-  overflow: "hidden",
+  minHeight: 66,
+  overflow: "visible",
   border: "1px solid rgba(255,255,255,0.08)",
   background: "rgba(255,255,255,0.045)",
   borderRadius: 20,
-  padding: 12,
+  padding: "10px 12px",
 };
 
 const profileLinkStyle: CSSProperties = {
@@ -350,23 +351,23 @@ const profileLinkStyle: CSSProperties = {
   overflow: "hidden",
   color: "#fff",
   textDecoration: "none",
-  flex: 1,
+  flex: "1 1 auto",
 };
 
 const avatarShellStyle: CSSProperties = {
-  width: 54,
-  height: 54,
-  minWidth: 54,
-  maxWidth: 54,
-  flex: "0 0 54px",
+  width: 46,
+  height: 46,
+  minWidth: 46,
+  maxWidth: 46,
+  flex: "0 0 46px",
   borderRadius: 999,
   display: "grid",
   placeItems: "center",
-  padding: 3,
+  padding: 2,
   overflow: "hidden",
   boxSizing: "border-box",
   background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2))",
-  boxShadow: "0 0 20px var(--parapost-accent-glow)",
+  boxShadow: "0 0 12px var(--parapost-accent-glow)",
 };
 
 const avatarImageStyle: CSSProperties = {
@@ -376,7 +377,9 @@ const avatarImageStyle: CSSProperties = {
   maxWidth: "100%",
   maxHeight: "100%",
   borderRadius: 999,
-  objectFit: "cover",
+  objectFit: "contain",
+  objectPosition: "center center",
+  background: "#07090d",
   border: "2px solid #07090d",
   boxSizing: "border-box",
 };
