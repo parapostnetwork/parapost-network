@@ -29,6 +29,8 @@ type ProfilePreview = {
 
 type NotificationCard = NotificationRow & {
   actor: ProfilePreview | null;
+  groupedNotificationIds?: string[];
+  parachatMessageCount?: number;
 };
 
 type FilterKey = "all" | "unread" | "friends" | "activity";
@@ -84,14 +86,84 @@ function isNotificationProfileActuallyOnline(profile?: ProfilePreview | null) {
   return Boolean(profile?.is_online && isRecentNotificationOnlineTimestamp(profile.last_seen_at));
 }
 
+function isParachatNotificationType(type?: string | null) {
+  return type === "parachat_message" || type === "parachat_photo";
+}
+
+function getStoredParachatNotificationCount(message?: string | null) {
+  const match = (message || "").match(/parachat_group_count:(\d+)/i);
+  if (!match) return 0;
+
+  const count = Number(match[1]);
+  return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+}
+
+function getParachatMessageCount(notification: NotificationCard) {
+  if (!isParachatNotificationType(notification.type)) return 0;
+
+  if (typeof notification.parachatMessageCount === "number" && notification.parachatMessageCount > 0) {
+    return notification.parachatMessageCount;
+  }
+
+  const storedCount = getStoredParachatNotificationCount(notification.message);
+  return storedCount > 0 ? storedCount : 1;
+}
+
+function groupParachatNotifications(rows: NotificationCard[]) {
+  const grouped = new Map<string, NotificationCard[]>();
+  const passthrough: NotificationCard[] = [];
+
+  rows.forEach((notification) => {
+    if (!isParachatNotificationType(notification.type) || !notification.actor_id) {
+      passthrough.push(notification);
+      return;
+    }
+
+    const key = `parachat:${notification.actor_id}:${notification.is_read ? "read" : "unread"}`;
+    const currentGroup = grouped.get(key) || [];
+    currentGroup.push(notification);
+    grouped.set(key, currentGroup);
+  });
+
+  const groupedCards = Array.from(grouped.values()).map((group) => {
+    const sortedGroup = [...group].sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+
+    const primary = sortedGroup[0];
+    const messageCount = sortedGroup.reduce((total, notification) => {
+      return total + Math.max(1, getStoredParachatNotificationCount(notification.message));
+    }, 0);
+
+    return {
+      ...primary,
+      is_read: sortedGroup.every((notification) => notification.is_read),
+      groupedNotificationIds: sortedGroup.map((notification) => notification.id),
+      parachatMessageCount: Math.max(1, messageCount),
+    };
+  });
+
+  return [...passthrough, ...groupedCards].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+}
+
 function getNotificationTitle(notification: NotificationCard) {
   const actorName = getDisplayName(notification.actor);
   const type = notification.type || "";
 
-  if (notification.message?.trim()) return notification.message.trim();
+  if (isParachatNotificationType(type)) {
+    const parachatCount = getParachatMessageCount(notification);
 
-  if (type === "parachat_message") return `${actorName} sent you a Parachat message.`;
-  if (type === "parachat_photo") return `${actorName} sent you a photo in Parachat.`;
+    if (parachatCount > 1) {
+      return `${actorName} sent you ${parachatCount} Parachat messages.`;
+    }
+
+    if (type === "parachat_photo") return `${actorName} sent you a photo in Parachat.`;
+    return `${actorName} sent you a Parachat message.`;
+  }
+
+  if (notification.message?.trim()) return notification.message.trim();
   if (type === "friend_request") return `${actorName} sent you a friend request.`;
   if (type === "friend_accept") return `${actorName} accepted your friend request.`;
   if (type === "post_like") return `${actorName} liked your post.`;
@@ -206,29 +278,33 @@ export default function NotificationsPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const unreadCount = useMemo(() => {
-    return notifications.filter((notification) => !notification.is_read).length;
+  const displayNotifications = useMemo(() => {
+    return groupParachatNotifications(notifications);
   }, [notifications]);
+
+  const unreadCount = useMemo(() => {
+    return displayNotifications.filter((notification) => !notification.is_read).length;
+  }, [displayNotifications]);
 
   const friendsCount = useMemo(() => {
-    return notifications.filter((notification) => (notification.type || "").includes("friend")).length;
-  }, [notifications]);
+    return displayNotifications.filter((notification) => (notification.type || "").includes("friend")).length;
+  }, [displayNotifications]);
 
   const activityCount = useMemo(() => {
-    return notifications.filter((notification) => !(notification.type || "").includes("friend")).length;
-  }, [notifications]);
+    return displayNotifications.filter((notification) => !(notification.type || "").includes("friend")).length;
+  }, [displayNotifications]);
 
   const latestNotificationTime = useMemo(() => {
-    const first = notifications[0];
+    const first = displayNotifications[0];
     return first?.created_at ? formatRelativeTime(first.created_at) : "No activity yet";
-  }, [notifications]);
+  }, [displayNotifications]);
 
   const filteredNotifications = useMemo(() => {
-    if (activeFilter === "unread") return notifications.filter((notification) => !notification.is_read);
-    if (activeFilter === "friends") return notifications.filter((notification) => (notification.type || "").includes("friend"));
-    if (activeFilter === "activity") return notifications.filter((notification) => !(notification.type || "").includes("friend"));
-    return notifications;
-  }, [activeFilter, notifications]);
+    if (activeFilter === "unread") return displayNotifications.filter((notification) => !notification.is_read);
+    if (activeFilter === "friends") return displayNotifications.filter((notification) => (notification.type || "").includes("friend"));
+    if (activeFilter === "activity") return displayNotifications.filter((notification) => !(notification.type || "").includes("friend"));
+    return displayNotifications;
+  }, [activeFilter, displayNotifications]);
 
   const showStatus = useCallback((message: string) => {
     setStatusMessage(message);
@@ -362,25 +438,33 @@ export default function NotificationsPage() {
 
   const handleOpenNotification = async (notification: NotificationCard) => {
     const href = getNotificationHref(notification);
+    const notificationIds = notification.groupedNotificationIds?.length
+      ? notification.groupedNotificationIds
+      : [notification.id];
 
     if (!notification.is_read) {
       setNotifications((prev) =>
-        prev.map((item) => (item.id === notification.id ? { ...item, is_read: true } : item))
+        prev.map((item) => (notificationIds.includes(item.id) ? { ...item, is_read: true } : item))
       );
 
-      await supabase.from("notifications").update({ is_read: true }).eq("id", notification.id);
+      await supabase.from("notifications").update({ is_read: true }).in("id", notificationIds);
     }
 
     router.push(href);
   };
 
   const handleDeleteNotification = async (notification: NotificationCard) => {
-    const confirmed = window.confirm("Delete this notification?");
+    const notificationIds = notification.groupedNotificationIds?.length
+      ? notification.groupedNotificationIds
+      : [notification.id];
+    const confirmed = window.confirm(
+      notificationIds.length > 1 ? "Delete this grouped notification?" : "Delete this notification?"
+    );
     if (!confirmed) return;
 
     setProcessingId(notification.id);
 
-    const { error } = await supabase.from("notifications").delete().eq("id", notification.id);
+    const { error } = await supabase.from("notifications").delete().in("id", notificationIds);
 
     if (error) {
       alert(`Could not delete notification: ${error.message}`);
@@ -388,16 +472,16 @@ export default function NotificationsPage() {
       return;
     }
 
-    setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
+    setNotifications((prev) => prev.filter((item) => !notificationIds.includes(item.id)));
     setProcessingId(null);
-    showStatus("Notification deleted.");
+    showStatus(notificationIds.length > 1 ? "Grouped notification deleted." : "Notification deleted.");
   };
 
   const filterButtons: Array<{
     key: FilterKey;
     count: number;
   }> = [
-    { key: "all", count: notifications.length },
+    { key: "all", count: displayNotifications.length },
     { key: "unread", count: unreadCount },
     { key: "friends", count: friendsCount },
     { key: "activity", count: activityCount },
@@ -683,10 +767,10 @@ export default function NotificationsPage() {
             <div style={emptyStateStyle}>
               <div style={emptyIconStyle}>N</div>
               <h2 style={emptyTitleStyle}>
-                {notifications.length === 0 ? "No notifications yet" : "No notifications in this filter"}
+                {displayNotifications.length === 0 ? "No notifications yet" : "No notifications in this filter"}
               </h2>
               <p style={emptyTextStyle}>
-                {notifications.length === 0
+                {displayNotifications.length === 0
                   ? "When someone sends a friend request, accepts one, sends a Parachat message, comments, likes, shares, or interacts with your posts or Reels, it will show up here."
                   : "Try switching to another notification filter."}
               </p>

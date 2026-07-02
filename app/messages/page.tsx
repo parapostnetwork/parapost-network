@@ -584,6 +584,16 @@ function getParachatErrorMessage(message?: string | null) {
   return cleanMessage || "Parachat needs attention. Please try again.";
 }
 
+const PARACHAT_GROUPED_NOTIFICATION_PREFIX = "parachat_group_count:";
+
+function getParachatGroupedNotificationCount(message?: string | null) {
+  const match = (message || "").match(/parachat_group_count:(\d+)/i);
+  if (!match) return 0;
+
+  const count = Number(match[1]);
+  return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+}
+
 async function createParachatNotification({
   recipientUserId,
   senderUserId,
@@ -595,19 +605,93 @@ async function createParachatNotification({
 }) {
   if (!recipientUserId || !senderUserId || recipientUserId === senderUserId) return;
 
-  const { error } = await supabase.from("notifications").insert({
-    user_id: recipientUserId,
-    actor_id: senderUserId,
-    type: isPhotoMessage ? "parachat_photo" : "parachat_message",
-    post_id: null,
-    comment_id: null,
-    friend_request_id: null,
-    message: null,
-    is_read: false,
-  });
+  const nextType = isPhotoMessage ? "parachat_photo" : "parachat_message";
+  const fallbackInsert = async () => {
+    const { error: fallbackError } = await supabase.from("notifications").insert({
+      user_id: recipientUserId,
+      actor_id: senderUserId,
+      type: nextType,
+      post_id: null,
+      comment_id: null,
+      friend_request_id: null,
+      message: `${PARACHAT_GROUPED_NOTIFICATION_PREFIX}1`,
+      is_read: false,
+    });
 
-  if (error) {
-    console.warn("Parachat notification warning:", error.message);
+    if (fallbackError) {
+      console.warn("Parachat notification warning:", fallbackError.message);
+    }
+  };
+
+  try {
+    const { data: existingRows, error: existingError } = await supabase
+      .from("notifications")
+      .select("id, type, message, created_at")
+      .eq("user_id", recipientUserId)
+      .eq("actor_id", senderUserId)
+      .in("type", ["parachat_message", "parachat_photo"])
+      .eq("is_read", false)
+      .order("created_at", { ascending: false });
+
+    if (existingError) {
+      await fallbackInsert();
+      return;
+    }
+
+    const rows = ((existingRows || []) as Array<{
+      id: string;
+      type: string | null;
+      message: string | null;
+      created_at: string | null;
+    }>).filter((row) => row.id);
+
+    if (rows.length === 0) {
+      await fallbackInsert();
+      return;
+    }
+
+    const nextCount =
+      rows.reduce((total, row) => {
+        const storedCount = getParachatGroupedNotificationCount(row.message);
+        return total + Math.max(1, storedCount);
+      }, 0) + 1;
+
+    const primaryNotification = rows[0];
+
+    const { error: updateError } = await supabase
+      .from("notifications")
+      .update({
+        type: nextType,
+        message: `${PARACHAT_GROUPED_NOTIFICATION_PREFIX}${nextCount}`,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      })
+      .eq("id", primaryNotification.id);
+
+    if (updateError) {
+      await fallbackInsert();
+      return;
+    }
+
+    const duplicateIds = rows.slice(1).map((row) => row.id).filter(Boolean);
+
+    if (duplicateIds.length > 0) {
+      const { error: deleteDuplicatesError } = await supabase
+        .from("notifications")
+        .delete()
+        .in("id", duplicateIds);
+
+      if (deleteDuplicatesError) {
+        console.warn("Parachat duplicate notification cleanup warning:", deleteDuplicatesError.message);
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "Parachat grouped notification warning:",
+      error instanceof Error ? error.message : String(error)
+    );
+
+    await fallbackInsert();
   }
 }
 
