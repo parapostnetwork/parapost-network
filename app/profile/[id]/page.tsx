@@ -17121,6 +17121,7 @@ function ProfileStableBottomNav({
         }
 
         .profile-stable-bottom-nav {
+          display: none !important;
           left: 50% !important;
           right: auto !important;
           bottom: max(10px, env(safe-area-inset-bottom)) !important;
@@ -17212,7 +17213,7 @@ const profileStableBottomNavStyle: CSSProperties = {
   width: "min(calc(100vw - 22px), 520px)",
   minHeight: 76,
   transform: "translateX(-50%)",
-  display: "grid",
+  display: "none",
   gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
   alignItems: "center",
   justifyItems: "center",

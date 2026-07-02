@@ -6263,9 +6263,9 @@ export default function DashboardPage() {
           }
         }
 
-        @media (max-width: 900px) {
+        @media (min-width: 761px) and (max-width: 900px) {
           .dashboard-bottom-nav {
-            display: grid !important;
+            display: none !important;
           }
         }
 
@@ -15923,7 +15923,7 @@ const mobileBottomNavStyle: CSSProperties = {
   width: "min(calc(100vw - 22px), 520px)",
   minHeight: 76,
   transform: "translateX(-50%)",
-  display: "grid",
+  display: "none",
   gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
   alignItems: "center",
   justifyItems: "center",
