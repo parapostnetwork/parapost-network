@@ -9449,6 +9449,16 @@ return (
         z-index: 80 !important;
       }
 
+      .profile-feed-post-card-menu-open {
+        position: relative !important;
+        overflow: visible !important;
+        z-index: 9000 !important;
+      }
+
+      .profile-feed-post-card-menu-open .profile-post-menu-wrap {
+        z-index: 2147483000 !important;
+      }
+
       .profile-post-menu-trigger {
         width: 36px !important;
         height: 36px !important;
@@ -9469,6 +9479,7 @@ return (
       .profile-post-menu {
         top: 42px !important;
         right: 0 !important;
+        z-index: 2147483000 !important;
         min-width: 196px !important;
         padding: 7px !important;
         border-radius: 17px !important;
@@ -16197,8 +16208,13 @@ return (
                           <article
                             key={post.id}
                             id={`profile-post-${post.id}`}
-                            className="profile-feed-card profile-feed-post-card dashboard-card dashboard-feed-card"
-                            style={{ ...postCardStyle, position: "relative" }}
+                            className={`profile-feed-card profile-feed-post-card dashboard-card dashboard-feed-card ${openPostMenuId === post.id ? "profile-feed-post-card-menu-open" : ""}`}
+                            style={{
+                              ...postCardStyle,
+                              position: "relative",
+                              overflow: "visible",
+                              zIndex: openPostMenuId === post.id ? 9000 : 1,
+                            }}
                             onMouseEnter={(event) => {
                               event.currentTarget.style.transform = "translateY(-1px)";
                               event.currentTarget.style.borderColor = "var(--parapost-accent-active-border)";
@@ -19022,7 +19038,7 @@ const postMenuStyle: CSSProperties = {
   top: "44px",
   bottom: "auto",
   right: 0,
-  zIndex: 9999,
+  zIndex: 2147483000,
   minWidth: "176px",
   background: "rgba(8,12,20,0.98)",
   border: "1px solid rgba(255,255,255,0.13)",
