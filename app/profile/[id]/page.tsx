@@ -2215,18 +2215,9 @@ export default function ProfilePage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const mediaQuery = window.matchMedia("(max-width: 720px)");
-    const syncPostMenuMode = () => setProfilePostMenuUsesSheet(mediaQuery.matches);
-
-    syncPostMenuMode();
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", syncPostMenuMode);
-      return () => mediaQuery.removeEventListener("change", syncPostMenuMode);
-    }
-
-    mediaQuery.addListener(syncPostMenuMode);
-    return () => mediaQuery.removeListener(syncPostMenuMode);
+    // Keep Profile post options aligned with Dashboard on every screen size.
+    // Mobile uses the same anchored dropdown under the three-dot button instead of a bottom sheet.
+    setProfilePostMenuUsesSheet(false);
   }, []);
 
   useEffect(() => {
@@ -12866,6 +12857,44 @@ return (
       }
 
 
+      /* Profile post options menu match Dashboard v1: anchored under the three-dot button on mobile/tablet too. */
+      @media (max-width: 720px) {
+        .profile-post-menu-wrap {
+          position: relative !important;
+          z-index: 2147483000 !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-feed-card,
+        .profile-polish-surface .profile-feed-post-card,
+        .profile-polish-surface .profile-content-card,
+        .profile-polish-surface .profile-feed-section-card,
+        .profile-polish-surface .profile-center-column,
+        .profile-polish-surface .profile-stream-stack {
+          overflow: visible !important;
+        }
+
+        .profile-mobile-first-polish .profile-post-menu,
+        .profile-polish-surface .profile-post-menu,
+        .profile-post-menu {
+          position: absolute !important;
+          top: 42px !important;
+          bottom: auto !important;
+          right: 0 !important;
+          left: auto !important;
+          width: auto !important;
+          min-width: 196px !important;
+          max-width: min(238px, calc(100vw - 32px)) !important;
+          max-height: none !important;
+          z-index: 2147483000 !important;
+          border-radius: 17px !important;
+          padding: 7px !important;
+          overflow: visible !important;
+          transform-origin: top right !important;
+        }
+      }
+
+
 `}
 </style>
 
@@ -18990,8 +19019,8 @@ const dotsButtonStyle: CSSProperties = {
 
 const postMenuStyle: CSSProperties = {
   position: "absolute",
-  top: "auto",
-  bottom: "44px",
+  top: "44px",
+  bottom: "auto",
   right: 0,
   zIndex: 9999,
   minWidth: "176px",
