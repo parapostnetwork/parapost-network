@@ -2113,7 +2113,7 @@ export default function ProfilePage() {
   const [friendLoading, setFriendLoading] = useState(false);
   const [friendStatusMessage, setFriendStatusMessage] = useState("");
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
-  const [profilePostMenuUsesSheet, setProfilePostMenuUsesSheet] = useState(false);
+  const [profilePostMenuAnchor, setProfilePostMenuAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingPostContent, setEditingPostContent] = useState("");
 
@@ -2211,14 +2211,6 @@ export default function ProfilePage() {
       setProfileMainMenuOpen(false);
     }
   }, [isOwnProfile, profileMainMenuOpen]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Keep Profile post options aligned with Dashboard on every screen size.
-    // Mobile uses the same anchored dropdown under the three-dot button instead of a bottom sheet.
-    setProfilePostMenuUsesSheet(false);
-  }, []);
 
   useEffect(() => {
     if (!viewerId || !profileId || isOwnProfile) {
@@ -2483,11 +2475,6 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
       new Date(a.created_at).getTime()
   );
 }, [posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileLiveStreams]);
-
-const activePostOptionsPost = useMemo(() => {
-  if (!openPostMenuId) return null;
-  return posts.find((post) => post.id === openPostMenuId) || null;
-}, [openPostMenuId, posts]);
 
 const showFriendStatus = useCallback((message: string) => {
   setFriendStatusMessage(message);
@@ -3343,6 +3330,8 @@ useEffect(() => {
       openPostMenuIdRef.current = null;
       setOpenPostMenuId(null);
     }
+
+    setProfilePostMenuAnchor(null);
   };
 
   const closeProfileActionsIfOpen = () => {
@@ -3795,6 +3784,7 @@ useEffect(() => {
     if (!canManageProfilePost(post)) return;
 
     setOpenPostMenuId(null);
+    setProfilePostMenuAnchor(null);
     setEditingPostId(post.id);
     setEditingPostContent(post.content || "");
   };
@@ -3830,12 +3820,14 @@ useEffect(() => {
     setEditingPostId(null);
     setEditingPostContent("");
     setOpenPostMenuId(null);
+    setProfilePostMenuAnchor(null);
   };
 
   const handleDeletePost = async (post: Post) => {
     if (!canManageProfilePost(post)) return;
 
     setOpenPostMenuId(null);
+    setProfilePostMenuAnchor(null);
 
     const confirmed = window.confirm("Delete this post from your profile and the homepage feed?");
     if (!confirmed) return;
@@ -4007,6 +3999,7 @@ useEffect(() => {
       if (!postId) return;
 
       setOpenPostMenuId(null);
+      setProfilePostMenuAnchor(null);
 
       if (openCommentsPostId === postId) {
         setOpenCommentsPostId(null);
@@ -9449,16 +9442,6 @@ return (
         z-index: 80 !important;
       }
 
-      .profile-feed-post-card-menu-open {
-        position: relative !important;
-        overflow: visible !important;
-        z-index: 9000 !important;
-      }
-
-      .profile-feed-post-card-menu-open .profile-post-menu-wrap {
-        z-index: 2147483000 !important;
-      }
-
       .profile-post-menu-trigger {
         width: 36px !important;
         height: 36px !important;
@@ -9479,7 +9462,6 @@ return (
       .profile-post-menu {
         top: 42px !important;
         right: 0 !important;
-        z-index: 2147483000 !important;
         min-width: 196px !important;
         padding: 7px !important;
         border-radius: 17px !important;
@@ -9598,25 +9580,6 @@ return (
           padding: 10px !important;
           border-radius: 16px !important;
         }
-      }
-
-      .profile-post-options-mobile-overlay,
-      .profile-post-options-mobile-overlay * {
-        box-sizing: border-box;
-      }
-
-      .profile-post-options-mobile-overlay {
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      .profile-post-options-mobile-sheet {
-        pointer-events: auto;
-        touch-action: manipulation;
-      }
-
-      .profile-post-options-mobile-item {
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
       }
 
 
@@ -12868,44 +12831,6 @@ return (
       }
 
 
-      /* Profile post options menu match Dashboard v1: anchored under the three-dot button on mobile/tablet too. */
-      @media (max-width: 720px) {
-        .profile-post-menu-wrap {
-          position: relative !important;
-          z-index: 2147483000 !important;
-          overflow: visible !important;
-        }
-
-        .profile-polish-surface .profile-feed-card,
-        .profile-polish-surface .profile-feed-post-card,
-        .profile-polish-surface .profile-content-card,
-        .profile-polish-surface .profile-feed-section-card,
-        .profile-polish-surface .profile-center-column,
-        .profile-polish-surface .profile-stream-stack {
-          overflow: visible !important;
-        }
-
-        .profile-mobile-first-polish .profile-post-menu,
-        .profile-polish-surface .profile-post-menu,
-        .profile-post-menu {
-          position: absolute !important;
-          top: 42px !important;
-          bottom: auto !important;
-          right: 0 !important;
-          left: auto !important;
-          width: auto !important;
-          min-width: 196px !important;
-          max-width: min(238px, calc(100vw - 32px)) !important;
-          max-height: none !important;
-          z-index: 2147483000 !important;
-          border-radius: 17px !important;
-          padding: 7px !important;
-          overflow: visible !important;
-          transform-origin: top right !important;
-        }
-      }
-
-
 `}
 </style>
 
@@ -13209,57 +13134,6 @@ return (
                 </div>
 
                 {renderParapostProfileSearch("profile-mobile-search-field")}
-              </div>
-            </div>
-          ),
-          document.body
-        )
-      : null}
-
-    {isClientMounted && profilePostMenuUsesSheet && activePostOptionsPost
-      ? createPortal(
-          (
-            <div
-              className="profile-post-options-mobile-overlay"
-              style={profilePostOptionsMobileOverlayStyle}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Post options"
-              onClick={() => setOpenPostMenuId(null)}
-            >
-              <div
-                className="profile-post-options-mobile-sheet"
-                style={profilePostOptionsMobileSheetStyle}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div style={profilePostOptionsMobileHandleStyle} aria-hidden="true" />
-                <div style={profilePostOptionsMobileTitleStyle}>Post options</div>
-
-                <button
-                  type="button"
-                  className="profile-post-options-mobile-item"
-                  style={profilePostOptionsMobileItemStyle}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    handleStartEditPost(activePostOptionsPost);
-                  }}
-                >
-                  Edit post
-                </button>
-
-                <button
-                  type="button"
-                  className="profile-post-options-mobile-item profile-post-options-mobile-delete"
-                  style={profilePostOptionsMobileDeleteStyle}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    handleDeletePost(activePostOptionsPost);
-                  }}
-                >
-                  Delete post
-                </button>
               </div>
             </div>
           ),
@@ -16208,13 +16082,8 @@ return (
                           <article
                             key={post.id}
                             id={`profile-post-${post.id}`}
-                            className={`profile-feed-card profile-feed-post-card dashboard-card dashboard-feed-card ${openPostMenuId === post.id ? "profile-feed-post-card-menu-open" : ""}`}
-                            style={{
-                              ...postCardStyle,
-                              position: "relative",
-                              overflow: "visible",
-                              zIndex: openPostMenuId === post.id ? 9000 : 1,
-                            }}
+                            className="profile-feed-card profile-feed-post-card dashboard-card dashboard-feed-card"
+                            style={{ ...postCardStyle, position: "relative" }}
                             onMouseEnter={(event) => {
                               event.currentTarget.style.transform = "translateY(-1px)";
                               event.currentTarget.style.borderColor = "var(--parapost-accent-active-border)";
@@ -16256,7 +16125,30 @@ return (
                                     onClick={(event) => {
                                       event.preventDefault();
                                       event.stopPropagation();
-                                      setOpenPostMenuId((prev) => (prev === post.id ? null : post.id));
+
+                                      const button = event.currentTarget;
+                                      const rect = button.getBoundingClientRect();
+                                      const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 390;
+                                      const menuWidth = Math.min(300, Math.max(224, viewportWidth - 28));
+                                      const edgePadding = 14;
+                                      const left = Math.min(
+                                        viewportWidth - menuWidth - edgePadding,
+                                        Math.max(edgePadding, rect.right - menuWidth)
+                                      );
+
+                                      setOpenPostMenuId((prev) => {
+                                        if (prev === post.id) {
+                                          setProfilePostMenuAnchor(null);
+                                          return null;
+                                        }
+
+                                        setProfilePostMenuAnchor({
+                                          top: rect.bottom + 10,
+                                          left,
+                                          width: menuWidth,
+                                        });
+                                        return post.id;
+                                      });
                                     }}
                                     style={dotsButtonStyle}
                                     aria-label="Open post menu"
@@ -16264,8 +16156,22 @@ return (
                                     ⋯
                                   </button>
 
-                                  {openPostMenuId === post.id && !profilePostMenuUsesSheet ? (
-                                    <div className="profile-post-menu" style={postMenuStyle} onClick={(event) => event.stopPropagation()}>
+                                  {isClientMounted && openPostMenuId === post.id && profilePostMenuAnchor ? createPortal(
+                                    <div
+                                      className="profile-post-menu profile-post-menu-portal"
+                                      style={{
+                                        ...postMenuStyle,
+                                        position: "fixed",
+                                        top: profilePostMenuAnchor.top,
+                                        bottom: "auto",
+                                        left: profilePostMenuAnchor.left,
+                                        right: "auto",
+                                        width: profilePostMenuAnchor.width,
+                                        minWidth: profilePostMenuAnchor.width,
+                                        zIndex: 2147483000,
+                                      }}
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
                                       <button
                                         type="button"
                                         className="profile-post-menu-item"
@@ -16290,7 +16196,8 @@ return (
                                       >
                                         Delete post
                                       </button>
-                                    </div>
+                                    </div>,
+                                    document.body
                                   ) : null}
                                 </div>
                               ) : null}
@@ -19035,10 +18942,10 @@ const dotsButtonStyle: CSSProperties = {
 
 const postMenuStyle: CSSProperties = {
   position: "absolute",
-  top: "44px",
-  bottom: "auto",
+  top: "auto",
+  bottom: "44px",
   right: 0,
-  zIndex: 2147483000,
+  zIndex: 9999,
   minWidth: "176px",
   background: "rgba(8,12,20,0.98)",
   border: "1px solid rgba(255,255,255,0.13)",
@@ -19067,73 +18974,6 @@ const menuItemStyle: CSSProperties = {
   cursor: "pointer",
   fontSize: "14px",
   fontWeight: 800,
-};
-
-const profilePostOptionsMobileOverlayStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 2147483600,
-  pointerEvents: "auto",
-  background: "transparent",
-};
-
-const profilePostOptionsMobileSheetStyle: CSSProperties = {
-  position: "fixed",
-  left: "14px",
-  right: "14px",
-  bottom: "calc(104px + env(safe-area-inset-bottom))",
-  width: "auto",
-  maxWidth: "calc(100vw - 28px)",
-  borderRadius: "24px",
-  padding: "10px",
-  background: "linear-gradient(180deg, rgba(17,19,26,0.985), rgba(8,10,16,0.985))",
-  border: "1px solid rgba(255,255,255,0.16)",
-  boxShadow: "0 28px 72px rgba(0,0,0,0.70), 0 0 0 1px rgba(255,255,255,0.04)",
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
-  display: "grid",
-  gap: "8px",
-};
-
-const profilePostOptionsMobileHandleStyle: CSSProperties = {
-  width: "44px",
-  height: "4px",
-  borderRadius: "999px",
-  background: "rgba(255,255,255,0.20)",
-  margin: "2px auto 4px",
-};
-
-const profilePostOptionsMobileTitleStyle: CSSProperties = {
-  color: "#9ca3af",
-  fontSize: "11px",
-  fontWeight: 950,
-  textTransform: "uppercase",
-  letterSpacing: "0.12em",
-  padding: "4px 8px 6px",
-};
-
-const profilePostOptionsMobileItemStyle: CSSProperties = {
-  width: "100%",
-  minHeight: "54px",
-  borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.055)",
-  color: "#f8fafc",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-start",
-  padding: "0 16px",
-  fontSize: "15px",
-  fontWeight: 950,
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const profilePostOptionsMobileDeleteStyle: CSSProperties = {
-  ...profilePostOptionsMobileItemStyle,
-  background: "rgba(127,29,29,0.30)",
-  borderColor: "rgba(248,113,113,0.24)",
-  color: "#fecaca",
 };
 
 const messageBoxStyle: CSSProperties = {
