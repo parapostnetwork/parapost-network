@@ -5833,8 +5833,9 @@ useEffect(() => {
   const profileCoverDisplayStyle: CSSProperties = profile?.cover_url
     ? {
         ...profileCoverStyle,
-        backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.18) 46%, rgba(5,7,11,0.78) 100%), url(${profile.cover_url})`,
+        background: `linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.18) 46%, rgba(5,7,11,0.78) 100%), url("${profile.cover_url}") ${profileCoverPositionX}% ${profileCoverPositionY}% / cover no-repeat`,
         backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
         backgroundPosition: `${profileCoverPositionX}% ${profileCoverPositionY}%`,
       }
     : profileCoverStyle;
