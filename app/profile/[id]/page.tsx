@@ -9522,6 +9522,27 @@ return (
         border-color: rgba(248,113,113,0.24) !important;
       }
 
+      .profile-post-menu-portal {
+        position: fixed !important;
+        top: var(--profile-post-menu-top) !important;
+        left: var(--profile-post-menu-left) !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: var(--profile-post-menu-width) !important;
+        min-width: var(--profile-post-menu-width) !important;
+        max-width: calc(100vw - 20px) !important;
+        z-index: 2147483000 !important;
+        border-radius: 14px !important;
+        overflow: hidden !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+
+      .profile-post-menu-portal::before {
+        content: none !important;
+        display: none !important;
+      }
+
       .profile-post-editor-shell {
         border: 1px solid var(--parapost-accent-soft) !important;
         border-radius: 18px !important;
@@ -9556,7 +9577,7 @@ return (
           padding-bottom: 9px !important;
         }
 
-        .profile-mobile-first-polish .profile-post-menu {
+        .profile-mobile-first-polish .profile-post-menu:not(.profile-post-menu-portal) {
           position: fixed !important;
           left: 14px !important;
           right: 14px !important;
@@ -16129,8 +16150,16 @@ return (
                                       const button = event.currentTarget;
                                       const rect = button.getBoundingClientRect();
                                       const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 390;
-                                      const menuWidth = Math.min(300, Math.max(224, viewportWidth - 28));
-                                      const edgePadding = 14;
+                                      const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 720;
+                                      const menuWidth = 196;
+                                      const menuHeight = 114;
+                                      const edgePadding = 10;
+                                      const preferredTop = rect.bottom + 8;
+                                      const fallbackTop = rect.top - menuHeight - 8;
+                                      const top =
+                                        preferredTop + menuHeight + edgePadding <= viewportHeight
+                                          ? preferredTop
+                                          : Math.max(edgePadding, fallbackTop);
                                       const left = Math.min(
                                         viewportWidth - menuWidth - edgePadding,
                                         Math.max(edgePadding, rect.right - menuWidth)
@@ -16143,7 +16172,7 @@ return (
                                         }
 
                                         setProfilePostMenuAnchor({
-                                          top: rect.bottom + 10,
+                                          top,
                                           left,
                                           width: menuWidth,
                                         });
@@ -16169,7 +16198,10 @@ return (
                                         width: profilePostMenuAnchor.width,
                                         minWidth: profilePostMenuAnchor.width,
                                         zIndex: 2147483000,
-                                      }}
+                                        ["--profile-post-menu-top" as any]: `${profilePostMenuAnchor.top}px`,
+                                        ["--profile-post-menu-left" as any]: `${profilePostMenuAnchor.left}px`,
+                                        ["--profile-post-menu-width" as any]: `${profilePostMenuAnchor.width}px`,
+                                      } as CSSProperties}
                                       onClick={(event) => event.stopPropagation()}
                                     >
                                       <button
@@ -17123,6 +17155,18 @@ function ProfileStableBottomNav({
           transform: translateY(-18px) !important;
         }
 
+        @media (min-width: 761px) {
+          .profile-stable-bottom-nav {
+            display: none !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .profile-stable-bottom-nav {
+            display: grid !important;
+          }
+        }
+
         @media (max-width: 370px) {
           .profile-stable-bottom-nav {
             width: min(calc(100vw - 16px), 520px) !important;
@@ -17130,6 +17174,26 @@ function ProfileStableBottomNav({
             min-height: 76px !important;
             padding: 7px 7px 9px !important;
           }
+        }
+
+        html body .profile-post-menu.profile-post-menu-portal {
+          position: fixed !important;
+          top: var(--profile-post-menu-top) !important;
+          left: var(--profile-post-menu-left) !important;
+          right: auto !important;
+          bottom: auto !important;
+          width: var(--profile-post-menu-width) !important;
+          min-width: var(--profile-post-menu-width) !important;
+          max-width: calc(100vw - 20px) !important;
+          z-index: 2147483000 !important;
+          transform: none !important;
+          border-radius: 14px !important;
+          overflow: hidden !important;
+        }
+
+        html body .profile-post-menu.profile-post-menu-portal::before {
+          content: none !important;
+          display: none !important;
         }
       `}</style>
     </>
@@ -18942,38 +19006,26 @@ const dotsButtonStyle: CSSProperties = {
 
 const postMenuStyle: CSSProperties = {
   position: "absolute",
-  top: "auto",
-  bottom: "44px",
   right: 0,
-  zIndex: 9999,
-  minWidth: "176px",
-  background: "rgba(8,12,20,0.98)",
-  border: "1px solid rgba(255,255,255,0.13)",
-  borderRadius: "18px",
+  top: 45,
+  minWidth: 170,
+  borderRadius: 14,
   overflow: "hidden",
-  boxShadow: "0 20px 40px rgba(0,0,0,0.42)",
-  backdropFilter: "blur(16px)",
-  WebkitBackdropFilter: "blur(16px)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(8,10,18,0.96)",
+  zIndex: 30,
+  boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
 };
 
 const menuItemStyle: CSSProperties = {
   width: "100%",
-  background: "transparent",
-  color: "#f9fafb",
-  borderTopWidth: 0,
-  borderRightWidth: 0,
-  borderBottomWidth: "1px",
-  borderLeftWidth: 0,
-  borderStyle: "solid",
-  borderTopColor: "transparent",
-  borderRightColor: "transparent",
-  borderBottomColor: "rgba(255,255,255,0.07)",
-  borderLeftColor: "transparent",
-  padding: "12px 14px",
   textAlign: "left",
+  border: 0,
+  background: "transparent",
+  color: "#fff",
+  padding: "12px 14px",
   cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: 800,
+  fontWeight: 850,
 };
 
 const messageBoxStyle: CSSProperties = {
