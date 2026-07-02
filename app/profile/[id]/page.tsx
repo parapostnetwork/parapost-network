@@ -1715,7 +1715,127 @@ function getPostImageUrls(post?: Pick<Post, "image_url" | "images"> | null) {
   return post.image_url ? [post.image_url] : [];
 }
 
-function ProfilePostImageGrid({ imageUrls, alt }: { imageUrls: string[]; alt: string }) {
+
+type ProfilePostImageViewer = {
+  url: string;
+  alt: string;
+};
+
+function ProfilePostImageViewerModal({
+  viewer,
+  onClose,
+}: {
+  viewer: ProfilePostImageViewer | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!viewer || typeof window === "undefined") return;
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [viewer, onClose]);
+
+  if (!viewer || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Post image viewer"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2147483647,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
+        background: "rgba(3,5,10,0.92)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close image viewer"
+        style={{
+          position: "fixed",
+          top: "max(14px, env(safe-area-inset-top))",
+          right: "max(14px, env(safe-area-inset-right))",
+          width: 44,
+          height: 44,
+          borderRadius: 999,
+          border: "1px solid rgba(255,255,255,0.18)",
+          background: "rgba(8,10,16,0.86)",
+          color: "#ffffff",
+          display: "grid",
+          placeItems: "center",
+          fontSize: 28,
+          lineHeight: 1,
+          fontWeight: 700,
+          cursor: "pointer",
+          boxShadow: "0 18px 44px rgba(0,0,0,0.38)",
+        }}
+      >
+        ×
+      </button>
+
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <img
+          src={viewer.url}
+          alt={viewer.alt}
+          style={{
+            maxWidth: "min(100%, 1320px)",
+            maxHeight: "calc(100dvh - 96px)",
+            width: "auto",
+            height: "auto",
+            objectFit: "contain",
+            display: "block",
+            borderRadius: 18,
+            border: "1px solid rgba(255,255,255,0.16)",
+            background: "#05070d",
+            boxShadow: "0 30px 90px rgba(0,0,0,0.62)",
+          }}
+        />
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function ProfilePostImageGrid({
+  imageUrls,
+  alt,
+  onOpenImage,
+}: {
+  imageUrls: string[];
+  alt: string;
+  onOpenImage?: (url: string, alt: string) => void;
+}) {
   const safeUrls = imageUrls.filter(Boolean).slice(0, MAX_POST_IMAGES);
   if (safeUrls.length === 0) return null;
 
@@ -1738,12 +1858,31 @@ function ProfilePostImageGrid({ imageUrls, alt }: { imageUrls: string[]; alt: st
       );
     }
 
+    const imageAlt = single ? alt : `${alt} ${index + 1}`;
+    const imageStyle = single ? postImageStyle : profilePostImageGridImageStyle;
+
     return (
       <img
         src={url}
-        alt={single ? alt : `${alt} ${index + 1}`}
+        alt={imageAlt}
         className={single ? "profile-post-image" : "profile-post-media-item"}
-        style={single ? postImageStyle : profilePostImageGridImageStyle}
+        role={onOpenImage ? "button" : undefined}
+        tabIndex={onOpenImage ? 0 : undefined}
+        onClick={onOpenImage ? () => onOpenImage(url, imageAlt) : undefined}
+        onKeyDown={
+          onOpenImage
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenImage(url, imageAlt);
+                }
+              }
+            : undefined
+        }
+        style={{
+          ...imageStyle,
+          cursor: onOpenImage ? "zoom-in" : imageStyle.cursor,
+        }}
       />
     );
   };
@@ -2162,6 +2301,7 @@ export default function ProfilePage() {
   const [profileSearchOpen, setProfileSearchOpen] = useState(false);
   const [profileMobileSearchOpen, setProfileMobileSearchOpen] = useState(false);
   const [profileSearchMessage, setProfileSearchMessage] = useState("");
+  const [profilePostImageViewer, setProfilePostImageViewer] = useState<ProfilePostImageViewer | null>(null);
 
   useEffect(() => {
     document.documentElement.style.overflowY = "auto";
@@ -2192,6 +2332,16 @@ export default function ProfilePage() {
   const openPostMenuIdRef = useRef<string | null>(null);
   const profileActionsOpenRef = useRef(false);
   const friendRequestInFlight = useRef(false);
+
+  const openProfilePostImageViewer = useCallback((url: string, alt: string) => {
+    if (!url) return;
+    setProfilePostImageViewer({ url, alt: alt || "Post image" });
+  }, []);
+
+  const closeProfilePostImageViewer = useCallback(() => {
+    setProfilePostImageViewer(null);
+  }, []);
+
   const [profileActionMenuPosition, setProfileActionMenuPosition] = useState({
     top: 0,
     left: 0,
@@ -16038,7 +16188,7 @@ return (
                                   </>
                                 ) : null}
 
-                                <ProfilePostImageGrid imageUrls={getPostImageUrls(originalPost)} alt="Shared post image" />
+                                <ProfilePostImageGrid imageUrls={getPostImageUrls(originalPost)} alt="Shared post image" onOpenImage={openProfilePostImageViewer} />
 
                               </div>
 
@@ -16260,7 +16410,7 @@ return (
                               </>
                             ) : null}
 
-                            <ProfilePostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" />
+                            <ProfilePostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" onOpenImage={openProfilePostImageViewer} />
 
                             {commentCount > 0 || shareCount > 0 ? (
                               <div style={profilePostStatsSummaryStyle}>
@@ -17032,6 +17182,8 @@ return (
           </div>
         </div>
       ) : null}
+
+      <ProfilePostImageViewerModal viewer={profilePostImageViewer} onClose={closeProfilePostImageViewer} />
 
       {!showcaseComposerOpen ? (
         <ProfileStableBottomNav

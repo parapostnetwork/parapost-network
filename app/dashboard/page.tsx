@@ -784,7 +784,127 @@ function getPostImageUrls(post?: Pick<Post, "image_url" | "images"> | null) {
   return post.image_url ? [post.image_url] : [];
 }
 
-function PostImageGrid({ imageUrls, alt }: { imageUrls: string[]; alt: string }) {
+
+type DashboardPostImageViewer = {
+  url: string;
+  alt: string;
+};
+
+function DashboardPostImageViewerModal({
+  viewer,
+  onClose,
+}: {
+  viewer: DashboardPostImageViewer | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!viewer || typeof window === "undefined") return;
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [viewer, onClose]);
+
+  if (!viewer || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Post image viewer"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2147483647,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
+        background: "rgba(3,5,10,0.92)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close image viewer"
+        style={{
+          position: "fixed",
+          top: "max(14px, env(safe-area-inset-top))",
+          right: "max(14px, env(safe-area-inset-right))",
+          width: 44,
+          height: 44,
+          borderRadius: 999,
+          border: "1px solid rgba(255,255,255,0.18)",
+          background: "rgba(8,10,16,0.86)",
+          color: "#ffffff",
+          display: "grid",
+          placeItems: "center",
+          fontSize: 28,
+          lineHeight: 1,
+          fontWeight: 700,
+          cursor: "pointer",
+          boxShadow: "0 18px 44px rgba(0,0,0,0.38)",
+        }}
+      >
+        ×
+      </button>
+
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <img
+          src={viewer.url}
+          alt={viewer.alt}
+          style={{
+            maxWidth: "min(100%, 1320px)",
+            maxHeight: "calc(100dvh - 96px)",
+            width: "auto",
+            height: "auto",
+            objectFit: "contain",
+            display: "block",
+            borderRadius: 18,
+            border: "1px solid rgba(255,255,255,0.16)",
+            background: "#05070d",
+            boxShadow: "0 30px 90px rgba(0,0,0,0.62)",
+          }}
+        />
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function PostImageGrid({
+  imageUrls,
+  alt,
+  onOpenImage,
+}: {
+  imageUrls: string[];
+  alt: string;
+  onOpenImage?: (url: string, alt: string) => void;
+}) {
   const safeUrls = imageUrls.filter(Boolean).slice(0, MAX_POST_IMAGES);
   if (safeUrls.length === 0) return null;
 
@@ -807,7 +927,33 @@ function PostImageGrid({ imageUrls, alt }: { imageUrls: string[]; alt: string })
       );
     }
 
-    return <img src={url} alt={`${alt} ${index + 1}`} loading="lazy" className="dashboard-post-media-item" style={postImageGridImageStyle} />;
+    const imageAlt = `${alt} ${index + 1}`;
+
+    return (
+      <img
+        src={url}
+        alt={imageAlt}
+        loading="lazy"
+        className="dashboard-post-media-item"
+        role={onOpenImage ? "button" : undefined}
+        tabIndex={onOpenImage ? 0 : undefined}
+        onClick={onOpenImage ? () => onOpenImage(url, imageAlt) : undefined}
+        onKeyDown={
+          onOpenImage
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenImage(url, imageAlt);
+                }
+              }
+            : undefined
+        }
+        style={{
+          ...postImageGridImageStyle,
+          cursor: onOpenImage ? "zoom-in" : postImageGridImageStyle.cursor,
+        }}
+      />
+    );
   };
 
   if (safeUrls.length === 1) {
@@ -826,7 +972,29 @@ function PostImageGrid({ imageUrls, alt }: { imageUrls: string[]; alt: string })
         aria-label={`${alt} video`}
       />
     ) : (
-      <img src={safeUrls[0]} alt={alt} loading="lazy" className="dashboard-post-single-media" style={postImageStyle} />
+      <img
+        src={safeUrls[0]}
+        alt={alt}
+        loading="lazy"
+        className="dashboard-post-single-media"
+        role={onOpenImage ? "button" : undefined}
+        tabIndex={onOpenImage ? 0 : undefined}
+        onClick={onOpenImage ? () => onOpenImage(safeUrls[0], alt) : undefined}
+        onKeyDown={
+          onOpenImage
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenImage(safeUrls[0], alt);
+                }
+              }
+            : undefined
+        }
+        style={{
+          ...postImageStyle,
+          cursor: onOpenImage ? "zoom-in" : postImageStyle.cursor,
+        }}
+      />
     );
   }
 
@@ -1616,6 +1784,7 @@ export default function DashboardPage() {
   const [feelingActivityOpen, setFeelingActivityOpen] = useState(false);
   const [selectedFeelingActivity, setSelectedFeelingActivity] = useState<FeelingActivityOption | null>(null);
   const [visibleFeedLimit, setVisibleFeedLimit] = useState(FEED_INITIAL_BATCH_SIZE);
+  const [dashboardPostImageViewer, setDashboardPostImageViewer] = useState<DashboardPostImageViewer | null>(null);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1636,6 +1805,15 @@ export default function DashboardPage() {
 
   const currentName = currentProfile?.full_name || currentProfile?.username || "there";
   const firstName = currentName.split(" ")[0] || "there";
+
+  const openDashboardPostImageViewer = useCallback((url: string, alt: string) => {
+    if (!url) return;
+    setDashboardPostImageViewer({ url, alt: alt || "Post image" });
+  }, []);
+
+  const closeDashboardPostImageViewer = useCallback(() => {
+    setDashboardPostImageViewer(null);
+  }, []);
 
   const mixedFeedItems = useMemo<MixedFeedItem[]>(() => {
     const visiblePostsForViewer = posts.filter((post) => !blockedUserIds.includes(post.user_id));
@@ -4206,6 +4384,7 @@ export default function DashboardPage() {
                             }}
                             onDelete={() => handleDeletePost(item.post.id)}
                             onReport={() => handleReportPost(item.post.id, item.post.user_id)}
+                            onOpenImage={openDashboardPostImageViewer}
                           />
                         ) : item.type === "shared_post" ? (
                           <SharedPostCard
@@ -4251,6 +4430,7 @@ export default function DashboardPage() {
                             onDeleteOriginal={() => handleDeletePost(item.sharedPost.original_post.id)}
                             onRemoveShare={() => handleDeleteSharedPostShare(item.sharedPost.id, item.sharedPost.post_id)}
                             onReportOriginal={() => handleReportPost(item.sharedPost.original_post.id, item.sharedPost.original_post.user_id)}
+                            onOpenImage={openDashboardPostImageViewer}
                           />
                         ) : (
                           <SharedReelCard
@@ -4436,6 +4616,8 @@ export default function DashboardPage() {
       />
 
       <MobileBottomNav currentUserId={currentUserId} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
+
+      <DashboardPostImageViewerModal viewer={dashboardPostImageViewer} onClose={closeDashboardPostImageViewer} />
 
       {feelingActivityOpen ? (
         <FeelingActivityModal
@@ -10686,6 +10868,7 @@ function PostCard({
   onCancelEdit,
   onDelete,
   onReport,
+  onOpenImage,
 }: {
   post: Post;
   profile?: ProfilePreview | null;
@@ -10726,6 +10909,7 @@ function PostCard({
   onCancelEdit: () => void;
   onDelete: () => void;
   onReport: () => void;
+  onOpenImage?: (url: string, alt: string) => void;
 }) {
   const isPostOwner = currentUserId === post.user_id;
   const isEditing = editingPostId === post.id;
@@ -10801,7 +10985,7 @@ function PostCard({
         </>
       ) : null}
 
-      <PostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" />
+      <PostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" onOpenImage={onOpenImage} />
 
       {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
         <div style={postStatsSummaryStyle}>
@@ -11284,6 +11468,7 @@ function SharedPostCard({
   onDeleteOriginal,
   onRemoveShare,
   onReportOriginal,
+  onOpenImage,
 }: {
   sharedPost: SharedPostItem;
   sharerProfile?: ProfilePreview | null;
@@ -11324,6 +11509,7 @@ function SharedPostCard({
   onDeleteOriginal: () => void;
   onRemoveShare: () => void;
   onReportOriginal: () => void;
+  onOpenImage?: (url: string, alt: string) => void;
 }) {
   const originalPost = sharedPost.original_post;
   const sharerName = sharerProfile?.full_name || sharerProfile?.username || "Parapost user";
@@ -11454,7 +11640,7 @@ function SharedPostCard({
           </>
         ) : null}
 
-        <PostImageGrid imageUrls={getPostImageUrls(originalPost)} alt="Shared post image" />
+        <PostImageGrid imageUrls={getPostImageUrls(originalPost)} alt="Shared post image" onOpenImage={onOpenImage} />
 
       </div>
 
