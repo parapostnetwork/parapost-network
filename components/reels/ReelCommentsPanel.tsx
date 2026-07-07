@@ -61,6 +61,13 @@ type ReelCommentsPanelProps = {
   onCopyCommentText: (commentId: string) => void;
   onReportComment: (commentId: string) => void;
   onDeleteLocalComment: (commentId: string) => void;
+  editingCommentId?: string | null;
+  editingCommentText?: string;
+  savingCommentId?: string | null;
+  setEditingCommentText?: React.Dispatch<React.SetStateAction<string>>;
+  onStartEditComment?: (comment: ReelComment) => void;
+  onSaveEditComment?: (comment: ReelComment) => void;
+  onCancelEditComment?: () => void;
 };
 
 const primaryButtonStyle: CSSProperties = {
@@ -100,6 +107,19 @@ const textAreaStyle: CSSProperties = {
   resize: "vertical",
   fontFamily: "inherit",
   lineHeight: 1.45,
+};
+
+const commentEditWrapStyle: CSSProperties = {
+  marginTop: "10px",
+  display: "grid",
+  gap: "9px",
+};
+
+const commentEditActionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "8px",
+  flexWrap: "wrap",
 };
 
 const menuItemStyle: CSSProperties = {
@@ -167,6 +187,13 @@ export default function ReelCommentsPanel({
   onCopyCommentText,
   onReportComment,
   onDeleteLocalComment,
+  editingCommentId = null,
+  editingCommentText = "",
+  savingCommentId = null,
+  setEditingCommentText,
+  onStartEditComment,
+  onSaveEditComment,
+  onCancelEditComment,
 }: ReelCommentsPanelProps) {
   if (!isOpen) return null;
 
@@ -179,6 +206,11 @@ export default function ReelCommentsPanel({
   const canDeleteSelectedMenuComment = Boolean(
     selectedMenuComment &&
       (selectedMenuComment.authorUserId === currentUserId || canModerateComments)
+  );
+  const canEditSelectedMenuComment = Boolean(
+    selectedMenuComment &&
+      selectedMenuComment.authorUserId === currentUserId &&
+      !!onStartEditComment
   );
 
   const handleCloseCommentMenu = () => setCommentMenu(null);
@@ -268,6 +300,14 @@ export default function ReelCommentsPanel({
               );
               const canDeleteComment =
                 comment.authorUserId === currentUserId || canModerateComments;
+              const canEditComment =
+                comment.authorUserId === currentUserId &&
+                !!onStartEditComment &&
+                !!onSaveEditComment &&
+                !!onCancelEditComment &&
+                !!setEditingCommentText;
+              const isEditingComment = editingCommentId === comment.id;
+              const isSavingComment = savingCommentId === comment.id;
 
               return (
                 <div
@@ -294,21 +334,76 @@ export default function ReelCommentsPanel({
                     {!isMobile ? <div style={commentTimeDesktopStyle}>{comment.time}</div> : null}
                   </div>
 
-                  <div style={commentTextStyle}>{comment.text}</div>
+                  {isEditingComment && canEditComment ? (
+                    <div style={commentEditWrapStyle}>
+                      <textarea
+                        value={editingCommentText}
+                        onChange={(event) => setEditingCommentText?.(event.target.value)}
+                        rows={3}
+                        autoFocus
+                        style={{
+                          ...textAreaStyle,
+                          minHeight: "72px",
+                          maxHeight: "140px",
+                          fontSize: isMobile ? "16px" : "14px",
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            onCancelEditComment?.();
+                          }
+
+                          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                            event.preventDefault();
+                            onSaveEditComment?.(comment);
+                          }
+                        }}
+                      />
+
+                      <div style={commentEditActionsStyle}>
+                        <button
+                          type="button"
+                          onClick={() => onCancelEditComment?.()}
+                          disabled={isSavingComment}
+                          style={secondaryButtonStyle}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSaveEditComment?.(comment)}
+                          disabled={!editingCommentText.trim() || isSavingComment}
+                          style={{
+                            ...primaryButtonStyle,
+                            opacity: editingCommentText.trim() && !isSavingComment ? 1 : 0.45,
+                            cursor: editingCommentText.trim() && !isSavingComment ? "pointer" : "not-allowed",
+                          }}
+                        >
+                          {isSavingComment ? "Saving..." : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={commentTextStyle}>{comment.text}</div>
+                  )}
 
                   {commentLikeBurstId === comment.id ? <HeartBurst size={34} /> : null}
 
-                  <CommentActions
-                    commentId={comment.id}
-                    liked={commentLiked}
-                    likeCount={commentLikeCount}
-                    canDelete={canDeleteComment}
-                    canModerate={canModerateComments}
-                    onLike={onCommentLikeToggle}
-                    onReply={() => onStartCommentReply(comment)}
-                    onDelete={onDeleteLocalComment}
-                    onHide={onHideComment}
-                  />
+                  {!isEditingComment ? (
+                    <CommentActions
+                      commentId={comment.id}
+                      liked={commentLiked}
+                      likeCount={commentLikeCount}
+                      canDelete={canDeleteComment}
+                      canModerate={canModerateComments}
+                      canEdit={canEditComment}
+                      onLike={onCommentLikeToggle}
+                      onReply={() => onStartCommentReply(comment)}
+                      onEdit={() => onStartEditComment?.(comment)}
+                      onDelete={onDeleteLocalComment}
+                      onHide={onHideComment}
+                    />
+                  ) : null}
 
                   {replyingToCommentId === comment.id ? (
                     <div style={replyComposerWrapStyle}>
@@ -367,6 +462,14 @@ export default function ReelCommentsPanel({
                         const replyLikeCount = commentLikeMap[reply.id] || 0;
                         const canDeleteReply =
                           reply.authorUserId === currentUserId || canModerateComments;
+                        const canEditReply =
+                          reply.authorUserId === currentUserId &&
+                          !!onStartEditComment &&
+                          !!onSaveEditComment &&
+                          !!onCancelEditComment &&
+                          !!setEditingCommentText;
+                        const isEditingReply = editingCommentId === reply.id;
+                        const isSavingReply = savingCommentId === reply.id;
 
                         return (
                           <div
@@ -402,23 +505,80 @@ export default function ReelCommentsPanel({
                               replying to {reply.replyToAuthor}
                             </div>
 
-                            <div style={{ ...commentTextStyle, fontSize: 13 }}>
-                              {reply.text.replace(/^@\S+\s*/, "")}
-                            </div>
+                            {isEditingReply && canEditReply ? (
+                              <div style={commentEditWrapStyle}>
+                                <textarea
+                                  value={editingCommentText}
+                                  onChange={(event) => setEditingCommentText?.(event.target.value)}
+                                  rows={2}
+                                  autoFocus
+                                  style={{
+                                    ...textAreaStyle,
+                                    minHeight: "64px",
+                                    maxHeight: "120px",
+                                    fontSize: isMobile ? "16px" : "13px",
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Escape") {
+                                      event.preventDefault();
+                                      onCancelEditComment?.();
+                                    }
+
+                                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                                      event.preventDefault();
+                                      onSaveEditComment?.(reply);
+                                    }
+                                  }}
+                                />
+
+                                <div style={commentEditActionsStyle}>
+                                  <button
+                                    type="button"
+                                    onClick={() => onCancelEditComment?.()}
+                                    disabled={isSavingReply}
+                                    style={secondaryButtonStyle}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onSaveEditComment?.(reply)}
+                                    disabled={!editingCommentText.trim() || isSavingReply}
+                                    style={{
+                                      ...primaryButtonStyle,
+                                      padding: "9px 13px",
+                                      fontSize: "13px",
+                                      opacity: editingCommentText.trim() && !isSavingReply ? 1 : 0.45,
+                                      cursor: editingCommentText.trim() && !isSavingReply ? "pointer" : "not-allowed",
+                                    }}
+                                  >
+                                    {isSavingReply ? "Saving..." : "Save"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ ...commentTextStyle, fontSize: 13 }}>
+                                {reply.text.replace(/^@\S+\s*/, "")}
+                              </div>
+                            )}
 
                             {commentLikeBurstId === reply.id ? <HeartBurst size={28} /> : null}
 
-                            <CommentActions
-                              commentId={reply.id}
-                              liked={replyLiked}
-                              likeCount={replyLikeCount}
-                              canDelete={canDeleteReply}
-                              canModerate={canModerateComments}
-                              onLike={onCommentLikeToggle}
-                              onReply={() => onStartCommentReply(comment)}
-                              onDelete={onDeleteLocalComment}
-                              onHide={onHideComment}
-                            />
+                            {!isEditingReply ? (
+                              <CommentActions
+                                commentId={reply.id}
+                                liked={replyLiked}
+                                likeCount={replyLikeCount}
+                                canDelete={canDeleteReply}
+                                canModerate={canModerateComments}
+                                canEdit={canEditReply}
+                                onLike={onCommentLikeToggle}
+                                onReply={() => onStartCommentReply(comment)}
+                                onEdit={() => onStartEditComment?.(reply)}
+                                onDelete={onDeleteLocalComment}
+                                onHide={onHideComment}
+                              />
+                            ) : null}
                           </div>
                         );
                       })}
@@ -495,6 +655,20 @@ export default function ReelCommentsPanel({
               Reply
             </button>
 
+            {canEditSelectedMenuComment ? (
+              <button
+                style={menuItemStyle}
+                onClick={() => {
+                  if (selectedMenuComment) {
+                    onStartEditComment?.(selectedMenuComment);
+                  }
+                  setCommentMenu(null);
+                }}
+              >
+                Edit Comment
+              </button>
+            ) : null}
+
             {canModerateComments && selectedMenuComment?.authorUserId !== currentUserId ? (
               <button style={menuItemStyle} onClick={() => onHideComment(commentMenu.commentId)}>
                 Hide Comment
@@ -559,8 +733,10 @@ function CommentActions({
   likeCount,
   canDelete,
   canModerate,
+  canEdit,
   onLike,
   onReply,
+  onEdit,
   onDelete,
   onHide,
 }: {
@@ -569,8 +745,10 @@ function CommentActions({
   likeCount: number;
   canDelete: boolean;
   canModerate: boolean;
+  canEdit: boolean;
   onLike: (commentId: string, forceLike?: boolean) => void;
   onReply: () => void;
+  onEdit: () => void;
   onDelete: (commentId: string) => void;
   onHide: (commentId: string) => void;
 }) {
@@ -600,6 +778,12 @@ function CommentActions({
       <button type="button" onClick={onReply} style={textButtonStyle}>
         Reply
       </button>
+
+      {canEdit ? (
+        <button type="button" onClick={onEdit} style={textButtonStyle}>
+          Edit
+        </button>
+      ) : null}
 
       {canDelete ? (
         <button

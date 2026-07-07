@@ -478,6 +478,9 @@ export default function ReelsPage() {
   const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   const [commentMenu, setCommentMenu] = useState<CommentMenuState>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
+  const [savingCommentId, setSavingCommentId] = useState<string | null>(null);
   const [commentLikeBurstId, setCommentLikeBurstId] = useState<string | null>(null);
   const [shareCaption, setShareCaption] = useState("");
   const [shareMessage, setShareMessage] = useState("");
@@ -1110,6 +1113,9 @@ export default function ReelsPage() {
 
     setCommentsOpen(false);
     setCommentMenu(null);
+    setEditingCommentId(null);
+    setEditingCommentText("");
+    setSavingCommentId(null);
     setReplyingToCommentId(null);
     setReplyDraft("");
 
@@ -1389,6 +1395,72 @@ export default function ReelsPage() {
     }
   };
 
+  const handleStartEditComment = (comment: ReelComment) => {
+    if (!currentUserId || comment.authorUserId !== currentUserId) {
+      alert("You can only edit your own comments.");
+      return;
+    }
+
+    setCommentMenu(null);
+    setReplyingToCommentId(null);
+    setReplyDraft("");
+    setEditingCommentId(comment.id);
+    setEditingCommentText(comment.text);
+  };
+
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentText("");
+    setSavingCommentId(null);
+  };
+
+  const handleSaveEditComment = async (comment: ReelComment) => {
+    const trimmed = editingCommentText.trim();
+
+    if (!currentUserId || comment.authorUserId !== currentUserId) {
+      alert("You can only edit your own comments.");
+      return;
+    }
+
+    if (!trimmed) {
+      alert("Comment cannot be empty.");
+      return;
+    }
+
+    if (trimmed === comment.text.trim()) {
+      handleCancelEditComment();
+      return;
+    }
+
+    setSavingCommentId(comment.id);
+
+    const previousComments = comments;
+    setComments((prev) =>
+      prev.map((item) =>
+        item.id === comment.id ? { ...item, text: trimmed, time: "Just now" } : item
+      )
+    );
+
+    const { error } = await supabase
+      .from("reel_comments")
+      .update({ content: trimmed })
+      .eq("id", comment.id)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      setComments(previousComments);
+      setSavingCommentId(null);
+      alert(error.message || "Could not edit comment.");
+      await fetchReels();
+      return;
+    }
+
+    setEditingCommentId(null);
+    setEditingCommentText("");
+    setSavingCommentId(null);
+    setCommentMenu(null);
+  };
+
   const handleCommentLikeToggle = async (commentId: string, forceLike = false) => {
     if (!currentUserId) {
       alert("You must be logged in to like comments.");
@@ -1581,6 +1653,10 @@ export default function ReelsPage() {
 
     const confirmDelete = window.confirm("Delete this comment?");
     if (!confirmDelete) return;
+
+    if (editingCommentId === commentId) {
+      handleCancelEditComment();
+    }
 
     const deletedCommentIds = comments
       .filter((item) => item.id === commentId || item.parentCommentId === commentId)
@@ -2847,6 +2923,13 @@ export default function ReelsPage() {
                       onCopyCommentText={handleCopyCommentText}
                       onReportComment={handleReportComment}
                       onDeleteLocalComment={handleDeleteLocalComment}
+                      editingCommentId={editingCommentId}
+                      editingCommentText={editingCommentText}
+                      savingCommentId={savingCommentId}
+                      setEditingCommentText={setEditingCommentText}
+                      onStartEditComment={handleStartEditComment}
+                      onSaveEditComment={handleSaveEditComment}
+                      onCancelEditComment={handleCancelEditComment}
                     />
                   )}
                 </ReelCard>
