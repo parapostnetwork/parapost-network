@@ -681,10 +681,7 @@ export default function ReelUploadModal({
         video_url: publicVideoUrl,
         poster_url: publicPosterUrl,
         duration_seconds: Math.round(confirmedDuration),
-        likes: 0,
-        comments: 0,
-        favorites: 0,
-        shares: 0,
+        likes_count: 0,
         created_at: createdAt,
       };
 
