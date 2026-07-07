@@ -94,7 +94,11 @@ type MenuState = {
   y: number;
 } | null;
 
-type PlayPauseFeedback = { reelId: string; mode: "play" | "pause"; nonce: number } | null;
+type PlayPauseFeedback = {
+  reelId: string;
+  mode: "play" | "pause";
+  nonce: number;
+} | null;
 
 const initialComments: ReelComment[] = [];
 const REEL_CAPTION_MAX_LENGTH = 4000;
@@ -330,13 +334,15 @@ function formatCompactCount(value: number | string) {
 }
 
 function isValidUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }
 
 function isReelOwner(
   reel: Pick<ReelItem, "user_id" | "creator_profile_id"> | null | undefined,
   userId: string,
-  fallbackProfileId = ""
+  fallbackProfileId = "",
 ) {
   if (!reel || !userId) return false;
   return (
@@ -418,7 +424,11 @@ export default function ProfileReelsViewerPage() {
 
   const profileId = useMemo(() => {
     const raw = params?.id;
-    return typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] || "" : "";
+    return typeof raw === "string"
+      ? raw
+      : Array.isArray(raw)
+        ? raw[0] || ""
+        : "";
   }, [params]);
 
   const [resolvedProfileId, setResolvedProfileId] = useState("");
@@ -429,32 +439,45 @@ export default function ProfileReelsViewerPage() {
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [favoritedMap, setFavoritedMap] = useState<Record<string, boolean>>({});
-  const [shareBoostMap, setShareBoostMap] = useState<Record<string, number>>({});
+  const [shareBoostMap, setShareBoostMap] = useState<Record<string, number>>(
+    {},
+  );
   const [comments, setComments] = useState<ReelComment[]>(initialComments);
-  const [commentLikeMap, setCommentLikeMap] = useState<Record<string, number>>({});
-  const [commentLikedMap, setCommentLikedMap] = useState<Record<string, boolean>>({});
+  const [commentLikeMap, setCommentLikeMap] = useState<Record<string, number>>(
+    {},
+  );
+  const [commentLikedMap, setCommentLikedMap] = useState<
+    Record<string, boolean>
+  >({});
   const [commentDraft, setCommentDraft] = useState("");
   const [shareCaption, setShareCaption] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [activeReelId, setActiveReelId] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
-  const [lockedCommentReelId, setLockedCommentReelId] = useState<string | null>(null);
+  const [lockedCommentReelId, setLockedCommentReelId] = useState<string | null>(
+    null,
+  );
   const [shareOpen, setShareOpen] = useState(false);
   const [muteAll, setMuteAll] = useState(true);
   const [detailsReelId, setDetailsReelId] = useState("");
   const [progressMap, setProgressMap] = useState<Record<string, number>>({});
-  const [videoFitMap, setVideoFitMap] = useState<Record<string, "cover" | "contain">>({});
+  const [videoFitMap, setVideoFitMap] = useState<
+    Record<string, "cover" | "contain">
+  >({});
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
   const [reelMenu, setReelMenu] = useState<MenuState>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editingReelId, setEditingReelId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editCaption, setEditCaption] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentDraft, setEditingCommentDraft] = useState("");
   const [viewportWidth, setViewportWidth] = useState(1440);
   const [viewportHeight, setViewportHeight] = useState(900);
   const [holdPausedId, setHoldPausedId] = useState<string | null>(null);
   const [heartBurstId, setHeartBurstId] = useState<string | null>(null);
-  const [playPauseFeedback, setPlayPauseFeedback] = useState<PlayPauseFeedback>(null);
+  const [playPauseFeedback, setPlayPauseFeedback] =
+    useState<PlayPauseFeedback>(null);
   const [isFetchingReels, setIsFetchingReels] = useState(true);
   const [canViewProfileContent, setCanViewProfileContent] = useState(true);
   const [pageErrorMessage, setPageErrorMessage] = useState("");
@@ -518,7 +541,9 @@ export default function ProfileReelsViewerPage() {
       setLikedMap({});
       setFollowingMap({});
       setCanViewProfileContent(false);
-      setPageErrorMessage(profileResult.error.message || "Unable to load profile.");
+      setPageErrorMessage(
+        profileResult.error.message || "Unable to load profile.",
+      );
       setIsFetchingReels(false);
       return;
     }
@@ -535,7 +560,8 @@ export default function ProfileReelsViewerPage() {
         .maybeSingle();
 
       if (!fallbackReelError && fallbackReel) {
-        const fallbackProfileId = fallbackReel.creator_profile_id || fallbackReel.user_id || "";
+        const fallbackProfileId =
+          fallbackReel.creator_profile_id || fallbackReel.user_id || "";
 
         if (fallbackProfileId && isValidUuid(fallbackProfileId)) {
           nextProfileId = fallbackProfileId;
@@ -545,12 +571,15 @@ export default function ProfileReelsViewerPage() {
 
           const fallbackProfileResult = await supabase
             .from("profiles")
-            .select("id, username, full_name, display_name, avatar_url, is_private")
+            .select(
+              "id, username, full_name, display_name, avatar_url, is_private",
+            )
             .eq("id", fallbackProfileId)
             .maybeSingle();
 
           if (!fallbackProfileResult.error) {
-            profileData = (fallbackProfileResult.data as ProfileRow | null) || null;
+            profileData =
+              (fallbackProfileResult.data as ProfileRow | null) || null;
           }
         }
       }
@@ -584,12 +613,15 @@ export default function ProfileReelsViewerPage() {
         .select("id")
         .eq("status", "accepted")
         .or(
-          `and(sender_id.eq.${nextUserId},receiver_id.eq.${nextProfileId}),and(sender_id.eq.${nextProfileId},receiver_id.eq.${nextUserId})`
+          `and(sender_id.eq.${nextUserId},receiver_id.eq.${nextProfileId}),and(sender_id.eq.${nextProfileId},receiver_id.eq.${nextUserId})`,
         )
         .limit(1);
 
       if (friendshipError) {
-        console.warn("Private profile friendship check failed:", friendshipError.message);
+        console.warn(
+          "Private profile friendship check failed:",
+          friendshipError.message,
+        );
       } else {
         viewerIsFriend = Boolean(friendshipRows && friendshipRows.length > 0);
       }
@@ -616,7 +648,9 @@ export default function ProfileReelsViewerPage() {
       supabase
         .from("reels")
         .select("*")
-        .or(`user_id.eq.${nextProfileId},creator_profile_id.eq.${nextProfileId}`)
+        .or(
+          `user_id.eq.${nextProfileId},creator_profile_id.eq.${nextProfileId}`,
+        )
         .order("created_at", { ascending: false }),
       nextUserId && nextProfileId && nextUserId !== nextProfileId
         ? supabase
@@ -645,7 +679,11 @@ export default function ProfileReelsViewerPage() {
 
     const rows = (reelsResult.data || []) as ReelDbRow[];
     const creatorProfileIds = Array.from(
-      new Set(rows.map((row) => row.creator_profile_id || row.user_id).filter(Boolean))
+      new Set(
+        rows
+          .map((row) => row.creator_profile_id || row.user_id)
+          .filter(Boolean),
+      ),
     ) as string[];
 
     let profiles: ProfileRow[] = [];
@@ -656,7 +694,10 @@ export default function ProfileReelsViewerPage() {
         .in("id", creatorProfileIds);
 
       if (profilesError) {
-        console.error("Error loading reel creator profiles:", profilesError.message);
+        console.error(
+          "Error loading reel creator profiles:",
+          profilesError.message,
+        );
       } else {
         profiles = (profileRows || []) as ProfileRow[];
       }
@@ -670,18 +711,22 @@ export default function ProfileReelsViewerPage() {
     const reelIds = mapped.map((reel) => reel.id);
 
     if (reelIds.length > 0) {
-      const [{ data: likeRows, error: likesError }, { data: commentRows, error: commentsError }] =
-        await Promise.all([
-          supabase
-            .from("reel_likes")
-            .select("id, reel_id, user_id, created_at")
-            .in("reel_id", reelIds),
-          supabase
-            .from("reel_comments")
-            .select("id, reel_id, user_id, content, parent_comment_id, reply_to_author, created_at")
-            .in("reel_id", reelIds)
-            .order("created_at", { ascending: false }),
-        ]);
+      const [
+        { data: likeRows, error: likesError },
+        { data: commentRows, error: commentsError },
+      ] = await Promise.all([
+        supabase
+          .from("reel_likes")
+          .select("id, reel_id, user_id, created_at")
+          .in("reel_id", reelIds),
+        supabase
+          .from("reel_comments")
+          .select(
+            "id, reel_id, user_id, content, parent_comment_id, reply_to_author, created_at",
+          )
+          .in("reel_id", reelIds)
+          .order("created_at", { ascending: false }),
+      ]);
 
       if (!likesError && likeRows) {
         const likedByCurrentUser: Record<string, boolean> = {};
@@ -713,20 +758,24 @@ export default function ProfileReelsViewerPage() {
           new Set(
             (commentRows as ReelCommentDbRow[])
               .map((row) => row.user_id)
-              .filter(Boolean)
-          )
+              .filter(Boolean),
+          ),
         ) as string[];
 
         let commentProfiles: ProfileRow[] = [];
 
         if (commentUserIds.length > 0) {
-          const { data: commentProfileRows, error: commentProfilesError } = await supabase
-            .from("profiles")
-            .select("id, username, full_name, display_name, avatar_url")
-            .in("id", commentUserIds);
+          const { data: commentProfileRows, error: commentProfilesError } =
+            await supabase
+              .from("profiles")
+              .select("id, username, full_name, display_name, avatar_url")
+              .in("id", commentUserIds);
 
           if (commentProfilesError) {
-            console.warn("Error loading profile reel comment profiles:", commentProfilesError.message);
+            console.warn(
+              "Error loading profile reel comment profiles:",
+              commentProfilesError.message,
+            );
           } else {
             commentProfiles = (commentProfileRows || []) as ProfileRow[];
           }
@@ -737,24 +786,29 @@ export default function ProfileReelsViewerPage() {
         profileMap.set(loadedProfile.id, loadedProfile);
         commentProfiles.forEach((item) => profileMap.set(item.id, item));
 
-        const mappedComments = (commentRows as ReelCommentDbRow[]).map((row) => {
-          const commentProfile = row.user_id ? profileMap.get(row.user_id) : undefined;
-          return {
-            id: row.id,
-            reelId: row.reel_id || "",
-            authorUserId: row.user_id || "",
-            author: formatHandle(commentProfile?.username),
-            text: row.content?.trim() || "",
-            time: formatRelativeTime(row.created_at),
-            parentCommentId: row.parent_comment_id || null,
-            replyToAuthor: row.reply_to_author || null,
-          } satisfies ReelComment;
-        });
+        const mappedComments = (commentRows as ReelCommentDbRow[]).map(
+          (row) => {
+            const commentProfile = row.user_id
+              ? profileMap.get(row.user_id)
+              : undefined;
+            return {
+              id: row.id,
+              reelId: row.reel_id || "",
+              authorUserId: row.user_id || "",
+              author: formatHandle(commentProfile?.username),
+              text: row.content?.trim() || "",
+              time: formatRelativeTime(row.created_at),
+              parentCommentId: row.parent_comment_id || null,
+              replyToAuthor: row.reply_to_author || null,
+            } satisfies ReelComment;
+          },
+        );
 
         const commentCountMap: Record<string, number> = {};
         mappedComments.forEach((comment) => {
           if (!comment.reelId) return;
-          commentCountMap[comment.reelId] = (commentCountMap[comment.reelId] || 0) + 1;
+          commentCountMap[comment.reelId] =
+            (commentCountMap[comment.reelId] || 0) + 1;
         });
 
         mapped = mapped.map((reel) => ({
@@ -764,13 +818,16 @@ export default function ProfileReelsViewerPage() {
 
         setComments(mappedComments);
 
-        const commentIds = mappedComments.map((comment) => comment.id).filter(Boolean);
+        const commentIds = mappedComments
+          .map((comment) => comment.id)
+          .filter(Boolean);
 
         if (commentIds.length > 0) {
-          const { data: commentLikeRows, error: commentLikesError } = await supabase
-            .from("reel_comment_likes")
-            .select("id, comment_id, user_id, created_at")
-            .in("comment_id", commentIds);
+          const { data: commentLikeRows, error: commentLikesError } =
+            await supabase
+              .from("reel_comment_likes")
+              .select("id, comment_id, user_id, created_at")
+              .in("comment_id", commentIds);
 
           if (!commentLikesError && commentLikeRows) {
             const nextCommentLikeMap: Record<string, number> = {};
@@ -778,7 +835,8 @@ export default function ProfileReelsViewerPage() {
 
             (commentLikeRows as ReelCommentLikeDbRow[]).forEach((row) => {
               if (!row.comment_id) return;
-              nextCommentLikeMap[row.comment_id] = (nextCommentLikeMap[row.comment_id] || 0) + 1;
+              nextCommentLikeMap[row.comment_id] =
+                (nextCommentLikeMap[row.comment_id] || 0) + 1;
 
               if (nextUserId && row.user_id === nextUserId) {
                 nextCommentLikedMap[row.comment_id] = true;
@@ -792,7 +850,10 @@ export default function ProfileReelsViewerPage() {
             setCommentLikedMap({});
 
             if (commentLikesError) {
-              console.warn("Error loading profile reel comment likes:", commentLikesError.message);
+              console.warn(
+                "Error loading profile reel comment likes:",
+                commentLikesError.message,
+              );
             }
           }
         } else {
@@ -847,22 +908,45 @@ export default function ProfileReelsViewerPage() {
   }, [profileId]);
 
   useEffect(() => {
-    if (!effectiveProfileId || !isValidUuid(effectiveProfileId) || !canViewProfileContent) return;
+    if (
+      !effectiveProfileId ||
+      !isValidUuid(effectiveProfileId) ||
+      !canViewProfileContent
+    )
+      return;
 
     const channel = supabase
-      .channel(`profile-reels-live-${effectiveProfileId}-${currentUserId || "guest"}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, async () => {
-        await fetchReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_likes" }, async () => {
-        await fetchReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comments" }, async () => {
-        await fetchReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comment_likes" }, async () => {
-        await fetchReels();
-      })
+      .channel(
+        `profile-reels-live-${effectiveProfileId}-${currentUserId || "guest"}`,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reels" },
+        async () => {
+          await fetchReels();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reel_likes" },
+        async () => {
+          await fetchReels();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reel_comments" },
+        async () => {
+          await fetchReels();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reel_comment_likes" },
+        async () => {
+          await fetchReels();
+        },
+      )
       .subscribe();
 
     return () => {
@@ -913,7 +997,12 @@ export default function ProfileReelsViewerPage() {
 
       video.muted = muteAll;
 
-      if (reel.id === activeReelId && holdPausedId !== reel.id && !commentsOpen && !detailsOpen) {
+      if (
+        reel.id === activeReelId &&
+        holdPausedId !== reel.id &&
+        !commentsOpen &&
+        !detailsOpen
+      ) {
         const playPromise = video.play();
         if (playPromise && typeof playPromise.catch === "function") {
           playPromise.catch(() => {});
@@ -1005,12 +1094,19 @@ export default function ProfileReelsViewerPage() {
       captionSize: 14,
       topHeaderPad: 12,
     };
-  }, [isNotebookWidth, isShortViewport, isTabletWide, isTinyPhone, viewportHeight, viewportType, viewportWidth]);
+  }, [
+    isNotebookWidth,
+    isShortViewport,
+    isTabletWide,
+    isTinyPhone,
+    viewportHeight,
+    viewportType,
+    viewportWidth,
+  ]);
 
   const activeReel = useMemo(() => {
     return reels.find((reel) => reel.id === activeReelId) || reels[0];
   }, [reels, activeReelId]);
-
 
   const commentReelId = lockedCommentReelId || activeReelId;
 
@@ -1020,14 +1116,15 @@ export default function ProfileReelsViewerPage() {
 
   const activeComments = useMemo(() => {
     return comments.filter(
-      (comment) => comment.reelId === commentReelId && !comment.parentCommentId
+      (comment) => comment.reelId === commentReelId && !comment.parentCommentId,
     );
   }, [comments, commentReelId]);
 
   const getVisibleRepliesForComment = (commentId: string) => {
     return comments.filter(
       (comment) =>
-        comment.reelId === commentReelId && comment.parentCommentId === commentId
+        comment.reelId === commentReelId &&
+        comment.parentCommentId === commentId,
     );
   };
 
@@ -1049,13 +1146,15 @@ export default function ProfileReelsViewerPage() {
     setCommentsOpen(false);
     setLockedCommentReelId("");
     setCommentDraft("");
+    setEditingCommentId(null);
+    setEditingCommentDraft("");
 
     window.setTimeout(() => {
       const container = scrollContainerRef.current;
 
       if (container && resumeReelId) {
         const target = container.querySelector<HTMLElement>(
-          `[data-reel-id="${resumeReelId}"]`
+          `[data-reel-id="${resumeReelId}"]`,
         );
 
         if (target) {
@@ -1104,13 +1203,18 @@ export default function ProfileReelsViewerPage() {
     }, 80);
   };
 
-  const scrollToReel = (reelId: string, behavior: ScrollBehavior = "smooth") => {
+  const scrollToReel = (
+    reelId: string,
+    behavior: ScrollBehavior = "smooth",
+  ) => {
     if (commentsOpen || detailsOpen) return;
 
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const target = container.querySelector<HTMLElement>(`[data-reel-id="${reelId}"]`);
+    const target = container.querySelector<HTMLElement>(
+      `[data-reel-id="${reelId}"]`,
+    );
     if (!target) return;
 
     target.scrollIntoView({ behavior, block: "start" });
@@ -1123,7 +1227,8 @@ export default function ProfileReelsViewerPage() {
     const currentIndex = reels.findIndex((reel) => reel.id === activeReelId);
     if (currentIndex === -1) return;
 
-    const nextIndex = direction === "prev" ? currentIndex - 1 : currentIndex + 1;
+    const nextIndex =
+      direction === "prev" ? currentIndex - 1 : currentIndex + 1;
     if (nextIndex < 0 || nextIndex >= reels.length) return;
 
     scrollToReel(reels[nextIndex].id);
@@ -1139,7 +1244,9 @@ export default function ProfileReelsViewerPage() {
     let closestId = activeReelId;
     let closestDistance = Number.POSITIVE_INFINITY;
 
-    const sections = Array.from(container.querySelectorAll<HTMLElement>("[data-reel-id]"));
+    const sections = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-reel-id]"),
+    );
 
     sections.forEach((section) => {
       const rect = section.getBoundingClientRect();
@@ -1231,22 +1338,30 @@ export default function ProfileReelsViewerPage() {
       prev.map((item) =>
         item.id === reelId
           ? { ...item, likes: Math.max(item.likes + (nextLiked ? 1 : -1), 0) }
-          : item
-      )
+          : item,
+      ),
     );
 
     if (nextLiked) {
       triggerHeartBurst(reelId);
 
-      const { error: likeInsertError } = await supabase.from("reel_likes").insert([
-        {
-          reel_id: reelId,
-          user_id: currentUserId,
-        },
-      ]);
+      const { error: likeInsertError } = await supabase
+        .from("reel_likes")
+        .insert([
+          {
+            reel_id: reelId,
+            user_id: currentUserId,
+          },
+        ]);
 
-      if (likeInsertError && !likeInsertError.message.toLowerCase().includes("duplicate")) {
-        console.error("Profile reel like insert error:", likeInsertError.message);
+      if (
+        likeInsertError &&
+        !likeInsertError.message.toLowerCase().includes("duplicate")
+      ) {
+        console.error(
+          "Profile reel like insert error:",
+          likeInsertError.message,
+        );
         alert(likeInsertError.message || "Could not like reel.");
         await fetchReels();
         return;
@@ -1266,7 +1381,10 @@ export default function ProfileReelsViewerPage() {
         .eq("user_id", currentUserId);
 
       if (likeDeleteError) {
-        console.error("Profile reel like delete error:", likeDeleteError.message);
+        console.error(
+          "Profile reel like delete error:",
+          likeDeleteError.message,
+        );
         alert(likeDeleteError.message || "Could not remove reel like.");
         await fetchReels();
       }
@@ -1281,7 +1399,12 @@ export default function ProfileReelsViewerPage() {
   };
 
   const handleFollowToggle = async () => {
-    if (!currentUserId || !effectiveProfileId || currentUserId === effectiveProfileId) return;
+    if (
+      !currentUserId ||
+      !effectiveProfileId ||
+      currentUserId === effectiveProfileId
+    )
+      return;
 
     const isFollowing = !!followingMap[effectiveProfileId];
     if (isFollowing) {
@@ -1302,7 +1425,9 @@ export default function ProfileReelsViewerPage() {
 
     const { error } = await supabase
       .from("followers")
-      .insert([{ follower_id: currentUserId, following_id: effectiveProfileId }]);
+      .insert([
+        { follower_id: currentUserId, following_id: effectiveProfileId },
+      ]);
 
     if (error) {
       alert(`Follow error: ${error.message}`);
@@ -1383,8 +1508,10 @@ export default function ProfileReelsViewerPage() {
     setComments((prev) => [nextComment, ...prev]);
     setReels((prev) =>
       prev.map((reel) =>
-        reel.id === targetReel.id ? { ...reel, comments: reel.comments + 1 } : reel
-      )
+        reel.id === targetReel.id
+          ? { ...reel, comments: reel.comments + 1 }
+          : reel,
+      ),
     );
     setCommentDraft("");
 
@@ -1403,7 +1530,10 @@ export default function ProfileReelsViewerPage() {
       .single();
 
     if (commentInsertError) {
-      console.error("Profile reel comment insert error:", commentInsertError.message);
+      console.error(
+        "Profile reel comment insert error:",
+        commentInsertError.message,
+      );
       alert(commentInsertError.message || "Could not save reel comment.");
       await fetchReels();
       return;
@@ -1412,8 +1542,10 @@ export default function ProfileReelsViewerPage() {
     if (insertedComment?.id) {
       setComments((prev) =>
         prev.map((comment) =>
-          comment.id === optimisticCommentId ? { ...comment, id: insertedComment.id } : comment
-        )
+          comment.id === optimisticCommentId
+            ? { ...comment, id: insertedComment.id }
+            : comment,
+        ),
       );
     }
 
@@ -1424,10 +1556,14 @@ export default function ProfileReelsViewerPage() {
       message: "commented on your reel.",
     });
 
-    closeComments();
+    setLockedCommentReelId(targetReel.id);
+    setCommentsOpen(true);
   };
 
-  const handleCommentLikeToggle = async (commentId: string, forceLike = false) => {
+  const handleCommentLikeToggle = async (
+    commentId: string,
+    forceLike = false,
+  ) => {
     if (!currentUserId) {
       alert("You must be logged in to like comments.");
       return;
@@ -1471,6 +1607,68 @@ export default function ProfileReelsViewerPage() {
     }
   };
 
+  const handleStartEditComment = (comment: ReelComment) => {
+    if (!currentUserId || comment.authorUserId !== currentUserId) {
+      alert("You can only edit your own comments.");
+      return;
+    }
+
+    setEditingCommentId(comment.id);
+    setEditingCommentDraft(comment.text);
+  };
+
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentDraft("");
+  };
+
+  const handleSaveEditedComment = async (commentId: string) => {
+    if (!currentUserId) {
+      alert("You must be logged in to edit comments.");
+      return;
+    }
+
+    const trimmed = editingCommentDraft.trim();
+    if (!trimmed) {
+      alert("Comment cannot be empty.");
+      return;
+    }
+
+    const comment = comments.find((item) => item.id === commentId);
+    if (!comment || comment.authorUserId !== currentUserId) {
+      alert("You can only edit your own comments.");
+      return;
+    }
+
+    const previousText = comment.text;
+
+    setComments((prev) =>
+      prev.map((item) =>
+        item.id === commentId
+          ? { ...item, text: trimmed, time: "Just now" }
+          : item,
+      ),
+    );
+    setEditingCommentId(null);
+    setEditingCommentDraft("");
+
+    const { error } = await supabase
+      .from("reel_comments")
+      .update({ content: trimmed })
+      .eq("id", commentId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      setComments((prev) =>
+        prev.map((item) =>
+          item.id === commentId ? { ...item, text: previousText } : item,
+        ),
+      );
+      alert(error.message || "Could not edit comment.");
+      await fetchReels();
+    }
+  };
+
   const handleDeleteComment = async (commentId: string) => {
     if (!currentUserId) {
       alert("You must be logged in to delete comments.");
@@ -1485,9 +1683,9 @@ export default function ProfileReelsViewerPage() {
       comment.authorUserId === currentUserId ||
       Boolean(
         reel &&
-          currentUserId &&
-          (reel.user_id === currentUserId ||
-            reel.creator_profile_id === currentUserId)
+        currentUserId &&
+        (reel.user_id === currentUserId ||
+          reel.creator_profile_id === currentUserId),
       );
 
     if (!canDeleteComment) {
@@ -1499,10 +1697,15 @@ export default function ProfileReelsViewerPage() {
     if (!confirmDelete) return;
 
     const deletedCommentIds = comments
-      .filter((item) => item.id === commentId || item.parentCommentId === commentId)
+      .filter(
+        (item) => item.id === commentId || item.parentCommentId === commentId,
+      )
       .map((item) => item.id);
 
-    const { error } = await supabase.from("reel_comments").delete().eq("id", commentId);
+    const { error } = await supabase
+      .from("reel_comments")
+      .delete()
+      .eq("id", commentId);
 
     if (error) {
       alert(error.message || "Could not delete comment.");
@@ -1511,7 +1714,9 @@ export default function ProfileReelsViewerPage() {
     }
 
     setComments((prev) =>
-      prev.filter((item) => item.id !== commentId && item.parentCommentId !== commentId)
+      prev.filter(
+        (item) => item.id !== commentId && item.parentCommentId !== commentId,
+      ),
     );
 
     setCommentLikeMap((prev) => {
@@ -1529,10 +1734,17 @@ export default function ProfileReelsViewerPage() {
     setReels((prev) =>
       prev.map((item) =>
         item.id === comment.reelId
-          ? { ...item, comments: Math.max(item.comments - deletedCommentIds.length, 0) }
-          : item
-      )
+          ? {
+              ...item,
+              comments: Math.max(item.comments - deletedCommentIds.length, 0),
+            }
+          : item,
+      ),
     );
+
+    if (deletedCommentIds.includes(editingCommentId || "")) {
+      handleCancelEditComment();
+    }
   };
 
   const handleReportComment = async (commentId: string) => {
@@ -1552,7 +1764,7 @@ export default function ProfileReelsViewerPage() {
 
     const reason = window.prompt(
       "Report this Reel comment to Parapost moderation. Please add a short reason:",
-      ""
+      "",
     );
 
     const trimmedReason = (reason || "").trim();
@@ -1607,7 +1819,7 @@ export default function ProfileReelsViewerPage() {
 
     const reason = window.prompt(
       "Report this Reel to Parapost moderation. Please add a short reason:",
-      ""
+      "",
     );
 
     const trimmedReason = (reason || "").trim();
@@ -1639,7 +1851,11 @@ export default function ProfileReelsViewerPage() {
     alert("Thanks. This Reel has been sent to Parapost moderation.");
   };
 
-  const openOwnerReelMenuAtPoint = (clientX: number, clientY: number, reel: ReelItem) => {
+  const openOwnerReelMenuAtPoint = (
+    clientX: number,
+    clientY: number,
+    reel: ReelItem,
+  ) => {
     if (!currentUserId) {
       setReelMenu(null);
       return;
@@ -1650,11 +1866,19 @@ export default function ProfileReelsViewerPage() {
     const isMobileMenu = window.innerWidth <= 767;
 
     const x = isMobileMenu
-      ? clamp(window.innerWidth / 2 - menuWidth / 2, 12, window.innerWidth - menuWidth - 12)
+      ? clamp(
+          window.innerWidth / 2 - menuWidth / 2,
+          12,
+          window.innerWidth - menuWidth - 12,
+        )
       : clamp(clientX - menuWidth + 42, 12, window.innerWidth - menuWidth - 12);
 
     const y = isMobileMenu
-      ? clamp(window.innerHeight - menuHeight - 88, 70, window.innerHeight - menuHeight - 12)
+      ? clamp(
+          window.innerHeight - menuHeight - 88,
+          70,
+          window.innerHeight - menuHeight - 12,
+        )
       : clamp(clientY + 10, 12, window.innerHeight - menuHeight - 12);
 
     setReelMenu({
@@ -1666,7 +1890,7 @@ export default function ProfileReelsViewerPage() {
 
   const handleOpenReelMenu = (
     event: ReactMouseEvent<HTMLButtonElement>,
-    reel: ReelItem
+    reel: ReelItem,
   ) => {
     event.preventDefault();
     event.stopPropagation();
@@ -1682,7 +1906,7 @@ export default function ProfileReelsViewerPage() {
 
   const handleOpenReelMenuPointer = (
     event: ReactPointerEvent<HTMLButtonElement>,
-    reel: ReelItem
+    reel: ReelItem,
   ) => {
     if (viewportType !== "mobile") {
       event.stopPropagation();
@@ -1694,7 +1918,7 @@ export default function ProfileReelsViewerPage() {
     openOwnerReelMenuAtPoint(
       event.clientX || window.innerWidth - 44,
       event.clientY || 44,
-      reel
+      reel,
     );
   };
 
@@ -1739,8 +1963,8 @@ export default function ProfileReelsViewerPage() {
               title: nextTitle || reel.title,
               caption: nextCaption,
             }
-          : reel
-      )
+          : reel,
+      ),
     );
 
     setEditOpen(false);
@@ -1807,41 +2031,49 @@ export default function ProfileReelsViewerPage() {
   };
 
   return (
-  <div
-    style={{
-      ...pageStyle,
-      minHeight: "100dvh",
-      overflow: "hidden",
-    }}
-  >
     <div
       style={{
-        ...topBarStyle,
-        padding:
-          viewportType === "mobile"
-            ? "10px 10px 0"
-            : viewportType === "tablet"
-              ? "14px 16px 0"
-              : topBarStyle.padding,
+        ...pageStyle,
+        minHeight: "100dvh",
+        overflow: "hidden",
       }}
     >
       <div
         style={{
-          ...topBarInnerStyle,
-          gap: viewportType === "mobile" ? "8px" : "12px",
-          alignItems: viewportType === "mobile" ? "flex-start" : topBarInnerStyle.alignItems,
+          ...topBarStyle,
+          padding:
+            viewportType === "mobile"
+              ? "10px 10px 0"
+              : viewportType === "tablet"
+                ? "14px 16px 0"
+                : topBarStyle.padding,
         }}
       >
-        <div style={{ paddingTop: `${stageMetrics.topHeaderPad}px` }}>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: viewportType === "mobile" ? (isTinyPhone ? "18px" : "20px") : "26px",
-              lineHeight: 1.05,
-              textShadow: "0 2px 12px rgba(0,0,0,0.45)",
-            }}
-          >
-            {creatorName} Reels
+        <div
+          style={{
+            ...topBarInnerStyle,
+            gap: viewportType === "mobile" ? "8px" : "12px",
+            alignItems:
+              viewportType === "mobile"
+                ? "flex-start"
+                : topBarInnerStyle.alignItems,
+          }}
+        >
+          <div style={{ paddingTop: `${stageMetrics.topHeaderPad}px` }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize:
+                  viewportType === "mobile"
+                    ? isTinyPhone
+                      ? "18px"
+                      : "20px"
+                    : "26px",
+                lineHeight: 1.05,
+                textShadow: "0 2px 12px rgba(0,0,0,0.45)",
+              }}
+            >
+              {creatorName} Reels
             </h1>
           </div>
 
@@ -1850,19 +2082,29 @@ export default function ProfileReelsViewerPage() {
               display: "flex",
               gap: viewportType === "mobile" ? "7px" : "10px",
               flexWrap: "wrap",
-              justifyContent: viewportType === "mobile" ? "flex-end" : "flex-start",
+              justifyContent:
+                viewportType === "mobile" ? "flex-end" : "flex-start",
               paddingTop: `${stageMetrics.topHeaderPad}px`,
             }}
           >
-            <button onClick={() => setMuteAll((prev) => !prev)} style={responsiveTopButtonStyle}>
+            <button
+              onClick={() => setMuteAll((prev) => !prev)}
+              style={responsiveTopButtonStyle}
+            >
               {muteAll ? "Unmute" : "Mute"}
             </button>
 
-            <Link href={`/profile/${effectiveProfileId}/reels`} style={responsiveTopLinkStyle}>
+            <Link
+              href={`/profile/${effectiveProfileId}/reels`}
+              style={responsiveTopLinkStyle}
+            >
               {viewportType === "mobile" ? "Grid" : "Back to Grid"}
             </Link>
 
-            <Link href={`/profile/${effectiveProfileId}`} style={responsiveTopLinkStyle}>
+            <Link
+              href={`/profile/${effectiveProfileId}`}
+              style={responsiveTopLinkStyle}
+            >
               {viewportType === "mobile" ? "Profile" : "Back to Profile"}
             </Link>
           </div>
@@ -1935,7 +2177,13 @@ export default function ProfileReelsViewerPage() {
           }}
         >
           <div>
-            <div style={{ fontSize: "28px", fontWeight: 900, marginBottom: "10px" }}>
+            <div
+              style={{
+                fontSize: "28px",
+                fontWeight: 900,
+                marginBottom: "10px",
+              }}
+            >
               Loading reels...
             </div>
             <div style={{ color: "#9ca3af", fontSize: "15px" }}>
@@ -1962,7 +2210,13 @@ export default function ProfileReelsViewerPage() {
               padding: "28px",
             }}
           >
-            <div style={{ fontSize: "32px", fontWeight: 900, marginBottom: "10px" }}>
+            <div
+              style={{
+                fontSize: "32px",
+                fontWeight: 900,
+                marginBottom: "10px",
+              }}
+            >
               Profile unavailable
             </div>
             <div
@@ -2015,7 +2269,13 @@ export default function ProfileReelsViewerPage() {
             >
               🔒
             </div>
-            <div style={{ fontSize: "32px", fontWeight: 900, marginBottom: "10px" }}>
+            <div
+              style={{
+                fontSize: "32px",
+                fontWeight: 900,
+                marginBottom: "10px",
+              }}
+            >
               This user&apos;s profile is private.
             </div>
             <div
@@ -2026,10 +2286,21 @@ export default function ProfileReelsViewerPage() {
                 marginBottom: "18px",
               }}
             >
-              You can still view this profile&apos;s basic information, but direct Reels are hidden unless you are connected.
+              You can still view this profile&apos;s basic information, but
+              direct Reels are hidden unless you are connected.
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
-              <Link href={`/profile/${effectiveProfileId}`} style={primaryButtonStyle}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                flexWrap: "wrap",
+              }}
+            >
+              <Link
+                href={`/profile/${effectiveProfileId}`}
+                style={primaryButtonStyle}
+              >
                 View Profile
               </Link>
               <Link href="/dashboard" style={navLinkStyle}>
@@ -2057,7 +2328,13 @@ export default function ProfileReelsViewerPage() {
               padding: "28px",
             }}
           >
-            <div style={{ fontSize: "32px", fontWeight: 900, marginBottom: "10px" }}>
+            <div
+              style={{
+                fontSize: "32px",
+                fontWeight: 900,
+                marginBottom: "10px",
+              }}
+            >
               No reels yet
             </div>
             <div
@@ -2070,38 +2347,48 @@ export default function ProfileReelsViewerPage() {
             >
               This profile does not have any reels to show yet.
             </div>
-            <Link href={`/profile/${effectiveProfileId}`} style={primaryButtonStyle}>
+            <Link
+              href={`/profile/${effectiveProfileId}`}
+              style={primaryButtonStyle}
+            >
               Back to Profile
             </Link>
           </div>
         </div>
       ) : (
         <div
-         ref={scrollContainerRef}
-         style={{
-           ...scrollContainerStyle,
-           overflowY: commentsOpen || detailsOpen ? "hidden" : "auto",
-           scrollBehavior: commentsOpen || detailsOpen ? "auto" : "smooth",
-           overscrollBehavior: "contain",
-           background: "#07090d",
-           scrollSnapType: "y mandatory",
-         }}
-         onScroll={commentsOpen || detailsOpen ? undefined : updateActiveFromScroll} 
+          ref={scrollContainerRef}
+          style={{
+            ...scrollContainerStyle,
+            overflowY: commentsOpen || detailsOpen ? "hidden" : "auto",
+            scrollBehavior: commentsOpen || detailsOpen ? "auto" : "smooth",
+            overscrollBehavior: "contain",
+            background: "#07090d",
+            scrollSnapType: "y mandatory",
+          }}
+          onScroll={
+            commentsOpen || detailsOpen ? undefined : updateActiveFromScroll
+          }
         >
           {reels.map((reel) => {
             const isLiked = !!likedMap[reel.id];
             const isFavorited = !!favoritedMap[reel.id];
-            const isOwner = isReelOwner(reel, currentUserId, effectiveProfileId);
+            const isOwner = isReelOwner(
+              reel,
+              currentUserId,
+              effectiveProfileId,
+            );
             const isFollowingCreator = !!followingMap[effectiveProfileId];
             const displayedLikes = reel.likes;
             const displayedFavorites = reel.favorites + (isFavorited ? 1 : 0);
             const displayedComments = comments.filter(
-              (comment) => comment.reelId === reel.id
+              (comment) => comment.reelId === reel.id,
             ).length;
             const displayedShares = reel.shares + (shareBoostMap[reel.id] || 0);
             const progress = progressMap[reel.id] || 0;
             const hasLongCaption = reel.caption.length > 140;
-            const isActiveCommentsReel = commentsOpen && commentReelId === reel.id;
+            const isActiveCommentsReel =
+              commentsOpen && commentReelId === reel.id;
             const isActiveDetailsReel = detailsReelId === reel.id;
             const isDimmedReel = isActiveCommentsReel || isActiveDetailsReel;
 
@@ -2160,7 +2447,8 @@ export default function ProfileReelsViewerPage() {
                     style={{
                       position: "absolute",
                       inset: 0,
-                      cursor: commentsOpen || detailsOpen ? "default" : "pointer",
+                      cursor:
+                        commentsOpen || detailsOpen ? "default" : "pointer",
                     }}
                   >
                     <video
@@ -2174,7 +2462,8 @@ export default function ProfileReelsViewerPage() {
                       preload="metadata"
                       onLoadedMetadata={(event) => {
                         const video = event.currentTarget;
-                        const isLandscape = video.videoWidth > video.videoHeight;
+                        const isLandscape =
+                          video.videoWidth > video.videoHeight;
                         setVideoFitMap((prev) => ({
                           ...prev,
                           [reel.id]: isLandscape ? "contain" : "cover",
@@ -2194,7 +2483,10 @@ export default function ProfileReelsViewerPage() {
                       onEnded={(event) => {
                         event.currentTarget.currentTime = 0;
                         const playPromise = event.currentTarget.play();
-                        if (playPromise && typeof playPromise.catch === "function") {
+                        if (
+                          playPromise &&
+                          typeof playPromise.catch === "function"
+                        ) {
                           playPromise.catch(() => {});
                         }
                       }}
@@ -2261,12 +2553,20 @@ export default function ProfileReelsViewerPage() {
                           zIndex: 9,
                           boxShadow: "0 14px 34px rgba(0,0,0,0.30)",
                           backdropFilter: "blur(9px)",
-                          animation: "parapostPlayPausePop 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards",
+                          animation:
+                            "parapostPlayPausePop 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards",
                           willChange: "transform, opacity",
                         }}
                       >
                         {playPauseFeedback.mode === "play" ? (
-                          <span style={{ display: "block", transform: "translateX(2px)" }}>▶</span>
+                          <span
+                            style={{
+                              display: "block",
+                              transform: "translateX(2px)",
+                            }}
+                          >
+                            ▶
+                          </span>
                         ) : (
                           <span
                             style={{
@@ -2278,8 +2578,10 @@ export default function ProfileReelsViewerPage() {
                           >
                             <span
                               style={{
-                                width: viewportType === "mobile" ? "5px" : "6px",
-                                height: viewportType === "mobile" ? "22px" : "26px",
+                                width:
+                                  viewportType === "mobile" ? "5px" : "6px",
+                                height:
+                                  viewportType === "mobile" ? "22px" : "26px",
                                 borderRadius: "999px",
                                 background: "currentColor",
                                 display: "block",
@@ -2287,8 +2589,10 @@ export default function ProfileReelsViewerPage() {
                             />
                             <span
                               style={{
-                                width: viewportType === "mobile" ? "5px" : "6px",
-                                height: viewportType === "mobile" ? "22px" : "26px",
+                                width:
+                                  viewportType === "mobile" ? "5px" : "6px",
+                                height:
+                                  viewportType === "mobile" ? "22px" : "26px",
                                 borderRadius: "999px",
                                 background: "currentColor",
                                 display: "block",
@@ -2316,7 +2620,9 @@ export default function ProfileReelsViewerPage() {
                       <button
                         type="button"
                         onClick={(event) => handleOpenReelMenu(event, reel)}
-                        onPointerDown={(event) => handleOpenReelMenuPointer(event, reel)}
+                        onPointerDown={(event) =>
+                          handleOpenReelMenuPointer(event, reel)
+                        }
                         onTouchStart={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -2334,7 +2640,9 @@ export default function ProfileReelsViewerPage() {
                           WebkitTapHighlightColor: "transparent",
                           boxShadow: "0 10px 24px rgba(0,0,0,0.24)",
                         }}
-                        aria-label={isOwner ? "Open Reel owner menu" : "Open Reel options"}
+                        aria-label={
+                          isOwner ? "Open Reel owner menu" : "Open Reel options"
+                        }
                       >
                         ⋯
                       </button>
@@ -2374,7 +2682,9 @@ export default function ProfileReelsViewerPage() {
                       {
                         symbol: isFavorited ? "★" : "☆",
                         label: formatCompactCount(displayedFavorites),
-                        ariaLabel: isFavorited ? "Remove favorite" : "Favorite reel",
+                        ariaLabel: isFavorited
+                          ? "Remove favorite"
+                          : "Favorite reel",
                         action: () => handleFavoriteToggle(reel.id),
                       },
                       {
@@ -2415,7 +2725,8 @@ export default function ProfileReelsViewerPage() {
                             alignItems: "center",
                             justifyContent: "center",
                             cursor: "pointer",
-                            fontSize: viewportType === "mobile" ? "18px" : "19px",
+                            fontSize:
+                              viewportType === "mobile" ? "18px" : "19px",
                             backdropFilter: "blur(12px)",
                             boxShadow: "0 8px 18px rgba(0,0,0,0.38)",
                           }}
@@ -2439,7 +2750,6 @@ export default function ProfileReelsViewerPage() {
                       </div>
                     ))}
 
-
                     {currentUserId && viewportType === "mobile" ? (
                       <div
                         style={{
@@ -2460,7 +2770,11 @@ export default function ProfileReelsViewerPage() {
                             event.preventDefault();
                             event.stopPropagation();
                             setActiveReelId(reel.id);
-                            openOwnerReelMenuAtPoint(window.innerWidth - 64, window.innerHeight - 180, reel);
+                            openOwnerReelMenuAtPoint(
+                              window.innerWidth - 64,
+                              window.innerHeight - 180,
+                              reel,
+                            );
                           }}
                           style={{
                             width: "48px",
@@ -2479,7 +2793,9 @@ export default function ProfileReelsViewerPage() {
                             boxShadow: "0 8px 18px rgba(0,0,0,0.38)",
                             WebkitTapHighlightColor: "transparent",
                           }}
-                          aria-label={isOwner ? "Manage your Reel" : "Report this Reel"}
+                          aria-label={
+                            isOwner ? "Manage your Reel" : "Report this Reel"
+                          }
                         >
                           {isOwner ? "⚙" : "⋯"}
                         </button>
@@ -2543,7 +2859,11 @@ export default function ProfileReelsViewerPage() {
                           <img
                             src={reel.creatorAvatarUrl}
                             alt={reel.creatorName}
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
                           />
                         ) : (
                           reel.creatorName.charAt(0)
@@ -2575,7 +2895,11 @@ export default function ProfileReelsViewerPage() {
                       {!isOwner && (
                         <button
                           onClick={handleFollowToggle}
-                          style={isFollowingCreator ? buttonStyle : primaryButtonStyle}
+                          style={
+                            isFollowingCreator
+                              ? buttonStyle
+                              : primaryButtonStyle
+                          }
                         >
                           {isFollowingCreator ? "Following" : "Follow"}
                         </button>
@@ -2658,38 +2982,68 @@ export default function ProfileReelsViewerPage() {
         </div>
       )}
 
-      {reelMenu && (() => {
-        const menuReel = reels.find((item) => item.id === reelMenu.reelId);
+      {reelMenu &&
+        (() => {
+          const menuReel = reels.find((item) => item.id === reelMenu.reelId);
 
-        if (!menuReel || !currentUserId) {
-          return null;
-        }
+          if (!menuReel || !currentUserId) {
+            return null;
+          }
 
-        const menuReelIsOwner = isReelOwner(menuReel, currentUserId, effectiveProfileId);
+          const menuReelIsOwner = isReelOwner(
+            menuReel,
+            currentUserId,
+            effectiveProfileId,
+          );
 
-        const menuBody = menuReelIsOwner ? (
-          <>
-            <button
-              type="button"
-              style={{
-                ...menuItemStyle,
-                minHeight: viewportType === "mobile" ? 56 : undefined,
-                fontWeight: 850,
-              }}
-              onPointerDown={(event) => {
-                event.stopPropagation();
-              }}
-              onTouchStart={(event) => {
-                event.stopPropagation();
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleStartEditReel(menuReel);
-              }}
-            >
-              Edit Reel
-            </button>
+          const menuBody = menuReelIsOwner ? (
+            <>
+              <button
+                type="button"
+                style={{
+                  ...menuItemStyle,
+                  minHeight: viewportType === "mobile" ? 56 : undefined,
+                  fontWeight: 850,
+                }}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                }}
+                onTouchStart={(event) => {
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleStartEditReel(menuReel);
+                }}
+              >
+                Edit Reel
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...menuItemStyle,
+                  color: "#fecaca",
+                  borderBottom: "none",
+                  minHeight: viewportType === "mobile" ? 56 : undefined,
+                  fontWeight: 850,
+                }}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                }}
+                onTouchStart={(event) => {
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void handleDeleteReel(menuReel.id);
+                }}
+              >
+                Delete Reel
+              </button>
+            </>
+          ) : (
             <button
               type="button"
               style={{
@@ -2708,143 +3062,123 @@ export default function ProfileReelsViewerPage() {
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                void handleDeleteReel(menuReel.id);
+                void handleReportReel(menuReel);
               }}
             >
-              Delete Reel
+              Report Reel
             </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            style={{
-              ...menuItemStyle,
-              color: "#fecaca",
-              borderBottom: "none",
-              minHeight: viewportType === "mobile" ? 56 : undefined,
-              fontWeight: 850,
-            }}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-            }}
-            onTouchStart={(event) => {
-              event.stopPropagation();
-            }}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              void handleReportReel(menuReel);
-            }}
-          >
-            Report Reel
-          </button>
-        );
+          );
 
-        if (viewportType === "mobile") {
+          if (viewportType === "mobile") {
+            return (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  background: "rgba(0,0,0,0.46)",
+                  display: "flex",
+                  alignItems: "flex-end",
+                  justifyContent: "center",
+                  padding: "0 12px calc(18px + env(safe-area-inset-bottom))",
+                  pointerEvents: "auto",
+                }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setReelMenu(null);
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onTouchMove={(event) => event.stopPropagation()}
+              >
+                <div
+                  style={{
+                    width: "min(420px, 100%)",
+                    background:
+                      "linear-gradient(180deg, rgba(15,23,42,0.99), rgba(7,9,13,0.99))",
+                    border: "1px solid rgba(168,85,247,0.30)",
+                    borderRadius: "22px",
+                    overflow: "hidden",
+                    boxShadow: "0 22px 48px rgba(0,0,0,0.42)",
+                  }}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onTouchStart={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div
+                    style={{
+                      padding: "14px 14px 10px",
+                      borderBottom: "1px solid rgba(255,255,255,0.07)",
+                    }}
+                  >
+                    <div
+                      style={{ color: "#fff", fontWeight: 950, fontSize: 15 }}
+                    >
+                      Reel options
+                    </div>
+                    <div
+                      style={{ color: "#9ca3af", fontSize: 12, marginTop: 3 }}
+                    >
+                      {menuReelIsOwner
+                        ? "Only you can edit or delete this Reel."
+                        : "Report this Reel to Parapost moderation."}
+                    </div>
+                  </div>
+                  {menuBody}
+                  <button
+                    type="button"
+                    style={{
+                      ...menuItemStyle,
+                      borderBottom: "none",
+                      color: "#d1d5db",
+                      minHeight: 52,
+                      textAlign: "center",
+                      fontWeight: 850,
+                    }}
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                    onTouchStart={(event) => {
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setReelMenu(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div
               style={{
                 position: "fixed",
-                inset: 0,
+                top: reelMenu.y,
+                left: reelMenu.x,
                 zIndex: 9999,
-                background: "rgba(0,0,0,0.46)",
-                display: "flex",
-                alignItems: "flex-end",
-                justifyContent: "center",
-                padding: "0 12px calc(18px + env(safe-area-inset-bottom))",
+                minWidth: "200px",
                 pointerEvents: "auto",
+                background:
+                  "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(7,9,13,0.98))",
+                border: "1px solid rgba(168,85,247,0.28)",
+                borderRadius: "18px",
+                overflow: "hidden",
+                boxShadow: "0 18px 34px rgba(0,0,0,0.34)",
               }}
-              onPointerDown={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setReelMenu(null);
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-              onTouchMove={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             >
-              <div
-                style={{
-                  width: "min(420px, 100%)",
-                  background:
-                    "linear-gradient(180deg, rgba(15,23,42,0.99), rgba(7,9,13,0.99))",
-                  border: "1px solid rgba(168,85,247,0.30)",
-                  borderRadius: "22px",
-                  overflow: "hidden",
-                  boxShadow: "0 22px 48px rgba(0,0,0,0.42)",
-                }}
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div
-                  style={{
-                    padding: "14px 14px 10px",
-                    borderBottom: "1px solid rgba(255,255,255,0.07)",
-                  }}
-                >
-                  <div style={{ color: "#fff", fontWeight: 950, fontSize: 15 }}>Reel options</div>
-                  <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 3 }}>
-                    {menuReelIsOwner
-                      ? "Only you can edit or delete this Reel."
-                      : "Report this Reel to Parapost moderation."}
-                  </div>
-                </div>
-                {menuBody}
-                <button
-                  type="button"
-                  style={{
-                    ...menuItemStyle,
-                    borderBottom: "none",
-                    color: "#d1d5db",
-                    minHeight: 52,
-                    textAlign: "center",
-                    fontWeight: 850,
-                  }}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onTouchStart={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setReelMenu(null);
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
+              {menuBody}
             </div>
           );
-        }
-
-        return (
-          <div
-            style={{
-              position: "fixed",
-              top: reelMenu.y,
-              left: reelMenu.x,
-              zIndex: 9999,
-              minWidth: "200px",
-              pointerEvents: "auto",
-              background:
-                "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(7,9,13,0.98))",
-              border: "1px solid rgba(168,85,247,0.28)",
-              borderRadius: "18px",
-              overflow: "hidden",
-              boxShadow: "0 18px 34px rgba(0,0,0,0.34)",
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {menuBody}
-          </div>
-        );
-      })()}
-
+        })()}
 
       {commentsOpen && commentReel && (
         <div
@@ -2891,9 +3225,26 @@ export default function ProfileReelsViewerPage() {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: viewportType === "mobile" ? (isShortViewport ? "58%" : "52%") : viewportType === "tablet" ? "56%" : "52%",
-                minHeight: viewportType === "mobile" ? (isShortViewport ? "250px" : "275px") : "280px",
-                maxHeight: viewportType === "mobile" ? "64%" : viewportType === "tablet" ? "60%" : "56%",
+                height:
+                  viewportType === "mobile"
+                    ? isShortViewport
+                      ? "58%"
+                      : "52%"
+                    : viewportType === "tablet"
+                      ? "56%"
+                      : "52%",
+                minHeight:
+                  viewportType === "mobile"
+                    ? isShortViewport
+                      ? "250px"
+                      : "275px"
+                    : "280px",
+                maxHeight:
+                  viewportType === "mobile"
+                    ? "64%"
+                    : viewportType === "tablet"
+                      ? "60%"
+                      : "56%",
                 borderTopLeftRadius: "24px",
                 borderTopRightRadius: "24px",
                 background:
@@ -2945,7 +3296,9 @@ export default function ProfileReelsViewerPage() {
                         textOverflow: "ellipsis",
                       }}
                     >
-                      {activeComments.length} comment{activeComments.length === 1 ? "" : "s"} · {commentReel.title}
+                      {activeComments.length} comment
+                      {activeComments.length === 1 ? "" : "s"} ·{" "}
+                      {commentReel.title}
                     </div>
                   </div>
 
@@ -3032,18 +3385,85 @@ export default function ProfileReelsViewerPage() {
                           </div>
                         </div>
 
-                        <div
-                          style={{
-                            color: "#e5e7eb",
-                            lineHeight: 1.55,
-                            fontSize: "14px",
-                            whiteSpace: "pre-wrap",
-                            overflowWrap: "anywhere",
-                            marginBottom: "10px",
-                          }}
-                        >
-                          {comment.text}
-                        </div>
+                        {editingCommentId === comment.id ? (
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: "8px",
+                              marginBottom: "10px",
+                            }}
+                          >
+                            <textarea
+                              value={editingCommentDraft}
+                              onChange={(event) =>
+                                setEditingCommentDraft(event.target.value)
+                              }
+                              rows={2}
+                              style={{
+                                ...textAreaStyle,
+                                minHeight: "64px",
+                                maxHeight: "110px",
+                                borderRadius: "16px",
+                                padding: "11px 12px",
+                                fontSize: "14px",
+                              }}
+                            />
+
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: "8px",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={handleCancelEditComment}
+                                style={{
+                                  ...buttonStyle,
+                                  padding: "8px 12px",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                Cancel
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleSaveEditedComment(comment.id)
+                                }
+                                disabled={!editingCommentDraft.trim()}
+                                style={{
+                                  ...primaryButtonStyle,
+                                  padding: "8px 12px",
+                                  fontSize: "12px",
+                                  opacity: editingCommentDraft.trim()
+                                    ? 1
+                                    : 0.45,
+                                  cursor: editingCommentDraft.trim()
+                                    ? "pointer"
+                                    : "not-allowed",
+                                }}
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              color: "#e5e7eb",
+                              lineHeight: 1.55,
+                              fontSize: "14px",
+                              whiteSpace: "pre-wrap",
+                              overflowWrap: "anywhere",
+                              marginBottom: "10px",
+                            }}
+                          >
+                            {comment.text}
+                          </div>
+                        )}
 
                         <div
                           style={{
@@ -3067,8 +3487,28 @@ export default function ProfileReelsViewerPage() {
                             }}
                           >
                             {commentLiked ? "Liked" : "Like"}
-                            {commentLikeCount > 0 ? ` · ${commentLikeCount}` : ""}
+                            {commentLikeCount > 0
+                              ? ` · ${commentLikeCount}`
+                              : ""}
                           </button>
+
+                          {comment.authorUserId === currentUserId ? (
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditComment(comment)}
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                color: "#c4b5fd",
+                                fontSize: "12px",
+                                fontWeight: 850,
+                                cursor: "pointer",
+                                padding: 0,
+                              }}
+                            >
+                              Edit
+                            </button>
+                          ) : null}
 
                           {canDeleteComment ? (
                             <button
@@ -3088,7 +3528,8 @@ export default function ProfileReelsViewerPage() {
                             </button>
                           ) : null}
 
-                          {currentUserId && comment.authorUserId !== currentUserId ? (
+                          {currentUserId &&
+                          comment.authorUserId !== currentUserId ? (
                             <button
                               type="button"
                               onClick={() => handleReportComment(comment.id)}
@@ -3120,11 +3561,13 @@ export default function ProfileReelsViewerPage() {
                           >
                             {replies.map((reply) => {
                               const replyLiked = !!commentLikedMap[reply.id];
-                              const replyLikeCount = commentLikeMap[reply.id] || 0;
+                              const replyLikeCount =
+                                commentLikeMap[reply.id] || 0;
                               const canDeleteReply =
                                 reply.authorUserId === currentUserId ||
                                 commentReel.user_id === currentUserId ||
-                                commentReel.creator_profile_id === currentUserId;
+                                commentReel.creator_profile_id ===
+                                  currentUserId;
 
                               return (
                                 <div
@@ -3145,10 +3588,20 @@ export default function ProfileReelsViewerPage() {
                                       marginBottom: "6px",
                                     }}
                                   >
-                                    <div style={{ fontWeight: 800, fontSize: "13px" }}>
+                                    <div
+                                      style={{
+                                        fontWeight: 800,
+                                        fontSize: "13px",
+                                      }}
+                                    >
                                       {reply.author}
                                     </div>
-                                    <div style={{ fontSize: "11px", color: "#9ca3af" }}>
+                                    <div
+                                      style={{
+                                        fontSize: "11px",
+                                        color: "#9ca3af",
+                                      }}
+                                    >
                                       {reply.time}
                                     </div>
                                   </div>
@@ -3166,27 +3619,106 @@ export default function ProfileReelsViewerPage() {
                                     </div>
                                   ) : null}
 
+                                  {editingCommentId === reply.id ? (
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gap: "8px",
+                                        marginBottom: "9px",
+                                      }}
+                                    >
+                                      <textarea
+                                        value={editingCommentDraft}
+                                        onChange={(event) =>
+                                          setEditingCommentDraft(
+                                            event.target.value,
+                                          )
+                                        }
+                                        rows={2}
+                                        style={{
+                                          ...textAreaStyle,
+                                          minHeight: "60px",
+                                          maxHeight: "100px",
+                                          borderRadius: "15px",
+                                          padding: "10px 11px",
+                                          fontSize: "13px",
+                                        }}
+                                      />
+
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          justifyContent: "flex-end",
+                                          gap: "8px",
+                                        }}
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelEditComment}
+                                          style={{
+                                            ...buttonStyle,
+                                            padding: "7px 11px",
+                                            fontSize: "12px",
+                                          }}
+                                        >
+                                          Cancel
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleSaveEditedComment(reply.id)
+                                          }
+                                          disabled={!editingCommentDraft.trim()}
+                                          style={{
+                                            ...primaryButtonStyle,
+                                            padding: "7px 11px",
+                                            fontSize: "12px",
+                                            opacity: editingCommentDraft.trim()
+                                              ? 1
+                                              : 0.45,
+                                            cursor: editingCommentDraft.trim()
+                                              ? "pointer"
+                                              : "not-allowed",
+                                          }}
+                                        >
+                                          Save
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      style={{
+                                        color: "#d1d5db",
+                                        lineHeight: 1.5,
+                                        fontSize: "13px",
+                                        whiteSpace: "pre-wrap",
+                                        overflowWrap: "anywhere",
+                                        marginBottom: "9px",
+                                      }}
+                                    >
+                                      {reply.text.replace(/^@\S+\s*/, "")}
+                                    </div>
+                                  )}
+
                                   <div
                                     style={{
-                                      color: "#d1d5db",
-                                      lineHeight: 1.5,
-                                      fontSize: "13px",
-                                      whiteSpace: "pre-wrap",
-                                      overflowWrap: "anywhere",
-                                      marginBottom: "9px",
+                                      display: "flex",
+                                      gap: "12px",
+                                      flexWrap: "wrap",
                                     }}
                                   >
-                                    {reply.text.replace(/^@\S+\s*/, "")}
-                                  </div>
-
-                                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                                     <button
                                       type="button"
-                                      onClick={() => handleCommentLikeToggle(reply.id)}
+                                      onClick={() =>
+                                        handleCommentLikeToggle(reply.id)
+                                      }
                                       style={{
                                         background: "transparent",
                                         border: "none",
-                                        color: replyLiked ? "#ffffff" : "#aeb3bd",
+                                        color: replyLiked
+                                          ? "#ffffff"
+                                          : "#aeb3bd",
                                         fontSize: "12px",
                                         fontWeight: 850,
                                         cursor: "pointer",
@@ -3194,13 +3726,37 @@ export default function ProfileReelsViewerPage() {
                                       }}
                                     >
                                       {replyLiked ? "Liked" : "Like"}
-                                      {replyLikeCount > 0 ? ` · ${replyLikeCount}` : ""}
+                                      {replyLikeCount > 0
+                                        ? ` · ${replyLikeCount}`
+                                        : ""}
                                     </button>
+
+                                    {reply.authorUserId === currentUserId ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleStartEditComment(reply)
+                                        }
+                                        style={{
+                                          background: "transparent",
+                                          border: "none",
+                                          color: "#c4b5fd",
+                                          fontSize: "12px",
+                                          fontWeight: 850,
+                                          cursor: "pointer",
+                                          padding: 0,
+                                        }}
+                                      >
+                                        Edit
+                                      </button>
+                                    ) : null}
 
                                     {canDeleteReply ? (
                                       <button
                                         type="button"
-                                        onClick={() => handleDeleteComment(reply.id)}
+                                        onClick={() =>
+                                          handleDeleteComment(reply.id)
+                                        }
                                         style={{
                                           background: "transparent",
                                           border: "none",
@@ -3215,10 +3771,13 @@ export default function ProfileReelsViewerPage() {
                                       </button>
                                     ) : null}
 
-                                    {currentUserId && reply.authorUserId !== currentUserId ? (
+                                    {currentUserId &&
+                                    reply.authorUserId !== currentUserId ? (
                                       <button
                                         type="button"
-                                        onClick={() => handleReportComment(reply.id)}
+                                        onClick={() =>
+                                          handleReportComment(reply.id)
+                                        }
                                         style={{
                                           background: "transparent",
                                           border: "none",
@@ -3246,7 +3805,8 @@ export default function ProfileReelsViewerPage() {
 
               <div
                 style={{
-                  padding: "10px 12px calc(12px + env(safe-area-inset-bottom, 0px))",
+                  padding:
+                    "10px 12px calc(12px + env(safe-area-inset-bottom, 0px))",
                   borderTop: "1px solid rgba(255,255,255,0.06)",
                   background:
                     "linear-gradient(180deg, rgba(15,15,18,0.94) 0%, rgba(9,9,12,0.98) 100%)",
@@ -3324,7 +3884,8 @@ export default function ProfileReelsViewerPage() {
                     borderTop: "1px solid rgba(255,255,255,0.12)",
                     borderRadius: "28px 28px 0 0",
                   }),
-              background: "linear-gradient(180deg, rgba(11,16,32,0.98), rgba(7,9,13,0.98))",
+              background:
+                "linear-gradient(180deg, rgba(11,16,32,0.98), rgba(7,9,13,0.98))",
               color: "white",
               boxShadow:
                 viewportType === "desktop"
@@ -3337,7 +3898,10 @@ export default function ProfileReelsViewerPage() {
           >
             <div
               style={{
-                padding: viewportType === "desktop" ? "22px 22px 16px" : "16px 18px 12px",
+                padding:
+                  viewportType === "desktop"
+                    ? "22px 22px 16px"
+                    : "16px 18px 12px",
                 borderBottom: "1px solid rgba(255,255,255,0.08)",
                 display: "flex",
                 alignItems: "flex-start",
@@ -3346,10 +3910,18 @@ export default function ProfileReelsViewerPage() {
               }}
             >
               <div>
-                <div style={{ fontSize: "22px", fontWeight: 900, lineHeight: 1.1 }}>
+                <div
+                  style={{ fontSize: "22px", fontWeight: 900, lineHeight: 1.1 }}
+                >
                   Reel Details
                 </div>
-                <div style={{ color: "#9ca3af", fontSize: "13px", marginTop: "5px" }}>
+                <div
+                  style={{
+                    color: "#9ca3af",
+                    fontSize: "13px",
+                    marginTop: "5px",
+                  }}
+                >
                   Full caption and reel information
                 </div>
               </div>
@@ -3361,7 +3933,10 @@ export default function ProfileReelsViewerPage() {
 
             <div
               style={{
-                padding: viewportType === "desktop" ? "18px 22px 22px" : "16px 18px 22px",
+                padding:
+                  viewportType === "desktop"
+                    ? "18px 22px 22px"
+                    : "16px 18px 22px",
                 overflowY: "auto",
                 overscrollBehavior: "contain",
                 WebkitOverflowScrolling: "touch",
@@ -3369,7 +3944,14 @@ export default function ProfileReelsViewerPage() {
                 gap: "16px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  minWidth: 0,
+                }}
+              >
                 <div
                   style={{
                     width: "46px",
@@ -3387,7 +3969,11 @@ export default function ProfileReelsViewerPage() {
                     <img
                       src={detailsReel.creatorAvatarUrl}
                       alt={detailsReel.creatorName}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
                     />
                   ) : (
                     detailsReel.creatorName.charAt(0)
@@ -3399,22 +3985,47 @@ export default function ProfileReelsViewerPage() {
                     {detailsReel.creatorName}
                   </div>
                   <div style={{ color: "#9ca3af", fontSize: "13px" }}>
-                    {detailsReel.creator} • {formatRelativeTime(detailsReel.createdAt)}
+                    {detailsReel.creator} •{" "}
+                    {formatRelativeTime(detailsReel.createdAt)}
                   </div>
                 </div>
               </div>
 
               <div>
-                <div style={{ color: "#9ca3af", fontSize: "12px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "7px" }}>
+                <div
+                  style={{
+                    color: "#9ca3af",
+                    fontSize: "12px",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginBottom: "7px",
+                  }}
+                >
                   Title
                 </div>
-                <div style={{ fontSize: "22px", fontWeight: 900, lineHeight: 1.12 }}>
+                <div
+                  style={{
+                    fontSize: "22px",
+                    fontWeight: 900,
+                    lineHeight: 1.12,
+                  }}
+                >
                   {detailsReel.title}
                 </div>
               </div>
 
               <div>
-                <div style={{ color: "#9ca3af", fontSize: "12px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "7px" }}>
+                <div
+                  style={{
+                    color: "#9ca3af",
+                    fontSize: "12px",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginBottom: "7px",
+                  }}
+                >
                   Caption
                 </div>
                 <div
@@ -3432,16 +4043,29 @@ export default function ProfileReelsViewerPage() {
                 >
                   {detailsReel.caption || "No caption added."}
                 </div>
-                <div style={{ marginTop: "8px", color: "#9ca3af", fontSize: "12px", textAlign: "right" }}>
+                <div
+                  style={{
+                    marginTop: "8px",
+                    color: "#9ca3af",
+                    fontSize: "12px",
+                    textAlign: "right",
+                  }}
+                >
                   {detailsReel.caption.length}/{REEL_CAPTION_MAX_LENGTH}
                 </div>
               </div>
 
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                <button onClick={() => openCommentsForReel(detailsReel.id)} style={buttonStyle}>
+                <button
+                  onClick={() => openCommentsForReel(detailsReel.id)}
+                  style={buttonStyle}
+                >
                   Comments
                 </button>
-                <button onClick={() => handleShareLink(detailsReel.id)} style={buttonStyle}>
+                <button
+                  onClick={() => handleShareLink(detailsReel.id)}
+                  style={buttonStyle}
+                >
                   Copy Link
                 </button>
               </div>
@@ -3484,8 +4108,14 @@ export default function ProfileReelsViewerPage() {
             <div
               style={{
                 ...modalCardStyle,
-                width: viewportType === "mobile" ? "min(100%, 430px)" : modalCardStyle.width,
-                borderRadius: viewportType === "mobile" ? "24px" : modalCardStyle.borderRadius,
+                width:
+                  viewportType === "mobile"
+                    ? "min(100%, 430px)"
+                    : modalCardStyle.width,
+                borderRadius:
+                  viewportType === "mobile"
+                    ? "24px"
+                    : modalCardStyle.borderRadius,
               }}
             >
               <div
@@ -3499,7 +4129,13 @@ export default function ProfileReelsViewerPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: "24px", marginBottom: "6px" }}>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      fontSize: "24px",
+                      marginBottom: "6px",
+                    }}
+                  >
                     Share Reel to Feed
                   </div>
                   <div style={{ fontSize: "13px", color: "#9ca3af" }}>
@@ -3529,7 +4165,12 @@ export default function ProfileReelsViewerPage() {
                     controls
                     style={{
                       width: "100%",
-                      height: viewportType === "mobile" ? "190px" : viewportType === "tablet" ? "230px" : "260px",
+                      height:
+                        viewportType === "mobile"
+                          ? "190px"
+                          : viewportType === "tablet"
+                            ? "230px"
+                            : "260px",
                       objectFit: "contain",
                       display: "block",
                       background: "#000",
@@ -3553,10 +4194,16 @@ export default function ProfileReelsViewerPage() {
                     flexDirection: viewportType === "mobile" ? "column" : "row",
                   }}
                 >
-                  <button onClick={() => handleShareLink(activeReel.id)} style={buttonStyle}>
+                  <button
+                    onClick={() => handleShareLink(activeReel.id)}
+                    style={buttonStyle}
+                  >
                     Copy Reel Link
                   </button>
-                  <button onClick={handleShareToFeed} style={primaryButtonStyle}>
+                  <button
+                    onClick={handleShareToFeed}
+                    style={primaryButtonStyle}
+                  >
                     Share to Feed
                   </button>
                 </div>
@@ -3579,8 +4226,14 @@ export default function ProfileReelsViewerPage() {
             <div
               style={{
                 ...modalCardStyle,
-                width: viewportType === "mobile" ? "min(100%, 430px)" : modalCardStyle.width,
-                borderRadius: viewportType === "mobile" ? "24px" : modalCardStyle.borderRadius,
+                width:
+                  viewportType === "mobile"
+                    ? "min(100%, 430px)"
+                    : modalCardStyle.width,
+                borderRadius:
+                  viewportType === "mobile"
+                    ? "24px"
+                    : modalCardStyle.borderRadius,
               }}
             >
               <div
@@ -3594,7 +4247,13 @@ export default function ProfileReelsViewerPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: "24px", marginBottom: "6px" }}>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      fontSize: "24px",
+                      marginBottom: "6px",
+                    }}
+                  >
                     Edit Reel
                   </div>
                   <div style={{ fontSize: "13px", color: "#9ca3af" }}>
@@ -3623,12 +4282,23 @@ export default function ProfileReelsViewerPage() {
 
                 <textarea
                   value={editCaption}
-                  onChange={(event) => setEditCaption(event.target.value.slice(0, REEL_CAPTION_MAX_LENGTH))}
+                  onChange={(event) =>
+                    setEditCaption(
+                      event.target.value.slice(0, REEL_CAPTION_MAX_LENGTH),
+                    )
+                  }
                   placeholder="Reel caption"
                   style={textAreaStyle}
                   maxLength={REEL_CAPTION_MAX_LENGTH}
                 />
-                <div style={{ marginTop: "-8px", color: "#9ca3af", fontSize: "12px", textAlign: "right" }}>
+                <div
+                  style={{
+                    marginTop: "-8px",
+                    color: "#9ca3af",
+                    fontSize: "12px",
+                    textAlign: "right",
+                  }}
+                >
                   {editCaption.length}/{REEL_CAPTION_MAX_LENGTH}
                 </div>
 
@@ -3649,7 +4319,10 @@ export default function ProfileReelsViewerPage() {
                   >
                     Cancel
                   </button>
-                  <button onClick={handleSaveReelEdit} style={primaryButtonStyle}>
+                  <button
+                    onClick={handleSaveReelEdit}
+                    style={primaryButtonStyle}
+                  >
                     Save Changes
                   </button>
                 </div>
