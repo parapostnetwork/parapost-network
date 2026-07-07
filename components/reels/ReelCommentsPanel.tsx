@@ -762,17 +762,11 @@ function CommentActions({
         title={liked ? "Unlike comment" : "Like comment"}
         style={{
           ...commentLikeButtonStyle,
-          background: liked
-            ? "linear-gradient(135deg, rgba(236,72,153,0.26), rgba(168,85,247,0.24))"
-            : "rgba(255,255,255,0.055)",
-          borderColor: liked ? "rgba(236,72,153,0.38)" : "rgba(255,255,255,0.11)",
-          color: liked ? "#ffffff" : "#d1d5db",
-          boxShadow: liked ? "0 0 18px rgba(168,85,247,0.18)" : "none",
+          color: liked ? "#ffffff" : "#aeb3bd",
         }}
       >
-        <span style={{ fontSize: 13, lineHeight: 1 }}>{liked ? "♥" : "♡"}</span>
-        <span>{liked ? "Liked" : "Like"}</span>
-        {likeCount > 0 ? <span style={commentLikeCountStyle}>{likeCount}</span> : null}
+        {liked ? "Liked" : "Like"}
+        {likeCount > 0 ? <span style={commentLikeCountStyle}>{` · ${likeCount}`}</span> : null}
       </button>
 
       <button type="button" onClick={onReply} style={textButtonStyle}>
@@ -898,33 +892,20 @@ const commentTextStyle: CSSProperties = {
 };
 
 const commentLikeButtonStyle: CSSProperties = {
-  minHeight: "30px",
-  borderRadius: "999px",
-  border: "1px solid rgba(255,255,255,0.11)",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "6px",
-  padding: "0 10px",
-  color: "#d1d5db",
+  background: "transparent",
+  border: "none",
+  color: "#aeb3bd",
   fontSize: "12px",
-  fontWeight: 900,
+  fontWeight: 850,
   cursor: "pointer",
-  transition: "background 160ms ease, border-color 160ms ease, transform 160ms ease",
+  padding: 0,
   WebkitTapHighlightColor: "transparent",
 };
 
 const commentLikeCountStyle: CSSProperties = {
-  minWidth: "18px",
-  height: "18px",
-  borderRadius: "999px",
-  display: "inline-grid",
-  placeItems: "center",
-  padding: "0 5px",
-  background: "rgba(255,255,255,0.11)",
-  color: "#ffffff",
-  fontSize: "10px",
-  fontWeight: 950,
+  color: "inherit",
+  fontSize: "12px",
+  fontWeight: 850,
 };
 
 const actionRowStyle: CSSProperties = {

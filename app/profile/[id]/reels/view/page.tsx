@@ -450,6 +450,8 @@ export default function ProfileReelsViewerPage() {
     Record<string, boolean>
   >({});
   const [commentDraft, setCommentDraft] = useState("");
+  const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
   const [shareCaption, setShareCaption] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [activeReelId, setActiveReelId] = useState("");
@@ -1133,6 +1135,8 @@ export default function ProfileReelsViewerPage() {
     setActiveReelId(reelId);
     setLockedCommentReelId(reelId);
     setCommentsOpen(true);
+    setReplyingToCommentId(null);
+    setReplyDraft("");
 
     const video = videoRefs.current[reelId];
     if (video) {
@@ -1146,6 +1150,8 @@ export default function ProfileReelsViewerPage() {
     setCommentsOpen(false);
     setLockedCommentReelId("");
     setCommentDraft("");
+    setReplyingToCommentId(null);
+    setReplyDraft("");
     setEditingCommentId(null);
     setEditingCommentDraft("");
 
@@ -1514,6 +1520,8 @@ export default function ProfileReelsViewerPage() {
       ),
     );
     setCommentDraft("");
+    setReplyingToCommentId(null);
+    setReplyDraft("");
 
     const { data: insertedComment, error: commentInsertError } = await supabase
       .from("reel_comments")
@@ -1558,6 +1566,93 @@ export default function ProfileReelsViewerPage() {
 
     setLockedCommentReelId(targetReel.id);
     setCommentsOpen(true);
+  };
+
+  const handleStartCommentReply = (comment: ReelComment) => {
+    if (!currentUserId) {
+      alert("You must be logged in to reply to comments.");
+      return;
+    }
+
+    setEditingCommentId(null);
+    setEditingCommentDraft("");
+    setReplyingToCommentId(comment.id);
+    setReplyDraft("");
+  };
+
+  const handleCancelCommentReply = () => {
+    setReplyingToCommentId(null);
+    setReplyDraft("");
+  };
+
+  const handleSubmitCommentReply = async (parentComment: ReelComment) => {
+    const trimmed = replyDraft.trim();
+    const targetReel = commentReel;
+
+    if (!trimmed || !targetReel) return;
+
+    if (!currentUserId) {
+      alert("You must be logged in to reply to comments.");
+      return;
+    }
+
+    const optimisticReplyId = `reply-${Date.now()}`;
+
+    const nextReply: ReelComment = {
+      id: optimisticReplyId,
+      reelId: targetReel.id,
+      authorUserId: currentUserId,
+      author: "@you",
+      text: trimmed,
+      time: "Just now",
+      parentCommentId: parentComment.id,
+      replyToAuthor: parentComment.author,
+    };
+
+    setComments((prev) => [nextReply, ...prev]);
+    setReels((prev) =>
+      prev.map((reel) =>
+        reel.id === targetReel.id ? { ...reel, comments: reel.comments + 1 } : reel,
+      ),
+    );
+    setReplyDraft("");
+    setReplyingToCommentId(null);
+
+    const { data: insertedReply, error: replyInsertError } = await supabase
+      .from("reel_comments")
+      .insert([
+        {
+          reel_id: targetReel.id,
+          user_id: currentUserId,
+          content: trimmed,
+          parent_comment_id: parentComment.id,
+          reply_to_author: parentComment.author,
+        },
+      ])
+      .select("id")
+      .single();
+
+    if (replyInsertError) {
+      console.error("Profile reel reply insert error:", replyInsertError.message);
+      alert(replyInsertError.message || "Could not save reel reply.");
+      await fetchReels();
+      return;
+    }
+
+    if (insertedReply?.id) {
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === optimisticReplyId ? { ...comment, id: insertedReply.id } : comment,
+        ),
+      );
+    }
+
+    await insertReelNotification({
+      userId: targetReel.user_id,
+      actorId: currentUserId,
+      type: "reel_comment",
+      message: "replied to a comment on your reel.",
+    });
   };
 
   const handleCommentLikeToggle = async (
@@ -1613,6 +1708,8 @@ export default function ProfileReelsViewerPage() {
       return;
     }
 
+    setReplyingToCommentId(null);
+    setReplyDraft("");
     setEditingCommentId(comment.id);
     setEditingCommentDraft(comment.text);
   };
@@ -3492,6 +3589,22 @@ export default function ProfileReelsViewerPage() {
                               : ""}
                           </button>
 
+                          <button
+                            type="button"
+                            onClick={() => handleStartCommentReply(comment)}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              color: "#aeb3bd",
+                              fontSize: "12px",
+                              fontWeight: 850,
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            Reply
+                          </button>
+
                           {comment.authorUserId === currentUserId ? (
                             <button
                               type="button"
@@ -3547,6 +3660,66 @@ export default function ProfileReelsViewerPage() {
                             </button>
                           ) : null}
                         </div>
+
+                        {replyingToCommentId === comment.id ? (
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: "8px",
+                              marginTop: "11px",
+                            }}
+                          >
+                            <textarea
+                              value={replyDraft}
+                              onChange={(event) => setReplyDraft(event.target.value)}
+                              placeholder="Write a reply..."
+                              rows={2}
+                              style={{
+                                ...textAreaStyle,
+                                minHeight: "64px",
+                                maxHeight: "100px",
+                                borderRadius: "16px",
+                                padding: "11px 12px",
+                                fontSize: "14px",
+                              }}
+                            />
+
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: "8px",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={handleCancelCommentReply}
+                                style={{
+                                  ...buttonStyle,
+                                  padding: "8px 12px",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                Cancel
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleSubmitCommentReply(comment)}
+                                disabled={!replyDraft.trim()}
+                                style={{
+                                  ...primaryButtonStyle,
+                                  padding: "8px 12px",
+                                  fontSize: "12px",
+                                  opacity: replyDraft.trim() ? 1 : 0.45,
+                                  cursor: replyDraft.trim() ? "pointer" : "not-allowed",
+                                }}
+                              >
+                                Reply
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
 
                         {replies.length > 0 ? (
                           <div
