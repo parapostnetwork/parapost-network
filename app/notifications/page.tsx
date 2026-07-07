@@ -37,6 +37,13 @@ type NotificationCard = NotificationRow & {
 
 type FilterKey = "all" | "unread" | "friends" | "activity";
 
+type ReelActivityPerson = {
+  id: string;
+  notificationId: string;
+  actor: ProfilePreview | null;
+  created_at: string | null;
+};
+
 function getDisplayName(profile: ProfilePreview | null) {
   return profile?.full_name || profile?.username || "Parapost Member";
 }
@@ -158,6 +165,24 @@ function getReelActivityVerb(type?: string | null) {
   if (type === "reel_share") return "shared";
   if (type === "reel_favorite") return "favorited";
   return "liked";
+}
+
+function getReelActivityModalTitle(type?: string | null) {
+  if (type === "reel_share") return "People who shared your Reel";
+  if (type === "reel_favorite") return "People who favorited your Reel";
+  return "People who liked your Reel";
+}
+
+function getReelActivityEmptyText(type?: string | null) {
+  if (type === "reel_share") return "No share activity found for this Reel yet.";
+  if (type === "reel_favorite") return "No favorite activity found for this Reel yet.";
+  return "No like activity found for this Reel yet.";
+}
+
+function getReelActivityActionLabel(type?: string | null) {
+  if (type === "reel_share") return "Shared";
+  if (type === "reel_favorite") return "Favorited";
+  return "Liked";
 }
 
 function getReelActivityCount(notification: NotificationCard) {
@@ -346,6 +371,7 @@ export default function NotificationsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [statusMessage, setStatusMessage] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [reelActivityModal, setReelActivityModal] = useState<NotificationCard | null>(null);
 
   const displayNotifications = useMemo(() => {
     return groupReelActivityNotifications(groupParachatNotifications(notifications));
@@ -374,6 +400,38 @@ export default function NotificationsPage() {
     if (activeFilter === "activity") return displayNotifications.filter((notification) => !(notification.type || "").includes("friend"));
     return displayNotifications;
   }, [activeFilter, displayNotifications]);
+
+  const reelActivityPeople = useMemo<ReelActivityPerson[]>(() => {
+    if (!reelActivityModal?.reel_id || !reelActivityModal.type) return [];
+
+    const uniquePeople = new Map<string, ReelActivityPerson>();
+
+    notifications
+      .filter((notification) => {
+        return (
+          notification.reel_id === reelActivityModal.reel_id &&
+          notification.type === reelActivityModal.type &&
+          Boolean(notification.actor_id)
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.created_at || 0).getTime() -
+          new Date(a.created_at || 0).getTime(),
+      )
+      .forEach((notification) => {
+        if (!notification.actor_id || uniquePeople.has(notification.actor_id)) return;
+
+        uniquePeople.set(notification.actor_id, {
+          id: notification.actor_id,
+          notificationId: notification.id,
+          actor: notification.actor,
+          created_at: notification.created_at,
+        });
+      });
+
+    return Array.from(uniquePeople.values());
+  }, [notifications, reelActivityModal]);
 
   const showStatus = useCallback((message: string) => {
     setStatusMessage(message);
@@ -522,6 +580,24 @@ export default function NotificationsPage() {
     router.push(href);
   };
 
+  const handleOpenReelActivityPeople = async (notification: NotificationCard) => {
+    if (!isReelActivityNotificationType(notification.type)) return;
+
+    const notificationIds = notification.groupedNotificationIds?.length
+      ? notification.groupedNotificationIds
+      : [notification.id];
+
+    setReelActivityModal(notification);
+
+    if (!notification.is_read) {
+      setNotifications((prev) =>
+        prev.map((item) => (notificationIds.includes(item.id) ? { ...item, is_read: true } : item))
+      );
+
+      await supabase.from("notifications").update({ is_read: true }).in("id", notificationIds);
+    }
+  };
+
   const handleDeleteNotification = async (notification: NotificationCard) => {
     const notificationIds = notification.groupedNotificationIds?.length
       ? notification.groupedNotificationIds
@@ -580,6 +656,7 @@ export default function NotificationsPage() {
         .notifications-card,
         .notifications-main-button,
         .notifications-delete-button,
+        .notifications-reel-people-button,
         .notifications-filter-button {
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
@@ -672,7 +749,15 @@ export default function NotificationsPage() {
             min-width: 46px !important;
           }
 
-          .notifications-delete-button {
+          .notifications-side-actions {
+            width: 100% !important;
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 8px !important;
+          }
+
+          .notifications-delete-button,
+          .notifications-reel-people-button {
             width: 100% !important;
             min-height: 40px !important;
             display: inline-flex !important;
@@ -852,6 +937,7 @@ export default function NotificationsPage() {
                 const meta = getNotificationMeta(notification);
                 const actorName = getDisplayName(notification.actor);
                 const isBusy = processingId === notification.id;
+                const isReelActivity = isReelActivityNotificationType(notification.type);
 
                 return (
                   <article
@@ -898,20 +984,33 @@ export default function NotificationsPage() {
                       </div>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteNotification(notification)}
-                      disabled={isBusy}
-                      style={{
-                        ...deleteButtonStyle,
-                        opacity: isBusy ? 0.6 : 1,
-                        cursor: isBusy ? "not-allowed" : "pointer",
-                      }}
-                      aria-label="Delete notification"
-                      className="notifications-delete-button"
-                    >
-                      {isBusy ? "..." : "Delete"}
-                    </button>
+                    <div className="notifications-side-actions" style={notificationSideActionsStyle}>
+                      {isReelActivity ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReelActivityPeople(notification)}
+                          style={viewPeopleButtonStyle}
+                          className="notifications-reel-people-button"
+                        >
+                          View People
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteNotification(notification)}
+                        disabled={isBusy}
+                        style={{
+                          ...deleteButtonStyle,
+                          opacity: isBusy ? 0.6 : 1,
+                          cursor: isBusy ? "not-allowed" : "pointer",
+                        }}
+                        aria-label="Delete notification"
+                        className="notifications-delete-button"
+                      >
+                        {isBusy ? "..." : "Delete"}
+                      </button>
+                    </div>
                   </article>
                 );
               })}
@@ -919,6 +1018,108 @@ export default function NotificationsPage() {
           )}
         </section>
       </div>
+
+      {reelActivityModal ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close Reel activity"
+            onClick={() => setReelActivityModal(null)}
+            style={reelActivityBackdropStyle}
+          />
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={getReelActivityModalTitle(reelActivityModal.type)}
+            style={reelActivityModalWrapStyle}
+          >
+            <div style={reelActivityModalCardStyle}>
+              <div style={reelActivityModalHeaderStyle}>
+                <div>
+                  <div style={reelActivityEyebrowStyle}>Reel Activity</div>
+                  <h2 style={reelActivityTitleStyle}>
+                    {getReelActivityModalTitle(reelActivityModal.type)}
+                  </h2>
+                  <p style={reelActivitySubtitleStyle}>
+                    {reelActivityPeople.length === 1
+                      ? `1 person ${getReelActivityVerb(reelActivityModal.type)} this Reel.`
+                      : `${reelActivityPeople.length} people ${getReelActivityVerb(reelActivityModal.type)} this Reel.`}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setReelActivityModal(null)}
+                  style={reelActivityCloseButtonStyle}
+                  aria-label="Close Reel activity"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div style={reelActivitySectionLabelStyle}>
+                {getReelActivityActionLabel(reelActivityModal.type)}
+              </div>
+
+              {reelActivityPeople.length === 0 ? (
+                <div style={reelActivityEmptyStateStyle}>
+                  {getReelActivityEmptyText(reelActivityModal.type)}
+                </div>
+              ) : (
+                <div style={reelActivityPeopleListStyle}>
+                  {reelActivityPeople.map((person) => (
+                    <div key={person.notificationId} style={reelActivityPersonRowStyle}>
+                      <div style={reelActivityPersonAvatarStyle}>
+                        {person.actor?.avatar_url ? (
+                          <img
+                            src={person.actor.avatar_url}
+                            alt=""
+                            style={reelActivityPersonAvatarImageStyle}
+                          />
+                        ) : (
+                          <span style={reelActivityPersonAvatarFallbackStyle}>
+                            {getInitial(person.actor)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={reelActivityPersonTextStyle}>
+                        <div style={reelActivityPersonNameStyle}>
+                          {getDisplayName(person.actor)}
+                        </div>
+                        <div style={reelActivityPersonMetaStyle}>
+                          {person.actor?.username ? `@${person.actor.username.replace(/^@+/, "")}` : "Parapost Member"}
+                          <span> · </span>
+                          {formatRelativeTime(person.created_at)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={reelActivityFooterStyle}>
+                <button
+                  type="button"
+                  onClick={() => handleOpenNotification(reelActivityModal)}
+                  style={reelActivityViewReelButtonStyle}
+                >
+                  View Reel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReelActivityModal(null)}
+                  style={reelActivityDoneButtonStyle}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
     </main>
   );
 }
@@ -1433,4 +1634,213 @@ const deleteButtonStyle: CSSProperties = {
   padding: "0 11px",
   fontWeight: 900,
   fontSize: "12px",
+};
+
+
+const notificationSideActionsStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+  alignItems: "center",
+};
+
+const viewPeopleButtonStyle: CSSProperties = {
+  minHeight: "34px",
+  borderRadius: "999px",
+  border: "1px solid var(--parapost-accent-border)",
+  background: "var(--parapost-accent-muted-bg)",
+  color: "#f9fafb",
+  padding: "0 12px",
+  fontWeight: 900,
+  fontSize: "12px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const reelActivityBackdropStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 120,
+  border: 0,
+  background: "rgba(0,0,0,0.64)",
+  backdropFilter: "blur(8px)",
+  cursor: "pointer",
+};
+
+const reelActivityModalWrapStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 130,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "clamp(14px, 4vw, 24px)",
+  pointerEvents: "none",
+};
+
+const reelActivityModalCardStyle: CSSProperties = {
+  width: "min(520px, 100%)",
+  maxHeight: "min(82dvh, 680px)",
+  overflowY: "auto",
+  pointerEvents: "auto",
+  borderRadius: "28px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background:
+    "radial-gradient(circle at 15% 0%, var(--parapost-accent-soft), transparent 40%), linear-gradient(180deg, #111827 0%, #07090d 100%)",
+  boxShadow: "0 24px 60px rgba(0,0,0,0.48)",
+  padding: "18px",
+};
+
+const reelActivityModalHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "14px",
+  paddingBottom: "14px",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+};
+
+const reelActivityEyebrowStyle: CSSProperties = {
+  color: "var(--parapost-accent-text)",
+  fontSize: "11px",
+  fontWeight: 950,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  marginBottom: "7px",
+};
+
+const reelActivityTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#ffffff",
+  fontSize: "clamp(18px, 4vw, 24px)",
+  lineHeight: 1.15,
+  fontWeight: 950,
+};
+
+const reelActivitySubtitleStyle: CSSProperties = {
+  margin: "8px 0 0",
+  color: "#9ca3af",
+  fontSize: "13px",
+  lineHeight: 1.45,
+  fontWeight: 700,
+};
+
+const reelActivityCloseButtonStyle: CSSProperties = {
+  width: "38px",
+  height: "38px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
+  fontSize: "24px",
+  lineHeight: 1,
+  fontWeight: 700,
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+const reelActivitySectionLabelStyle: CSSProperties = {
+  margin: "16px 0 10px",
+  color: "#f9fafb",
+  fontSize: "13px",
+  fontWeight: 950,
+};
+
+const reelActivityEmptyStateStyle: CSSProperties = {
+  borderRadius: "20px",
+  border: "1px dashed rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.04)",
+  padding: "18px",
+  color: "#9ca3af",
+  fontSize: "14px",
+  textAlign: "center",
+};
+
+const reelActivityPeopleListStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+};
+
+const reelActivityPersonRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  borderRadius: "18px",
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.045)",
+  padding: "10px",
+};
+
+const reelActivityPersonAvatarStyle: CSSProperties = {
+  width: "42px",
+  height: "42px",
+  borderRadius: "999px",
+  overflow: "hidden",
+  flexShrink: 0,
+  display: "grid",
+  placeItems: "center",
+  background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2))",
+};
+
+const reelActivityPersonAvatarImageStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  objectPosition: "center",
+};
+
+const reelActivityPersonAvatarFallbackStyle: CSSProperties = {
+  color: "#ffffff",
+  fontWeight: 950,
+  fontSize: "14px",
+};
+
+const reelActivityPersonTextStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const reelActivityPersonNameStyle: CSSProperties = {
+  color: "#ffffff",
+  fontSize: "14px",
+  fontWeight: 900,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const reelActivityPersonMetaStyle: CSSProperties = {
+  marginTop: "3px",
+  color: "#94a3b8",
+  fontSize: "12px",
+  fontWeight: 750,
+};
+
+const reelActivityFooterStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "10px",
+  paddingTop: "16px",
+  marginTop: "14px",
+  borderTop: "1px solid rgba(255,255,255,0.08)",
+};
+
+const reelActivityViewReelButtonStyle: CSSProperties = {
+  minHeight: "40px",
+  borderRadius: "999px",
+  border: "1px solid var(--parapost-accent-border)",
+  background: "var(--parapost-accent-muted-bg)",
+  color: "#ffffff",
+  padding: "0 15px",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const reelActivityDoneButtonStyle: CSSProperties = {
+  minHeight: "40px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.13)",
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
+  padding: "0 15px",
+  fontWeight: 900,
+  cursor: "pointer",
 };
