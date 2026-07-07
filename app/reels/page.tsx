@@ -436,15 +436,17 @@ function isReelOwner(
 async function insertReelNotification({
   userId,
   actorId,
+  reelId,
   type,
   message,
 }: {
   userId: string;
   actorId: string;
-  type: "reel_like" | "reel_comment";
+  reelId: string;
+  type: "reel_like" | "reel_comment" | "reel_share" | "reel_favorite";
   message: string;
 }) {
-  if (!userId || !actorId || userId === actorId) return;
+  if (!userId || !actorId || !reelId || userId === actorId) return;
 
   const { error } = await supabase.from("notifications").insert([
     {
@@ -454,6 +456,7 @@ async function insertReelNotification({
       post_id: null,
       comment_id: null,
       friend_request_id: null,
+      reel_id: reelId,
       message,
       is_read: false,
     },
@@ -815,6 +818,35 @@ export default function ReelsPage() {
       } else if (shareRowsError) {
         console.warn("Error loading reel share counts:", shareRowsError.message);
       }
+
+      const { data: favoriteRows, error: favoriteRowsError } = await supabase
+        .from("reel_favorites")
+        .select("reel_id, user_id")
+        .in("reel_id", reelIds);
+
+      if (!favoriteRowsError && favoriteRows) {
+        const favoriteCountMap: Record<string, number> = {};
+        const favoritedByCurrentUser: Record<string, boolean> = {};
+
+        (favoriteRows as { reel_id: string | null; user_id: string | null }[]).forEach((row) => {
+          if (!row.reel_id) return;
+          favoriteCountMap[row.reel_id] = (favoriteCountMap[row.reel_id] || 0) + 1;
+
+          if (nextUserId && row.user_id === nextUserId) {
+            favoritedByCurrentUser[row.reel_id] = true;
+          }
+        });
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          favorites: favoriteCountMap[reel.id] ?? reel.favorites,
+        }));
+
+        setFavoritedMap(favoritedByCurrentUser);
+      } else if (favoriteRowsError) {
+        console.warn("Error loading reel favorite counts:", favoriteRowsError.message);
+        setFavoritedMap({});
+      }
     } else {
       setComments(initialComments);
       setLikedMap({});
@@ -859,6 +891,9 @@ export default function ReelsPage() {
         await fetchReels();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, async () => {
+        await fetchReels();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_favorites" }, async () => {
         await fetchReels();
       })
       .subscribe();
@@ -1274,6 +1309,7 @@ export default function ReelsPage() {
       await insertReelNotification({
         userId: reel.creator_profile_id || reel.user_id,
         actorId: currentUserId,
+        reelId,
         type: "reel_like",
         message: "liked your reel.",
       });
@@ -1293,11 +1329,66 @@ export default function ReelsPage() {
     }
   };
 
-  const handleFavoriteToggle = (reelId: string) => {
+  const handleFavoriteToggle = async (reelId: string) => {
+    if (!currentUserId) {
+      alert("You must be logged in to favorite reels.");
+      return;
+    }
+
+    const reel = reels.find((item) => item.id === reelId);
+    if (!reel) return;
+
+    const nextFavorited = !favoritedMap[reelId];
+
     setFavoritedMap((prev) => ({
       ...prev,
-      [reelId]: !prev[reelId],
+      [reelId]: nextFavorited,
     }));
+
+    setReels((prev) =>
+      prev.map((item) =>
+        item.id === reelId
+          ? { ...item, favorites: Math.max(item.favorites + (nextFavorited ? 1 : -1), 0) }
+          : item
+      )
+    );
+
+    if (nextFavorited) {
+      const { error } = await supabase.from("reel_favorites").insert([
+        {
+          reel_id: reelId,
+          user_id: currentUserId,
+        },
+      ]);
+
+      if (error && !error.message.toLowerCase().includes("duplicate")) {
+        console.error("Reel favorite insert error:", error.message);
+        alert(error.message || "Could not favorite reel.");
+        await fetchReels();
+        return;
+      }
+
+      await insertReelNotification({
+        userId: reel.creator_profile_id || reel.user_id,
+        actorId: currentUserId,
+        reelId,
+        type: "reel_favorite",
+        message: "favorited your reel.",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("reel_favorites")
+      .delete()
+      .eq("reel_id", reelId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      console.error("Reel favorite delete error:", error.message);
+      alert(error.message || "Could not remove reel favorite.");
+      await fetchReels();
+    }
   };
 
   const handleShareLink = async (reelId: string) => {
@@ -1380,6 +1471,7 @@ export default function ReelsPage() {
       await insertReelNotification({
         userId: activeReelOwnerId,
         actorId: currentUserId,
+        reelId: activeReel.id,
         type: "reel_comment",
         message: "commented on your reel.",
       });
@@ -1613,6 +1705,7 @@ export default function ReelsPage() {
       await insertReelNotification({
         userId: activeReplyReelOwnerId,
         actorId: currentUserId,
+        reelId: activeReel.id,
         type: "reel_comment",
         message: "replied to a comment on your reel.",
       });
@@ -1863,6 +1956,18 @@ export default function ReelsPage() {
 
     if (reelUpdateError) {
       console.warn("Reel share count update skipped:", reelUpdateError.message);
+    }
+
+    const activeReelOwnerId = activeReel.creator_profile_id || activeReel.user_id;
+
+    if (activeReelOwnerId && activeReelOwnerId !== currentUserId) {
+      await insertReelNotification({
+        userId: activeReelOwnerId,
+        actorId: currentUserId,
+        reelId: activeReel.id,
+        type: "reel_share",
+        message: "shared your reel.",
+      });
     }
 
     setShareMessage("Shared to your feed.");
@@ -2317,7 +2422,7 @@ export default function ReelsPage() {
             const isOwner = isReelOwner(reel, currentUserId);
             const relationship = relationshipMap[reel.creator_profile_id] || (isOwner ? "you" : "profile");
             const displayedLikes = reel.likes;
-            const displayedFavorites = reel.favorites + (isFavorited ? 1 : 0);
+            const displayedFavorites = reel.favorites;
             const displayedComments = comments.filter(
               (comment) => comment.reelId === reel.id
             ).length;

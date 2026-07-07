@@ -13,6 +13,7 @@ type NotificationRow = {
   post_id: string | null;
   comment_id: string | null;
   friend_request_id: string | null;
+  reel_id?: string | null;
   message: string | null;
   is_read: boolean | null;
   created_at: string | null;
@@ -31,6 +32,7 @@ type NotificationCard = NotificationRow & {
   actor: ProfilePreview | null;
   groupedNotificationIds?: string[];
   parachatMessageCount?: number;
+  reelActivityCount?: number;
 };
 
 type FilterKey = "all" | "unread" | "friends" | "activity";
@@ -148,6 +150,59 @@ function groupParachatNotifications(rows: NotificationCard[]) {
   );
 }
 
+function isReelActivityNotificationType(type?: string | null) {
+  return type === "reel_like" || type === "reel_share" || type === "reel_favorite";
+}
+
+function getReelActivityVerb(type?: string | null) {
+  if (type === "reel_share") return "shared";
+  if (type === "reel_favorite") return "favorited";
+  return "liked";
+}
+
+function getReelActivityCount(notification: NotificationCard) {
+  if (!isReelActivityNotificationType(notification.type)) return 0;
+  return typeof notification.reelActivityCount === "number" && notification.reelActivityCount > 0
+    ? notification.reelActivityCount
+    : 1;
+}
+
+function groupReelActivityNotifications(rows: NotificationCard[]) {
+  const grouped = new Map<string, NotificationCard[]>();
+  const passthrough: NotificationCard[] = [];
+
+  rows.forEach((notification) => {
+    if (!isReelActivityNotificationType(notification.type) || !notification.reel_id) {
+      passthrough.push(notification);
+      return;
+    }
+
+    const key = `reel:${notification.type}:${notification.reel_id}:${notification.is_read ? "read" : "unread"}`;
+    const currentGroup = grouped.get(key) || [];
+    currentGroup.push(notification);
+    grouped.set(key, currentGroup);
+  });
+
+  const groupedCards = Array.from(grouped.values()).map((group) => {
+    const sortedGroup = [...group].sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+
+    const primary = sortedGroup[0];
+
+    return {
+      ...primary,
+      is_read: sortedGroup.every((notification) => notification.is_read),
+      groupedNotificationIds: sortedGroup.map((notification) => notification.id),
+      reelActivityCount: sortedGroup.length,
+    };
+  });
+
+  return [...passthrough, ...groupedCards].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+}
+
 function getNotificationTitle(notification: NotificationCard) {
   const actorName = getDisplayName(notification.actor);
   const type = notification.type || "";
@@ -163,6 +218,16 @@ function getNotificationTitle(notification: NotificationCard) {
     return `${actorName} sent you a Parachat message.`;
   }
 
+  if (isReelActivityNotificationType(type)) {
+    const count = getReelActivityCount(notification);
+    const verb = getReelActivityVerb(type);
+
+    if (count > 2) return `${actorName} and ${count - 1} others ${verb} your Reel.`;
+    if (count === 2) return `${actorName} and 1 other ${verb} your Reel.`;
+    return `${actorName} ${verb} your Reel.`;
+  }
+
+  if (type === "reel_comment") return `${actorName} commented on your Reel.`;
   if (notification.message?.trim()) return notification.message.trim();
   if (type === "friend_request") return `${actorName} sent you a friend request.`;
   if (type === "friend_accept") return `${actorName} accepted your friend request.`;
@@ -170,8 +235,6 @@ function getNotificationTitle(notification: NotificationCard) {
   if (type === "comment_like") return `${actorName} liked your comment.`;
   if (type === "comment_reply") return `${actorName} replied to your comment.`;
   if (type === "post_comment") return `${actorName} commented on your post.`;
-  if (type === "reel_like") return `${actorName} liked your Reel.`;
-  if (type === "reel_comment") return `${actorName} commented on your Reel.`;
   if (type === "badge_award") return "You earned a new badge.";
   if (type === "share") return `${actorName} shared your post.`;
 
@@ -182,10 +245,10 @@ function getNotificationMeta(notification: NotificationCard) {
   const type = notification.type || "";
 
   if (type.includes("parachat")) return "Parachat";
+  if (type.includes("reel")) return "Parapost Reels";
   if (type.includes("friend")) return "Friends";
   if (type.includes("comment")) return "Comments";
   if (type.includes("like")) return "Likes";
-  if (type.includes("reel")) return "Parapost Reels";
   if (type.includes("badge")) return "Badges";
   if (type.includes("share")) return "Shares";
 
@@ -207,8 +270,14 @@ function getNotificationHref(notification: NotificationCard) {
     return "/friends";
   }
 
-  if ((type === "reel_like" || type === "reel_comment") && notification.actor_id) {
-    return `/profile/${notification.actor_id}/reels`;
+  if (type.startsWith("reel_")) {
+    if (notification.reel_id && notification.user_id) {
+      return `/profile/${notification.user_id}/reels/view?reelId=${notification.reel_id}`;
+    }
+
+    if (notification.user_id) {
+      return `/profile/${notification.user_id}/reels`;
+    }
   }
 
   if (notification.post_id) {
@@ -233,10 +302,10 @@ function NotificationTypeIcon({ type }: { type: string | null }) {
   const normalizedType = type || "";
 
   if (normalizedType.includes("parachat")) return <span style={notificationTypeIconTextStyle}>💬</span>;
+  if (normalizedType.includes("reel")) return <span style={notificationTypeIconTextStyle}>▶</span>;
   if (normalizedType.includes("friend")) return <span style={notificationTypeIconTextStyle}>👥</span>;
   if (normalizedType.includes("comment")) return <span style={notificationTypeIconTextStyle}>💬</span>;
   if (normalizedType.includes("like")) return <span style={notificationTypeIconTextStyle}>♥</span>;
-  if (normalizedType.includes("reel")) return <span style={notificationTypeIconTextStyle}>▶</span>;
   if (normalizedType.includes("badge")) return <span style={notificationTypeIconTextStyle}>★</span>;
   if (normalizedType.includes("share")) return <span style={notificationTypeIconTextStyle}>↗</span>;
 
@@ -279,7 +348,7 @@ export default function NotificationsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const displayNotifications = useMemo(() => {
-    return groupParachatNotifications(notifications);
+    return groupReelActivityNotifications(groupParachatNotifications(notifications));
   }, [notifications]);
 
   const unreadCount = useMemo(() => {
@@ -317,7 +386,7 @@ export default function NotificationsPage() {
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, user_id, actor_id, type, post_id, comment_id, friend_request_id, message, is_read, created_at")
+        .select("id, user_id, actor_id, type, post_id, comment_id, friend_request_id, reel_id, message, is_read, created_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(100);

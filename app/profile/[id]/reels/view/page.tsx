@@ -391,15 +391,17 @@ function buildReelItems(rows: ReelDbRow[], profiles: ProfileRow[]): ReelItem[] {
 async function insertReelNotification({
   userId,
   actorId,
+  reelId,
   type,
   message,
 }: {
   userId: string;
   actorId: string;
-  type: "reel_like" | "reel_comment";
+  reelId: string;
+  type: "reel_like" | "reel_comment" | "reel_share" | "reel_favorite";
   message: string;
 }) {
-  if (!userId || !actorId || userId === actorId) return;
+  if (!userId || !actorId || !reelId || userId === actorId) return;
 
   const { error } = await supabase.from("notifications").insert([
     {
@@ -409,6 +411,7 @@ async function insertReelNotification({
       post_id: null,
       comment_id: null,
       friend_request_id: null,
+      reel_id: reelId,
       message,
       is_read: false,
     },
@@ -870,6 +873,53 @@ export default function ProfileReelsViewerPage() {
           console.error("Error loading reel comments:", commentsError.message);
         }
       }
+
+      const [shareRowsResult, favoriteRowsResult] = await Promise.all([
+        supabase.from("reel_shares").select("reel_id").in("reel_id", reelIds),
+        supabase.from("reel_favorites").select("reel_id, user_id").in("reel_id", reelIds),
+      ]);
+
+      const { data: shareRows, error: shareRowsError } = shareRowsResult;
+      if (!shareRowsError && shareRows) {
+        const shareCountMap: Record<string, number> = {};
+
+        (shareRows as { reel_id: string | null }[]).forEach((row) => {
+          if (!row.reel_id) return;
+          shareCountMap[row.reel_id] = (shareCountMap[row.reel_id] || 0) + 1;
+        });
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          shares: shareCountMap[reel.id] ?? reel.shares,
+        }));
+      } else if (shareRowsError) {
+        console.warn("Error loading profile reel share counts:", shareRowsError.message);
+      }
+
+      const { data: favoriteRows, error: favoriteRowsError } = favoriteRowsResult;
+      if (!favoriteRowsError && favoriteRows) {
+        const favoriteCountMap: Record<string, number> = {};
+        const favoritedByCurrentUser: Record<string, boolean> = {};
+
+        (favoriteRows as { reel_id: string | null; user_id: string | null }[]).forEach((row) => {
+          if (!row.reel_id) return;
+          favoriteCountMap[row.reel_id] = (favoriteCountMap[row.reel_id] || 0) + 1;
+
+          if (nextUserId && row.user_id === nextUserId) {
+            favoritedByCurrentUser[row.reel_id] = true;
+          }
+        });
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          favorites: favoriteCountMap[reel.id] ?? reel.favorites,
+        }));
+
+        setFavoritedMap(favoritedByCurrentUser);
+      } else if (favoriteRowsError) {
+        console.warn("Error loading profile reel favorite counts:", favoriteRowsError.message);
+        setFavoritedMap({});
+      }
     } else {
       setComments(initialComments);
       setCommentLikeMap({});
@@ -945,6 +995,20 @@ export default function ProfileReelsViewerPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reel_comment_likes" },
+        async () => {
+          await fetchReels();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reel_shares" },
+        async () => {
+          await fetchReels();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reel_favorites" },
         async () => {
           await fetchReels();
         },
@@ -1376,6 +1440,7 @@ export default function ProfileReelsViewerPage() {
       await insertReelNotification({
         userId: reel.creator_profile_id || reel.user_id,
         actorId: currentUserId,
+        reelId,
         type: "reel_like",
         message: "liked your reel.",
       });
@@ -1397,11 +1462,66 @@ export default function ProfileReelsViewerPage() {
     }
   };
 
-  const handleFavoriteToggle = (reelId: string) => {
+  const handleFavoriteToggle = async (reelId: string) => {
+    if (!currentUserId) {
+      alert("You must be logged in to favorite reels.");
+      return;
+    }
+
+    const reel = reels.find((item) => item.id === reelId);
+    if (!reel) return;
+
+    const nextFavorited = !favoritedMap[reelId];
+
     setFavoritedMap((prev) => ({
       ...prev,
-      [reelId]: !prev[reelId],
+      [reelId]: nextFavorited,
     }));
+
+    setReels((prev) =>
+      prev.map((item) =>
+        item.id === reelId
+          ? { ...item, favorites: Math.max(item.favorites + (nextFavorited ? 1 : -1), 0) }
+          : item
+      )
+    );
+
+    if (nextFavorited) {
+      const { error } = await supabase.from("reel_favorites").insert([
+        {
+          reel_id: reelId,
+          user_id: currentUserId,
+        },
+      ]);
+
+      if (error && !error.message.toLowerCase().includes("duplicate")) {
+        console.error("Profile reel favorite insert error:", error.message);
+        alert(error.message || "Could not favorite reel.");
+        await fetchReels();
+        return;
+      }
+
+      await insertReelNotification({
+        userId: reel.creator_profile_id || reel.user_id,
+        actorId: currentUserId,
+        reelId,
+        type: "reel_favorite",
+        message: "favorited your reel.",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("reel_favorites")
+      .delete()
+      .eq("reel_id", reelId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      console.error("Profile reel favorite delete error:", error.message);
+      alert(error.message || "Could not remove reel favorite.");
+      await fetchReels();
+    }
   };
 
   const handleFollowToggle = async () => {
@@ -1558,8 +1678,9 @@ export default function ProfileReelsViewerPage() {
     }
 
     await insertReelNotification({
-      userId: targetReel.user_id,
+      userId: targetReel.creator_profile_id || targetReel.user_id,
       actorId: currentUserId,
+      reelId: targetReel.id,
       type: "reel_comment",
       message: "commented on your reel.",
     });
@@ -1648,8 +1769,9 @@ export default function ProfileReelsViewerPage() {
     }
 
     await insertReelNotification({
-      userId: targetReel.user_id,
+      userId: targetReel.creator_profile_id || targetReel.user_id,
       actorId: currentUserId,
+      reelId: targetReel.id,
       type: "reel_comment",
       message: "replied to a comment on your reel.",
     });
@@ -1886,21 +2008,74 @@ export default function ProfileReelsViewerPage() {
     alert("Thanks. This Reel comment has been sent to Parapost moderation.");
   };
 
-  const handleShareToFeed = () => {
+  const handleShareToFeed = async () => {
     if (!activeReel) return;
 
-    setShareBoostMap((prev) => ({
-      ...prev,
-      [activeReel.id]: (prev[activeReel.id] || 0) + 1,
-    }));
+    if (!currentUserId) {
+      alert("You must be logged in to share reels.");
+      return;
+    }
 
-    setShareMessage("Reel staged for feed sharing.");
-    setShareCaption("");
+    const trimmedCaption = shareCaption.trim();
+
+    setReels((prev) =>
+      prev.map((reel) =>
+        reel.id === activeReel.id
+          ? {
+              ...reel,
+              shares: reel.shares + 1,
+            }
+          : reel
+      )
+    );
+
+    setShareMessage("Sharing reel to your feed...");
     setShareOpen(false);
+
+    const { error: shareInsertError } = await supabase.from("reel_shares").insert([
+      {
+        reel_id: activeReel.id,
+        user_id: currentUserId,
+        caption: trimmedCaption || null,
+      },
+    ]);
+
+    if (shareInsertError) {
+      console.error("Profile reel share insert error:", shareInsertError.message);
+      alert(shareInsertError.message || "Could not share reel to your feed.");
+      await fetchReels();
+      return;
+    }
+
+    const { error: reelUpdateError } = await supabase
+      .from("reels")
+      .update({
+        shares: activeReel.shares + 1,
+      })
+      .eq("id", activeReel.id);
+
+    if (reelUpdateError) {
+      console.warn("Profile reel share count update skipped:", reelUpdateError.message);
+    }
+
+    const activeReelOwnerId = activeReel.creator_profile_id || activeReel.user_id;
+
+    if (activeReelOwnerId && activeReelOwnerId !== currentUserId) {
+      await insertReelNotification({
+        userId: activeReelOwnerId,
+        actorId: currentUserId,
+        reelId: activeReel.id,
+        type: "reel_share",
+        message: "shared your reel.",
+      });
+    }
+
+    setShareMessage("Shared to your feed.");
+    setShareCaption("");
 
     window.setTimeout(() => {
       setShareMessage("");
-    }, 2200);
+    }, 2600);
   };
 
   const handleReportReel = async (reel: ReelItem) => {
@@ -2477,7 +2652,7 @@ export default function ProfileReelsViewerPage() {
             );
             const isFollowingCreator = !!followingMap[effectiveProfileId];
             const displayedLikes = reel.likes;
-            const displayedFavorites = reel.favorites + (isFavorited ? 1 : 0);
+            const displayedFavorites = reel.favorites;
             const displayedComments = comments.filter(
               (comment) => comment.reelId === reel.id,
             ).length;
