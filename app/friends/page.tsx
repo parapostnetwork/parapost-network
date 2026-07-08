@@ -2,6 +2,7 @@
 
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type ProfilePreview = {
@@ -29,6 +30,8 @@ type FriendCard = {
 };
 
 export default function FriendsListPage() {
+  const router = useRouter();
+
   const [currentUserId, setCurrentUserId] = useState("");
   const [friends, setFriends] = useState<FriendCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +40,13 @@ export default function FriendsListPage() {
   const [processingFriendId, setProcessingFriendId] = useState<string | null>(null);
   const [onlineNow, setOnlineNow] = useState(() => Date.now());
 
+  useEffect(() => {
+    router.prefetch("/dashboard");
+    router.prefetch("/friends/requests");
+    router.prefetch("/messages");
+    router.prefetch("/settings");
+  }, [router]);
+
   const showStatus = useCallback((message: string) => {
     setStatusMessage(message);
     window.setTimeout(() => {
@@ -44,8 +54,8 @@ export default function FriendsListPage() {
     }, 2500);
   }, []);
 
-  const fetchFriends = useCallback(async (userId: string) => {
-    setLoading(true);
+  const fetchFriends = useCallback(async (userId: string, options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
 
     const { data, error } = await supabase
       .from("friend_requests")
@@ -133,14 +143,14 @@ export default function FriendsListPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "friend_requests" },
         async () => {
-          await fetchFriends(currentUserId);
+          await fetchFriends(currentUserId, { silent: true });
         }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
         async () => {
-          await fetchFriends(currentUserId);
+          await fetchFriends(currentUserId, { silent: true });
         }
       )
       .subscribe();
@@ -389,34 +399,35 @@ export default function FriendsListPage() {
       <style jsx global>{`
         html:has(.friends-page-root),
         body:has(.friends-page-root) {
-          height: 100% !important;
+          height: auto !important;
           min-height: 100% !important;
-          overflow: hidden !important;
-          overscroll-behavior-y: none;
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+          overscroll-behavior-y: auto;
         }
 
         body:has(.friends-page-root) {
-          touch-action: none;
+          touch-action: pan-y pinch-zoom;
+          -webkit-overflow-scrolling: touch;
         }
 
         .friends-page-root {
           width: 100%;
-          height: 100svh !important;
-          height: 100dvh !important;
           min-height: 100svh;
           min-height: 100dvh;
-          max-height: 100dvh !important;
+          height: auto !important;
+          max-height: none !important;
           overflow-x: hidden !important;
-          overflow-y: auto !important;
+          overflow-y: visible !important;
           position: relative;
           display: block;
           touch-action: pan-y;
-          overscroll-behavior-y: contain;
+          overscroll-behavior-y: auto;
           -webkit-overflow-scrolling: touch;
         }
 
         .friends-page-inner {
-          min-height: 100%;
+          min-height: 100dvh;
           box-sizing: border-box;
         }
 
@@ -446,27 +457,27 @@ export default function FriendsListPage() {
         @media (max-width: 760px) {
           html:has(.friends-page-root),
           body:has(.friends-page-root) {
-            height: 100% !important;
-            max-height: 100% !important;
-            overflow: hidden !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
           }
 
           .friends-page-root {
             min-height: 100svh !important;
             min-height: 100dvh !important;
-            height: 100svh !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            overflow-y: auto !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow-y: visible !important;
             align-items: stretch !important;
-            padding-bottom: 0 !important;
+            padding-bottom: max(32px, env(safe-area-inset-bottom)) !important;
           }
 
           .friends-page-inner {
             width: 100% !important;
             max-width: 100% !important;
-            min-height: 100% !important;
-            padding: 14px 10px calc(260px + env(safe-area-inset-bottom)) !important;
+            min-height: 100dvh !important;
+            padding: 14px 10px calc(72px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
@@ -530,7 +541,7 @@ export default function FriendsListPage() {
           .friends-page-inner {
             padding-left: 8px !important;
             padding-right: 8px !important;
-            padding-bottom: calc(240px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
@@ -546,7 +557,7 @@ export default function FriendsListPage() {
         @media (min-width: 761px) and (max-width: 1024px) {
           .friends-page-inner {
             max-width: 940px !important;
-            padding: 22px 16px calc(150px + env(safe-area-inset-bottom)) !important;
+            padding: 22px 16px calc(96px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
@@ -576,7 +587,7 @@ export default function FriendsListPage() {
         @media (max-height: 540px) and (orientation: landscape) {
           .friends-page-inner {
             padding-top: 10px !important;
-            padding-bottom: calc(130px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
           }
 
           .friends-hero-shell {
@@ -592,16 +603,16 @@ export default function FriendsListPage() {
 const pageStyle: CSSProperties = {
   width: "100%",
   minHeight: "100dvh",
-  height: "100dvh",
-  maxHeight: "100dvh",
+  height: "auto",
+  maxHeight: "none",
   overflowX: "hidden",
-  overflowY: "auto",
+  overflowY: "visible",
   position: "relative",
   display: "block",
   background:
     "radial-gradient(circle at 12% 0%, var(--parapost-accent-soft), transparent 35%), radial-gradient(circle at 88% 18%, var(--parapost-accent-muted-bg), transparent 32%), linear-gradient(180deg, #05050b 0%, #07090d 45%, #05050b 100%)",
   color: "#ffffff",
-  overscrollBehaviorY: "contain",
+  overscrollBehaviorY: "auto",
   WebkitOverflowScrolling: "touch",
 };
 
