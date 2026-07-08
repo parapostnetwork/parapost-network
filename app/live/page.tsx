@@ -1,7 +1,8 @@
 "use client";
 
-import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type LiveStatus = "draft" | "upcoming" | "live" | "ended" | "cancelled";
@@ -177,9 +178,12 @@ function getStatusPillStyle(stream: LiveStreamRow): CSSProperties {
 }
 
 export default function ParapostLivePage() {
+  const router = useRouter();
+  const loadedOnceRef = useRef(false);
   const [currentUserId, setCurrentUserId] = useState("");
   const [ownedStreams, setOwnedStreams] = useState<LiveStreamRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
   const [busyId, setBusyId] = useState("");
 
@@ -200,9 +204,22 @@ export default function ParapostLivePage() {
     [sortedOwnedStreams]
   );
 
-  const loadLiveManager = useCallback(async () => {
-    setLoading(true);
+  const loadLiveManager = useCallback(async (options?: { silent?: boolean }) => {
+    const shouldRefreshQuietly = Boolean(options?.silent) || loadedOnceRef.current;
+
+    if (shouldRefreshQuietly) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
     setMessage("");
+
+    const finishLoading = () => {
+      loadedOnceRef.current = true;
+      setLoading(false);
+      setRefreshing(false);
+    };
 
     const {
       data: { user },
@@ -213,7 +230,7 @@ export default function ParapostLivePage() {
       setCurrentUserId("");
       setOwnedStreams([]);
       setMessage("Sign in to manage your Live shows.");
-      setLoading(false);
+      finishLoading();
       return;
     }
 
@@ -229,7 +246,7 @@ export default function ParapostLivePage() {
     if (error) {
       setOwnedStreams([]);
       setMessage(error.message || "Could not load your Live shows.");
-      setLoading(false);
+      finishLoading();
       return;
     }
 
@@ -270,18 +287,27 @@ export default function ParapostLivePage() {
 
       if (!refreshedError) {
         setOwnedStreams((refreshedData || []) as LiveStreamRow[]);
-        setLoading(false);
+        finishLoading();
         return;
       }
     }
 
     setOwnedStreams(rows);
-    setLoading(false);
+    finishLoading();
   }, []);
 
   useEffect(() => {
     void loadLiveManager();
   }, [loadLiveManager]);
+
+  useEffect(() => {
+    router.prefetch("/dashboard");
+    router.prefetch("/live/create");
+    router.prefetch("/notifications");
+    router.prefetch("/messages");
+    router.prefetch("/friends");
+    router.prefetch("/settings");
+  }, [router]);
 
   const updateOwnedStream = async (
     stream: LiveStreamRow,
@@ -315,7 +341,7 @@ export default function ParapostLivePage() {
     }
 
     setMessage(successMessage);
-    await loadLiveManager();
+    await loadLiveManager({ silent: true });
   };
 
   const publishScheduledShow = async (stream: LiveStreamRow) => {
@@ -432,7 +458,7 @@ export default function ParapostLivePage() {
     }
 
     setMessage("Live show deleted from Parapost.");
-    await loadLiveManager();
+    await loadLiveManager({ silent: true });
   };
 
   return (
@@ -520,8 +546,13 @@ export default function ParapostLivePage() {
               Create Live Show
             </Link>
 
-            <button type="button" onClick={() => void loadLiveManager()} style={secondaryButtonStyle}>
-              Refresh
+            <button
+              type="button"
+              disabled={refreshing}
+              onClick={() => void loadLiveManager({ silent: true })}
+              style={secondaryButtonStyle}
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
 
