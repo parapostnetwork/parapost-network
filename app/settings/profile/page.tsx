@@ -1,7 +1,8 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -47,7 +48,6 @@ function getAvatarErrorMessage(error: unknown) {
   return "Unknown avatar upload error";
 }
 
-
 function getInitial(name?: string | null, username?: string | null) {
   const value = name || username || "P";
   return value.charAt(0).toUpperCase();
@@ -57,7 +57,19 @@ function getDisplayName(form: ProfileSettingsForm, username: string) {
   return form.full_name.trim() || username || "Parapost Member";
 }
 
+function blurActiveElement() {
+  if (typeof document === "undefined") return;
+
+  const activeElement = document.activeElement;
+
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur();
+  }
+}
+
 export default function ProfileSettingsPage() {
+  const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -68,16 +80,45 @@ export default function ProfileSettingsPage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarRefreshKey, setAvatarRefreshKey] = useState(0);
   const [localAvatarPreviewUrl, setLocalAvatarPreviewUrl] = useState("");
+
   const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const displayName = useMemo(() => getDisplayName(form, username), [form, username]);
   const bioCharacters = form.bio.trim().length;
   const avatarPreviewUrl = form.avatar_url.trim();
+
   const displayedAvatarPreviewUrl = localAvatarPreviewUrl
     ? localAvatarPreviewUrl
     : avatarPreviewUrl
       ? `${avatarPreviewUrl}${avatarPreviewUrl.includes("?") ? "&" : "?"}v=${avatarRefreshKey}`
       : "";
+
+  const viewProfileHref = userId ? `/profile/${userId}` : "/dashboard";
+
+  const goToAccountSettings = useCallback(() => {
+    blurActiveElement();
+    router.push("/settings/account");
+  }, [router]);
+
+  const goToViewProfile = useCallback(() => {
+    blurActiveElement();
+    router.push(viewProfileHref);
+  }, [router, viewProfileHref]);
+
+  useEffect(() => {
+    router.prefetch("/settings");
+    router.prefetch("/settings/account");
+    router.prefetch("/settings/profile-visibility");
+    router.prefetch("/dashboard");
+    router.prefetch("/notifications");
+    router.prefetch("/messages");
+  }, [router]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    router.prefetch(`/profile/${userId}`);
+  }, [router, userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,10 +219,12 @@ export default function ProfileSettingsPage() {
       if (previousUrl) URL.revokeObjectURL(previousUrl);
       return objectPreviewUrl;
     });
+
     setForm((prev) => ({
       ...prev,
       avatar_url: objectPreviewUrl,
     }));
+
     setAvatarRefreshKey(Date.now());
     setAvatarUploading(true);
 
@@ -211,11 +254,6 @@ export default function ProfileSettingsPage() {
         throw new Error("Avatar uploaded, but no public URL was returned.");
       }
 
-      setForm((prev) => ({
-        ...prev,
-        avatar_url: nextAvatarUrl,
-      }));
-
       const { data: updatedProfile, error: updateError } = await supabase
         .from("profiles")
         .update({ avatar_url: nextAvatarUrl })
@@ -231,19 +269,22 @@ export default function ProfileSettingsPage() {
         if (previousUrl) URL.revokeObjectURL(previousUrl);
         return "";
       });
+
       setForm((prev) => ({
         ...prev,
         avatar_url: savedAvatarUrl,
       }));
-      setAvatarRefreshKey(Date.now());
 
+      setAvatarRefreshKey(Date.now());
       setStatusMessage("Avatar uploaded and saved. Your new avatar should now show across Parapost.");
     } catch (error) {
       console.error("Avatar upload error:", error);
+
       setLocalAvatarPreviewUrl((previousUrl) => {
         if (previousUrl) URL.revokeObjectURL(previousUrl);
         return "";
       });
+
       setAvatarRefreshKey(Date.now());
       setErrorMessage(`Avatar upload failed: ${getAvatarErrorMessage(error)}`);
     } finally {
@@ -255,6 +296,7 @@ export default function ProfileSettingsPage() {
   const handleSave = async () => {
     if (!userId || saving || avatarUploading) return;
 
+    blurActiveElement();
     setSaving(true);
     setStatusMessage("");
     setErrorMessage("");
@@ -286,6 +328,7 @@ export default function ProfileSettingsPage() {
         }));
       }
 
+      setAvatarRefreshKey(Date.now());
       setStatusMessage("Profile settings saved successfully.");
     } catch (error) {
       console.error("Error saving profile settings:", error);
@@ -315,19 +358,25 @@ export default function ProfileSettingsPage() {
     <main className="profile-settings-root px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-6">
       <section className="relative z-10 mx-auto w-full max-w-4xl">
         <div className="profile-settings-topbar mb-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
             <BackToPrevious label="← Back" fallbackHref="/settings/account" />
-            <span className="text-slate-700 select-none">/</span>
-            <Link href="/settings" className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white">Settings</Link>
+            <span className="select-none text-slate-700">/</span>
+            <Link
+              href="/settings"
+              className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white"
+            >
+              Settings
+            </Link>
           </div>
 
           {userId ? (
-            <Link
-              href={`/profile/${userId}`}
+            <button
+              type="button"
+              onClick={goToViewProfile}
               className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-300 no-underline transition hover:bg-white/[0.08] hover:text-white"
             >
               View Profile →
-            </Link>
+            </button>
           ) : (
             <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
               Profile Settings
@@ -345,7 +394,10 @@ export default function ProfileSettingsPage() {
               boxShadow: "0 24px 70px rgba(0,0,0,0.38), 0 0 38px var(--parapost-accent-glow)",
             }}
           >
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--parapost-accent-text)" }}>
+            <p
+              className="mb-3 text-xs font-black uppercase tracking-[0.18em]"
+              style={{ color: "var(--parapost-accent-text)" }}
+            >
               Profile Settings
             </p>
             <h1 className="max-w-3xl text-4xl font-black leading-[0.95] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
@@ -362,82 +414,86 @@ export default function ProfileSettingsPage() {
             style={{
               borderColor: "var(--parapost-accent-border)",
               background:
-                "linear-gradient(135deg, var(--parapost-accent-muted-bg), rgba(255,255,255,0.055), rgba(15,23,42,0.56))",
+                "linear-gradient(135deg, var(--parapost-accent-muted-bg), rgba(255,255,255,0.045), rgba(15,23,42,0.58))",
             }}
           >
             <div className="flex items-center gap-4">
               <div
-                className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full text-3xl font-black ring-1 ring-white/15"
-                style={{ background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))" }}
+                className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[26px] border text-3xl font-black text-white shadow-2xl"
+                style={{
+                  borderColor: "var(--parapost-accent-border)",
+                  background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
+                  boxShadow: "0 0 28px var(--parapost-accent-glow)",
+                }}
               >
                 {displayedAvatarPreviewUrl ? (
                   <img
-                    key={displayedAvatarPreviewUrl}
                     src={displayedAvatarPreviewUrl}
                     alt="Profile avatar preview"
                     className="h-full w-full object-cover object-center"
-                    onLoad={(event) => {
-                      event.currentTarget.style.display = "block";
-                    }}
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                      setAvatarRefreshKey(Date.now());
-                    }}
                   />
                 ) : (
-                  getInitial(form.full_name, username)
+                  <span>{getInitial(form.full_name, username)}</span>
                 )}
               </div>
 
               <div className="min-w-0">
-                <div className="truncate text-lg font-black">{displayName}</div>
-                <div className="truncate text-sm text-slate-400">@{username || "no-username"}</div>
+                <p className="truncate text-lg font-black tracking-[-0.02em] text-white">{displayName}</p>
+                <p className="truncate text-sm font-bold text-slate-400">{username ? `@${username}` : "@parapost"}</p>
+                <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "var(--parapost-accent-text)" }}>
+                  Live preview
+                </p>
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4 shadow-inner shadow-black/20">
-              <div className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: "var(--parapost-accent-text)" }}>
-                Visibility
-              </div>
-              <div className="mt-2 text-2xl font-black">{form.is_private ? "Private" : "Public"}</div>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                {form.is_private
-                  ? "Your profile shell can remain visible while profile content is protected based on privacy rules."
-                  : "Your profile content is available based on your public profile settings."}
-              </p>
-            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-400">
+              This preview updates as you edit. Uploads save immediately, and the Save Changes button updates your name, bio, and avatar URL.
+            </p>
           </aside>
         </section>
 
-        <section className="profile-settings-content-grid grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {(statusMessage || errorMessage) ? (
           <div
-            className="rounded-[32px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-7"
+            className="mb-5 rounded-[24px] border px-4 py-3 text-sm font-bold shadow-xl"
             style={{
-              borderColor: "var(--parapost-accent-border)",
-              background: "linear-gradient(135deg, var(--parapost-accent-muted-bg), rgba(255,255,255,0.055), rgba(15,23,42,0.56))",
+              borderColor: errorMessage ? "rgba(248,113,113,0.30)" : "rgba(34,197,94,0.30)",
+              background: errorMessage ? "rgba(127,29,29,0.18)" : "rgba(22,163,74,0.14)",
+              color: errorMessage ? "#fecaca" : "#bbf7d0",
             }}
           >
-            <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            {errorMessage || statusMessage}
+          </div>
+        ) : null}
+
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div
+            className="rounded-[30px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-6"
+            style={{
+              borderColor: "var(--parapost-accent-border)",
+              background: "linear-gradient(135deg, rgba(255,255,255,0.065), rgba(15,23,42,0.68))",
+            }}
+          >
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.18em]" style={{ color: "var(--parapost-accent-text)" }}>
-                  Profile Details
+                <p
+                  className="text-xs font-black uppercase tracking-[0.18em]"
+                  style={{ color: "var(--parapost-accent-text)" }}
+                >
+                  Basic Info
                 </p>
-                <h2 className="text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl">
-                  Public profile information
+                <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-white sm:text-3xl">
+                  Name, bio, and avatar
                 </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-                  Keep your profile clear, accurate, and easy for people to recognize across Parapost Network.
-                </p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-slate-300">
-                @{username || "no-username"}
-              </div>
+              <span className="w-fit rounded-full border border-white/[0.08] bg-white/[0.045] px-3 py-1.5 text-xs font-black text-slate-300">
+                {bioCharacters}/175 bio chars
+              </span>
             </div>
 
             <div className="space-y-5">
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-white/85">Full Name</span>
+              <div>
+                <label className="mb-2 block text-sm font-bold text-white/85">Full Name</label>
                 <input
                   type="text"
                   value={form.full_name}
@@ -447,31 +503,43 @@ export default function ProfileSettingsPage() {
                       full_name: event.target.value,
                     }))
                   }
-                  className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none placeholder:text-white/35 focus:border-purple-300/50"
+                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-white/35 transition focus:border-purple-400/40 focus:bg-black/35"
                   placeholder="Enter your full name"
                 />
-              </label>
+              </div>
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-white/85">Bio</span>
+              <div>
+                <label className="mb-2 block text-sm font-bold text-white/85">Username</label>
+                <input
+                  type="text"
+                  value={username}
+                  readOnly
+                  className="w-full cursor-not-allowed rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-slate-400 outline-none"
+                  placeholder="Username"
+                />
+                <p className="mt-2 text-xs font-medium text-slate-500">
+                  Username changes can be handled separately so profile routes stay stable.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-white/85">Bio</label>
                 <textarea
                   value={form.bio}
+                  maxLength={175}
                   onChange={(event) =>
                     setForm((prev) => ({
                       ...prev,
-                      bio: event.target.value,
+                      bio: event.target.value.slice(0, 175),
                     }))
                   }
-                  rows={5}
-                  maxLength={280}
-                  className="min-h-[140px] w-full resize-y rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none placeholder:text-white/35 focus:border-purple-300/50"
-                  placeholder="Write something about yourself"
+                  className="min-h-[132px] w-full resize-y rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-white/35 transition focus:border-purple-400/40 focus:bg-black/35"
+                  placeholder="Tell the Parapost community a little about yourself."
                 />
-                <div className="mt-2 text-right text-xs font-bold text-slate-500">{bioCharacters}/280</div>
-              </label>
+              </div>
 
-              <div className="rounded-[24px] border border-white/10 bg-black/25 p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.035] p-4">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-base font-black text-white">Profile Avatar</p>
                     <p className="mt-1 text-sm leading-6 text-slate-400">
@@ -483,103 +551,51 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={() => avatarFileInputRef.current?.click()}
                     disabled={avatarUploading || !userId}
-                    className="rounded-2xl px-5 py-3 text-sm font-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-2xl border px-5 py-3 text-sm font-black text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                     style={{
-                      background:
-                        "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
-                      color: "var(--parapost-accent-button-text)",
-                      boxShadow: "0 12px 26px var(--parapost-accent-glow)",
+                      borderColor: "var(--parapost-accent-border)",
+                      background: "linear-gradient(135deg, var(--parapost-accent-soft), rgba(255,255,255,0.06))",
                     }}
                   >
                     {avatarUploading ? "Uploading..." : "Upload Avatar"}
                   </button>
-                </div>
 
-                <input
-                  ref={avatarFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarFileUpload}
-                  className="hidden"
-                />
-
-                <label className="mt-4 block">
-                  <span className="mb-2 block text-sm font-bold text-white/85">Avatar URL</span>
                   <input
-                    type="text"
-                    value={form.avatar_url}
-                    onChange={(event) => {
-                      setLocalAvatarPreviewUrl((previousUrl) => {
-                        if (previousUrl) URL.revokeObjectURL(previousUrl);
-                        return "";
-                      });
-                      setAvatarRefreshKey(Date.now());
-                      setForm((prev) => ({
-                        ...prev,
-                        avatar_url: event.target.value,
-                      }));
-                    }}
-                    className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none placeholder:text-white/35 focus:border-purple-300/50"
-                    placeholder="Paste image URL or upload above"
+                    ref={avatarFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarFileUpload}
                   />
-                  <p className="mt-2 text-xs leading-5 text-slate-500">
-                    Upload saves on the first try. The URL field remains available for a direct image link if needed.
-                  </p>
-                </label>
+                </div>
+
+                <label className="mb-2 block text-sm font-bold text-white/85">Avatar URL</label>
+                <input
+                  type="text"
+                  value={form.avatar_url}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      avatar_url: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-white/35 transition focus:border-purple-400/40 focus:bg-black/35"
+                  placeholder="Paste image URL or upload above"
+                />
+                <p className="mt-2 text-xs font-medium text-slate-500">
+                  Upload saves on the first try. The URL field remains available for a direct image link if needed.
+                </p>
               </div>
 
-              <div className="rounded-[24px] border border-white/10 bg-black/25 p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-base font-black text-white">Profile Visibility</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      Your current visibility is shown here. Use the dedicated Profile Visibility page to switch your profile between public and private.
-                    </p>
-                  </div>
-
-                  <span
-                    className="rounded-full border px-3 py-1.5 text-xs font-black"
-                    style={{
-                      borderColor: "var(--parapost-accent-border)",
-                      background: "var(--parapost-accent-muted-bg)",
-                      color: "var(--parapost-accent-readable-text)",
-                    }}
-                  >
-                    {form.is_private ? "Private" : "Public"}
-                  </span>
-                </div>
-
-                <Link
-                  href="/settings/profile-visibility"
-                  className="mt-4 inline-flex rounded-full border px-4 py-2 text-sm font-black text-white no-underline transition hover:bg-white/10"
-                  style={{ borderColor: "var(--parapost-accent-border)", background: "rgba(255,255,255,0.055)" }}
-                >
-                  Manage Profile Visibility
-                </Link>
-              </div>
-
-              {statusMessage ? (
-                <div className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-3 text-sm font-bold text-emerald-100">
-                  {statusMessage}
-                </div>
-              ) : null}
-
-              {errorMessage ? (
-                <div className="rounded-2xl border border-red-300/25 bg-red-400/10 px-4 py-3 text-sm font-bold text-red-100">
-                  {errorMessage}
-                </div>
-              ) : null}
-
-              <div className="profile-settings-action-row flex flex-col gap-3 pt-2 sm:flex-row">
+              <div className="flex flex-col gap-3 pt-1 sm:flex-row">
                 <button
                   type="button"
                   onClick={handleSave}
                   disabled={saving || avatarUploading || !userId}
-                  className="rounded-2xl px-5 py-3 text-sm font-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-2xl px-5 py-3 text-sm font-black text-white shadow-xl transition disabled:cursor-not-allowed disabled:opacity-60"
                   style={{
                     background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
-                    color: "var(--parapost-accent-button-text)",
-                    boxShadow: "0 12px 26px var(--parapost-accent-glow)",
+                    boxShadow: "0 18px 38px var(--parapost-accent-glow)",
                   }}
                 >
                   {saving ? "Saving..." : avatarUploading ? "Avatar Uploading..." : "Save Changes"}
@@ -587,11 +603,7 @@ export default function ProfileSettingsPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      window.location.href = "/settings/account";
-                    }
-                  }}
+                  onClick={goToAccountSettings}
                   className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10"
                 >
                   Back to Your Account
@@ -608,13 +620,30 @@ export default function ProfileSettingsPage() {
                 background: "linear-gradient(135deg, var(--parapost-accent-muted-bg), rgba(255,255,255,0.045), rgba(15,23,42,0.52))",
               }}
             >
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em]" style={{ color: "var(--parapost-accent-text)" }}>
+              <p
+                className="mb-2 text-xs font-black uppercase tracking-[0.16em]"
+                style={{ color: "var(--parapost-accent-text)" }}
+              >
                 Profile Preview
               </p>
               <h3 className="text-lg font-black tracking-[-0.02em]">How people recognize you</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 Your name, avatar, username, and bio help people understand who they are connecting with.
               </p>
+
+              {userId ? (
+                <button
+                  type="button"
+                  onClick={goToViewProfile}
+                  className="mt-4 inline-flex rounded-full border px-4 py-2 text-sm font-black text-white transition hover:bg-white/10"
+                  style={{
+                    borderColor: "var(--parapost-accent-border)",
+                    background: "rgba(255,255,255,0.055)",
+                  }}
+                >
+                  View Profile
+                </button>
+              ) : null}
             </section>
 
             <section
@@ -624,7 +653,10 @@ export default function ProfileSettingsPage() {
                 background: "linear-gradient(135deg, var(--parapost-accent-muted-bg), rgba(255,255,255,0.045), rgba(15,23,42,0.52))",
               }}
             >
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em]" style={{ color: "var(--parapost-accent-text)" }}>
+              <p
+                className="mb-2 text-xs font-black uppercase tracking-[0.16em]"
+                style={{ color: "var(--parapost-accent-text)" }}
+              >
                 Privacy
               </p>
               <h3 className="text-lg font-black tracking-[-0.02em]">Visibility controls</h3>
@@ -633,8 +665,12 @@ export default function ProfileSettingsPage() {
               </p>
               <Link
                 href="/settings/profile-visibility"
+                onClick={blurActiveElement}
                 className="mt-4 inline-flex rounded-full border px-4 py-2 text-sm font-black text-white no-underline transition hover:bg-white/10"
-                style={{ borderColor: "var(--parapost-accent-border)", background: "rgba(255,255,255,0.055)" }}
+                style={{
+                  borderColor: "var(--parapost-accent-border)",
+                  background: "rgba(255,255,255,0.055)",
+                }}
               >
                 Profile Visibility
               </Link>
@@ -681,76 +717,11 @@ export default function ProfileSettingsPage() {
             gap: 12px !important;
           }
 
-          .profile-settings-topbar > div:first-child {
-            width: 100% !important;
-          }
-
-          .profile-settings-topbar a,
-          .profile-settings-topbar button {
-            min-height: 38px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-          }
-
-          .profile-settings-hero-grid,
-          .profile-settings-content-grid {
-            gap: 14px !important;
-          }
-
-          .profile-settings-root input,
-          .profile-settings-root textarea {
-            font-size: 16px !important;
-          }
-
-          .profile-settings-action-row {
-            display: grid !important;
-            grid-template-columns: 1fr !important;
-          }
-
-          .profile-settings-action-row button,
-          .profile-settings-action-row a {
-            width: 100% !important;
-            justify-content: center !important;
-            text-align: center !important;
-          }
-        }
-
-        @media (min-width: 641px) and (max-width: 1024px) {
-          .profile-settings-root {
-            padding-left: 18px !important;
-            padding-right: 18px !important;
-            padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
-          }
-
-          .profile-settings-hero-grid,
-          .profile-settings-content-grid {
-            grid-template-columns: 1fr !important;
-            max-width: 860px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-          }
-        }
-
-        @media (min-width: 1025px) and (max-width: 1366px) {
-          .profile-settings-root > section,
-          .profile-settings-root > div,
-          .profile-settings-root .relative.z-10 {
-            max-width: 1100px !important;
-          }
-        }
-
-        @media (max-height: 520px) and (orientation: landscape) {
-          .profile-settings-root {
-            padding-top: 12px !important;
-            padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)) !important;
-          }
-
-          .profile-settings-root h1 {
-            font-size: clamp(2rem, 7vw, 3rem) !important;
+          .profile-settings-hero-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
           }
         }
       `}</style>
-
     </main>
   );
 }
