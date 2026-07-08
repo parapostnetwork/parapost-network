@@ -5502,7 +5502,6 @@ useEffect(() => {
       ? getInitial(profileFallbackName, profileFallbackUsername)
       : "";
   const profileIsActuallyOnline = isProfileActuallyOnline(profile);
-  const profilePostAvatarIsOnline = profileIsActuallyOnline || Boolean(isOwnProfile && (profile?.is_online || viewerId === profileId));
   const profileBioValue = (profile?.bio || "").trim();
   const profileHasUsefulBio =
     profileBioValue.length > 0 &&
@@ -15630,7 +15629,7 @@ return (
 
                               <div style={{ position: "relative", zIndex: 1 }}>
                                 <header style={postHeaderStyle}>
-                                  <div style={{ ...postAuthorAvatarStyle, ...(profilePostAvatarIsOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
+                                  <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                     {profile?.avatar_url ? (
                                       <span style={postAuthorAvatarImageClipStyle}>
                                         <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
@@ -15638,7 +15637,7 @@ return (
                                     ) : (
                                       <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                     )}
-                                  {profilePostAvatarIsOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                  {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
                                   </div>
 
                                   <div style={postAuthorTextStyle}>
@@ -15907,7 +15906,7 @@ return (
                               }}
                             >
                               <header style={postHeaderStyle}>
-                                <div style={{ ...postAuthorAvatarStyle, ...(profilePostAvatarIsOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
+                                <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
                                         <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
@@ -15915,7 +15914,7 @@ return (
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
-                                {profilePostAvatarIsOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
                                   </div>
 
                                 <div style={postAuthorTextStyle}>
@@ -16028,7 +16027,7 @@ return (
                               style={profileAchievementTimelineCardStyle}
                             >
                               <header style={postHeaderStyle}>
-                                <div style={{ ...postAuthorAvatarStyle, ...(profilePostAvatarIsOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
+                                <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
                                         <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
@@ -16036,7 +16035,7 @@ return (
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
-                                {profilePostAvatarIsOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
                                   </div>
 
                                 <div style={postAuthorTextStyle}>
@@ -16106,7 +16105,7 @@ return (
                               }}
                             >
                               <header style={postHeaderStyle}>
-                                <div style={{ ...postAuthorAvatarStyle, ...(profilePostAvatarIsOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
+                                <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
                                         <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
@@ -16114,7 +16113,7 @@ return (
                                   ) : (
                                     <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                   )}
-                                {profilePostAvatarIsOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
                                   </div>
 
                                 <div style={postAuthorTextStyle}>
@@ -16246,7 +16245,7 @@ return (
                             }}
                           >
                             <header style={postHeaderStyle}>
-                              <div style={{ ...postAuthorAvatarStyle, ...(profilePostAvatarIsOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
+                              <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                 {profile?.avatar_url ? (
                                   <span style={postAuthorAvatarImageClipStyle}>
                                         <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
@@ -16254,7 +16253,7 @@ return (
                                 ) : (
                                   <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                                 )}
-                              {profilePostAvatarIsOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                              {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
                                   </div>
 
                               <div style={postAuthorTextStyle}>
@@ -18099,19 +18098,15 @@ const postAuthorAvatarImageStyle: CSSProperties = {
 
 const postAuthorOnlineDotStyle: CSSProperties = {
   position: "absolute",
-  right: -3,
-  bottom: -3,
-  width: 17,
-  height: 17,
-  minWidth: 17,
-  minHeight: 17,
+  right: -1,
+  bottom: -1,
+  width: 12,
+  height: 12,
   borderRadius: 999,
-  display: "block",
   background: "#22c55e",
-  border: "3px solid #07090d",
-  outline: "1px solid rgba(255,255,255,0.26)",
-  boxShadow: "0 0 0 1px rgba(34,197,94,0.42), 0 0 14px rgba(34,197,94,0.88), 0 0 26px rgba(34,197,94,0.38)",
-  zIndex: 20,
+  border: "2px solid #07090d",
+  boxShadow: "0 0 10px rgba(34,197,94,0.65)",
+  zIndex: 5,
   pointerEvents: "none",
 };
 
