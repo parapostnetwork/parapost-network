@@ -13067,29 +13067,6 @@ return (
                 />
               </svg>
             </Link>
-
-            <button
-              type="button"
-              className="profile-top-search-icon-button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                closeProfileMobileSearch();
-                setProfileActionsOpen(false);
-                setProfileMainMenuOpen((value) => !value);
-              }}
-              style={profileTopSearchIconButtonStyle}
-              aria-label="Open menu"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ display: "block" }}>
-                <path
-                  d="M4 7h16M4 12h16M4 17h16"
-                  stroke="currentColor"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
           </>
         ) : null}
       </div>
