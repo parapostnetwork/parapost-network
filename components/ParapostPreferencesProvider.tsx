@@ -63,6 +63,10 @@ function normalizeFont(value?: string | null): FontKey {
   return VALID_FONTS.includes(value as FontKey) ? (value as FontKey) : DEFAULT_FONT;
 }
 
+function getPreferenceKey(accent: AccentKey, font: FontKey) {
+  return `${accent}:${font}`;
+}
+
 function applyPreferenceAttributes(accent: AccentKey, font: FontKey) {
   if (typeof document === "undefined") return;
 
@@ -113,30 +117,49 @@ export default function ParapostPreferencesProvider({
   const loadingRef = useRef(false);
   const pendingUserIdRef = useRef<string | null | undefined>(undefined);
   const loadTimerRef = useRef<number | null>(null);
+  const scheduledUserIdRef = useRef<string | null | undefined>(undefined);
+  const lastLoadedUserIdRef = useRef<string | null | undefined>(undefined);
+  const lastAppliedPreferencesRef = useRef(getPreferenceKey(DEFAULT_ACCENT, DEFAULT_FONT));
 
-  const applyAndStorePreferences = useCallback(
+  const writeCachedPreferences = useCallback(
     (nextAccent: AccentKey, nextFont: FontKey) => {
-      if (!mountedRef.current) return;
+      if (typeof window === "undefined") return;
 
-      setAccent(nextAccent);
-      setFont(nextFont);
-      applyPreferenceAttributes(nextAccent, nextFont);
-
-      if (typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(
-            storageKey,
-            JSON.stringify({
-              accent_color: nextAccent,
-              font_style: nextFont,
-            })
-          );
-        } catch {
-          // Ignore localStorage failures. The live UI should still receive the theme.
-        }
+      try {
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            accent_color: nextAccent,
+            font_style: nextFont,
+          })
+        );
+      } catch {
+        // Ignore localStorage failures. The live UI should still receive the theme.
       }
     },
     [storageKey]
+  );
+
+  const applyAndStorePreferences = useCallback(
+    (nextAccent: AccentKey, nextFont: FontKey, shouldStore = true) => {
+      if (!mountedRef.current) return;
+
+      const nextPreferenceKey = getPreferenceKey(nextAccent, nextFont);
+      const alreadyApplied = lastAppliedPreferencesRef.current === nextPreferenceKey;
+
+      applyPreferenceAttributes(nextAccent, nextFont);
+
+      if (!alreadyApplied) {
+        lastAppliedPreferencesRef.current = nextPreferenceKey;
+        setAccent(nextAccent);
+        setFont(nextFont);
+      }
+
+      if (shouldStore) {
+        writeCachedPreferences(nextAccent, nextFont);
+      }
+    },
+    [writeCachedPreferences]
   );
 
   const applyCachedPreferences = useCallback(() => {
@@ -149,7 +172,7 @@ export default function ParapostPreferencesProvider({
       const cached = window.localStorage.getItem(storageKey);
 
       if (!cached) {
-        applyPreferenceAttributes(DEFAULT_ACCENT, DEFAULT_FONT);
+        applyAndStorePreferences(DEFAULT_ACCENT, DEFAULT_FONT, false);
         return;
       }
 
@@ -161,20 +184,23 @@ export default function ParapostPreferencesProvider({
       const cachedAccent = normalizeAccent(parsed.accent_color);
       const cachedFont = normalizeFont(parsed.font_style);
 
-      setAccent(cachedAccent);
-      setFont(cachedFont);
-      applyPreferenceAttributes(cachedAccent, cachedFont);
+      applyAndStorePreferences(cachedAccent, cachedFont, false);
     } catch {
-      applyPreferenceAttributes(DEFAULT_ACCENT, DEFAULT_FONT);
+      applyAndStorePreferences(DEFAULT_ACCENT, DEFAULT_FONT, false);
     }
-  }, [storageKey]);
+  }, [applyAndStorePreferences, storageKey]);
 
   const loadPreferencesForUser = useCallback(
     async (userId: string | null) => {
       if (!mountedRef.current) return;
 
       if (!userId) {
+        lastLoadedUserIdRef.current = null;
         applyCachedPreferences();
+        return;
+      }
+
+      if (lastLoadedUserIdRef.current === userId && !loadingRef.current) {
         return;
       }
 
@@ -203,6 +229,7 @@ export default function ParapostPreferencesProvider({
         const nextAccent = normalizeAccent(preferences?.accent_color);
         const nextFont = normalizeFont(preferences?.font_style);
 
+        lastLoadedUserIdRef.current = userId;
         applyAndStorePreferences(nextAccent, nextFont);
       } catch (error) {
         if (!isSupabaseLockError(error)) {
@@ -230,9 +257,13 @@ export default function ParapostPreferencesProvider({
         window.clearTimeout(loadTimerRef.current);
       }
 
+      scheduledUserIdRef.current = userId;
+
       loadTimerRef.current = window.setTimeout(() => {
         loadTimerRef.current = null;
-        void loadPreferencesForUser(userId);
+        const nextUserId = scheduledUserIdRef.current;
+        scheduledUserIdRef.current = undefined;
+        void loadPreferencesForUser(nextUserId || null);
       }, delayMs);
     },
     [loadPreferencesForUser]
@@ -272,14 +303,35 @@ export default function ParapostPreferencesProvider({
       const nextAccent = normalizeAccent(customEvent.detail?.accent_color);
       const nextFont = normalizeFont(customEvent.detail?.font_style);
 
+      lastLoadedUserIdRef.current = undefined;
       applyAndStorePreferences(nextAccent, nextFont);
     };
 
+    const handleStoragePreferenceUpdate = (event: StorageEvent) => {
+      if (event.key !== storageKey || !event.newValue) return;
+
+      try {
+        const parsed = JSON.parse(event.newValue) as {
+          accent_color?: string;
+          font_style?: string;
+        };
+
+        const nextAccent = normalizeAccent(parsed.accent_color);
+        const nextFont = normalizeFont(parsed.font_style);
+
+        applyAndStorePreferences(nextAccent, nextFont, false);
+      } catch {
+        // Ignore malformed preference cache from another tab.
+      }
+    };
+
     window.addEventListener("parapost-preferences-updated", handlePreferenceUpdate);
+    window.addEventListener("storage", handleStoragePreferenceUpdate);
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      lastLoadedUserIdRef.current = undefined;
       schedulePreferenceLoad(session?.user?.id || null, 220);
     });
 
@@ -292,10 +344,14 @@ export default function ParapostPreferencesProvider({
         loadTimerRef.current = null;
       }
 
+      scheduledUserIdRef.current = undefined;
+      pendingUserIdRef.current = undefined;
+
       window.removeEventListener("parapost-preferences-updated", handlePreferenceUpdate);
+      window.removeEventListener("storage", handleStoragePreferenceUpdate);
       subscription.unsubscribe();
     };
-  }, [applyAndStorePreferences, applyCachedPreferences, schedulePreferenceLoad]);
+  }, [applyAndStorePreferences, applyCachedPreferences, schedulePreferenceLoad, storageKey]);
 
   useEffect(() => {
     applyPreferenceAttributes(accent, font);
