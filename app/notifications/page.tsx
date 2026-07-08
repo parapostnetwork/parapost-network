@@ -271,6 +271,7 @@ function getNotificationMeta(notification: NotificationCard) {
 
   if (type.includes("parachat")) return "Parachat";
   if (type.includes("reel")) return "Parapost Reels";
+  if (type.includes("live")) return "Live";
   if (type.includes("friend")) return "Friends";
   if (type.includes("comment")) return "Comments";
   if (type.includes("like")) return "Likes";
@@ -295,18 +296,21 @@ function getNotificationHref(notification: NotificationCard) {
     return "/friends";
   }
 
+  // Reels page already supports targeting a specific Reel with ?reel=<id>.
+  // This keeps notifications landing on the actual Reel instead of only the profile tab.
   if (type.startsWith("reel_")) {
-    if (notification.reel_id && notification.user_id) {
-      return `/profile/${notification.user_id}/reels/view?reelId=${notification.reel_id}`;
-    }
-
-    if (notification.user_id) {
-      return `/profile/${notification.user_id}/reels`;
-    }
+    return notification.reel_id ? `/reels?reel=${notification.reel_id}` : "/reels";
   }
 
+  // Live notifications should never fall through to a profile by accident.
+  // The current notifications rows do not expose a live_stream_id yet, so route to Live safely.
+  if (type.includes("live")) {
+    return "/live";
+  }
+
+  // Post likes, shares, comments, comment likes, and comment replies all belong to the post.
   if (notification.post_id) {
-    return `/dashboard#post-${notification.post_id}`;
+    return `/dashboard?post=${notification.post_id}#post-${notification.post_id}`;
   }
 
   if (notification.actor_id) {
@@ -328,6 +332,7 @@ function NotificationTypeIcon({ type }: { type: string | null }) {
 
   if (normalizedType.includes("parachat")) return <span style={notificationTypeIconTextStyle}>💬</span>;
   if (normalizedType.includes("reel")) return <span style={notificationTypeIconTextStyle}>▶</span>;
+  if (normalizedType.includes("live")) return <span style={notificationTypeIconTextStyle}>●</span>;
   if (normalizedType.includes("friend")) return <span style={notificationTypeIconTextStyle}>👥</span>;
   if (normalizedType.includes("comment")) return <span style={notificationTypeIconTextStyle}>💬</span>;
   if (normalizedType.includes("like")) return <span style={notificationTypeIconTextStyle}>♥</span>;
