@@ -5501,7 +5501,7 @@ useEffect(() => {
     : profileMissingForOwner
       ? getInitial(profileFallbackName, profileFallbackUsername)
       : "";
-  const profileIsActuallyOnline = isProfileActuallyOnline(profile);
+  const profileIsActuallyOnline = isOwnProfile || isProfileActuallyOnline(profile);
   const profileBioValue = (profile?.bio || "").trim();
   const profileHasUsefulBio =
     profileBioValue.length > 0 &&
