@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -189,6 +189,47 @@ export default function SettingsPage() {
   const displayName = currentProfile?.full_name || currentProfile?.username || "Parapost Member";
   const canSeeAdminSupport = isAdminRole(adminRole);
 
+  const prepareSettingsNavigation = useCallback(() => {
+    if (typeof document === "undefined") return;
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
+  }, []);
+
+  useEffect(() => {
+    const routesToPrefetch = [
+      "/dashboard",
+      "/notifications",
+      "/messages",
+      "/friends",
+      "/settings/account",
+      "/settings/profile",
+      "/settings/profile-visibility",
+      "/settings/privacy-safety",
+      "/settings/blocked-users",
+      "/settings/personalization",
+      "/settings/notifications",
+      "/settings/content-feed",
+      "/settings/data",
+      "/settings/help-support",
+      "/settings/legal",
+    ];
+
+    if (canSeeAdminSupport) {
+      routesToPrefetch.push("/admin/support");
+    }
+
+    if (currentProfile?.id) {
+      routesToPrefetch.push(`/profile/${currentProfile.id}`);
+    }
+
+    routesToPrefetch.forEach((route) => {
+      router.prefetch(route);
+    });
+  }, [canSeeAdminSupport, currentProfile?.id, router]);
+
   // Compute search results across all cards — title, description, eyebrow, items, group label
   const searchResults = useMemo<SearchResult[] | null>(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -272,6 +313,7 @@ export default function SettingsPage() {
   async function handleLogOut() {
     if (logoutLoading) return;
 
+    prepareSettingsNavigation();
     setLogoutLoading(true);
 
     try {
@@ -353,7 +395,7 @@ export default function SettingsPage() {
 
     if (card.href) {
       return (
-        <Link href={card.href} className="block text-white no-underline">
+        <Link href={card.href} onClick={prepareSettingsNavigation} className="block text-white no-underline">
           {content}
         </Link>
       );
@@ -395,12 +437,14 @@ export default function SettingsPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href="/settings/help-support"
+              onClick={prepareSettingsNavigation}
               className="rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 px-4 py-2 text-sm font-black text-white no-underline shadow-lg shadow-purple-950/40 transition hover:brightness-110"
             >
               Contact Support
             </Link>
             <Link
               href="/settings/privacy-safety"
+              onClick={prepareSettingsNavigation}
               className="rounded-full border border-purple-200/20 bg-purple-400/10 px-4 py-2 text-sm font-black text-white no-underline transition hover:bg-purple-400/15"
             >
               Privacy & Safety
@@ -408,6 +452,7 @@ export default function SettingsPage() {
             {canSeeAdminSupport ? (
               <Link
                 href="/admin/support"
+                onClick={prepareSettingsNavigation}
                 className="rounded-full border border-emerald-300/25 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-100 no-underline transition hover:bg-emerald-400/15"
               >
                 Support Inbox
@@ -572,6 +617,7 @@ export default function SettingsPage() {
           <div className="mt-8">
             <Link
               href="/admin/support"
+              onClick={prepareSettingsNavigation}
               className="flex items-center justify-between gap-4 rounded-[20px] border border-emerald-300/15 bg-emerald-400/[0.07] p-5 text-white no-underline transition hover:bg-emerald-400/[0.11]"
             >
               <div className="min-w-0">
