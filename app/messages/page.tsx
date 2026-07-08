@@ -1,4 +1,5 @@
 "use client";
+// PARACHAT FLOW POLISH v1 - smoother route feel, cleaner mobile back behavior, and lightweight prefetch for common exits.
 
 import {
   ChangeEvent,
@@ -722,24 +723,80 @@ function MicrophoneIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-export default function MessagesPageWrapper() {
+function ParachatLoadingFallback() {
   return (
-    <Suspense
-      fallback={
+    <main
+      style={{
+        minHeight: "100dvh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        background:
+          "radial-gradient(circle at 20% 0%, rgba(168,85,247,0.24), transparent 34%), radial-gradient(circle at 80% 18%, rgba(124,58,237,0.18), transparent 30%), linear-gradient(180deg, #05050b 0%, #07090d 52%, #05050b 100%)",
+        color: "#ffffff",
+      }}
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <div
+        style={{
+          width: "min(420px, 100%)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: "28px",
+          padding: "26px",
+          background:
+            "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(15,23,42,0.72))",
+          boxShadow: "0 24px 70px rgba(0,0,0,0.42)",
+          textAlign: "center",
+        }}
+      >
         <div
           style={{
-            minHeight: "100vh",
-            background: "#05070a",
-            color: "white",
-            display: "grid",
-            placeItems: "center",
+            width: "58px",
+            height: "58px",
+            margin: "0 auto 16px",
+            borderRadius: "18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "linear-gradient(135deg, #a855f7, #7c3aed, #d946ef)",
+            boxShadow: "0 16px 34px rgba(168,85,247,0.32)",
+            fontSize: "24px",
             fontWeight: 900,
+            letterSpacing: "-0.08em",
           }}
         >
-          Loading Parachat...
+          P
         </div>
-      }
-    >
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "24px",
+            fontWeight: 900,
+            letterSpacing: "-0.04em",
+          }}
+        >
+          Loading Parachat
+        </h1>
+        <p
+          style={{
+            margin: "8px 0 0",
+            color: "#c4b5fd",
+            fontSize: "14px",
+            fontWeight: 700,
+          }}
+        >
+          Opening your messages...
+        </p>
+      </div>
+    </main>
+  );
+}
+
+export default function MessagesPageWrapper() {
+  return (
+    <Suspense fallback={<ParachatLoadingFallback />}>
       <MessagesPage />
     </Suspense>
   );
@@ -751,6 +808,13 @@ function MessagesPage() {
 
   const selectedConversationFromUrl = searchParams.get("conversation") || "";
   const selectedUserFromUrl = searchParams.get("user") || "";
+
+  useEffect(() => {
+    router.prefetch("/dashboard");
+    router.prefetch("/notifications");
+    router.prefetch("/friends");
+    router.prefetch("/settings");
+  }, [router]);
 
   const [viewerId, setViewerId] = useState("");
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
@@ -2179,7 +2243,9 @@ function MessagesPage() {
     setConversationMenuAnchor(null);
     setOpenMessageMenuId(null);
     setMessageMenuAnchor(null);
+    setImageViewer(null);
     setMobileChatOpen(false);
+    clearConversationUrl();
   };
 
   const handleCloseActiveConversation = () => {
@@ -2849,7 +2915,15 @@ function MessagesPage() {
       >
         <aside className="parachat-inbox" style={inboxStyle}>
           <div style={inboxHeaderStyle}>
-            <Link href="/dashboard" style={backLinkStyle}>
+            <Link
+              href="/dashboard"
+              style={backLinkStyle}
+              onClick={() => {
+                closeConversationOptions();
+                closeMessageOptions();
+                setImageViewer(null);
+              }}
+            >
               ← Feed
             </Link>
 
@@ -3053,6 +3127,11 @@ function MessagesPage() {
                     <Link
                       href={`/profile/${activeConversation.otherUserId}`}
                       style={profileButtonStyle}
+                      onClick={() => {
+                        closeConversationOptions();
+                        closeMessageOptions();
+                        setImageViewer(null);
+                      }}
                     >
                       Profile
                     </Link>
