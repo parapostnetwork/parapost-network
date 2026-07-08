@@ -563,7 +563,7 @@ export default function NotificationsPage() {
     showStatus("All notifications marked as read.");
   };
 
-  const handleOpenNotification = async (notification: NotificationCard) => {
+  const handleOpenNotification = (notification: NotificationCard) => {
     const href = getNotificationHref(notification);
     const notificationIds = notification.groupedNotificationIds?.length
       ? notification.groupedNotificationIds
@@ -574,7 +574,15 @@ export default function NotificationsPage() {
         prev.map((item) => (notificationIds.includes(item.id) ? { ...item, is_read: true } : item))
       );
 
-      await supabase.from("notifications").update({ is_read: true }).in("id", notificationIds);
+      void supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .in("id", notificationIds)
+        .then(({ error }) => {
+          if (error) {
+            console.warn("Could not mark notification read before navigation:", error.message);
+          }
+        });
     }
 
     router.push(href);
