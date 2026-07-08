@@ -1,4 +1,5 @@
 "use client";
+// REELS FLOW POLISH v1 - smoother route exits, lightweight prefetch, and safer video pause behavior.
 
 import {
   CSSProperties,
@@ -13,6 +14,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ReelUploadModal from "./ReelUploadModal";
 import ReelCard from "@/components/reels/ReelCard";
 import ReelCommentsPanel from "@/components/reels/ReelCommentsPanel";
@@ -468,6 +470,7 @@ async function insertReelNotification({
 }
 
 export default function ReelsPage() {
+  const router = useRouter();
   const [currentUserId, setCurrentUserId] = useState("");
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
@@ -518,6 +521,41 @@ export default function ReelsPage() {
   const commentTouchTimeRef = useRef<Record<string, number>>({});
   const commentLongPressTimeoutRef = useRef<number | null>(null);
   const commentLikeBurstTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    router.prefetch("/dashboard");
+    router.prefetch("/notifications");
+    router.prefetch("/messages");
+    router.prefetch("/friends");
+    router.prefetch("/settings");
+  }, [router]);
+
+  const pauseAllReelVideos = () => {
+    Object.values(videoRefs.current).forEach((video) => {
+      try {
+        video?.pause();
+      } catch {
+        // A video can disappear during route changes or reloads.
+      }
+    });
+  };
+
+  const closeReelsOverlays = () => {
+    setReelMenu(null);
+    setCommentMenu(null);
+    setCommentsOpen(false);
+    setShareOpen(false);
+    setDetailsReelId("");
+    setEditOpen(false);
+    setIsUploadModalOpen(false);
+  };
+
+  const prepareReelsRouteExit = () => {
+    closeReelsOverlays();
+    setHoldPausedId(null);
+    setPlayPauseFeedback(null);
+    pauseAllReelVideos();
+  };
 
   const detailsReel = useMemo(() => {
     return reels.find((reel) => reel.id === detailsReelId) || null;
@@ -996,7 +1034,29 @@ export default function ReelsPage() {
   }, [activeReelId, reels, muteAll, holdPausedId, commentsOpen, detailsOpen]);
 
   useEffect(() => {
+    const handlePageHidden = () => {
+      if (document.visibilityState === "hidden") {
+        pauseAllReelVideos();
+      }
+    };
+
+    const handlePageHide = () => {
+      prepareReelsRouteExit();
+    };
+
+    document.addEventListener("visibilitychange", handlePageHidden);
+    window.addEventListener("pagehide", handlePageHide);
+
     return () => {
+      document.removeEventListener("visibilitychange", handlePageHidden);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      prepareReelsRouteExit();
+
       if (heartTimeoutRef.current) {
         window.clearTimeout(heartTimeoutRef.current);
       }
@@ -2273,7 +2333,13 @@ export default function ReelsPage() {
             }}
           >
             <button
-              onClick={() => setIsUploadModalOpen(true)}
+              onClick={() => {
+                setReelMenu(null);
+                setCommentMenu(null);
+                setShareOpen(false);
+                setDetailsReelId("");
+                setIsUploadModalOpen(true);
+              }}
               style={viewportType === "mobile" ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" } : buttonStyle}
             >
               {viewportType === "mobile" ? "+ Reel" : "+ Create Reel"}
@@ -2288,6 +2354,7 @@ export default function ReelsPage() {
 
             <Link
               href="/dashboard"
+              onClick={prepareReelsRouteExit}
               style={viewportType === "mobile" ? { ...navLinkStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" } : navLinkStyle}
             >
               {viewportType === "mobile" ? "Dashboard" : "Back to Dashboard"}
