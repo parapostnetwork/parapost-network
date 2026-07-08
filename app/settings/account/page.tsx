@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -44,6 +45,17 @@ function formatDate(value?: string | null) {
 }
 
 
+function blurActiveElement() {
+  if (typeof document === "undefined") return;
+
+  const activeElement = document.activeElement;
+
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur();
+  }
+}
+
+
 const accountControls = [
   {
     title: "Password reset",
@@ -75,6 +87,8 @@ const accountChecklist = [
 ];
 
 export default function AccountSecuritySettingsPage() {
+  const router = useRouter();
+
   const [currentProfile, setCurrentProfile] = useState<ProfilePreview | null>(null);
   const [userEmail, setUserEmail] = useState("");
   const [userId, setUserId] = useState("");
@@ -93,6 +107,31 @@ export default function AccountSecuritySettingsPage() {
     if (!userId) return "Signed out";
     return "Signed in";
   }, [pageLoading, userId]);
+
+  const prepareAccountNavigation = useCallback(() => {
+    blurActiveElement();
+  }, []);
+
+  useEffect(() => {
+    router.prefetch("/");
+    router.prefetch("/dashboard");
+    router.prefetch("/settings");
+    router.prefetch("/settings/data");
+    router.prefetch("/settings/help-support");
+    router.prefetch("/settings/profile");
+    router.prefetch("/settings/profile-visibility");
+    router.prefetch("/notifications");
+    router.prefetch("/messages");
+    router.prefetch("/friends");
+
+    if (canSeeAdminSupport) {
+      router.prefetch("/admin/support");
+    }
+
+    if (currentProfile?.id) {
+      router.prefetch(`/profile/${currentProfile.id}`);
+    }
+  }, [canSeeAdminSupport, currentProfile?.id, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +192,7 @@ export default function AccountSecuritySettingsPage() {
   }, []);
 
   const handleSendPasswordReset = async () => {
+    blurActiveElement();
     setStatusMessage("");
     setErrorMessage("");
 
@@ -183,6 +223,7 @@ export default function AccountSecuritySettingsPage() {
   };
 
   const handleSignOut = async () => {
+    blurActiveElement();
     setStatusMessage("");
     setErrorMessage("");
     setSigningOut(true);
@@ -193,16 +234,14 @@ export default function AccountSecuritySettingsPage() {
 
     const { error } = await supabase.auth.signOut();
 
-    setSigningOut(false);
-
     if (error) {
+      setSigningOut(false);
       setErrorMessage(`Could not sign out: ${error.message}`);
       return;
     }
 
-    if (typeof window !== "undefined") {
-      window.location.href = "/";
-    }
+    router.replace("/");
+    router.refresh();
   };
 
   return (
@@ -259,6 +298,7 @@ export default function AccountSecuritySettingsPage() {
 
               <Link
                 href="/settings/data"
+                onClick={prepareAccountNavigation}
                 className="inline-flex w-full items-center justify-center rounded-full border px-5 py-3 text-center text-sm font-black text-white no-underline shadow-lg transition hover:bg-white/10 sm:w-auto"
                 style={{
                   borderColor: "var(--parapost-accent-border)",
@@ -270,6 +310,7 @@ export default function AccountSecuritySettingsPage() {
 
               <Link
                 href="/settings/help-support"
+                onClick={prepareAccountNavigation}
                 className="inline-flex w-full items-center justify-center rounded-full border px-5 py-3 text-center text-sm font-black text-white no-underline shadow-lg transition hover:bg-white/10 sm:w-auto"
                 style={{
                   borderColor: "var(--parapost-accent-border)",
@@ -282,6 +323,7 @@ export default function AccountSecuritySettingsPage() {
               {canSeeAdminSupport ? (
                 <Link
                   href="/admin/support"
+                  onClick={prepareAccountNavigation}
                   className="inline-flex w-full items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/10 px-5 py-3 text-center text-sm font-black text-emerald-100 no-underline hover:bg-emerald-400/15 sm:w-auto"
                 >
                   Support Inbox
