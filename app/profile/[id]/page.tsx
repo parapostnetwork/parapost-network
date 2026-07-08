@@ -15378,6 +15378,7 @@ return (
                       ) : (
                         <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                       )}
+                      {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
                     </div>
 
                     <textarea
@@ -18183,7 +18184,7 @@ const profileComposerAvatarStyle: CSSProperties = {
   width: 48,
   height: 48,
   borderRadius: 999,
-  overflow: "hidden",
+  overflow: "visible",
   display: "grid",
   placeItems: "center",
   border: "2px solid color-mix(in srgb, var(--parapost-accent-2) 70%, rgba(255,255,255,0.22))",
