@@ -550,6 +550,26 @@ export default function ReelsPage() {
     setIsUploadModalOpen(false);
   };
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") !== "1") return;
+
+    setReelMenu(null);
+    setCommentMenu(null);
+    setCommentsOpen(false);
+    setShareOpen(false);
+    setDetailsReelId("");
+    setEditOpen(false);
+    setIsUploadModalOpen(true);
+
+    params.delete("create");
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+    window.history.replaceState(null, "", nextUrl);
+  }, []);
+
   const prepareReelsRouteExit = () => {
     closeReelsOverlays();
     setHoldPausedId(null);

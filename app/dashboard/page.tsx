@@ -10463,7 +10463,7 @@ function ComposerCard({
 
       <div className="dashboard-composer-actions" style={composerActionGridStyle}>
         <ComposerActionPill label="Photo / Video" icon="▣" tone="green" onClick={() => fileInputRef.current?.click()} />
-        <ComposerActionPill label="Parapost Reel" icon="▶" tone="pink" href="/reels" />
+        <ComposerActionPill label="Parapost Reel" icon="▶" tone="pink" href="/reels?create=1" />
         <ComposerActionPill label="Live Stream" icon="◎" tone="red" href="/live" />
         <ComposerActionPill label="Feeling / Activity" icon="●" tone="gold" active={!!selectedFeelingActivity} onClick={onOpenFeelingActivity} />
       </div>
