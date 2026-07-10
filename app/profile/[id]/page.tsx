@@ -16055,13 +16055,13 @@ return (
                                 <p style={postContentStyle}>{renderLinkedText(item.caption)}</p>
                               ) : null}
 
-                              <div className="profile-shared-reel-card" style={sharedReelCardStyle}>
-                                <Link
-                                  href={`/reels?reel=${item.reel_id}`}
-                                  className="profile-shared-reel-preview"
-                                  style={sharedReelPreviewStyle}
-                                  aria-label="View shared reel"
-                                >
+                              <Link
+                                className="profile-shared-reel-card"
+                                style={sharedReelCardStyle}
+                                href={`/reels?reel=${item.reel_id}`}
+                                aria-label={`Watch ${item.reel?.title || "Parapost Reel"}`}
+                              >
+                                <div className="profile-shared-reel-preview" style={sharedReelPreviewStyle}>
                                   {item.reel?.video_url ? (
                                     <video
                                       src={item.reel.video_url}
@@ -16097,10 +16097,12 @@ return (
                                   <div style={sharedReelPlayOverlayStyle}>
                                     <span style={sharedReelPlayButtonStyle}>▶</span>
                                   </div>
-                                </Link>
+                                </div>
 
                                 <div className="profile-shared-reel-copy" style={{ minWidth: 0, padding: "14px 15px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "7px" }}>
-                                  <div style={sharedReelBadgeStyle}>Parapost Reel</div>
+                                  <span className="profile-shared-reel-network" style={sharedReelNetworkLabelStyle}>
+                                    Parapost Network
+                                  </span>
 
                                   <h4
                                     className="profile-shared-reel-title"
@@ -16118,22 +16120,8 @@ return (
                                   >
                                     {item.reel?.title || "Parapost Reel"}
                                   </h4>
-
-                                  <p className="profile-shared-reel-meta" style={{ ...sharedReelMetaStyle, margin: 0 }}>
-                                    Original by {creatorName} @{creatorHandle}
-                                  </p>
-
-                                  {item.reel?.caption ? (
-                                    <p className="profile-shared-reel-caption" style={{ ...sharedReelMetaStyle, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                                      {item.reel.caption}
-                                    </p>
-                                  ) : null}
-
-                                  <Link className="profile-shared-reel-action" href={`/reels?reel=${item.reel_id}`} style={sharedReelActionLinkStyle}>
-                                    View Reel
-                                  </Link>
                                 </div>
-                              </div>
+                              </Link>
                             </article>
                           );
                         }
@@ -19419,6 +19407,9 @@ const sharedReelCardStyle: CSSProperties = {
   padding: 0,
   overflow: "hidden",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 26px rgba(0,0,0,0.22)",
+  textDecoration: "none",
+  color: "inherit",
+  cursor: "pointer",
 };
 
 const sharedReelPreviewStyle: CSSProperties = {
@@ -19535,6 +19526,15 @@ const sharedReelBadgeStyle: CSSProperties = {
   fontSize: "12px",
   fontWeight: 800,
   letterSpacing: "0.01em",
+};
+
+
+const sharedReelNetworkLabelStyle: CSSProperties = {
+  color: "#aeb4c0",
+  fontSize: "12px",
+  lineHeight: 1.2,
+  fontWeight: 850,
+  letterSpacing: "0.015em",
 };
 
 const sharedReelPreviewFrameStyle: CSSProperties = {

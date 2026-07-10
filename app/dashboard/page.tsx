@@ -12461,13 +12461,13 @@ function SharedReelCard({
         </p>
       ) : null}
 
-      <div className="dashboard-shared-reel-frame" style={sharedReelFrameStyle}>
-        <Link
-          href={reelHref}
-          className="dashboard-shared-reel-media"
-          style={sharedReelVideoStyle}
-          aria-label={`Watch ${reelTitle} on Parapost Reels`}
-        >
+      <Link
+        href={reelHref}
+        className="dashboard-shared-reel-frame"
+        style={sharedReelFrameStyle}
+        aria-label={`Watch ${reelTitle} on Parapost Reels`}
+      >
+        <div className="dashboard-shared-reel-media" style={sharedReelVideoStyle}>
           {shared.reel_poster_url ? (
             <img
               src={shared.reel_poster_url || undefined}
@@ -12478,45 +12478,22 @@ function SharedReelCard({
             />
           ) : (
             <div style={sharedReelInlineVideoStyle} />
-           )}
+          )}
           <div style={sharedReelOverlayStyle}>
             <span style={sharedReelPlayButtonStyle}>▶</span>
           </div>
-          <div className="dashboard-shared-reel-media-badge" style={sharedReelMediaBadgeStyle}>Parapost Reel</div>
-        </Link>
+        </div>
 
         <div className="dashboard-shared-reel-copy" style={sharedReelCopyStyle}>
-          <div className="dashboard-shared-reel-top-line" style={sharedReelTopLineStyle}>
-            <span style={sharedReelBadgeStyle}>Shared Reel</span>
-            <span className="dashboard-shared-reel-small-meta" style={sharedReelSmallMetaStyle}>Tap to watch</span>
-          </div>
+          <span className="dashboard-shared-reel-network" style={sharedReelNetworkLabelStyle}>
+            Parapost Network
+          </span>
 
           <h3 className="dashboard-shared-reel-title" style={sharedReelTitleStyle}>
             {reelTitle}
           </h3>
-
-          <div style={sharedReelCreatorRowStyle}>
-            <span style={mutedTextStyle}>Original by</span>
-            <Link href={`/profile/${creatorProfileId}`} style={sharedReelCreatorLinkStyle}>
-              {creatorName}
-            </Link>
-          </div>
-
-          {reelCaption ? (
-            <p className="dashboard-shared-reel-caption" style={sharedCaptionStyle}>
-              {renderLinkedText(reelCaption)}
-            </p>
-          ) : (
-            <p className="dashboard-shared-reel-caption" style={sharedCaptionStyle}>
-              Watch this creator&apos;s latest Parapost Reel.
-            </p>
-          )}
-
-          <Link href={reelHref} className="dashboard-shared-reel-watch-button" style={watchReelButtonStyle}>
-            Watch Reel
-          </Link>
         </div>
-      </div>
+      </Link>
     </article>
   );
 }
@@ -16549,6 +16526,9 @@ const sharedReelFrameStyle: CSSProperties = {
     "linear-gradient(135deg, rgba(0,0,0,0.36), color-mix(in srgb, var(--parapost-accent-muted-bg) 72%, rgba(12,15,26,0.92)))",
   overflow: "hidden",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 26px rgba(0,0,0,0.20)",
+  textDecoration: "none",
+  color: "inherit",
+  cursor: "pointer",
 };
 
 const sharedReelVideoStyle: CSSProperties = {
@@ -16649,6 +16629,15 @@ const sharedReelSmallMetaStyle: CSSProperties = {
   fontSize: 11.5,
   fontWeight: 800,
   whiteSpace: "nowrap",
+};
+
+
+const sharedReelNetworkLabelStyle: CSSProperties = {
+  color: "#aeb4c0",
+  fontSize: 12,
+  lineHeight: 1.2,
+  fontWeight: 850,
+  letterSpacing: "0.015em",
 };
 
 const sharedReelTitleStyle: CSSProperties = {
