@@ -1031,6 +1031,24 @@ function getInitial(name?: string | null, username?: string | null) {
   return value.charAt(0).toUpperCase();
 }
 
+function getDashboardFeedSortTime(value?: string | null) {
+  if (!value) return 0;
+
+  const rawValue = String(value).trim();
+  if (!rawValue) return 0;
+
+  // Supabase tables can return a mix of timezone-aware and timezone-less
+  // timestamps. JavaScript treats timezone-less values as local time, which
+  // can incorrectly place older posts above a newly shared Reel.
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(rawValue);
+  const normalizedValue = hasTimezone
+    ? rawValue
+    : `${rawValue.replace(" ", "T")}Z`;
+
+  const timestamp = new Date(normalizedValue).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 function formatRelativeTime(value?: string | null) {
   if (!value) return "just now";
 
@@ -1919,7 +1937,24 @@ export default function DashboardPage() {
     }));
 
     return [...postItems, ...sharedPostFeedItems, ...reelShareItems, ...liveStreamItems].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) => {
+        const timeDifference =
+          getDashboardFeedSortTime(b.created_at) -
+          getDashboardFeedSortTime(a.created_at);
+
+        if (timeDifference !== 0) return timeDifference;
+
+        // If two activities have the exact same timestamp, keep fresh shares
+        // ahead of ordinary posts so the action the user just completed is visible.
+        const feedPriority: Record<MixedFeedItem["type"], number> = {
+          reel_share: 4,
+          shared_post: 3,
+          live_stream: 2,
+          post: 1,
+        };
+
+        return feedPriority[b.type] - feedPriority[a.type];
+      }
     );
   }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, sharedReelItems]);
 
