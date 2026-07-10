@@ -9898,6 +9898,138 @@ export default function DashboardPage() {
         }
 
 
+
+        /* FINAL Facebook-style compact shared Reel preview: tablet and mobile only */
+        @media (max-width: 1180px) {
+          .dashboard-shared-reel-frame {
+            display: grid !important;
+            grid-template-columns: 42% minmax(0, 1fr) !important;
+            grid-template-rows: 180px !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            align-items: stretch !important;
+          }
+
+          .dashboard-shared-reel-media {
+            width: 100% !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            aspect-ratio: auto !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
+            box-shadow: none !important;
+          }
+
+          .dashboard-shared-reel-media img,
+          .dashboard-shared-reel-media video,
+          .dashboard-shared-reel-media > div:first-child {
+            width: 100% !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            aspect-ratio: auto !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            display: block !important;
+          }
+
+          .dashboard-shared-reel-copy {
+            height: 180px !important;
+            min-height: 0 !important;
+            max-height: 180px !important;
+            padding: 13px 14px !important;
+            gap: 6px !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+          }
+
+          .dashboard-shared-reel-small-meta {
+            display: none !important;
+          }
+
+          .dashboard-shared-reel-title {
+            font-size: 15px !important;
+            line-height: 1.18 !important;
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2 !important;
+            -webkit-box-orient: vertical !important;
+            overflow: hidden !important;
+          }
+
+          .dashboard-shared-reel-caption {
+            font-size: 11.5px !important;
+            line-height: 1.28 !important;
+            display: -webkit-box !important;
+            -webkit-line-clamp: 1 !important;
+            -webkit-box-orient: vertical !important;
+            overflow: hidden !important;
+          }
+
+          .dashboard-shared-reel-watch-button {
+            min-height: 31px !important;
+            padding: 0 11px !important;
+            font-size: 11.5px !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .dashboard-shared-reel-frame {
+            grid-template-rows: 168px !important;
+            height: 168px !important;
+            min-height: 168px !important;
+            max-height: 168px !important;
+          }
+
+          .dashboard-shared-reel-media,
+          .dashboard-shared-reel-media img,
+          .dashboard-shared-reel-media video,
+          .dashboard-shared-reel-media > div:first-child {
+            height: 168px !important;
+            min-height: 168px !important;
+            max-height: 168px !important;
+          }
+
+          .dashboard-shared-reel-copy {
+            height: 168px !important;
+            max-height: 168px !important;
+            padding: 11px 12px !important;
+          }
+
+          .dashboard-shared-reel-media-badge {
+            display: none !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          .dashboard-shared-reel-frame {
+            grid-template-columns: 40% minmax(0, 1fr) !important;
+            grid-template-rows: 154px !important;
+            height: 154px !important;
+            min-height: 154px !important;
+            max-height: 154px !important;
+          }
+
+          .dashboard-shared-reel-media,
+          .dashboard-shared-reel-media img,
+          .dashboard-shared-reel-media video,
+          .dashboard-shared-reel-media > div:first-child {
+            height: 154px !important;
+            min-height: 154px !important;
+            max-height: 154px !important;
+          }
+
+          .dashboard-shared-reel-copy {
+            height: 154px !important;
+            max-height: 154px !important;
+            padding: 9px 10px !important;
+          }
+        }
+
       ` }} />
     </div>
   );
@@ -12224,13 +12356,13 @@ function SharedReelCard({
           <div style={sharedReelOverlayStyle}>
             <span style={sharedReelPlayButtonStyle}>▶</span>
           </div>
-          <div style={sharedReelMediaBadgeStyle}>Parapost Reel</div>
+          <div className="dashboard-shared-reel-media-badge" style={sharedReelMediaBadgeStyle}>Parapost Reel</div>
         </Link>
 
         <div className="dashboard-shared-reel-copy" style={sharedReelCopyStyle}>
-          <div style={sharedReelTopLineStyle}>
+          <div className="dashboard-shared-reel-top-line" style={sharedReelTopLineStyle}>
             <span style={sharedReelBadgeStyle}>Shared Reel</span>
-            <span style={sharedReelSmallMetaStyle}>Tap to watch</span>
+            <span className="dashboard-shared-reel-small-meta" style={sharedReelSmallMetaStyle}>Tap to watch</span>
           </div>
 
           <h3 className="dashboard-shared-reel-title" style={sharedReelTitleStyle}>

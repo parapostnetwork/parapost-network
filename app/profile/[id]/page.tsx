@@ -17447,6 +17447,124 @@ function ProfileStableBottomNav({
           content: none !important;
           display: none !important;
         }
+
+        /* FINAL Facebook-style compact shared Reel preview: tablet and mobile only */
+        @media (max-width: 1180px) {
+          .profile-shared-reel-card {
+            display: grid !important;
+            grid-template-columns: 42% minmax(0, 1fr) !important;
+            grid-template-rows: 180px !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            align-items: stretch !important;
+          }
+
+          .profile-shared-reel-preview {
+            width: 100% !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            aspect-ratio: auto !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
+            box-shadow: none !important;
+          }
+
+          .profile-shared-reel-preview img,
+          .profile-shared-reel-preview video,
+          .profile-shared-reel-preview > div:first-child {
+            width: 100% !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            aspect-ratio: auto !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            display: block !important;
+          }
+
+          .profile-shared-reel-copy {
+            height: 180px !important;
+            min-height: 0 !important;
+            max-height: 180px !important;
+            padding: 13px 14px !important;
+            gap: 6px !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+          }
+
+          .profile-shared-reel-title {
+            font-size: 15px !important;
+            line-height: 1.18 !important;
+            -webkit-line-clamp: 2 !important;
+          }
+
+          .profile-shared-reel-caption {
+            font-size: 11.5px !important;
+            line-height: 1.28 !important;
+            -webkit-line-clamp: 1 !important;
+          }
+
+          .profile-shared-reel-action {
+            min-height: 31px !important;
+            padding: 0 11px !important;
+            font-size: 11.5px !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .profile-shared-reel-card {
+            grid-template-rows: 168px !important;
+            height: 168px !important;
+            min-height: 168px !important;
+            max-height: 168px !important;
+          }
+
+          .profile-shared-reel-preview,
+          .profile-shared-reel-preview img,
+          .profile-shared-reel-preview video,
+          .profile-shared-reel-preview > div:first-child {
+            height: 168px !important;
+            min-height: 168px !important;
+            max-height: 168px !important;
+          }
+
+          .profile-shared-reel-copy {
+            height: 168px !important;
+            max-height: 168px !important;
+            padding: 11px 12px !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          .profile-shared-reel-card {
+            grid-template-columns: 40% minmax(0, 1fr) !important;
+            grid-template-rows: 154px !important;
+            height: 154px !important;
+            min-height: 154px !important;
+            max-height: 154px !important;
+          }
+
+          .profile-shared-reel-preview,
+          .profile-shared-reel-preview img,
+          .profile-shared-reel-preview video,
+          .profile-shared-reel-preview > div:first-child {
+            height: 154px !important;
+            min-height: 154px !important;
+            max-height: 154px !important;
+          }
+
+          .profile-shared-reel-copy {
+            height: 154px !important;
+            max-height: 154px !important;
+            padding: 9px 10px !important;
+          }
+        }
+
       `}</style>
     </>
   );
