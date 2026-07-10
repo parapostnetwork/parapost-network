@@ -158,28 +158,37 @@ function groupParachatNotifications(rows: NotificationCard[]) {
 }
 
 function isReelActivityNotificationType(type?: string | null) {
-  return type === "reel_like" || type === "reel_share" || type === "reel_favorite";
+  return (
+    type === "reel_like" ||
+    type === "reel_comment" ||
+    type === "reel_share" ||
+    type === "reel_favorite"
+  );
 }
 
 function getReelActivityVerb(type?: string | null) {
+  if (type === "reel_comment") return "commented on";
   if (type === "reel_share") return "shared";
   if (type === "reel_favorite") return "favorited";
   return "liked";
 }
 
 function getReelActivityModalTitle(type?: string | null) {
+  if (type === "reel_comment") return "People who commented on your Reel";
   if (type === "reel_share") return "People who shared your Reel";
   if (type === "reel_favorite") return "People who favorited your Reel";
   return "People who liked your Reel";
 }
 
 function getReelActivityEmptyText(type?: string | null) {
+  if (type === "reel_comment") return "No comment activity found for this Reel yet.";
   if (type === "reel_share") return "No share activity found for this Reel yet.";
   if (type === "reel_favorite") return "No favorite activity found for this Reel yet.";
   return "No like activity found for this Reel yet.";
 }
 
 function getReelActivityActionLabel(type?: string | null) {
+  if (type === "reel_comment") return "Commented";
   if (type === "reel_share") return "Shared";
   if (type === "reel_favorite") return "Favorited";
   return "Liked";
@@ -202,7 +211,7 @@ function groupReelActivityNotifications(rows: NotificationCard[]) {
       return;
     }
 
-    const key = `reel:${notification.type}:${notification.reel_id}:${notification.is_read ? "read" : "unread"}`;
+    const key = `reel:${notification.type}:${notification.reel_id}`;
     const currentGroup = grouped.get(key) || [];
     currentGroup.push(notification);
     grouped.set(key, currentGroup);
@@ -214,12 +223,17 @@ function groupReelActivityNotifications(rows: NotificationCard[]) {
     );
 
     const primary = sortedGroup[0];
+    const uniqueActorIds = new Set(
+      sortedGroup
+        .map((notification) => notification.actor_id)
+        .filter(Boolean)
+    );
 
     return {
       ...primary,
       is_read: sortedGroup.every((notification) => notification.is_read),
       groupedNotificationIds: sortedGroup.map((notification) => notification.id),
-      reelActivityCount: sortedGroup.length,
+      reelActivityCount: Math.max(1, uniqueActorIds.size),
     };
   });
 
@@ -252,7 +266,6 @@ function getNotificationTitle(notification: NotificationCard) {
     return `${actorName} ${verb} your Reel.`;
   }
 
-  if (type === "reel_comment") return `${actorName} commented on your Reel.`;
   if (notification.message?.trim()) return notification.message.trim();
   if (type === "friend_request") return `${actorName} sent you a friend request.`;
   if (type === "friend_accept") return `${actorName} accepted your friend request.`;
