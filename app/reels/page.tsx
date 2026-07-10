@@ -33,7 +33,6 @@ type ReelItem = {
   poster: string;
   likes: number;
   comments: number;
-  favorites: number;
   shares: number;
   createdAt?: string;
 };
@@ -97,7 +96,6 @@ type ReelDbRow = {
   duration_seconds?: number | null;
   likes?: number | null;
   comments?: number | null;
-  favorites?: number | null;
   shares?: number | null;
   created_at?: string | null;
 };
@@ -319,7 +317,6 @@ function buildReelItems(rows: ReelDbRow[], profiles: ProfileRow[]): ReelItem[] {
         poster: row.poster_url || "",
         likes: Number(row.likes || 0),
         comments: Number(row.comments || 0),
-        favorites: Number(row.favorites || 0),
         shares: Number(row.shares || 0),
         createdAt: row.created_at || undefined,
       };
@@ -445,7 +442,7 @@ async function insertReelNotification({
   userId: string;
   actorId: string;
   reelId: string;
-  type: "reel_like" | "reel_comment" | "reel_share" | "reel_favorite";
+  type: "reel_like" | "reel_comment" | "reel_share";
   message: string;
 }) {
   if (!userId || !actorId || !reelId || userId === actorId) return;
@@ -474,7 +471,6 @@ export default function ReelsPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
-  const [favoritedMap, setFavoritedMap] = useState<Record<string, boolean>>({});
   const [shareBoostMap, setShareBoostMap] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<ReelComment[]>(initialComments);
   const [commentDraft, setCommentDraft] = useState("");
@@ -877,34 +873,6 @@ export default function ReelsPage() {
         console.warn("Error loading reel share counts:", shareRowsError.message);
       }
 
-      const { data: favoriteRows, error: favoriteRowsError } = await supabase
-        .from("reel_favorites")
-        .select("reel_id, user_id")
-        .in("reel_id", reelIds);
-
-      if (!favoriteRowsError && favoriteRows) {
-        const favoriteCountMap: Record<string, number> = {};
-        const favoritedByCurrentUser: Record<string, boolean> = {};
-
-        (favoriteRows as { reel_id: string | null; user_id: string | null }[]).forEach((row) => {
-          if (!row.reel_id) return;
-          favoriteCountMap[row.reel_id] = (favoriteCountMap[row.reel_id] || 0) + 1;
-
-          if (nextUserId && row.user_id === nextUserId) {
-            favoritedByCurrentUser[row.reel_id] = true;
-          }
-        });
-
-        mapped = mapped.map((reel) => ({
-          ...reel,
-          favorites: favoriteCountMap[reel.id] ?? reel.favorites,
-        }));
-
-        setFavoritedMap(favoritedByCurrentUser);
-      } else if (favoriteRowsError) {
-        console.warn("Error loading reel favorite counts:", favoriteRowsError.message);
-        setFavoritedMap({});
-      }
     } else {
       setComments(initialComments);
       setLikedMap({});
@@ -949,9 +917,6 @@ export default function ReelsPage() {
         await fetchReels();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, async () => {
-        await fetchReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_favorites" }, async () => {
         await fetchReels();
       })
       .subscribe();
@@ -1406,68 +1371,6 @@ export default function ReelsPage() {
         await fetchReels();
         return;
       }
-    }
-  };
-
-  const handleFavoriteToggle = async (reelId: string) => {
-    if (!currentUserId) {
-      alert("You must be logged in to favorite reels.");
-      return;
-    }
-
-    const reel = reels.find((item) => item.id === reelId);
-    if (!reel) return;
-
-    const nextFavorited = !favoritedMap[reelId];
-
-    setFavoritedMap((prev) => ({
-      ...prev,
-      [reelId]: nextFavorited,
-    }));
-
-    setReels((prev) =>
-      prev.map((item) =>
-        item.id === reelId
-          ? { ...item, favorites: Math.max(item.favorites + (nextFavorited ? 1 : -1), 0) }
-          : item
-      )
-    );
-
-    if (nextFavorited) {
-      const { error } = await supabase.from("reel_favorites").insert([
-        {
-          reel_id: reelId,
-          user_id: currentUserId,
-        },
-      ]);
-
-      if (error && !error.message.toLowerCase().includes("duplicate")) {
-        console.error("Reel favorite insert error:", error.message);
-        alert(error.message || "Could not favorite reel.");
-        await fetchReels();
-        return;
-      }
-
-      await insertReelNotification({
-        userId: reel.creator_profile_id || reel.user_id,
-        actorId: currentUserId,
-        reelId,
-        type: "reel_favorite",
-        message: "favorited your reel.",
-      });
-      return;
-    }
-
-    const { error } = await supabase
-      .from("reel_favorites")
-      .delete()
-      .eq("reel_id", reelId)
-      .eq("user_id", currentUserId);
-
-    if (error) {
-      console.error("Reel favorite delete error:", error.message);
-      alert(error.message || "Could not remove reel favorite.");
-      await fetchReels();
     }
   };
 
@@ -2508,11 +2411,9 @@ export default function ReelsPage() {
         >
           {reels.map((reel) => {
             const isLiked = !!likedMap[reel.id];
-            const isFavorited = !!favoritedMap[reel.id];
             const isOwner = isReelOwner(reel, currentUserId);
             const relationship = relationshipMap[reel.creator_profile_id] || (isOwner ? "you" : "profile");
             const displayedLikes = reel.likes;
-            const displayedFavorites = reel.favorites;
             const displayedComments = comments.filter(
               (comment) => comment.reelId === reel.id
             ).length;
@@ -2543,12 +2444,6 @@ export default function ReelsPage() {
                   videoRefs.current[reel.id]?.pause();
                   setCommentsOpen(true);
                 },
-              },
-              {
-                symbol: isFavorited ? "★" : "☆",
-                label: formatActionCount(displayedFavorites),
-                ariaLabel: isFavorited ? "Remove favorite" : "Favorite reel",
-                action: () => handleFavoriteToggle(reel.id),
               },
               {
                 symbol: "↗",
