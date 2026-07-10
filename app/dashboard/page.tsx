@@ -1804,6 +1804,7 @@ export default function DashboardPage() {
   const removedSharedPostKeysRef = useRef<Set<string>>(new Set());
   const removedReelShareIdsRef = useRef<Set<string>>(new Set());
   const removedReelShareKeysRef = useRef<Set<string>>(new Set());
+  const targetedPostScrollRef = useRef("");
 
   const currentName = currentProfile?.full_name || currentProfile?.username || "there";
   const firstName = currentName.split(" ")[0] || "there";
@@ -1816,6 +1817,57 @@ export default function DashboardPage() {
   const closeDashboardPostImageViewer = useCallback(() => {
     setDashboardPostImageViewer(null);
   }, []);
+
+  const getDashboardPostForAction = useCallback(
+    (postId: string) => {
+      if (!postId) return null;
+
+      const directPost = posts.find((post) => post.id === postId);
+      if (directPost) return directPost;
+
+      const sharedPost = sharedPostItems.find((item) => item.post_id === postId);
+      return sharedPost?.original_post || null;
+    },
+    [posts, sharedPostItems]
+  );
+
+  const insertDashboardNotification = useCallback(
+    async ({
+      userId,
+      actorId,
+      type,
+      postId,
+      commentId = null,
+      message,
+    }: {
+      userId?: string | null;
+      actorId?: string | null;
+      type: "post_share" | "comment_like";
+      postId?: string | null;
+      commentId?: string | null;
+      message: string;
+    }) => {
+      if (!userId || !actorId || !type || userId === actorId) return;
+
+      const { error } = await supabase.from("notifications").insert([
+        {
+          user_id: userId,
+          actor_id: actorId,
+          type,
+          post_id: postId || null,
+          comment_id: commentId || null,
+          friend_request_id: null,
+          message,
+          is_read: false,
+        },
+      ]);
+
+      if (error) {
+        console.warn("Dashboard notification skipped:", error.message);
+      }
+    },
+    []
+  );
 
   const mixedFeedItems = useMemo<MixedFeedItem[]>(() => {
     const visiblePostsForViewer = posts.filter((post) => !blockedUserIds.includes(post.user_id));
@@ -1908,6 +1960,49 @@ export default function DashboardPage() {
   }, [filteredFeedItems, visibleFeedLimit]);
 
   const hasMoreFeedItems = visibleFeedLimit < filteredFeedItems.length;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const hashPostId = window.location.hash.startsWith("#post-")
+      ? window.location.hash.replace("#post-", "")
+      : "";
+    const targetPostId = params.get("post") || hashPostId;
+
+    if (!targetPostId) return;
+
+    const targetIndex = filteredFeedItems.findIndex((item) => {
+      if (item.type === "post") return item.post.id === targetPostId;
+      if (item.type === "shared_post") return item.sharedPost.post_id === targetPostId;
+      return false;
+    });
+
+    if (targetIndex >= 0 && targetIndex >= visibleFeedLimit) {
+      setVisibleFeedLimit(Math.min(targetIndex + 3, filteredFeedItems.length));
+      return;
+    }
+
+    if (targetedPostScrollRef.current === targetPostId) return;
+
+    let attempts = 0;
+    const scrollToTargetPost = () => {
+      attempts += 1;
+      const target = document.getElementById(`post-${targetPostId}`);
+
+      if (!target) {
+        if (attempts < 12) {
+          window.setTimeout(scrollToTargetPost, 180);
+        }
+        return;
+      }
+
+      targetedPostScrollRef.current = targetPostId;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+
+    window.setTimeout(scrollToTargetPost, 160);
+  }, [filteredFeedItems, visibleFeedLimit]);
 
   useEffect(() => {
     const handleDashboardEscape = (event: KeyboardEvent) => {
@@ -2204,9 +2299,25 @@ export default function DashboardPage() {
         }));
 
         alert(`Like comment error: ${error.message}`);
+        return;
+      }
+
+      const likedComment = Object.values(commentsByPostId)
+        .flat()
+        .find((comment) => comment.id === commentId);
+
+      if (likedComment?.user_id && likedComment.user_id !== currentUserId) {
+        await insertDashboardNotification({
+          userId: likedComment.user_id,
+          actorId: currentUserId,
+          type: "comment_like",
+          postId: likedComment.post_id,
+          commentId,
+          message: "liked your comment.",
+        });
       }
     },
-    [currentUserId, dashboardCommentUserLikes]
+    [commentsByPostId, currentUserId, dashboardCommentUserLikes, insertDashboardNotification]
   );
 
   const fetchCounts = useCallback(async (userId: string | undefined, visiblePostIds: string[]) => {
@@ -3095,7 +3206,7 @@ export default function DashboardPage() {
       )
       .subscribe();
 
-    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 30000);
+    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 8000);
 
     const handleBadgeFocusRefresh = () => {
       refreshNotificationBadges();
@@ -3641,11 +3752,37 @@ export default function DashboardPage() {
       }
     }
 
+    const optimisticImages = uploadedImages.map((uploadedImage, index) => ({
+      id: `optimistic-${insertedPost.id}-${index}`,
+      post_id: insertedPost.id,
+      user_id: user.id,
+      image_url: uploadedImage.image_url,
+      storage_path: uploadedImage.storage_path,
+      display_order: uploadedImage.display_order,
+      created_at: insertedPost.created_at,
+    })) as PostImage[];
+
+    const nextPost = {
+      ...(insertedPost as Post),
+      images: optimisticImages,
+    };
+
+    setPosts((prev) => [nextPost, ...prev.filter((post) => post.id !== nextPost.id)]);
+    setProfilesMap((prev) => ({
+      ...prev,
+      ...(currentProfile ? { [user.id]: currentProfile } : {}),
+    }));
+    setLikeCounts((prev) => ({ ...prev, [nextPost.id]: 0 }));
+    setCommentCounts((prev) => ({ ...prev, [nextPost.id]: 0 }));
+    setShareCounts((prev) => ({ ...prev, [nextPost.id]: 0 }));
+    setUserLikes((prev) => ({ ...prev, [nextPost.id]: false }));
+    setVisibleFeedLimit((currentLimit) => Math.max(currentLimit, FEED_INITIAL_BATCH_SIZE));
+
     setContent("");
     setSelectedFeelingActivity(null);
     setFeelingActivityOpen(false);
     handleRemoveImage();
-    await fetchDashboardData(false);
+    void fetchDashboardData(false);
     setLoading(false);
   };
 
@@ -3701,22 +3838,55 @@ export default function DashboardPage() {
     const caption = window.prompt("Add a caption for your share, or leave blank:", "") || "";
     const trimmedCaption = caption.trim();
 
-    const { error } = await supabase.from("shares").insert([
-      {
-        post_id: postId,
-        user_id: user.id,
-        caption: trimmedCaption || null,
-        share_destination: "feed",
-      },
-    ]);
+    const { data: insertedShare, error } = await supabase
+      .from("shares")
+      .insert([
+        {
+          post_id: postId,
+          user_id: user.id,
+          caption: trimmedCaption || null,
+          share_destination: "feed",
+        },
+      ])
+      .select("id, post_id, user_id, caption, created_at, share_destination, deleted_at")
+      .single();
 
     if (error) {
       alert(`Share error: ${error.message}`);
       return;
     }
 
+    const originalPost = getDashboardPostForAction(postId);
+    const shareCreatedAt = insertedShare?.created_at || new Date().toISOString();
+
+    if (originalPost && insertedShare?.id) {
+      setSharedPostItems((prev) => [
+        {
+          id: insertedShare.id,
+          post_id: postId,
+          user_id: user.id,
+          caption: trimmedCaption || null,
+          created_at: shareCreatedAt,
+          original_post: originalPost,
+        },
+        ...prev.filter((item) => item.id !== insertedShare.id),
+      ]);
+      setVisibleFeedLimit((currentLimit) => Math.max(currentLimit, FEED_INITIAL_BATCH_SIZE));
+    }
+
     setShareCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
-    await fetchDashboardData(false);
+
+    if (originalPost?.user_id && originalPost.user_id !== user.id) {
+      await insertDashboardNotification({
+        userId: originalPost.user_id,
+        actorId: user.id,
+        type: "post_share",
+        postId,
+        message: "shared your post.",
+      });
+    }
+
+    void fetchDashboardData(false);
     alert("Shared to your feed and profile.");
   };
 
