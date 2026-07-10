@@ -199,7 +199,7 @@ const navLinkStyle: CSSProperties = {
 const scrollContainerStyle: CSSProperties = {
   height: "100dvh",
   overflowY: "auto",
-  scrollSnapType: "y proximity",
+  scrollSnapType: "y mandatory",
   scrollBehavior: "smooth",
   WebkitOverflowScrolling: "touch",
   overscrollBehaviorY: "contain",
@@ -1387,7 +1387,7 @@ export default function ReelsPage() {
       }
 
       await insertReelNotification({
-        userId: reel.user_id || reel.creator_profile_id,
+        userId: reel.creator_profile_id || reel.user_id,
         actorId: currentUserId,
         reelId,
         type: "reel_like",
@@ -1449,7 +1449,7 @@ export default function ReelsPage() {
       }
 
       await insertReelNotification({
-        userId: reel.user_id || reel.creator_profile_id,
+        userId: reel.creator_profile_id || reel.user_id,
         actorId: currentUserId,
         reelId,
         type: "reel_favorite",
@@ -1472,7 +1472,7 @@ export default function ReelsPage() {
   };
 
   const handleShareLink = async (reelId: string) => {
-    const reelUrl = `${window.location.origin}/reels?reel=${reelId}`;
+    const reelUrl = `${window.location.origin}/reels#${reelId}`;
 
     try {
       await navigator.clipboard.writeText(reelUrl);
@@ -1545,7 +1545,7 @@ export default function ReelsPage() {
       );
     }
 
-    const activeReelOwnerId = activeReel.user_id || activeReel.creator_profile_id;
+    const activeReelOwnerId = activeReel.creator_profile_id || activeReel.user_id;
 
     if (activeReelOwnerId && activeReelOwnerId !== currentUserId) {
       await insertReelNotification({
@@ -1684,19 +1684,6 @@ export default function ReelsPage() {
         console.error("Reel comment like insert error:", error.message);
         alert(error.message || "Could not like comment.");
         await fetchReels();
-        return;
-      }
-
-      const likedComment = comments.find((comment) => comment.id === commentId);
-
-      if (likedComment?.authorUserId && likedComment.authorUserId !== currentUserId) {
-        await insertReelNotification({
-          userId: likedComment.authorUserId,
-          actorId: currentUserId,
-          reelId: likedComment.reelId,
-          type: "reel_comment",
-          message: "liked your Reel comment.",
-        });
       }
 
       return;
@@ -1792,23 +1779,15 @@ export default function ReelsPage() {
       );
     }
 
-    const activeReplyReelOwnerId = activeReel.user_id || activeReel.creator_profile_id;
-    const replyNotificationTargets = Array.from(
-      new Set([activeReplyReelOwnerId, parentComment.authorUserId].filter(Boolean))
-    );
+    const activeReplyReelOwnerId = activeReel.creator_profile_id || activeReel.user_id;
 
-    for (const targetUserId of replyNotificationTargets) {
-      if (!targetUserId || targetUserId === currentUserId) continue;
-
+    if (activeReplyReelOwnerId && activeReplyReelOwnerId !== currentUserId) {
       await insertReelNotification({
-        userId: targetUserId,
+        userId: activeReplyReelOwnerId,
         actorId: currentUserId,
         reelId: activeReel.id,
         type: "reel_comment",
-        message:
-          targetUserId === parentComment.authorUserId
-            ? "replied to your Reel comment."
-            : "replied to a comment on your reel.",
+        message: "replied to a comment on your reel.",
       });
     }
   };
@@ -2033,11 +2012,14 @@ export default function ReelsPage() {
     setShareMessage("Sharing reel to your feed...");
     setShareOpen(false);
 
+    const sharedAt = new Date().toISOString();
+
     const { error: shareInsertError } = await supabase.from("reel_shares").insert([
       {
         reel_id: activeReel.id,
         user_id: currentUserId,
         caption: trimmedCaption || null,
+        created_at: sharedAt,
       },
     ]);
 
@@ -2059,7 +2041,7 @@ export default function ReelsPage() {
       console.warn("Reel share count update skipped:", reelUpdateError.message);
     }
 
-    const activeReelOwnerId = activeReel.user_id || activeReel.creator_profile_id;
+    const activeReelOwnerId = activeReel.creator_profile_id || activeReel.user_id;
 
     if (activeReelOwnerId && activeReelOwnerId !== currentUserId) {
       await insertReelNotification({
@@ -2102,7 +2084,7 @@ export default function ReelsPage() {
       return;
     }
 
-    const reportedUserId = reel.user_id || reel.creator_profile_id || null;
+    const reportedUserId = reel.creator_profile_id || reel.user_id || null;
 
     const { error } = await supabase.from("reports").insert({
       reporter_id: currentUserId,
@@ -2543,7 +2525,7 @@ export default function ReelsPage() {
             const isActiveCommentsReel = commentsOpen && activeReelId === reel.id;
             const isActiveDetailsReel = detailsReelId === reel.id;
             const isOverlayedReel = isActiveCommentsReel || isActiveDetailsReel;
-            const creatorProfileId = reel.user_id || reel.creator_profile_id;
+            const creatorProfileId = reel.creator_profile_id || reel.user_id;
             const creatorProfileHref = creatorProfileId ? `/profile/${creatorProfileId}` : "/reels";
             const reelActions = [
               {
