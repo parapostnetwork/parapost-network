@@ -8830,31 +8830,31 @@ export default function DashboardPage() {
           }
 
           .dashboard-shared-reel-frame {
-            grid-template-columns: minmax(110px, 40%) minmax(0, 1fr) !important;
+            grid-template-columns: 118px minmax(0, 1fr) !important;
             margin-top: 10px !important;
             border-radius: 17px !important;
           }
 
           .dashboard-shared-reel-media {
-            min-height: 158px !important;
-            max-height: 198px !important;
+            min-height: 150px !important;
+            max-height: 176px !important;
           }
 
           .dashboard-shared-reel-copy {
-            gap: 6px !important;
-            padding: 11px 12px !important;
+            gap: 5px !important;
+            padding: 10px 11px !important;
           }
 
           .dashboard-shared-reel-copy h3 {
-            font-size: 15px !important;
+            font-size: 14px !important;
             line-height: 1.15 !important;
             margin: 0 !important;
             -webkit-line-clamp: 2 !important;
           }
 
           .dashboard-shared-reel-copy p {
-            font-size: 11.5px !important;
-            line-height: 1.32 !important;
+            font-size: 11px !important;
+            line-height: 1.28 !important;
           }
 
           .dashboard-shared-reel-caption {
@@ -8862,9 +8862,9 @@ export default function DashboardPage() {
           }
 
           .dashboard-shared-reel-watch-button {
-            min-height: 32px !important;
-            padding: 0 11px !important;
-            font-size: 11.5px !important;
+            min-height: 30px !important;
+            padding: 0 10px !important;
+            font-size: 11px !important;
           }
         }
 
@@ -8874,12 +8874,16 @@ export default function DashboardPage() {
           }
 
           .dashboard-shared-reel-media {
-            min-height: 150px !important;
-            max-height: 184px !important;
+            min-height: 138px !important;
+            max-height: 160px !important;
           }
 
           .dashboard-shared-reel-copy {
-            padding: 10px !important;
+            padding: 9px !important;
+          }
+
+          .dashboard-shared-reel-media-badge {
+            display: none !important;
           }
         }
 

@@ -8722,35 +8722,35 @@ return (
 
         @media (max-width: 760px) {
           .profile-shared-reel-card {
-            grid-template-columns: minmax(110px, 40%) minmax(0, 1fr) !important;
+            grid-template-columns: 118px minmax(0, 1fr) !important;
             border-radius: 17px !important;
           }
 
           .profile-shared-reel-preview {
-            min-height: 158px !important;
-            max-height: 198px !important;
+            min-height: 150px !important;
+            max-height: 176px !important;
           }
 
           .profile-shared-reel-copy {
-            gap: 6px !important;
-            padding: 11px 12px !important;
+            gap: 5px !important;
+            padding: 10px 11px !important;
           }
 
           .profile-shared-reel-title {
-            font-size: 15px !important;
+            font-size: 14px !important;
             line-height: 1.15 !important;
           }
 
           .profile-shared-reel-meta,
           .profile-shared-reel-caption {
-            font-size: 11.5px !important;
-            line-height: 1.32 !important;
+            font-size: 11px !important;
+            line-height: 1.28 !important;
           }
 
           .profile-shared-reel-action {
-            min-height: 32px !important;
-            padding: 0 11px !important;
-            font-size: 11.5px !important;
+            min-height: 30px !important;
+            padding: 0 10px !important;
+            font-size: 11px !important;
           }
         }
 
@@ -8760,12 +8760,12 @@ return (
           }
 
           .profile-shared-reel-preview {
-            min-height: 150px !important;
-            max-height: 184px !important;
+            min-height: 138px !important;
+            max-height: 160px !important;
           }
 
           .profile-shared-reel-copy {
-            padding: 10px !important;
+            padding: 9px !important;
           }
         }
 
