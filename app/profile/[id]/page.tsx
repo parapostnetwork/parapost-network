@@ -8655,6 +8655,120 @@ return (
           gap: 8px !important;
         }
 
+        /* Compact shared Reel card only: Profile desktop, tablet, and mobile */
+        .profile-shared-reel-card,
+        .profile-shared-reel-card * {
+          box-sizing: border-box !important;
+        }
+
+        .profile-shared-reel-card {
+          display: grid !important;
+          grid-template-columns: minmax(118px, 36%) minmax(0, 1fr) !important;
+          gap: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+          align-items: stretch !important;
+        }
+
+        .profile-shared-reel-preview {
+          width: 100% !important;
+          min-width: 0 !important;
+          min-height: 150px !important;
+          height: 100% !important;
+          max-height: 230px !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+        }
+
+        .profile-shared-reel-preview video {
+          width: 100% !important;
+          height: 100% !important;
+          min-height: 150px !important;
+          object-fit: cover !important;
+        }
+
+        .profile-shared-reel-copy {
+          min-width: 0 !important;
+          overflow: hidden !important;
+        }
+
+        .profile-shared-reel-title,
+        .profile-shared-reel-meta,
+        .profile-shared-reel-caption {
+          overflow-wrap: anywhere !important;
+        }
+
+        @media (min-width: 1181px) {
+          .profile-shared-reel-card {
+            grid-template-columns: minmax(150px, 31%) minmax(0, 1fr) !important;
+          }
+
+          .profile-shared-reel-preview {
+            min-height: 180px !important;
+            max-height: 230px !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .profile-shared-reel-card {
+            grid-template-columns: minmax(138px, 34%) minmax(0, 1fr) !important;
+          }
+
+          .profile-shared-reel-preview {
+            min-height: 170px !important;
+            max-height: 220px !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .profile-shared-reel-card {
+            grid-template-columns: minmax(110px, 40%) minmax(0, 1fr) !important;
+            border-radius: 17px !important;
+          }
+
+          .profile-shared-reel-preview {
+            min-height: 158px !important;
+            max-height: 198px !important;
+          }
+
+          .profile-shared-reel-copy {
+            gap: 6px !important;
+            padding: 11px 12px !important;
+          }
+
+          .profile-shared-reel-title {
+            font-size: 15px !important;
+            line-height: 1.15 !important;
+          }
+
+          .profile-shared-reel-meta,
+          .profile-shared-reel-caption {
+            font-size: 11.5px !important;
+            line-height: 1.32 !important;
+          }
+
+          .profile-shared-reel-action {
+            min-height: 32px !important;
+            padding: 0 11px !important;
+            font-size: 11.5px !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          .profile-shared-reel-card {
+            grid-template-columns: 104px minmax(0, 1fr) !important;
+          }
+
+          .profile-shared-reel-preview {
+            min-height: 150px !important;
+            max-height: 184px !important;
+          }
+
+          .profile-shared-reel-copy {
+            padding: 10px !important;
+          }
+        }
+
         .profile-feed-card {
           margin-left: 0 !important;
           margin-right: 0 !important;
@@ -15944,6 +16058,7 @@ return (
                               <div className="profile-shared-reel-card" style={sharedReelCardStyle}>
                                 <Link
                                   href={`/reels?reel=${item.reel_id}`}
+                                  className="profile-shared-reel-preview"
                                   style={sharedReelPreviewStyle}
                                   aria-label="View shared reel"
                                 >
@@ -15984,32 +16099,37 @@ return (
                                   </div>
                                 </Link>
 
-                                <div style={{ flex: 1, minWidth: "210px" }}>
+                                <div className="profile-shared-reel-copy" style={{ minWidth: 0, padding: "14px 15px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "7px" }}>
                                   <div style={sharedReelBadgeStyle}>Parapost Reel</div>
 
                                   <h4
+                                    className="profile-shared-reel-title"
                                     style={{
-                                      margin: "12px 0 7px",
+                                      margin: 0,
                                       color: "#f9fafb",
-                                      fontSize: "20px",
-                                      lineHeight: 1.22,
+                                      fontSize: "18px",
+                                      lineHeight: 1.18,
                                       letterSpacing: "-0.035em",
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden",
                                     }}
                                   >
                                     {item.reel?.title || "Parapost Reel"}
                                   </h4>
 
-                                  <p style={sharedReelMetaStyle}>
+                                  <p className="profile-shared-reel-meta" style={{ ...sharedReelMetaStyle, margin: 0 }}>
                                     Original by {creatorName} @{creatorHandle}
                                   </p>
 
                                   {item.reel?.caption ? (
-                                    <p style={{ ...sharedReelMetaStyle, marginTop: "8px" }}>
+                                    <p className="profile-shared-reel-caption" style={{ ...sharedReelMetaStyle, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                                       {item.reel.caption}
                                     </p>
                                   ) : null}
 
-                                  <Link href={`/reels?reel=${item.reel_id}`} style={sharedReelActionLinkStyle}>
+                                  <Link className="profile-shared-reel-action" href={`/reels?reel=${item.reel_id}`} style={sharedReelActionLinkStyle}>
                                     View Reel
                                   </Link>
                                 </div>
@@ -19055,28 +19175,29 @@ const sharedPostAvatarMiniStyle: CSSProperties = {
 };
 
 const sharedReelCardStyle: CSSProperties = {
-  marginTop: "16px",
-  display: "flex",
-  gap: "16px",
-  alignItems: "center",
-  flexWrap: "wrap",
-  borderRadius: "28px",
+  marginTop: "12px",
+  display: "grid",
+  gridTemplateColumns: "minmax(118px, 36%) minmax(0, 1fr)",
+  gap: 0,
+  alignItems: "stretch",
+  borderRadius: "20px",
   border: "1px solid var(--parapost-accent-active-border)",
   background:
     "linear-gradient(135deg, var(--parapost-accent-active-bg), rgba(0,0,0,0.38) 48%, rgba(34,211,238,0.10))",
-  padding: "15px",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 16px 40px rgba(0,0,0,0.24)",
+  padding: 0,
+  overflow: "hidden",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 26px rgba(0,0,0,0.22)",
 };
 
 const sharedReelPreviewStyle: CSSProperties = {
-  width: "clamp(150px, 34vw, 220px)",
-  aspectRatio: "9 / 16",
-  maxHeight: "370px",
-  borderRadius: "23px",
+  width: "100%",
+  minWidth: 0,
+  minHeight: "150px",
+  height: "100%",
+  maxHeight: "230px",
+  borderRadius: 0,
   overflow: "hidden",
-  border: "1px solid rgba(255,255,255,0.14)",
   background: "#000",
-  boxShadow: "0 18px 42px rgba(0,0,0,0.40)",
   flexShrink: 0,
   position: "relative",
   display: "block",
@@ -19204,8 +19325,8 @@ const sharedReelPlayOverlayStyle: CSSProperties = {
 };
 
 const sharedReelPlayButtonStyle: CSSProperties = {
-  width: "56px",
-  height: "56px",
+  width: "44px",
+  height: "44px",
   borderRadius: "999px",
   display: "grid",
   placeItems: "center",
@@ -19227,7 +19348,7 @@ const sharedReelActionLinkStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   gap: "8px",
-  minHeight: "40px",
+  minHeight: "34px",
   borderRadius: "999px",
   background: "white",
   color: "black",

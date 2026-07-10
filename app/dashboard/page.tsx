@@ -8752,7 +8752,7 @@ export default function DashboardPage() {
         }
 
 
-        /* === Final shared Reel card polish: clean on desktop, tablet, and mobile === */
+        /* === Compact shared Reel card only: Dashboard desktop, tablet, and mobile === */
         .dashboard-shared-reel-card {
           overflow: hidden !important;
         }
@@ -8764,21 +8764,36 @@ export default function DashboardPage() {
 
         .dashboard-shared-reel-frame {
           display: grid !important;
+          grid-template-columns: minmax(118px, 36%) minmax(0, 1fr) !important;
+          gap: 0 !important;
           align-items: stretch !important;
+          padding: 0 !important;
+          overflow: hidden !important;
         }
 
         .dashboard-shared-reel-media {
+          width: 100% !important;
           min-width: 0 !important;
-          flex-shrink: 0 !important;
+          min-height: 150px !important;
+          height: 100% !important;
+          max-height: 230px !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
         }
 
+        .dashboard-shared-reel-media img,
         .dashboard-shared-reel-media video {
-          max-height: none !important;
+          width: 100% !important;
+          height: 100% !important;
+          min-height: 150px !important;
+          object-fit: cover !important;
         }
 
         .dashboard-shared-reel-copy {
           min-width: 0 !important;
           overflow: hidden !important;
+          padding: 14px 15px !important;
+          justify-content: center !important;
         }
 
         .dashboard-shared-reel-title,
@@ -8789,37 +8804,23 @@ export default function DashboardPage() {
 
         @media (min-width: 1181px) {
           .dashboard-shared-reel-frame {
-            grid-template-columns: minmax(154px, 184px) minmax(0, 1fr) !important;
-            gap: 16px !important;
-            padding: 14px !important;
-            border-radius: 24px !important;
+            grid-template-columns: minmax(150px, 31%) minmax(0, 1fr) !important;
           }
 
           .dashboard-shared-reel-media {
-            width: 100% !important;
-            min-height: 246px !important;
-            max-height: 334px !important;
-            border-radius: 19px !important;
+            min-height: 180px !important;
+            max-height: 230px !important;
           }
         }
 
         @media (min-width: 761px) and (max-width: 1180px) {
           .dashboard-shared-reel-frame {
-            grid-template-columns: 150px minmax(0, 1fr) !important;
-            gap: 14px !important;
-            padding: 13px !important;
-            border-radius: 23px !important;
+            grid-template-columns: minmax(138px, 34%) minmax(0, 1fr) !important;
           }
 
           .dashboard-shared-reel-media {
-            width: 150px !important;
-            min-height: 238px !important;
-            max-height: 300px !important;
-            border-radius: 18px !important;
-          }
-
-          .dashboard-shared-reel-copy {
-            gap: 8px !important;
+            min-height: 170px !important;
+            max-height: 220px !important;
           }
         }
 
@@ -8829,36 +8830,31 @@ export default function DashboardPage() {
           }
 
           .dashboard-shared-reel-frame {
-            grid-template-columns: 108px minmax(0, 1fr) !important;
-            gap: 10px !important;
-            padding: 10px !important;
-            border-radius: 19px !important;
+            grid-template-columns: minmax(110px, 40%) minmax(0, 1fr) !important;
             margin-top: 10px !important;
+            border-radius: 17px !important;
           }
 
           .dashboard-shared-reel-media {
-            width: 108px !important;
-            min-height: 192px !important;
-            max-height: 210px !important;
-            border-radius: 16px !important;
+            min-height: 158px !important;
+            max-height: 198px !important;
           }
 
           .dashboard-shared-reel-copy {
-            justify-content: center !important;
             gap: 6px !important;
-            padding: 1px 0 !important;
+            padding: 11px 12px !important;
           }
 
           .dashboard-shared-reel-copy h3 {
-            font-size: 15.5px !important;
-            line-height: 1.12 !important;
+            font-size: 15px !important;
+            line-height: 1.15 !important;
             margin: 0 !important;
             -webkit-line-clamp: 2 !important;
           }
 
           .dashboard-shared-reel-copy p {
-            font-size: 12px !important;
-            line-height: 1.34 !important;
+            font-size: 11.5px !important;
+            line-height: 1.32 !important;
           }
 
           .dashboard-shared-reel-caption {
@@ -8866,34 +8862,26 @@ export default function DashboardPage() {
           }
 
           .dashboard-shared-reel-watch-button {
-            min-height: 33px !important;
-            padding: 0 12px !important;
-            font-size: 12px !important;
+            min-height: 32px !important;
+            padding: 0 11px !important;
+            font-size: 11.5px !important;
           }
         }
 
         @media (max-width: 410px) {
           .dashboard-shared-reel-frame {
-            grid-template-columns: 96px minmax(0, 1fr) !important;
-            gap: 9px !important;
-            padding: 9px !important;
+            grid-template-columns: 104px minmax(0, 1fr) !important;
           }
 
           .dashboard-shared-reel-media {
-            width: 96px !important;
-            min-height: 170px !important;
-            max-height: 190px !important;
+            min-height: 150px !important;
+            max-height: 184px !important;
           }
 
-          .dashboard-shared-reel-copy h3 {
-            font-size: 14.5px !important;
-          }
-
-          .dashboard-shared-reel-copy p {
-            font-size: 11.5px !important;
+          .dashboard-shared-reel-copy {
+            padding: 10px !important;
           }
         }
-
 
 
         /* === Parapost responsive foundation pass: dashboard phone/tablet/notebook polish === */
@@ -16288,31 +16276,29 @@ const sharedPostOriginalContentStyle: CSSProperties = {
 
 const sharedReelFrameStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(150px, 188px) minmax(0, 1fr)",
-  gap: 16,
+  gridTemplateColumns: "minmax(118px, 36%) minmax(0, 1fr)",
+  gap: 0,
   alignItems: "stretch",
-  marginTop: 14,
+  marginTop: 12,
   border: "1px solid color-mix(in srgb, var(--parapost-accent-2) 24%, rgba(255,255,255,0.08))",
-  borderRadius: 24,
-  padding: 14,
+  borderRadius: 20,
+  padding: 0,
   background:
     "linear-gradient(135deg, rgba(0,0,0,0.36), color-mix(in srgb, var(--parapost-accent-muted-bg) 72%, rgba(12,15,26,0.92)))",
   overflow: "hidden",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 14px 30px rgba(0,0,0,0.22)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 26px rgba(0,0,0,0.20)",
 };
 
 const sharedReelVideoStyle: CSSProperties = {
   position: "relative",
   display: "block",
   width: "100%",
-  aspectRatio: "9 / 16",
-  minHeight: 238,
-  maxHeight: 340,
-  borderRadius: 19,
+  minHeight: 150,
+  height: "100%",
+  borderRadius: 0,
   overflow: "hidden",
   background: "#000",
   textDecoration: "none",
-  boxShadow: "0 18px 34px rgba(0,0,0,0.34)",
   isolation: "isolate",
 };
 
@@ -16336,8 +16322,8 @@ const sharedReelOverlayStyle: CSSProperties = {
 };
 
 const sharedReelPlayButtonStyle: CSSProperties = {
-  width: 52,
-  height: 52,
+  width: 44,
+  height: 44,
   borderRadius: "999px",
   display: "grid",
   placeItems: "center",
@@ -16351,8 +16337,8 @@ const sharedReelPlayButtonStyle: CSSProperties = {
 
 const sharedReelMediaBadgeStyle: CSSProperties = {
   position: "absolute",
-  left: 10,
-  bottom: 10,
+  left: 8,
+  bottom: 8,
   borderRadius: 999,
   border: "1px solid rgba(255,255,255,0.18)",
   background: "rgba(0,0,0,0.66)",
@@ -16370,8 +16356,8 @@ const sharedReelCopyStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
-  gap: 9,
-  padding: "4px 2px",
+  gap: 7,
+  padding: "14px 15px",
 };
 
 const sharedReelTopLineStyle: CSSProperties = {
@@ -16406,7 +16392,7 @@ const sharedReelSmallMetaStyle: CSSProperties = {
 const sharedReelTitleStyle: CSSProperties = {
   margin: "0",
   color: "#fff",
-  fontSize: 20,
+  fontSize: 18,
   lineHeight: 1.12,
   letterSpacing: "-0.03em",
   fontWeight: 950,
@@ -16437,11 +16423,11 @@ const sharedReelCreatorLinkStyle: CSSProperties = {
 
 const sharedCaptionStyle: CSSProperties = {
   color: "#d1d5db",
-  lineHeight: 1.48,
+  lineHeight: 1.4,
   margin: 0,
-  fontSize: 13,
+  fontSize: 12.5,
   display: "-webkit-box",
-  WebkitLineClamp: 3,
+  WebkitLineClamp: 2,
   WebkitBoxOrient: "vertical",
   overflow: "hidden",
 };
@@ -16452,8 +16438,8 @@ const watchReelButtonStyle: CSSProperties = {
   justifyContent: "center",
   width: "fit-content",
   borderRadius: 999,
-  minHeight: 38,
-  padding: "0 15px",
+  minHeight: 34,
+  padding: "0 13px",
   marginTop: 2,
   background: "#fff",
   color: "#0b1020",
