@@ -10030,6 +10030,132 @@ export default function DashboardPage() {
           }
         }
 
+
+        /* FINAL overlap correction: shared Reel card mobile/tablet only */
+        @media (max-width: 1180px) {
+          .dashboard-shared-reel-frame {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            grid-template-columns: none !important;
+            grid-template-rows: none !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+          }
+
+          .dashboard-shared-reel-media {
+            flex: 0 0 38% !important;
+            width: 38% !important;
+            min-width: 0 !important;
+            max-width: 38% !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            position: relative !important;
+            z-index: 1 !important;
+            overflow: hidden !important;
+          }
+
+          .dashboard-shared-reel-copy {
+            flex: 1 1 62% !important;
+            width: 62% !important;
+            min-width: 0 !important;
+            max-width: 62% !important;
+            height: 180px !important;
+            min-height: 0 !important;
+            max-height: 180px !important;
+            position: relative !important;
+            z-index: 2 !important;
+            margin: 0 !important;
+            padding: 13px 14px !important;
+            overflow: hidden !important;
+            background: transparent !important;
+          }
+
+          .dashboard-shared-reel-top-line,
+          .dashboard-shared-reel-title,
+          .dashboard-shared-reel-caption,
+          .dashboard-shared-reel-copy > div,
+          .dashboard-shared-reel-copy > p,
+          .dashboard-shared-reel-copy > a {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            transform: none !important;
+          }
+
+          .dashboard-shared-reel-copy a,
+          .dashboard-shared-reel-copy span,
+          .dashboard-shared-reel-copy h3,
+          .dashboard-shared-reel-copy p {
+            position: relative !important;
+            left: 0 !important;
+            right: auto !important;
+          }
+
+          .dashboard-shared-reel-small-meta {
+            display: none !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .dashboard-shared-reel-frame {
+            height: 168px !important;
+            min-height: 168px !important;
+            max-height: 168px !important;
+          }
+
+          .dashboard-shared-reel-media {
+            flex-basis: 37% !important;
+            width: 37% !important;
+            max-width: 37% !important;
+            height: 168px !important;
+            min-height: 168px !important;
+            max-height: 168px !important;
+          }
+
+          .dashboard-shared-reel-copy {
+            flex-basis: 63% !important;
+            width: 63% !important;
+            max-width: 63% !important;
+            height: 168px !important;
+            max-height: 168px !important;
+            padding: 11px 12px !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          .dashboard-shared-reel-frame {
+            height: 154px !important;
+            min-height: 154px !important;
+            max-height: 154px !important;
+          }
+
+          .dashboard-shared-reel-media {
+            flex-basis: 36% !important;
+            width: 36% !important;
+            max-width: 36% !important;
+            height: 154px !important;
+            min-height: 154px !important;
+            max-height: 154px !important;
+          }
+
+          .dashboard-shared-reel-copy {
+            flex-basis: 64% !important;
+            width: 64% !important;
+            max-width: 64% !important;
+            height: 154px !important;
+            max-height: 154px !important;
+            padding: 9px 10px !important;
+          }
+        }
+
       ` }} />
     </div>
   );
