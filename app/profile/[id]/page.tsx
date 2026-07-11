@@ -157,10 +157,11 @@ type ProfileLiveStream = {
   ended_at: string | null;
   created_at: string;
   updated_at: string | null;
+  views?: number | null;
 };
 
 const PROFILE_LIVE_SELECT =
-  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at";
+  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at, views";
 
 const PROFILE_LIVE_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
 
@@ -1067,11 +1068,9 @@ function formatProfileLiveDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Schedule pending";
 
-  return date.toLocaleString(undefined, {
+  return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
   });
 }
 
@@ -2259,6 +2258,78 @@ function TwoLineExpandableComment({
         </button>
       ) : null}
     </div>
+  );
+}
+
+
+function LiveStreamViewCount({
+  streamId,
+  initialViews = 0,
+  shouldCount = true,
+}: {
+  streamId: string;
+  initialViews?: number | null;
+  shouldCount?: boolean;
+}) {
+  const [viewCount, setViewCount] = useState(Math.max(0, Number(initialViews || 0)));
+  const markerRef = useRef<HTMLSpanElement | null>(null);
+  const countedRef = useRef(false);
+
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker || !streamId || !shouldCount || countedRef.current) return;
+
+    const countView = async () => {
+      if (countedRef.current) return;
+      countedRef.current = true;
+
+      const { data, error } = await supabase.rpc("increment_live_stream_views", {
+        target_stream_id: streamId,
+      });
+
+      if (error) {
+        console.warn("Live view count update skipped:", error.message);
+        return;
+      }
+
+      const nextCount =
+        typeof data === "number"
+          ? data
+          : Array.isArray(data) && typeof data[0] === "number"
+            ? data[0]
+            : Number(data);
+
+      if (Number.isFinite(nextCount)) {
+        setViewCount(Math.max(0, nextCount));
+      }
+    };
+
+    if (typeof IntersectionObserver === "undefined") {
+      void countView();
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting || entry.intersectionRatio < 0.6) return;
+        observer.disconnect();
+        void countView();
+      },
+      { threshold: [0.6] }
+    );
+
+    observer.observe(marker);
+
+    return () => observer.disconnect();
+  }, [streamId, shouldCount]);
+
+  const label = viewCount === 1 ? "View" : "Views";
+
+  return (
+    <span ref={markerRef}>
+      {viewCount.toLocaleString()} {label}
+    </span>
   );
 }
 
@@ -16022,7 +16093,7 @@ return (
                           const chatStatus = getProfileLiveChatStatus(effectiveStatus);
                           const hasLongDescription = Boolean(item.description && item.description.length > 150);
                           const scheduleLabel = isLive
-                            ? `Started ${formatProfileLiveDate(item.started_at || item.updated_at || item.created_at)}`
+                            ? "Live Now"
                             : isReplay
                               ? `Replay from ${formatProfileLiveDate(item.ended_at || item.started_at || item.updated_at || item.created_at)}`
                               : `Scheduled ${formatProfileLiveDate(item.scheduled_at)}`;
@@ -16194,6 +16265,16 @@ return (
                                     }}
                                   >
                                     {scheduleLabel}
+                                    {(isLive || isReplay) && item.id ? (
+                                      <>
+                                        {" · "}
+                                        <LiveStreamViewCount
+                                          streamId={item.id}
+                                          initialViews={item.views}
+                                          shouldCount={isPlayable}
+                                        />
+                                      </>
+                                    ) : null}
                                   </div>
 
                                   <h3 style={{ margin: 0, color: "#ffffff", fontSize: "1.18rem", lineHeight: 1.18, letterSpacing: "-0.035em" }}>
