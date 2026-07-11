@@ -438,12 +438,14 @@ async function insertReelNotification({
   reelId,
   type,
   message,
+  commentId = null,
 }: {
   userId: string;
   actorId: string;
   reelId: string;
-  type: "reel_like" | "reel_comment" | "reel_share";
+  type: "reel_like" | "reel_comment" | "reel_share" | "reel_reply";
   message: string;
+  commentId?: string | null;
 }) {
   if (!userId || !actorId || !reelId || userId === actorId) return;
 
@@ -453,7 +455,7 @@ async function insertReelNotification({
       actor_id: actorId,
       type,
       post_id: null,
-      comment_id: null,
+      comment_id: commentId,
       friend_request_id: null,
       reel_id: reelId,
       message,
@@ -1682,15 +1684,35 @@ export default function ReelsPage() {
       );
     }
 
+    const parentCommentAuthorId = parentComment.authorUserId;
     const activeReplyReelOwnerId = activeReel.creator_profile_id || activeReel.user_id;
 
-    if (activeReplyReelOwnerId && activeReplyReelOwnerId !== currentUserId) {
+    // Notify the member whose comment received the reply.
+    if (parentCommentAuthorId && parentCommentAuthorId !== currentUserId) {
+      await insertReelNotification({
+        userId: parentCommentAuthorId,
+        actorId: currentUserId,
+        reelId: activeReel.id,
+        type: "reel_reply",
+        message: "replied to your comment on a Reel.",
+        commentId: parentComment.id,
+      });
+    }
+
+    // Also notify the Reel owner when they are a different person.
+    // This avoids duplicate notifications when the owner wrote the parent comment.
+    if (
+      activeReplyReelOwnerId &&
+      activeReplyReelOwnerId !== currentUserId &&
+      activeReplyReelOwnerId !== parentCommentAuthorId
+    ) {
       await insertReelNotification({
         userId: activeReplyReelOwnerId,
         actorId: currentUserId,
         reelId: activeReel.id,
         type: "reel_comment",
         message: "replied to a comment on your reel.",
+        commentId: parentComment.id,
       });
     }
   };

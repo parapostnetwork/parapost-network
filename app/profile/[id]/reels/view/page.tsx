@@ -391,12 +391,14 @@ async function insertReelNotification({
   reelId,
   type,
   message,
+  commentId = null,
 }: {
   userId: string;
   actorId: string;
   reelId: string;
-  type: "reel_like" | "reel_comment" | "reel_share";
+  type: "reel_like" | "reel_comment" | "reel_share" | "reel_reply";
   message: string;
+  commentId?: string | null;
 }) {
   if (!userId || !actorId || !reelId || userId === actorId) return;
 
@@ -406,7 +408,7 @@ async function insertReelNotification({
       actor_id: actorId,
       type,
       post_id: null,
-      comment_id: null,
+      comment_id: commentId,
       friend_request_id: null,
       reel_id: reelId,
       message,
@@ -1668,13 +1670,37 @@ export default function ProfileReelsViewerPage() {
       );
     }
 
-    await insertReelNotification({
-      userId: targetReel.creator_profile_id || targetReel.user_id,
-      actorId: currentUserId,
-      reelId: targetReel.id,
-      type: "reel_comment",
-      message: "replied to a comment on your reel.",
-    });
+    const parentCommentAuthorId = parentComment.authorUserId;
+    const targetReelOwnerId = targetReel.creator_profile_id || targetReel.user_id;
+
+    // Notify the member whose comment received the reply.
+    if (parentCommentAuthorId && parentCommentAuthorId !== currentUserId) {
+      await insertReelNotification({
+        userId: parentCommentAuthorId,
+        actorId: currentUserId,
+        reelId: targetReel.id,
+        type: "reel_reply",
+        message: "replied to your comment on a Reel.",
+        commentId: parentComment.id,
+      });
+    }
+
+    // Also notify the Reel owner when they are a different person.
+    // This avoids duplicate notifications when the owner wrote the parent comment.
+    if (
+      targetReelOwnerId &&
+      targetReelOwnerId !== currentUserId &&
+      targetReelOwnerId !== parentCommentAuthorId
+    ) {
+      await insertReelNotification({
+        userId: targetReelOwnerId,
+        actorId: currentUserId,
+        reelId: targetReel.id,
+        type: "reel_comment",
+        message: "replied to a comment on your reel.",
+        commentId: parentComment.id,
+      });
+    }
   };
 
   const handleCommentLikeToggle = async (

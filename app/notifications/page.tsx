@@ -257,6 +257,10 @@ function getNotificationTitle(notification: NotificationCard) {
     return `${actorName} sent you a Parachat message.`;
   }
 
+  if (type === "reel_reply") {
+    return `${actorName} replied to your comment on a Reel.`;
+  }
+
   if (isReelActivityNotificationType(type)) {
     const count = getReelActivityCount(notification);
     const verb = getReelActivityVerb(type);
