@@ -16271,7 +16271,7 @@ return (
                                         <LiveStreamViewCount
                                           streamId={item.id}
                                           initialViews={item.views}
-                                          shouldCount={isPlayable}
+                                          shouldCount={Boolean((isLive || isReplay) && (liveEmbedUrl || item.external_url))}
                                         />
                                       </>
                                     ) : null}
