@@ -377,17 +377,35 @@ function getDashboardLiveTimestamp(stream: {
   status?: string | null;
   scheduled_at?: string | null;
   started_at?: string | null;
-  updated_at?: string | null;
+  ended_at?: string | null;
   created_at?: string | null;
 }) {
-  // Timeline order should feel like Facebook:
-  // scheduled Live cards appear where they were published/updated,
-  // then jump to the top when the creator actually starts the show.
+  // Timeline position must reflect when the Live was published/started/ended.
+  // View-count updates must never move a Live or replay to the top.
+  if (stream.status === "live") {
+    return (
+      stream.started_at ||
+      stream.created_at ||
+      stream.scheduled_at ||
+      new Date().toISOString()
+    );
+  }
+
+  if (stream.status === "ended") {
+    return (
+      stream.ended_at ||
+      stream.started_at ||
+      stream.created_at ||
+      stream.scheduled_at ||
+      new Date().toISOString()
+    );
+  }
+
   return (
-    (stream.status === "live" ? stream.started_at || stream.updated_at : null) ||
-    stream.updated_at ||
     stream.created_at ||
     stream.scheduled_at ||
+    stream.started_at ||
+    stream.ended_at ||
     new Date().toISOString()
   );
 }
