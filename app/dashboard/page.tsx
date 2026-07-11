@@ -121,6 +121,8 @@ type DashboardComment = {
   content: string;
   created_at: string;
   is_hidden?: boolean | null;
+  parent_comment_id?: string | null;
+  reply_to_user_id?: string | null;
 };
 
 type SharedReelItem = {
@@ -1741,6 +1743,60 @@ function splitPostFeelingActivityContent(content: string) {
 }
 
 
+
+function TwoLineExpandableComment({
+  text,
+  expanded,
+  onToggle,
+  style,
+}: {
+  text: string;
+  expanded: boolean;
+  onToggle: () => void;
+  style?: CSSProperties;
+}) {
+  const cleanText = text || "";
+  const shouldOfferToggle = cleanText.length > 120 || cleanText.includes("\n");
+
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div
+        style={{
+          ...style,
+          ...(!expanded
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }
+            : {}),
+        }}
+      >
+        {renderLinkedText(cleanText)}
+      </div>
+      {shouldOfferToggle ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          style={{
+            marginTop: 3,
+            padding: 0,
+            border: "none",
+            background: "transparent",
+            color: "var(--parapost-accent-text, #d8b4fe)",
+            fontSize: 11.5,
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          {expanded ? "Less" : "More"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [content, setContent] = useState("");
   const [postImages, setPostImages] = useState<File[]>([]);
@@ -2362,7 +2418,7 @@ export default function DashboardPage() {
       supabase.from("likes").select("post_id, user_id").in("post_id", safePostIds),
       supabase
         .from("comments")
-        .select("id, post_id, user_id, content, created_at, is_hidden")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
         .in("post_id", safePostIds)
         .order("created_at", { ascending: true }),
       supabase.from("shares").select("post_id, share_destination, deleted_at").in("post_id", safePostIds),
@@ -3978,7 +4034,7 @@ export default function DashboardPage() {
       try {
         const { data, error } = await supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden")
+          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
           .eq("post_id", postId)
           .order("created_at", { ascending: true })
           .limit(80);
@@ -4076,9 +4132,11 @@ export default function DashboardPage() {
             post_id: postId,
             user_id: currentUserId,
             content: trimmed,
+            parent_comment_id: null,
+            reply_to_user_id: null,
           },
         ])
-        .select("id, post_id, user_id, content, created_at, is_hidden")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
         .single();
 
       if (error) {
@@ -4175,7 +4233,7 @@ export default function DashboardPage() {
         .update({ content: trimmed })
         .eq("id", comment.id)
         .eq("user_id", currentUserId)
-        .select("id, post_id, user_id, content, created_at, is_hidden")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
         .single();
 
       if (error) {
@@ -11659,6 +11717,7 @@ function PostCard({
       {commentsOpen ? (
         <DashboardCommentsPanel
           postId={post.id}
+          postOwnerId={post.user_id}
           comments={comments}
           profilesMap={profilesMap}
           currentUserId={currentUserId}
@@ -11708,6 +11767,7 @@ function DashboardCommentsPreview({
   onReportComment,
 }: {
   postId: string;
+  postOwnerId?: string | null;
   comments: DashboardComment[];
   commentCount: number;
   profilesMap: Record<string, ProfilePreview>;
@@ -11726,7 +11786,7 @@ function DashboardCommentsPreview({
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
 }) {
-  const previewComments = comments.slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT);
+  const previewComments = comments.filter((comment) => !comment.parent_comment_id).slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT);
   const hiddenCommentCount = Math.max(commentCount - previewComments.length, 0);
 
   if (previewComments.length === 0) return null;
@@ -11806,7 +11866,7 @@ function DashboardCommentsPreview({
                     </div>
                   </div>
                 ) : (
-                  <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
+                  <TwoLineExpandableComment text={comment.content || ""} expanded={false} onToggle={onToggleComments} style={dashboardCommentTextStyle} />
                 )}
 
                 {!isEditingComment ? (
@@ -11886,6 +11946,7 @@ function DashboardCommentsPreview({
 
 function DashboardCommentsPanel({
   postId,
+  postOwnerId,
   comments,
   profilesMap,
   currentUserId,
@@ -11931,6 +11992,198 @@ function DashboardCommentsPanel({
   onReportComment: (commentId: string, commentOwnerId: string) => void;
   onCloseComments: () => void;
 }) {
+  const [threadComments, setThreadComments] = useState<DashboardComment[]>(comments);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [postingReply, setPostingReply] = useState(false);
+  const [expandedTextMap, setExpandedTextMap] = useState<Record<string, boolean>>({});
+  const [expandedThreadsMap, setExpandedThreadsMap] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setThreadComments(comments);
+  }, [comments]);
+
+  const topLevelComments = threadComments.filter((comment) => !comment.parent_comment_id);
+  const repliesFor = (commentId: string) =>
+    threadComments.filter((comment) => comment.parent_comment_id === commentId);
+
+  const submitReply = async (parentComment: DashboardComment, replyToComment: DashboardComment) => {
+    const trimmed = replyDraft.trim();
+    if (!trimmed || !currentUserId || postingReply) return;
+
+    setPostingReply(true);
+    try {
+      const rootParentId = parentComment.parent_comment_id || parentComment.id;
+      const { data, error } = await supabase
+        .from("comments")
+        .insert([{
+          post_id: postId,
+          user_id: currentUserId,
+          content: trimmed,
+          parent_comment_id: rootParentId,
+          reply_to_user_id: replyToComment.user_id,
+        }])
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .single();
+
+      if (error) {
+        alert(`Reply error: ${error.message}`);
+        return;
+      }
+
+      const savedReply = data as DashboardComment;
+      setThreadComments((current) => [...current, savedReply]);
+      setExpandedThreadsMap((current) => ({ ...current, [rootParentId]: true }));
+      setReplyingToId(null);
+      setReplyDraft("");
+
+      const recipients = new Set<string>();
+      if (replyToComment.user_id && replyToComment.user_id !== currentUserId) {
+        recipients.add(replyToComment.user_id);
+      }
+      if (postOwnerId && postOwnerId !== currentUserId) {
+        recipients.add(postOwnerId);
+      }
+
+      if (recipients.size > 0) {
+        await supabase.from("notifications").insert(
+          Array.from(recipients).map((recipientId) => ({
+            user_id: recipientId,
+            actor_id: currentUserId,
+            type: "comment_reply",
+            post_id: postId,
+            comment_id: savedReply.id,
+            friend_request_id: null,
+            message:
+              recipientId === replyToComment.user_id
+                ? "replied to your comment."
+                : "replied in a comment thread on your post.",
+            is_read: false,
+          }))
+        );
+      }
+    } finally {
+      setPostingReply(false);
+    }
+  };
+
+  const renderThreadComment = (
+    comment: DashboardComment,
+    rootComment: DashboardComment,
+    isReply = false,
+  ) => {
+    const author = profilesMap[comment.user_id];
+    const authorName = author?.full_name || author?.username || "Parapost member";
+    const canManage = !!currentUserId && comment.user_id === currentUserId;
+    const isEditingComment = editingCommentId === comment.id;
+    const isSavingComment = savingCommentId === comment.id;
+    const commentLikeCount = commentLikeCounts[comment.id] || 0;
+    const commentLiked = !!commentUserLikes[comment.id];
+
+    return (
+      <div
+        key={`${postId}-${comment.id}`}
+        style={{
+          ...dashboardCommentRowStyle,
+          ...(isReply
+            ? {
+                marginLeft: 38,
+                paddingLeft: 10,
+                borderLeft: "2px solid rgba(255,255,255,0.08)",
+              }
+            : {}),
+        }}
+      >
+        <Avatar profile={author} size={isReply ? 30 : 34} href={comment.user_id ? `/profile/${comment.user_id}` : undefined} />
+        <div style={dashboardCommentBubbleStyle}>
+          <div style={dashboardCommentTopLineStyle}>
+            <Link href={comment.user_id ? `/profile/${comment.user_id}` : "#"} style={dashboardCommentAuthorStyle}>
+              {authorName}
+            </Link>
+            <span style={dashboardCommentTimeStyle}>{formatRelativeTime(comment.created_at)}</span>
+          </div>
+
+          {isEditingComment ? (
+            <div style={dashboardCommentEditWrapStyle}>
+              <textarea
+                value={editingCommentText}
+                onChange={(event) => setEditingCommentText(event.target.value)}
+                rows={2}
+                maxLength={1200}
+                style={dashboardCommentEditTextareaStyle}
+                autoFocus
+              />
+              <div style={dashboardCommentEditActionsStyle}>
+                <button type="button" onClick={() => onSaveEditComment(comment)} disabled={!editingCommentText.trim() || isSavingComment} style={dashboardCommentEditPrimaryButtonStyle}>
+                  {isSavingComment ? "Saving..." : "Save"}
+                </button>
+                <button type="button" onClick={onCancelEditComment} disabled={isSavingComment} style={dashboardCommentEditSecondaryButtonStyle}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <TwoLineExpandableComment
+              text={comment.content || ""}
+              expanded={!!expandedTextMap[comment.id]}
+              onToggle={() => setExpandedTextMap((current) => ({ ...current, [comment.id]: !current[comment.id] }))}
+              style={dashboardCommentTextStyle}
+            />
+          )}
+
+          {!isEditingComment ? (
+            <div style={dashboardCommentActionRowStyle}>
+              {currentUserId ? (
+                <>
+                  <button type="button" onClick={() => onToggleCommentLike(comment.id)} style={{ ...dashboardCommentEditActionButtonStyle, color: commentLiked ? "var(--parapost-accent-text)" : dashboardCommentEditActionButtonStyle.color }}>
+                    {commentLiked ? "Liked" : "Like"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReplyingToId((current) => (current === comment.id ? null : comment.id));
+                      setReplyDraft("");
+                    }}
+                    style={dashboardCommentEditActionButtonStyle}
+                  >
+                    Reply
+                  </button>
+                </>
+              ) : null}
+              {commentLikeCount > 0 ? <span style={dashboardCommentLikeCountStyle}>{commentLikeCount} {commentLikeCount === 1 ? "like" : "likes"}</span> : null}
+              {canManage ? (
+                <>
+                  <button type="button" onClick={() => onStartEditComment(comment)} style={dashboardCommentEditActionButtonStyle}>Edit</button>
+                  <button type="button" onClick={() => onDeleteComment(comment.id)} style={dashboardCommentDeleteButtonStyle}>Delete</button>
+                </>
+              ) : currentUserId ? (
+                <button type="button" onClick={() => onReportComment(comment.id, comment.user_id)} style={dashboardCommentDeleteButtonStyle}>Report</button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {replyingToId === comment.id ? (
+            <div style={{ marginTop: 8, display: "grid", gap: 7 }}>
+              <textarea
+                value={replyDraft}
+                onChange={(event) => setReplyDraft(event.target.value)}
+                placeholder={`Reply to ${authorName}...`}
+                rows={2}
+                maxLength={1200}
+                style={dashboardCommentEditTextareaStyle}
+                autoFocus
+              />
+              <div style={dashboardCommentEditActionsStyle}>
+                <button type="button" onClick={() => submitReply(rootComment, comment)} disabled={!replyDraft.trim() || postingReply} style={dashboardCommentEditPrimaryButtonStyle}>
+                  {postingReply ? "Replying..." : "Reply"}
+                </button>
+                <button type="button" onClick={() => { setReplyingToId(null); setReplyDraft(""); }} style={dashboardCommentEditSecondaryButtonStyle}>Cancel</button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <section style={dashboardCommentsPanelStyle} onClick={(event) => event.stopPropagation()}>
       <div style={dashboardCommentsHeaderStyle}>
@@ -11986,124 +12239,34 @@ function DashboardCommentsPanel({
         <div style={dashboardCommentsEmptyStyle}>No comments yet. Be the first to reply.</div>
       ) : (
         <div style={dashboardCommentsListStyle}>
-          {comments.map((comment) => {
-            const author = profilesMap[comment.user_id];
-            const authorName = author?.full_name || author?.username || "Parapost member";
-            const canManage = !!currentUserId && comment.user_id === currentUserId;
-            const isEditingComment = editingCommentId === comment.id;
-            const isSavingComment = savingCommentId === comment.id;
-            const commentLikeCount = commentLikeCounts[comment.id] || 0;
-            const commentLiked = !!commentUserLikes[comment.id];
+          {topLevelComments.map((comment) => {
+            const replies = repliesFor(comment.id);
+            const repliesExpanded = !!expandedThreadsMap[comment.id];
 
             return (
-              <div key={`${postId}-${comment.id}`} style={dashboardCommentRowStyle}>
-                <Avatar profile={author} size={34} href={comment.user_id ? `/profile/${comment.user_id}` : undefined} />
-                <div style={dashboardCommentBubbleStyle}>
-                  <div style={dashboardCommentTopLineStyle}>
-                    <Link href={comment.user_id ? `/profile/${comment.user_id}` : "#"} style={dashboardCommentAuthorStyle}>
-                      {authorName}
-                    </Link>
-                    <span style={dashboardCommentTimeStyle}>{formatRelativeTime(comment.created_at)}</span>
-                  </div>
+              <div key={`thread-${postId}-${comment.id}`} style={{ display: "grid", gap: 8 }}>
+                {renderThreadComment(comment, comment, false)}
 
-                  {isEditingComment ? (
-                    <div style={dashboardCommentEditWrapStyle}>
-                      <textarea
-                        value={editingCommentText}
-                        onChange={(event) => setEditingCommentText(event.target.value)}
-                        rows={2}
-                        maxLength={1200}
-                        style={dashboardCommentEditTextareaStyle}
-                        autoFocus
-                        onKeyDown={(event) => {
-                          if (event.key === "Escape") {
-                            event.preventDefault();
-                            onCancelEditComment();
-                          }
+                {replies.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setExpandedThreadsMap((current) => ({ ...current, [comment.id]: !current[comment.id] }))}
+                    style={{
+                      justifySelf: "start",
+                      marginLeft: 72,
+                      border: "none",
+                      background: "transparent",
+                      color: "var(--parapost-accent-text, #d8b4fe)",
+                      fontSize: 11.5,
+                      fontWeight: 900,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {repliesExpanded ? "Hide replies" : `View ${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+                  </button>
+                ) : null}
 
-                          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                            event.preventDefault();
-                            onSaveEditComment(comment);
-                          }
-                        }}
-                      />
-                      <div style={dashboardCommentEditActionsStyle}>
-                        <button
-                          type="button"
-                          onClick={() => onSaveEditComment(comment)}
-                          disabled={!editingCommentText.trim() || isSavingComment}
-                          style={{
-                            ...dashboardCommentEditPrimaryButtonStyle,
-                            opacity: editingCommentText.trim() && !isSavingComment ? 1 : 0.55,
-                            cursor: editingCommentText.trim() && !isSavingComment ? "pointer" : "not-allowed",
-                          }}
-                        >
-                          {isSavingComment ? "Saving..." : "Save"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onCancelEditComment}
-                          disabled={isSavingComment}
-                          style={dashboardCommentEditSecondaryButtonStyle}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={dashboardCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
-                  )}
-
-                  {!isEditingComment ? (
-                    <div style={dashboardCommentActionRowStyle}>
-                      {currentUserId ? (
-                        <button
-                          type="button"
-                          onClick={() => onToggleCommentLike(comment.id)}
-                          style={{
-                            ...dashboardCommentEditActionButtonStyle,
-                            color: commentLiked ? "var(--parapost-accent-text)" : dashboardCommentEditActionButtonStyle.color,
-                          }}
-                        >
-                          {commentLiked ? "Liked" : "Like"}
-                        </button>
-                      ) : null}
-
-                      {commentLikeCount > 0 ? (
-                        <span style={dashboardCommentLikeCountStyle}>
-                          {commentLikeCount} {commentLikeCount === 1 ? "like" : "likes"}
-                        </span>
-                      ) : null}
-
-                      {canManage ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => onStartEditComment(comment)}
-                            style={dashboardCommentEditActionButtonStyle}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDeleteComment(comment.id)}
-                            style={dashboardCommentDeleteButtonStyle}
-                          >
-                            Delete
-                          </button>
-                        </>
-                      ) : currentUserId ? (
-                        <button
-                          type="button"
-                          onClick={() => onReportComment(comment.id, comment.user_id)}
-                          style={dashboardCommentDeleteButtonStyle}
-                        >
-                          Report
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
+                {repliesExpanded ? replies.map((reply) => renderThreadComment(reply, comment, true)) : null}
               </div>
             );
           })}

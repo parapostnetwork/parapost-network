@@ -92,6 +92,8 @@ type ProfileComment = {
   content: string;
   created_at: string;
   is_hidden?: boolean | null;
+  parent_comment_id?: string | null;
+  reply_to_user_id?: string | null;
 };
 
 type Reel = {
@@ -2206,6 +2208,60 @@ function isProfileActuallyOnline(profile?: { is_online?: boolean | null; last_se
   return Boolean(profile?.is_online && isRecentOnlineTimestamp(profile.last_seen_at));
 }
 
+
+function TwoLineExpandableComment({
+  text,
+  expanded,
+  onToggle,
+  style,
+}: {
+  text: string;
+  expanded: boolean;
+  onToggle: () => void;
+  style?: CSSProperties;
+}) {
+  const cleanText = text || "";
+  const shouldOfferToggle = cleanText.length > 120 || cleanText.includes("\n");
+
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div
+        style={{
+          ...style,
+          ...(!expanded
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }
+            : {}),
+        }}
+      >
+        {renderLinkedText(cleanText)}
+      </div>
+      {shouldOfferToggle ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          style={{
+            marginTop: 3,
+            padding: 0,
+            border: "none",
+            background: "transparent",
+            color: "var(--parapost-accent-text, #d8b4fe)",
+            fontSize: 11.5,
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          {expanded ? "Less" : "More"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -2241,6 +2297,11 @@ export default function ProfilePage() {
   const [editingProfileCommentId, setEditingProfileCommentId] = useState<string | null>(null);
   const [editingProfileCommentDraft, setEditingProfileCommentDraft] = useState("");
   const [savingProfileCommentId, setSavingProfileCommentId] = useState<string | null>(null);
+  const [replyingProfileCommentId, setReplyingProfileCommentId] = useState<string | null>(null);
+  const [profileReplyDrafts, setProfileReplyDrafts] = useState<Record<string, string>>({});
+  const [postingProfileReplyId, setPostingProfileReplyId] = useState<string | null>(null);
+  const [expandedProfileCommentTextMap, setExpandedProfileCommentTextMap] = useState<Record<string, boolean>>({});
+  const [expandedProfileReplyThreadsMap, setExpandedProfileReplyThreadsMap] = useState<Record<string, boolean>>({});
   const [commentProfilesMap, setCommentProfilesMap] = useState<Record<string, ProfileRow>>({});
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -3198,7 +3259,7 @@ const closeProfileMobileSearch = useCallback(() => {
       const [{ data: commentsData, error: commentsCountError }, { data: sharesCountData, error: sharesCountError }] = await Promise.all([
         supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden")
+          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
           .in("post_id", countPostIds)
           .order("created_at", { ascending: true }),
         supabase
@@ -4090,7 +4151,7 @@ useEffect(() => {
       try {
         const { data, error } = await supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden")
+          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
           .eq("post_id", postId)
           .order("created_at", { ascending: true })
           .limit(80);
@@ -4189,9 +4250,11 @@ useEffect(() => {
             post_id: postId,
             user_id: viewerId,
             content: trimmed,
+            parent_comment_id: null,
+            reply_to_user_id: null,
           },
         ])
-        .select("id, post_id, user_id, content, created_at, is_hidden")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
         .single();
 
       if (error) {
@@ -4244,6 +4307,71 @@ useEffect(() => {
     }
   };
 
+  const handleAddProfileCommentReply = async (
+    postId: string,
+    postOwnerId: string | null | undefined,
+    rootComment: ProfileComment,
+    replyToComment: ProfileComment,
+  ) => {
+    const trimmed = (profileReplyDrafts[replyToComment.id] || "").trim();
+    if (!trimmed || !viewerId || postingProfileReplyId) return;
+
+    setPostingProfileReplyId(replyToComment.id);
+    try {
+      const rootParentId = rootComment.parent_comment_id || rootComment.id;
+      const { data, error } = await supabase
+        .from("comments")
+        .insert([{
+          post_id: postId,
+          user_id: viewerId,
+          content: trimmed,
+          parent_comment_id: rootParentId,
+          reply_to_user_id: replyToComment.user_id,
+        }])
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .single();
+
+      if (error) {
+        alert(`Reply error: ${error.message}`);
+        return;
+      }
+
+      const savedReply = data as ProfileComment;
+      setCommentsByPostId((current) => ({
+        ...current,
+        [postId]: [...(current[postId] || []), savedReply],
+      }));
+      setCommentCounts((current) => ({ ...current, [postId]: (current[postId] || 0) + 1 }));
+      setExpandedProfileReplyThreadsMap((current) => ({ ...current, [rootParentId]: true }));
+      setReplyingProfileCommentId(null);
+      setProfileReplyDrafts((current) => ({ ...current, [replyToComment.id]: "" }));
+
+      const recipients = new Set<string>();
+      if (replyToComment.user_id && replyToComment.user_id !== viewerId) recipients.add(replyToComment.user_id);
+      if (postOwnerId && postOwnerId !== viewerId) recipients.add(postOwnerId);
+
+      if (recipients.size > 0) {
+        await supabase.from("notifications").insert(
+          Array.from(recipients).map((recipientId) => ({
+            user_id: recipientId,
+            actor_id: viewerId,
+            type: "comment_reply",
+            post_id: postId,
+            comment_id: savedReply.id,
+            friend_request_id: null,
+            message:
+              recipientId === replyToComment.user_id
+                ? "replied to your comment."
+                : "replied in a comment thread on your post.",
+            is_read: false,
+          }))
+        );
+      }
+    } finally {
+      setPostingProfileReplyId(null);
+    }
+  };
+
   const handleStartEditProfileComment = (comment: ProfileComment) => {
     if (!viewerId || comment.user_id !== viewerId) return;
 
@@ -4275,7 +4403,7 @@ useEffect(() => {
       .eq("id", comment.id)
       .eq("post_id", postId)
       .eq("user_id", viewerId)
-      .select("id, post_id, user_id, content, created_at, is_hidden")
+      .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
       .single();
 
     if (error) {
@@ -4377,7 +4505,9 @@ useEffect(() => {
     postId: string,
     postOwnerId: string | null | undefined,
     comment: ProfileComment,
-    keyPrefix = "comment"
+    keyPrefix = "comment",
+    rootComment: ProfileComment = comment,
+    isReply = false,
   ) => {
     const commentProfile =
       commentProfilesMap[comment.user_id] ||
@@ -4394,7 +4524,19 @@ useEffect(() => {
     const isSavingComment = savingProfileCommentId === comment.id;
 
     return (
-      <article key={`${keyPrefix}-${postId}-${comment.id}`} style={profileCommentItemStyle}>
+      <article
+        key={`${keyPrefix}-${postId}-${comment.id}`}
+        style={{
+          ...profileCommentItemStyle,
+          ...(isReply
+            ? {
+                marginLeft: 38,
+                paddingLeft: 10,
+                borderLeft: "2px solid rgba(255,255,255,0.08)",
+              }
+            : {}),
+        }}
+      >
         <Link
           href={`/profile/${comment.user_id}`}
           style={profileCommentAvatarStyle}
@@ -4466,47 +4608,71 @@ useEffect(() => {
                 </div>
               </div>
             ) : (
-              <div style={profileCommentTextStyle}>{renderLinkedText(comment.content || "")}</div>
+              <TwoLineExpandableComment
+                text={comment.content || ""}
+                expanded={!!expandedProfileCommentTextMap[comment.id]}
+                onToggle={() => setExpandedProfileCommentTextMap((current) => ({ ...current, [comment.id]: !current[comment.id] }))}
+                style={profileCommentTextStyle}
+              />
             )}
 
-            {!isEditingComment && canEditComment ? (
+            {!isEditingComment ? (
               <div style={profileCommentFooterStyle}>
-                <button
-                  type="button"
-                  onClick={() => handleStartEditProfileComment(comment)}
-                  style={profileCommentEditButtonStyle}
-                >
-                  Edit
-                </button>
-                {canDeleteComment ? (
+                {viewerId ? (
                   <button
                     type="button"
-                    onClick={() => handleDeleteProfileComment(postId, comment.id)}
-                    style={profileCommentDeleteButtonStyle}
+                    onClick={() => {
+                      setReplyingProfileCommentId((current) => (current === comment.id ? null : comment.id));
+                      setProfileReplyDrafts((current) => ({ ...current, [comment.id]: "" }));
+                    }}
+                    style={profileCommentEditButtonStyle}
                   >
+                    Reply
+                  </button>
+                ) : null}
+
+                {canEditComment ? (
+                  <button type="button" onClick={() => handleStartEditProfileComment(comment)} style={profileCommentEditButtonStyle}>
+                    Edit
+                  </button>
+                ) : null}
+
+                {canDeleteComment ? (
+                  <button type="button" onClick={() => handleDeleteProfileComment(postId, comment.id)} style={profileCommentDeleteButtonStyle}>
                     Delete
                   </button>
                 ) : null}
+
+                {canReportComment ? (
+                  <button type="button" onClick={() => handleReportProfileComment(comment.id, comment.user_id)} style={profileCommentReportButtonStyle}>
+                    Report
+                  </button>
+                ) : null}
               </div>
-            ) : !isEditingComment && canDeleteComment ? (
-              <div style={profileCommentFooterStyle}>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteProfileComment(postId, comment.id)}
-                  style={profileCommentDeleteButtonStyle}
-                >
-                  Delete
-                </button>
-              </div>
-            ) : !isEditingComment && canReportComment ? (
-              <div style={profileCommentFooterStyle}>
-                <button
-                  type="button"
-                  onClick={() => handleReportProfileComment(comment.id, comment.user_id)}
-                  style={profileCommentReportButtonStyle}
-                >
-                  Report
-                </button>
+            ) : null}
+
+            {replyingProfileCommentId === comment.id ? (
+              <div style={{ marginTop: 8, display: "grid", gap: 7 }}>
+                <textarea
+                  value={profileReplyDrafts[comment.id] || ""}
+                  onChange={(event) => setProfileReplyDrafts((current) => ({ ...current, [comment.id]: event.target.value }))}
+                  placeholder={`Reply to ${commentName}...`}
+                  rows={2}
+                  maxLength={1200}
+                  style={profileCommentEditInputStyle}
+                  autoFocus
+                />
+                <div style={profileCommentEditActionsStyle}>
+                  <button
+                    type="button"
+                    onClick={() => handleAddProfileCommentReply(postId, postOwnerId, rootComment, comment)}
+                    disabled={!((profileReplyDrafts[comment.id] || "").trim()) || postingProfileReplyId === comment.id}
+                    style={profileCommentEditSaveButtonStyle}
+                  >
+                    {postingProfileReplyId === comment.id ? "Replying..." : "Reply"}
+                  </button>
+                  <button type="button" onClick={() => setReplyingProfileCommentId(null)} style={profileCommentEditCancelButtonStyle}>Cancel</button>
+                </div>
               </div>
             ) : null}
           </div>
@@ -4518,7 +4684,7 @@ useEffect(() => {
   const renderProfileCommentsPreview = (postId: string, postOwnerId?: string | null) => {
     const comments = commentsByPostId[postId] || [];
     const commentCount = commentCounts[postId] || comments.length;
-    const previewComments = comments.slice(-PROFILE_COMMENT_PREVIEW_LIMIT);
+    const previewComments = comments.filter((comment) => !comment.parent_comment_id).slice(-PROFILE_COMMENT_PREVIEW_LIMIT);
     const hiddenCommentCount = Math.max(commentCount - previewComments.length, 0);
 
     if (previewComments.length === 0) return null;
@@ -4597,7 +4763,42 @@ useEffect(() => {
           <div style={profileCommentsEmptyStyle}>No comments yet. Be the first to reply.</div>
         ) : (
           <div style={profileCommentsListStyle}>
-            {comments.map((comment) => renderProfileCommentRow(postId, postOwnerId, comment, "open"))}
+            {comments
+              .filter((comment) => !comment.parent_comment_id)
+              .map((comment) => {
+                const replies = comments.filter((reply) => reply.parent_comment_id === comment.id);
+                const repliesExpanded = !!expandedProfileReplyThreadsMap[comment.id];
+
+                return (
+                  <div key={`profile-thread-${postId}-${comment.id}`} style={{ display: "grid", gap: 8 }}>
+                    {renderProfileCommentRow(postId, postOwnerId, comment, "open", comment, false)}
+
+                    {replies.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedProfileReplyThreadsMap((current) => ({ ...current, [comment.id]: !current[comment.id] }))}
+                        style={{
+                          justifySelf: "start",
+                          marginLeft: 72,
+                          padding: 0,
+                          border: "none",
+                          background: "transparent",
+                          color: "var(--parapost-accent-text, #d8b4fe)",
+                          fontSize: 11.5,
+                          fontWeight: 900,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {repliesExpanded ? "Hide replies" : `View ${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+                      </button>
+                    ) : null}
+
+                    {repliesExpanded
+                      ? replies.map((reply) => renderProfileCommentRow(postId, postOwnerId, reply, "reply", comment, true))
+                      : null}
+                  </div>
+                );
+              })}
           </div>
         )}
       </section>
