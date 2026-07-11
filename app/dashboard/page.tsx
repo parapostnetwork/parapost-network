@@ -11970,6 +11970,7 @@ function DashboardCommentsPanel({
   onCloseComments,
 }: {
   postId: string;
+  postOwnerId: string;
   comments: DashboardComment[];
   profilesMap: Record<string, ProfilePreview>;
   currentUserId: string;
