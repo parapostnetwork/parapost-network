@@ -2266,18 +2266,18 @@ function LiveStreamViewCount({
   streamId,
   initialViews = 0,
   shouldCount = true,
+  playerElementId,
 }: {
   streamId: string;
   initialViews?: number | null;
   shouldCount?: boolean;
+  playerElementId: string;
 }) {
   const [viewCount, setViewCount] = useState(Math.max(0, Number(initialViews || 0)));
-  const markerRef = useRef<HTMLSpanElement | null>(null);
   const countedRef = useRef(false);
 
   useEffect(() => {
-    const marker = markerRef.current;
-    if (!marker || !streamId || !shouldCount || countedRef.current) return;
+    if (!streamId || !shouldCount || !playerElementId || countedRef.current) return;
 
     const countView = async () => {
       if (countedRef.current) return;
@@ -2288,6 +2288,7 @@ function LiveStreamViewCount({
       });
 
       if (error) {
+        countedRef.current = false;
         console.warn("Live view count update skipped:", error.message);
         return;
       }
@@ -2304,33 +2305,25 @@ function LiveStreamViewCount({
       }
     };
 
-    if (typeof IntersectionObserver === "undefined") {
-      void countView();
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting || entry.intersectionRatio < 0.6) return;
-        observer.disconnect();
+    const handleWindowBlur = () => {
+      window.setTimeout(() => {
+        const activeElement = document.activeElement;
+        if (!(activeElement instanceof HTMLIFrameElement)) return;
+        if (activeElement.id !== playerElementId) return;
         void countView();
-      },
-      { threshold: [0.6] }
-    );
+      }, 0);
+    };
 
-    observer.observe(marker);
+    window.addEventListener("blur", handleWindowBlur);
 
-    return () => observer.disconnect();
-  }, [streamId, shouldCount]);
+    return () => {
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [playerElementId, shouldCount, streamId]);
 
   const label = viewCount === 1 ? "View" : "Views";
 
-  return (
-    <span ref={markerRef}>
-      {viewCount.toLocaleString()} {label}
-    </span>
-  );
+  return <span>{viewCount.toLocaleString()} {label}</span>;
 }
 
 export default function ProfilePage() {
@@ -16189,6 +16182,7 @@ return (
                                 >
                                   {(isLive || isReplay) && liveEmbedUrl ? (
                                     <iframe
+                                      id={`profile-live-player-${item.id}`}
                                       src={liveEmbedUrl}
                                       title={item.title || "Parapost Live Show"}
                                       allow="autoplay; fullscreen; picture-in-picture"
@@ -16271,7 +16265,8 @@ return (
                                         <LiveStreamViewCount
                                           streamId={item.id}
                                           initialViews={item.views}
-                                          shouldCount={Boolean((isLive || isReplay) && (liveEmbedUrl || item.external_url))}
+                                          shouldCount={Boolean((isLive || isReplay) && liveEmbedUrl)}
+                                          playerElementId={`profile-live-player-${item.id}`}
                                         />
                                       </>
                                     ) : null}
