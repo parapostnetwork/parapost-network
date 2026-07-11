@@ -12550,6 +12550,7 @@ function SharedPostCard({
       {commentsOpen ? (
         <DashboardCommentsPanel
           postId={originalPost.id}
+          postOwnerId={originalPost.user_id}
           comments={comments}
           profilesMap={profilesMap}
           currentUserId={currentUserId}
