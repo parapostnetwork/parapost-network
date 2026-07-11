@@ -449,6 +449,25 @@ async function insertReelNotification({
 }) {
   if (!userId || !actorId || !reelId || userId === actorId) return;
 
+  // A Reel can only be actively liked once by the same user.
+  // Avoid accumulating duplicate like notifications in the database.
+  if (type === "reel_like") {
+    const { data: existingRows, error: existingError } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("actor_id", actorId)
+      .eq("reel_id", reelId)
+      .eq("type", "reel_like")
+      .limit(1);
+
+    if (existingError) {
+      console.warn("Reel like notification check skipped:", existingError.message);
+    } else if (existingRows && existingRows.length > 0) {
+      return;
+    }
+  }
+
   const { error } = await supabase.from("notifications").insert([
     {
       user_id: userId,
@@ -465,6 +484,30 @@ async function insertReelNotification({
 
   if (error) {
     console.warn("Reel notification skipped:", error.message);
+  }
+}
+
+async function removeReelLikeNotification({
+  userId,
+  actorId,
+  reelId,
+}: {
+  userId: string;
+  actorId: string;
+  reelId: string;
+}) {
+  if (!userId || !actorId || !reelId || userId === actorId) return;
+
+  const { error } = await supabase
+    .from("notifications")
+    .delete()
+    .eq("user_id", userId)
+    .eq("actor_id", actorId)
+    .eq("reel_id", reelId)
+    .eq("type", "reel_like");
+
+  if (error) {
+    console.warn("Reel like notification cleanup skipped:", error.message);
   }
 }
 
@@ -1373,6 +1416,12 @@ export default function ReelsPage() {
         await fetchReels();
         return;
       }
+
+      await removeReelLikeNotification({
+        userId: reel.creator_profile_id || reel.user_id,
+        actorId: currentUserId,
+        reelId,
+      });
     }
   };
 

@@ -161,36 +161,31 @@ function isReelActivityNotificationType(type?: string | null) {
   return (
     type === "reel_like" ||
     type === "reel_comment" ||
-    type === "reel_share" ||
-    type === "reel_favorite"
+    type === "reel_share"
   );
 }
 
 function getReelActivityVerb(type?: string | null) {
   if (type === "reel_comment") return "commented on";
   if (type === "reel_share") return "shared";
-  if (type === "reel_favorite") return "favorited";
   return "liked";
 }
 
 function getReelActivityModalTitle(type?: string | null) {
   if (type === "reel_comment") return "People who commented on your Reel";
   if (type === "reel_share") return "People who shared your Reel";
-  if (type === "reel_favorite") return "People who favorited your Reel";
   return "People who liked your Reel";
 }
 
 function getReelActivityEmptyText(type?: string | null) {
   if (type === "reel_comment") return "No comment activity found for this Reel yet.";
   if (type === "reel_share") return "No share activity found for this Reel yet.";
-  if (type === "reel_favorite") return "No favorite activity found for this Reel yet.";
   return "No like activity found for this Reel yet.";
 }
 
 function getReelActivityActionLabel(type?: string | null) {
   if (type === "reel_comment") return "Commented";
   if (type === "reel_share") return "Shared";
-  if (type === "reel_favorite") return "Favorited";
   return "Liked";
 }
 
