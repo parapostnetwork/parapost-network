@@ -193,7 +193,24 @@ export default function DashboardReelsSection() {
       return;
     }
 
-    const nextReels = ((data || []) as ReelRow[]).filter((reel) => !!reel.video_url);
+    const validReels = ((data || []) as ReelRow[]).filter((reel) => !!reel.video_url);
+    const allowedIdSet = new Set(allowedIds);
+    const latestReelByCreator = new Map<string, ReelRow>();
+
+    // The query is already sorted newest-first, so the first Reel found for each
+    // creator is their latest one. This keeps one Dashboard card per person while
+    // Explore Reels and profile Reel pages continue to show their full Reel history.
+    for (const reel of validReels) {
+      const ownerId = reelOwnerId(reel);
+
+      if (!ownerId || !allowedIdSet.has(ownerId) || latestReelByCreator.has(ownerId)) {
+        continue;
+      }
+
+      latestReelByCreator.set(ownerId, reel);
+    }
+
+    const nextReels = Array.from(latestReelByCreator.values());
     const profileIds = nextReels.map((reel) => reelOwnerId(reel));
 
     await fetchProfiles([...allowedIds, ...profileIds]);
