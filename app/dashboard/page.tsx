@@ -11877,7 +11877,7 @@ function DashboardCommentsPreview({
                         onClick={() => onToggleCommentLike(comment.id)}
                         style={{
                           ...dashboardCommentEditActionButtonStyle,
-                          color: commentLiked ? "var(--parapost-accent-text)" : dashboardCommentEditActionButtonStyle.color,
+                          color: "#ffffff",
                         }}
                       >
                         {commentLiked ? "Liked" : "Like"}
@@ -11888,6 +11888,16 @@ function DashboardCommentsPreview({
                       <span style={dashboardCommentLikeCountStyle}>
                         {commentLikeCount} {commentLikeCount === 1 ? "like" : "likes"}
                       </span>
+                    ) : null}
+
+                    {currentUserId ? (
+                      <button
+                        type="button"
+                        onClick={onToggleComments}
+                        style={dashboardCommentEditActionButtonStyle}
+                      >
+                        Reply
+                      </button>
                     ) : null}
 
                     {canManage ? (
@@ -12134,7 +12144,7 @@ function DashboardCommentsPanel({
             <div style={dashboardCommentActionRowStyle}>
               {currentUserId ? (
                 <>
-                  <button type="button" onClick={() => onToggleCommentLike(comment.id)} style={{ ...dashboardCommentEditActionButtonStyle, color: commentLiked ? "var(--parapost-accent-text)" : dashboardCommentEditActionButtonStyle.color }}>
+                  <button type="button" onClick={() => onToggleCommentLike(comment.id)} style={{ ...dashboardCommentEditActionButtonStyle, color: "#ffffff" }}>
                     {commentLiked ? "Liked" : "Like"}
                   </button>
                   <button
@@ -16578,7 +16588,7 @@ const dashboardCommentInlineActionButtonStyle: CSSProperties = {
 
 const dashboardCommentDeleteButtonStyle: CSSProperties = {
   ...dashboardCommentInlineActionButtonStyle,
-  color: "#fca5a5",
+  color: "#ffffff",
 };
 
 const dashboardCommentActionRowStyle: CSSProperties = {
@@ -16630,7 +16640,7 @@ const dashboardCommentEditPrimaryButtonStyle: CSSProperties = {
 const dashboardCommentEditSecondaryButtonStyle: CSSProperties = {
   ...dashboardCommentDeleteButtonStyle,
   marginTop: 0,
-  color: "#d1d5db",
+  color: "#ffffff",
 };
 
 const actionButtonStyle: CSSProperties = {

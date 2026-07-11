@@ -2297,6 +2297,8 @@ export default function ProfilePage() {
   const [editingProfileCommentId, setEditingProfileCommentId] = useState<string | null>(null);
   const [editingProfileCommentDraft, setEditingProfileCommentDraft] = useState("");
   const [savingProfileCommentId, setSavingProfileCommentId] = useState<string | null>(null);
+  const [profileCommentLikeCounts, setProfileCommentLikeCounts] = useState<CountMap>({});
+  const [profileCommentUserLikes, setProfileCommentUserLikes] = useState<ToggleMap>({});
   const [replyingProfileCommentId, setReplyingProfileCommentId] = useState<string | null>(null);
   const [profileReplyDrafts, setProfileReplyDrafts] = useState<Record<string, string>>({});
   const [postingProfileReplyId, setPostingProfileReplyId] = useState<string | null>(null);
@@ -4175,6 +4177,34 @@ useEffect(() => {
           [postId]: nextComments.length,
         }));
 
+        const commentIds = nextComments.map((comment) => comment.id).filter(Boolean);
+        if (commentIds.length > 0) {
+          const { data: commentLikeRows, error: commentLikesError } = await supabase
+            .from("comment_likes")
+            .select("comment_id, user_id")
+            .in("comment_id", commentIds);
+
+          if (!commentLikesError) {
+            const nextLikeCounts: CountMap = {};
+            const nextUserLikes: ToggleMap = {};
+
+            commentIds.forEach((commentId) => {
+              nextLikeCounts[commentId] = 0;
+              nextUserLikes[commentId] = false;
+            });
+
+            for (const like of commentLikeRows || []) {
+              const commentId = String(like.comment_id || "");
+              if (!commentId) continue;
+              nextLikeCounts[commentId] = (nextLikeCounts[commentId] || 0) + 1;
+              if (viewerId && like.user_id === viewerId) nextUserLikes[commentId] = true;
+            }
+
+            setProfileCommentLikeCounts((current) => ({ ...current, ...nextLikeCounts }));
+            setProfileCommentUserLikes((current) => ({ ...current, ...nextUserLikes }));
+          }
+        }
+
         const commenterIds = [
           ...new Set(nextComments.map((comment) => comment.user_id).filter(Boolean)),
         ];
@@ -4203,6 +4233,74 @@ useEffect(() => {
       }
     },
     []
+  );
+
+  const handleToggleProfileCommentLike = useCallback(
+    async (comment: ProfileComment) => {
+      if (!viewerId) {
+        alert("You must be logged in to like a comment.");
+        return;
+      }
+
+      const alreadyLiked = !!profileCommentUserLikes[comment.id];
+
+      setProfileCommentUserLikes((current) => ({
+        ...current,
+        [comment.id]: !alreadyLiked,
+      }));
+      setProfileCommentLikeCounts((current) => ({
+        ...current,
+        [comment.id]: alreadyLiked
+          ? Math.max((current[comment.id] || 1) - 1, 0)
+          : (current[comment.id] || 0) + 1,
+      }));
+
+      if (alreadyLiked) {
+        const { error } = await supabase
+          .from("comment_likes")
+          .delete()
+          .eq("user_id", viewerId)
+          .eq("comment_id", comment.id);
+
+        if (error) {
+          setProfileCommentUserLikes((current) => ({ ...current, [comment.id]: true }));
+          setProfileCommentLikeCounts((current) => ({
+            ...current,
+            [comment.id]: (current[comment.id] || 0) + 1,
+          }));
+          alert(`Unlike comment error: ${error.message}`);
+        }
+        return;
+      }
+
+      const { error } = await supabase.from("comment_likes").insert([
+        { user_id: viewerId, comment_id: comment.id },
+      ]);
+
+      if (error) {
+        setProfileCommentUserLikes((current) => ({ ...current, [comment.id]: false }));
+        setProfileCommentLikeCounts((current) => ({
+          ...current,
+          [comment.id]: Math.max((current[comment.id] || 1) - 1, 0),
+        }));
+        alert(`Like comment error: ${error.message}`);
+        return;
+      }
+
+      if (comment.user_id && comment.user_id !== viewerId) {
+        await supabase.from("notifications").insert([{
+          user_id: comment.user_id,
+          actor_id: viewerId,
+          type: "comment_like",
+          post_id: comment.post_id,
+          comment_id: comment.id,
+          friend_request_id: null,
+          message: "liked your comment.",
+          is_read: false,
+        }]);
+      }
+    },
+    [profileCommentUserLikes, viewerId],
   );
 
   const handleProfileCommentAction = useCallback(
@@ -4522,6 +4620,8 @@ useEffect(() => {
     const canReportComment = Boolean(viewerId && comment.user_id !== viewerId);
     const isEditingComment = editingProfileCommentId === comment.id;
     const isSavingComment = savingProfileCommentId === comment.id;
+    const commentLikeCount = profileCommentLikeCounts[comment.id] || 0;
+    const commentLiked = !!profileCommentUserLikes[comment.id];
 
     return (
       <article
@@ -4618,6 +4718,22 @@ useEffect(() => {
 
             {!isEditingComment ? (
               <div style={profileCommentFooterStyle}>
+                {viewerId ? (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleProfileCommentLike(comment)}
+                    style={profileCommentEditButtonStyle}
+                  >
+                    {commentLiked ? "Liked" : "Like"}
+                  </button>
+                ) : null}
+
+                {commentLikeCount > 0 ? (
+                  <span style={{ color: "#ffffff", fontSize: 11, fontWeight: 800 }}>
+                    {commentLikeCount} {commentLikeCount === 1 ? "like" : "likes"}
+                  </span>
+                ) : null}
+
                 {viewerId ? (
                   <button
                     type="button"
@@ -23889,17 +24005,17 @@ const profileCommentActionButtonBaseStyle: CSSProperties = {
 
 const profileCommentEditButtonStyle: CSSProperties = {
   ...profileCommentActionButtonBaseStyle,
-  color: "#c4b5fd",
+  color: "#ffffff",
 };
 
 const profileCommentDeleteButtonStyle: CSSProperties = {
   ...profileCommentActionButtonBaseStyle,
-  color: "#fca5a5",
+  color: "#ffffff",
 };
 
 const profileCommentReportButtonStyle: CSSProperties = {
   ...profileCommentActionButtonBaseStyle,
-  color: "#fbbf24",
+  color: "#ffffff",
 };
 
 const profileCommentEditBoxStyle: CSSProperties = {
