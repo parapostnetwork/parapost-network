@@ -10538,6 +10538,125 @@ export default function DashboardPage() {
           }
         }
 
+
+        /* === FINAL FEED FLOW POLISH v2: flatter cards, tighter post separation, wider mobile feed === */
+        @media (min-width: 1181px) {
+          .dashboard-feed-card,
+          .profile-feed-card {
+            border-radius: 12px !important;
+            padding: 14px !important;
+          }
+
+          .dashboard-main-column,
+          .profile-feed-list {
+            gap: 8px !important;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image,
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            width: calc(100% + 28px) !important;
+            max-width: calc(100% + 28px) !important;
+            margin-left: -14px !important;
+            margin-right: -14px !important;
+            border-radius: 0 !important;
+          }
+
+          .dashboard-shared-post-frame,
+          .profile-shared-post-frame {
+            border-radius: 10px !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .dashboard-feed-card,
+          .profile-feed-card {
+            border-radius: 10px !important;
+            padding: 12px !important;
+          }
+
+          .dashboard-main-column,
+          .profile-feed-list {
+            gap: 6px !important;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image,
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            width: calc(100% + 24px) !important;
+            max-width: calc(100% + 24px) !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            border-radius: 0 !important;
+          }
+
+          .dashboard-shared-post-frame,
+          .profile-shared-post-frame {
+            border-radius: 9px !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .dashboard-main-column,
+          .profile-feed-list {
+            gap: 4px !important;
+          }
+
+          .dashboard-feed-card,
+          .profile-feed-card {
+            width: calc(100% + 20px) !important;
+            max-width: calc(100% + 20px) !important;
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+            border-radius: 8px !important;
+            padding: 11px 10px !important;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image,
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            width: calc(100% + 20px) !important;
+            max-width: calc(100% + 20px) !important;
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+            border-radius: 0 !important;
+          }
+
+          .dashboard-shared-post-frame,
+          .profile-shared-post-frame {
+            border-radius: 8px !important;
+            padding: 9px !important;
+          }
+
+          .dashboard-comment-bubble,
+          .profile-comment-bubble {
+            border-radius: 12px !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          .dashboard-feed-card,
+          .profile-feed-card {
+            width: calc(100% + 16px) !important;
+            max-width: calc(100% + 16px) !important;
+            margin-left: -8px !important;
+            margin-right: -8px !important;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image,
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            width: calc(100% + 16px) !important;
+            max-width: calc(100% + 16px) !important;
+            margin-left: -8px !important;
+            margin-right: -8px !important;
+          }
+        }
+
       ` }} />
     </div>
   );
