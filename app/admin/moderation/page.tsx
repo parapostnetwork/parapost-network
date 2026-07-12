@@ -354,11 +354,24 @@ export default function AdminModerationPage() {
 
   useEffect(() => {
     if (!isModerationAdmin) return;
-    void fetchReports();
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchReports();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [fetchReports, isModerationAdmin]);
 
   useEffect(() => {
-    setModeratorNoteDraft(selectedReport?.moderator_note || "");
+    const timeoutId = window.setTimeout(() => {
+      setModeratorNoteDraft(selectedReport?.moderator_note || "");
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [selectedReport?.id, selectedReport?.moderator_note]);
 
   const handleSelectReport = (reportId: string) => {
