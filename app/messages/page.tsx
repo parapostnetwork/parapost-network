@@ -297,10 +297,21 @@ function waitForParachatImageUrlRetry(delayMs: number) {
   });
 }
 
+const parachatSignedImageUrlCache = new Map<
+  string,
+  { url: string; expiresAt: number }
+>();
+
 async function attachSignedImageUrlToMessage(message: MessageRow) {
   if (!message.image_path) return message;
+  if (message.signedImageUrl) return message;
 
-  const maxAttempts = 5;
+  const cached = parachatSignedImageUrlCache.get(message.image_path);
+  if (cached && cached.expiresAt > Date.now() + 60_000) {
+    return { ...message, signedImageUrl: cached.url };
+  }
+
+  const maxAttempts = 4;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const { data, error } = await supabase.storage
@@ -308,11 +319,16 @@ async function attachSignedImageUrlToMessage(message: MessageRow) {
       .createSignedUrl(message.image_path, 60 * 60);
 
     if (!error && data?.signedUrl) {
+      parachatSignedImageUrlCache.set(message.image_path, {
+        url: data.signedUrl,
+        expiresAt: Date.now() + 55 * 60 * 1000,
+      });
+
       return { ...message, signedImageUrl: data.signedUrl };
     }
 
     if (attempt < maxAttempts) {
-      await waitForParachatImageUrlRetry(350 * attempt);
+      await waitForParachatImageUrlRetry(250 * attempt);
       continue;
     }
 
@@ -857,6 +873,10 @@ function MessagesPage() {
   const activeConversationIdRef = useRef(selectedConversationFromUrl);
   const conversationsRef = useRef<ConversationItem[]>([]);
   const messagesRef = useRef<MessageRow[]>([]);
+  const viewportFrameRef = useRef<number | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const delayedScrollTimerRef = useRef<number | null>(null);
+  const inboxRefreshTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -877,14 +897,28 @@ function MessagesPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
-    updateViewportWidth();
-    window.addEventListener("resize", updateViewportWidth);
-    window.addEventListener("orientationchange", updateViewportWidth);
+    const commitViewportWidth = () => {
+      viewportFrameRef.current = null;
+      setViewportWidth(window.innerWidth);
+    };
+
+    const scheduleViewportWidth = () => {
+      if (viewportFrameRef.current !== null) return;
+      viewportFrameRef.current = window.requestAnimationFrame(commitViewportWidth);
+    };
+
+    commitViewportWidth();
+    window.addEventListener("resize", scheduleViewportWidth, { passive: true });
+    window.addEventListener("orientationchange", scheduleViewportWidth);
 
     return () => {
-      window.removeEventListener("resize", updateViewportWidth);
-      window.removeEventListener("orientationchange", updateViewportWidth);
+      window.removeEventListener("resize", scheduleViewportWidth);
+      window.removeEventListener("orientationchange", scheduleViewportWidth);
+
+      if (viewportFrameRef.current !== null) {
+        window.cancelAnimationFrame(viewportFrameRef.current);
+        viewportFrameRef.current = null;
+      }
     };
   }, []);
 
@@ -892,6 +926,18 @@ function MessagesPage() {
     return () => {
       if (selectedImagePreviewUrlRef.current) {
         URL.revokeObjectURL(selectedImagePreviewUrlRef.current);
+      }
+
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+
+      if (delayedScrollTimerRef.current) {
+        window.clearTimeout(delayedScrollTimerRef.current);
+      }
+
+      if (inboxRefreshTimerRef.current) {
+        window.clearTimeout(inboxRefreshTimerRef.current);
       }
     };
   }, []);
@@ -1105,6 +1151,7 @@ function MessagesPage() {
     if (typeof window === "undefined") return;
 
     const scrollNow = () => {
+      scrollFrameRef.current = null;
       const messagesArea = messagesAreaRef.current;
 
       if (messagesArea) {
@@ -1112,16 +1159,23 @@ function MessagesPage() {
           top: messagesArea.scrollHeight,
           behavior,
         });
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
       }
-
-      messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
     };
 
-    // Run more than once because image messages can change height after the first render.
-    window.setTimeout(scrollNow, 0);
-    window.setTimeout(scrollNow, 90);
-    window.setTimeout(scrollNow, 260);
-    window.setTimeout(scrollNow, 650);
+    if (scrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollFrameRef.current);
+    }
+    scrollFrameRef.current = window.requestAnimationFrame(scrollNow);
+
+    if (delayedScrollTimerRef.current) {
+      window.clearTimeout(delayedScrollTimerRef.current);
+    }
+    delayedScrollTimerRef.current = window.setTimeout(() => {
+      delayedScrollTimerRef.current = null;
+      scrollNow();
+    }, 220);
   }, []);
 
   const markConversationRead = useCallback(
@@ -1388,24 +1442,31 @@ function MessagesPage() {
     );
 
     const allMessages = ((messageData as MessageRow[]) || []).filter(Boolean);
+    const lastMessageByConversation = new Map<string, MessageRow>();
+    const unreadCountByConversation = new Map<string, number>();
+
+    for (const message of allMessages) {
+      const currentLast = lastMessageByConversation.get(message.conversation_id);
+      if (
+        !currentLast ||
+        new Date(message.created_at).getTime() > new Date(currentLast.created_at).getTime()
+      ) {
+        lastMessageByConversation.set(message.conversation_id, message);
+      }
+
+      if (message.sender_id !== user.id && message.is_read === false) {
+        unreadCountByConversation.set(
+          message.conversation_id,
+          (unreadCountByConversation.get(message.conversation_id) || 0) + 1
+        );
+      }
+    }
 
     const nextItems: ConversationItem[] = rawConversations
       .map((conversation) => {
         const otherUserId = getConversationOtherUserId(conversation, user.id);
-
-        const conversationMessages = allMessages.filter(
-          (message) => message.conversation_id === conversation.id
-        );
-
-        const lastMessage =
-          conversationMessages.sort(
-            (a, b) =>
-              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          )[0] || null;
-
-        const unreadCount = conversationMessages.filter(
-          (message) => message.sender_id !== user.id && message.is_read === false
-        ).length;
+        const lastMessage = lastMessageByConversation.get(conversation.id) || null;
+        const unreadCount = unreadCountByConversation.get(conversation.id) || 0;
 
         return {
           ...conversation,
@@ -1473,6 +1534,20 @@ function MessagesPage() {
 
     setLoadingInbox(false);
   }, [router, selectedConversationFromUrl, selectedUserFromUrl]);
+
+  const scheduleInboxRefresh = useCallback(
+    (delayMs = 320) => {
+      if (inboxRefreshTimerRef.current) {
+        window.clearTimeout(inboxRefreshTimerRef.current);
+      }
+
+      inboxRefreshTimerRef.current = window.setTimeout(() => {
+        inboxRefreshTimerRef.current = null;
+        void loadInbox();
+      }, delayMs);
+    },
+    [loadInbox]
+  );
 
   const loadMessages = useCallback(
     async (conversationId: string, currentViewerId: string) => {
@@ -1625,19 +1700,7 @@ function MessagesPage() {
           );
 
           if (!belongsToUser) {
-            await loadInbox();
-
-            // Image messages can arrive through Realtime before the receiver inbox
-            // has fully reconciled the new/updated conversation. Run a short
-            // follow-up refresh so the receiver sees the new photo without a manual refresh.
-            globalThis.setTimeout(() => {
-              void loadInbox();
-            }, 900);
-
-            globalThis.setTimeout(() => {
-              void loadInbox();
-            }, 1800);
-
+            scheduleInboxRefresh(180);
             return;
           }
 
@@ -1694,14 +1757,10 @@ function MessagesPage() {
 
             scrollToBottom();
 
-            if (isImageMessage(nextMessage)) {
-              globalThis.setTimeout(() => {
+            if (isImageMessage(nextMessage) && !nextMessage.signedImageUrl) {
+              window.setTimeout(() => {
                 void loadMessages(nextMessage.conversation_id, viewerId);
-              }, 900);
-
-              globalThis.setTimeout(() => {
-                void loadMessages(nextMessage.conversation_id, viewerId);
-              }, 1800);
+              }, 650);
             }
           }
         }
@@ -1801,6 +1860,7 @@ function MessagesPage() {
     blockedUserIds,
     loadInbox,
     loadMessages,
+    scheduleInboxRefresh,
     markConversationRead,
     scrollToBottom,
     viewerId,
@@ -2513,13 +2573,9 @@ function MessagesPage() {
     scrollToBottom();
 
     if (imageDraft) {
-      globalThis.setTimeout(() => {
+      window.setTimeout(() => {
         void loadMessages(sendConversationId, viewerId);
-      }, 900);
-
-      globalThis.setTimeout(() => {
-        void loadMessages(sendConversationId, viewerId);
-      }, 1800);
+      }, 650);
     }
   };
 
@@ -2561,6 +2617,16 @@ function MessagesPage() {
       <style>{`
         .parachat-page-root {
           overflow-x: hidden !important;
+        }
+
+        .parachat-conversation-row,
+        .parachat-message-group {
+          content-visibility: auto;
+          contain-intrinsic-size: 80px;
+        }
+
+        .parachat-message-image {
+          transition: opacity 180ms ease, transform 180ms ease;
         }
 
         .parachat-shell,
@@ -3270,9 +3336,20 @@ function MessagesPage() {
                                         <img
                                           src={message.signedImageUrl}
                                           alt={message.body || "Parachat image"}
+                                          className="parachat-message-image"
                                           style={messageImageStyle}
+                                          loading="lazy"
+                                          decoding="async"
                                           onClick={() => handleOpenImageViewer(message, isMine)}
-                                          onLoad={() => scrollToBottom("auto")}
+                                          onLoad={() => {
+                                            const area = messagesAreaRef.current;
+                                            if (!area) return;
+                                            const distanceFromBottom =
+                                              area.scrollHeight - area.scrollTop - area.clientHeight;
+                                            if (distanceFromBottom < 220) {
+                                              scrollToBottom("auto");
+                                            }
+                                          }}
                                           title="Open photo"
                                         />
                                       ) : (
