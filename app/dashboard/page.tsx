@@ -5747,7 +5747,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-composer-top-row {
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-composer-top-row textarea {
@@ -5768,7 +5768,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-composer-footer {
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-feed-pulse {
@@ -5782,7 +5782,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-post-header {
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-post-actions {
@@ -5809,7 +5809,7 @@ export default function DashboardPage() {
             margin-top: 0 !important;
             padding: 13px !important;
             border-radius: 24px !important;
-            gap: 12px !important;
+            gap: 9px !important;
           }
 
           .dashboard-mobile-insights > div {
@@ -6170,7 +6170,7 @@ export default function DashboardPage() {
           }
 
           .profile-showcase-modal-header {
-            gap: 10px !important;
+            gap: 7px !important;
             margin-bottom: 12px !important;
           }
 
@@ -6347,7 +6347,7 @@ export default function DashboardPage() {
 
           .dashboard-main-column {
             display: grid !important;
-            gap: 13px !important;
+            gap: 7px !important;
             padding: 0 clamp(10px, 3.6vw, 15px) 34px !important;
             width: 100% !important;
           }
@@ -6404,7 +6404,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-showcase-scroller {
-            gap: 12px !important;
+            gap: 9px !important;
             min-height: 84px !important;
             padding: 0 12px 8px !important;
             scroll-padding-left: 12px !important;
@@ -6430,7 +6430,7 @@ export default function DashboardPage() {
 
           .dashboard-composer-top-row {
             grid-template-columns: 42px minmax(0, 1fr) !important;
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-composer-top-row textarea {
@@ -6475,7 +6475,7 @@ export default function DashboardPage() {
           .dashboard-feed-pulse {
             margin: 0 !important;
             padding: 13px !important;
-            gap: 12px !important;
+            gap: 9px !important;
           }
 
           .dashboard-feed-pulse-stats {
@@ -6512,7 +6512,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-post-header {
-            gap: 10px !important;
+            gap: 7px !important;
             margin-bottom: 12px !important;
           }
 
@@ -6542,7 +6542,7 @@ export default function DashboardPage() {
 
           .dashboard-shared-reel-frame {
             grid-template-columns: 1fr !important;
-            gap: 12px !important;
+            gap: 9px !important;
             padding: 11px !important;
             border-radius: 20px !important;
           }
@@ -6566,7 +6566,7 @@ export default function DashboardPage() {
 
         @media (max-width: 420px) {
           .dashboard-main-column {
-            gap: 12px !important;
+            gap: 9px !important;
             padding-left: 10px !important;
             padding-right: 10px !important;
           }
@@ -6624,7 +6624,7 @@ export default function DashboardPage() {
         @media (max-width: 760px) {
           .dashboard-mobile-sponsored-placement {
             display: grid !important;
-            gap: 12px !important;
+            gap: 9px !important;
           }
 
           .dashboard-mobile-header a[aria-label="Parachat"],
@@ -6754,7 +6754,7 @@ export default function DashboardPage() {
             max-width: 760px !important;
             margin: 0 auto !important;
             display: grid !important;
-            gap: 12px !important;
+            gap: 9px !important;
           }
 
           .dashboard-card {
@@ -6769,7 +6769,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-showcase-scroller {
-            gap: 12px !important;
+            gap: 9px !important;
             padding: 2px 2px 6px !important;
             overflow-x: auto !important;
             scrollbar-width: none !important;
@@ -6787,7 +6787,7 @@ export default function DashboardPage() {
 
           .dashboard-composer-top-row {
             grid-template-columns: auto minmax(0, 1fr) auto !important;
-            gap: 10px !important;
+            gap: 7px !important;
             align-items: center !important;
           }
 
@@ -6842,7 +6842,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-post-header {
-            gap: 10px !important;
+            gap: 7px !important;
             align-items: flex-start !important;
           }
 
@@ -6865,7 +6865,7 @@ export default function DashboardPage() {
 
           .dashboard-mobile-sponsored-placement {
             display: grid !important;
-            gap: 12px !important;
+            gap: 9px !important;
           }
         }
 
@@ -6886,7 +6886,7 @@ export default function DashboardPage() {
 
           .dashboard-main-column {
             max-width: 100% !important;
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-feed-pulse {
@@ -7015,7 +7015,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-showcase-scroller {
-            gap: 12px !important;
+            gap: 9px !important;
             min-height: 76px !important;
             padding: 0 4px 6px !important;
           }
@@ -7056,7 +7056,7 @@ export default function DashboardPage() {
           .dashboard-composer-media-preview-grid {
             display: flex !important;
             grid-template-columns: none !important;
-            gap: 10px !important;
+            gap: 7px !important;
             max-height: none !important;
             overflow-x: auto !important;
             overflow-y: hidden !important;
@@ -7247,7 +7247,7 @@ export default function DashboardPage() {
           }
 
           .dashboard-main-column {
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-showcase-row {
@@ -7380,7 +7380,7 @@ export default function DashboardPage() {
 
           .dashboard-post-header {
             align-items: flex-start !important;
-            gap: 10px !important;
+            gap: 7px !important;
             margin-bottom: 11px !important;
           }
 
@@ -7413,7 +7413,7 @@ export default function DashboardPage() {
 
           .dashboard-shared-reel-frame {
             grid-template-columns: 98px minmax(0, 1fr) !important;
-            gap: 10px !important;
+            gap: 7px !important;
             padding: 9px !important;
             border-radius: 18px !important;
           }
@@ -7639,7 +7639,7 @@ export default function DashboardPage() {
             display: grid !important;
             grid-template-columns: minmax(0, 1fr) auto !important;
             align-items: start !important;
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-post-header > div:first-child {
@@ -7658,7 +7658,7 @@ export default function DashboardPage() {
           .dashboard-link-preview-card {
             display: grid !important;
             grid-template-columns: 92px minmax(0, 1fr) !important;
-            gap: 10px !important;
+            gap: 7px !important;
             padding: 9px !important;
             border-radius: 18px !important;
             margin-top: 11px !important;
@@ -7738,7 +7738,7 @@ export default function DashboardPage() {
 
           .dashboard-shared-reel-frame {
             grid-template-columns: 104px minmax(0, 1fr) !important;
-            gap: 10px !important;
+            gap: 7px !important;
             padding: 9px !important;
             border-radius: 18px !important;
           }
@@ -7969,7 +7969,7 @@ export default function DashboardPage() {
             display: flex !important;
             align-items: center !important;
             justify-content: flex-end !important;
-            gap: 10px !important;
+            gap: 7px !important;
             height: 48px !important;
             flex-shrink: 0 !important;
           }
@@ -7984,7 +7984,7 @@ export default function DashboardPage() {
 
         @media (min-width: 761px) and (max-width: 1180px) {
           .dashboard-desktop-topbar {
-            gap: 12px !important;
+            gap: 9px !important;
           }
 
           .dashboard-top-icons {
@@ -8367,7 +8367,7 @@ export default function DashboardPage() {
             min-height: 118px !important;
             border-radius: 19px !important;
             grid-template-columns: 50px minmax(0, 1fr) !important;
-            gap: 12px !important;
+            gap: 9px !important;
             padding: 15px !important;
           }
 
@@ -9146,7 +9146,7 @@ export default function DashboardPage() {
             max-width: 520px !important;
             margin-left: auto !important;
             margin-right: auto !important;
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-mobile-header {
@@ -10350,7 +10350,7 @@ export default function DashboardPage() {
 
           .dashboard-main-column,
           .profile-feed-list {
-            gap: 13px !important;
+            gap: 7px !important;
           }
 
           .dashboard-post-single-media,
@@ -10375,7 +10375,7 @@ export default function DashboardPage() {
 
           .dashboard-main-column,
           .profile-feed-list {
-            gap: 12px !important;
+            gap: 9px !important;
           }
 
           .dashboard-post-header,
@@ -10437,12 +10437,12 @@ export default function DashboardPage() {
 
           .dashboard-main-column,
           .profile-feed-list {
-            gap: 10px !important;
+            gap: 7px !important;
           }
 
           .dashboard-post-header,
           .profile-post-header {
-            gap: 10px !important;
+            gap: 7px !important;
             margin-bottom: 0 !important;
           }
 
@@ -10539,121 +10539,40 @@ export default function DashboardPage() {
         }
 
 
-        /* === FINAL FEED FLOW POLISH v2: flatter cards, tighter post separation, wider mobile feed === */
+        /* === FINAL FEED SPACING TIGHTENING v2 === */
         @media (min-width: 1181px) {
           .dashboard-feed-card,
           .profile-feed-card {
-            border-radius: 12px !important;
-            padding: 14px !important;
+            margin-bottom: 0 !important;
           }
 
           .dashboard-main-column,
           .profile-feed-list {
-            gap: 8px !important;
-          }
-
-          .dashboard-post-single-media,
-          .profile-post-image,
-          .dashboard-post-media-grid,
-          .profile-post-image-grid {
-            width: calc(100% + 28px) !important;
-            max-width: calc(100% + 28px) !important;
-            margin-left: -14px !important;
-            margin-right: -14px !important;
-            border-radius: 0 !important;
-          }
-
-          .dashboard-shared-post-frame,
-          .profile-shared-post-frame {
-            border-radius: 10px !important;
+            row-gap: 10px !important;
           }
         }
 
         @media (min-width: 761px) and (max-width: 1180px) {
           .dashboard-feed-card,
           .profile-feed-card {
-            border-radius: 10px !important;
-            padding: 12px !important;
+            margin-bottom: 0 !important;
           }
 
           .dashboard-main-column,
           .profile-feed-list {
-            gap: 6px !important;
-          }
-
-          .dashboard-post-single-media,
-          .profile-post-image,
-          .dashboard-post-media-grid,
-          .profile-post-image-grid {
-            width: calc(100% + 24px) !important;
-            max-width: calc(100% + 24px) !important;
-            margin-left: -12px !important;
-            margin-right: -12px !important;
-            border-radius: 0 !important;
-          }
-
-          .dashboard-shared-post-frame,
-          .profile-shared-post-frame {
-            border-radius: 9px !important;
+            row-gap: 9px !important;
           }
         }
 
         @media (max-width: 760px) {
+          .dashboard-feed-card,
+          .profile-feed-card {
+            margin-bottom: 0 !important;
+          }
+
           .dashboard-main-column,
           .profile-feed-list {
-            gap: 4px !important;
-          }
-
-          .dashboard-feed-card,
-          .profile-feed-card {
-            width: calc(100% + 20px) !important;
-            max-width: calc(100% + 20px) !important;
-            margin-left: -10px !important;
-            margin-right: -10px !important;
-            border-radius: 8px !important;
-            padding: 11px 10px !important;
-          }
-
-          .dashboard-post-single-media,
-          .profile-post-image,
-          .dashboard-post-media-grid,
-          .profile-post-image-grid {
-            width: calc(100% + 20px) !important;
-            max-width: calc(100% + 20px) !important;
-            margin-left: -10px !important;
-            margin-right: -10px !important;
-            border-radius: 0 !important;
-          }
-
-          .dashboard-shared-post-frame,
-          .profile-shared-post-frame {
-            border-radius: 8px !important;
-            padding: 9px !important;
-          }
-
-          .dashboard-comment-bubble,
-          .profile-comment-bubble {
-            border-radius: 12px !important;
-          }
-        }
-
-        @media (max-width: 410px) {
-          .dashboard-feed-card,
-          .profile-feed-card {
-            width: calc(100% + 16px) !important;
-            max-width: calc(100% + 16px) !important;
-            margin-left: -8px !important;
-            margin-right: -8px !important;
-          }
-
-          .dashboard-post-single-media,
-          .profile-post-image,
-          .dashboard-post-media-grid,
-          .profile-post-image-grid {
-            width: calc(100% + 16px) !important;
-            max-width: calc(100% + 16px) !important;
-            margin-left: -8px !important;
-            margin-right: -8px !important;
+            row-gap: 7px !important;
           }
         }
 
