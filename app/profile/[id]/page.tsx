@@ -1442,6 +1442,54 @@ function renderLinkedText(text: string): ReactNode {
 }
 
 
+
+function ExpandableFeedText({
+  text,
+  hasMedia = false,
+  style,
+  className = "",
+}: {
+  text: string;
+  hasMedia?: boolean;
+  style?: CSSProperties;
+  className?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const normalizedText = text.trim();
+
+  if (!normalizedText) return null;
+
+  const lineCount = normalizedText.split(/\r?\n/).filter((line) => line.trim()).length;
+  const shouldOfferToggle =
+    normalizedText.length > (hasMedia ? 135 : 280) ||
+    lineCount > (hasMedia ? 2 : 4);
+
+  return (
+    <div
+      className={`parapost-expandable-post-text ${hasMedia ? "parapost-expandable-post-text-media" : "parapost-expandable-post-text-only"} ${expanded ? "parapost-expandable-post-text-open" : ""} ${className}`.trim()}
+    >
+      <p className="parapost-expandable-post-copy" style={style}>
+        {renderLinkedText(normalizedText)}
+      </p>
+
+      {shouldOfferToggle ? (
+        <button
+          type="button"
+          className="parapost-expandable-post-toggle"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setExpanded((current) => !current);
+          }}
+          aria-expanded={expanded}
+        >
+          {expanded ? "Less" : "More"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 type LinkPreviewData = {
   href: string;
   hostname: string;
@@ -1914,7 +1962,7 @@ function ProfilePostImageGrid({
   const extraCount = safeUrls.length - visibleUrls.length;
 
   return (
-    <div style={profilePostImageGridStyle}>
+    <div className="profile-post-image-grid" style={profilePostImageGridStyle}>
       {visibleUrls.map((url, index) => {
         const isFirstInThreeGrid = safeUrls.length === 3 && index === 0;
         const showOverlay = index === 3 && extraCount > 0;
@@ -16142,7 +16190,7 @@ return (
                               />
 
                               <div style={{ position: "relative", zIndex: 1 }}>
-                                <header style={postHeaderStyle}>
+                                <header className="profile-post-header" style={postHeaderStyle}>
                                   <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                     {profile?.avatar_url ? (
                                       <span style={postAuthorAvatarImageClipStyle}>
@@ -16463,7 +16511,7 @@ return (
                               </header>
 
                               {item.caption ? (
-                                <p style={postContentStyle}>{renderLinkedText(item.caption)}</p>
+                                <ExpandableFeedText text={item.caption} hasMedia style={postContentStyle} />
                               ) : null}
 
                               <Link
@@ -16656,7 +16704,7 @@ return (
                               </header>
 
                               {item.caption ? (
-                                <p style={postContentStyle}>{renderLinkedText(item.caption)}</p>
+                                <ExpandableFeedText text={item.caption} hasMedia style={postContentStyle} />
                               ) : null}
 
                               <div className="profile-shared-post-card" style={sharedPostProfileCardStyle}>
@@ -16681,7 +16729,11 @@ return (
 
                                 {originalPost.content ? (
                                   <>
-                                    <p style={postContentStyle}>{renderLinkedText(originalPost.content)}</p>
+                                    <ExpandableFeedText
+                                      text={originalPost.content}
+                                      hasMedia={getPostImageUrls(originalPost).length > 0 || Boolean(getFirstSafeLinkPreview(originalPost.content))}
+                                      style={postContentStyle}
+                                    />
                                     <LinkPreviewCard text={originalPost.content} />
                                   </>
                                 ) : null}
@@ -16903,7 +16955,11 @@ return (
                               </div>
                             ) : bodyContent ? (
                               <>
-                                <p style={postContentStyle}>{renderLinkedText(bodyContent)}</p>
+                                <ExpandableFeedText
+                                  text={bodyContent}
+                                  hasMedia={getPostImageUrls(post).length > 0 || Boolean(getFirstSafeLinkPreview(bodyContent))}
+                                  style={postContentStyle}
+                                />
                                 <LinkPreviewCard text={bodyContent} />
                               </>
                             ) : null}
@@ -18075,6 +18131,265 @@ function ProfileStableBottomNav({
             height: 154px !important;
             max-height: 154px !important;
             padding: 9px 10px !important;
+          }
+        }
+
+
+        /* === FINAL FIRST-IMPRESSION FEED POLISH v1 === */
+        .parapost-expandable-post-text {
+          display: grid;
+          gap: 5px;
+          min-width: 0;
+          margin-top: 11px;
+        }
+
+        .parapost-expandable-post-copy {
+          min-width: 0;
+          max-width: 100%;
+          margin: 0 !important;
+          overflow: hidden;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .parapost-expandable-post-text:not(.parapost-expandable-post-text-open)
+        .parapost-expandable-post-copy {
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+        }
+
+        .parapost-expandable-post-text-media:not(.parapost-expandable-post-text-open)
+        .parapost-expandable-post-copy {
+          -webkit-line-clamp: 3;
+        }
+
+        .parapost-expandable-post-text-only:not(.parapost-expandable-post-text-open)
+        .parapost-expandable-post-copy {
+          -webkit-line-clamp: 5;
+        }
+
+        .parapost-expandable-post-toggle {
+          width: max-content;
+          min-height: 27px;
+          margin: 0;
+          padding: 0 2px;
+          border: 0;
+          background: transparent;
+          color: #c4b5fd;
+          font: inherit;
+          font-size: 13px;
+          line-height: 1.2;
+          font-weight: 900;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .parapost-expandable-post-toggle:hover {
+          color: #e9d5ff;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+
+        .dashboard-shared-post-frame,
+        .profile-shared-post-frame {
+          min-width: 0 !important;
+          box-sizing: border-box !important;
+        }
+
+        @media (min-width: 1181px) {
+          .dashboard-feed-card,
+          .profile-feed-card {
+            padding: 16px !important;
+          }
+
+          .dashboard-main-column,
+          .profile-feed-list {
+            gap: 13px !important;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image,
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            margin-top: 12px !important;
+          }
+
+          .dashboard-shared-post-frame,
+          .profile-shared-post-frame {
+            padding: 14px !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .dashboard-feed-card,
+          .profile-feed-card {
+            padding: 14px !important;
+            border-radius: 24px !important;
+          }
+
+          .dashboard-main-column,
+          .profile-feed-list {
+            gap: 12px !important;
+          }
+
+          .dashboard-post-header,
+          .profile-post-header {
+            margin-bottom: 0 !important;
+          }
+
+          .parapost-expandable-post-text {
+            margin-top: 9px;
+          }
+
+          .parapost-expandable-post-text-media:not(.parapost-expandable-post-text-open)
+          .parapost-expandable-post-copy {
+            -webkit-line-clamp: 3;
+          }
+
+          .parapost-expandable-post-text-only:not(.parapost-expandable-post-text-open)
+          .parapost-expandable-post-copy {
+            -webkit-line-clamp: 5;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image,
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            width: calc(100% + 12px) !important;
+            max-width: calc(100% + 12px) !important;
+            margin-left: -6px !important;
+            margin-right: -6px !important;
+            margin-top: 11px !important;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image {
+            height: auto !important;
+            max-height: none !important;
+            object-fit: contain !important;
+            background: #05060a !important;
+            border-radius: 17px !important;
+          }
+
+          .dashboard-shared-post-frame,
+          .profile-shared-post-frame {
+            padding: 12px !important;
+          }
+
+          .dashboard-comments-panel,
+          .profile-comments-panel {
+            padding: 11px !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .dashboard-feed-card,
+          .profile-feed-card {
+            padding: 12px !important;
+            border-radius: 22px !important;
+          }
+
+          .dashboard-main-column,
+          .profile-feed-list {
+            gap: 10px !important;
+          }
+
+          .dashboard-post-header,
+          .profile-post-header {
+            gap: 10px !important;
+            margin-bottom: 0 !important;
+          }
+
+          .parapost-expandable-post-text {
+            gap: 3px;
+            margin-top: 8px;
+          }
+
+          .parapost-expandable-post-text-media:not(.parapost-expandable-post-text-open)
+          .parapost-expandable-post-copy {
+            -webkit-line-clamp: 2;
+          }
+
+          .parapost-expandable-post-text-only:not(.parapost-expandable-post-text-open)
+          .parapost-expandable-post-copy {
+            -webkit-line-clamp: 4;
+          }
+
+          .parapost-expandable-post-toggle {
+            min-height: 25px;
+            font-size: 12.5px;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image,
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            width: calc(100% + 24px) !important;
+            max-width: calc(100% + 24px) !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            margin-top: 9px !important;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image {
+            height: auto !important;
+            max-height: none !important;
+            aspect-ratio: auto !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            background: #05060a !important;
+            border-radius: 0 !important;
+            border-left: 0 !important;
+            border-right: 0 !important;
+          }
+
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            border-radius: 0 !important;
+            overflow: hidden !important;
+          }
+
+          .dashboard-shared-post-frame,
+          .profile-shared-post-frame {
+            padding: 10px !important;
+            border-radius: 18px !important;
+          }
+
+          .dashboard-post-actions,
+          .profile-post-actions {
+            min-height: 46px !important;
+            margin-top: 9px !important;
+            padding-top: 7px !important;
+          }
+
+          .dashboard-comment-row,
+          .profile-comment-row {
+            gap: 8px !important;
+          }
+
+          .dashboard-comment-bubble,
+          .profile-comment-bubble {
+            padding: 10px 11px !important;
+            border-radius: 16px !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          .dashboard-feed-card,
+          .profile-feed-card {
+            padding: 11px !important;
+          }
+
+          .dashboard-post-single-media,
+          .profile-post-image,
+          .dashboard-post-media-grid,
+          .profile-post-image-grid {
+            width: calc(100% + 22px) !important;
+            max-width: calc(100% + 22px) !important;
+            margin-left: -11px !important;
+            margin-right: -11px !important;
           }
         }
 
