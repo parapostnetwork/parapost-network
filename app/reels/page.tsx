@@ -562,6 +562,8 @@ export default function ReelsPage() {
   const commentTouchTimeRef = useRef<Record<string, number>>({});
   const commentLongPressTimeoutRef = useRef<number | null>(null);
   const commentLikeBurstTimeoutRef = useRef<number | null>(null);
+  const reelsRealtimeRefreshTimerRef = useRef<number | null>(null);
+  const viewportResizeFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     router.prefetch("/dashboard");
@@ -947,43 +949,58 @@ export default function ReelsPage() {
   }, []);
 
   useEffect(() => {
+    const scheduleReelsRefresh = () => {
+      if (reelsRealtimeRefreshTimerRef.current) {
+        window.clearTimeout(reelsRealtimeRefreshTimerRef.current);
+      }
+
+      reelsRealtimeRefreshTimerRef.current = window.setTimeout(() => {
+        reelsRealtimeRefreshTimerRef.current = null;
+        void fetchReels();
+      }, 250);
+    };
+
     const channel = supabase
       .channel(`reels-live-${currentUserId || "guest"}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, async () => {
-        await fetchReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_likes" }, async () => {
-        await fetchReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comments" }, async () => {
-        await fetchReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comment_likes" }, async () => {
-        await fetchReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, async () => {
-        await fetchReels();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, scheduleReelsRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_likes" }, scheduleReelsRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comments" }, scheduleReelsRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comment_likes" }, scheduleReelsRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, scheduleReelsRefresh)
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (reelsRealtimeRefreshTimerRef.current) {
+        window.clearTimeout(reelsRealtimeRefreshTimerRef.current);
+        reelsRealtimeRefreshTimerRef.current = null;
+      }
+      void supabase.removeChannel(channel);
     };
   }, [currentUserId]);
 
   useEffect(() => {
-    const setViewportSize = () => {
+    const commitViewportSize = () => {
+      viewportResizeFrameRef.current = null;
       setViewportWidth(window.innerWidth);
       setViewportHeight(window.innerHeight);
     };
 
-    setViewportSize();
-    window.addEventListener("resize", setViewportSize);
-    window.addEventListener("orientationchange", setViewportSize);
+    const scheduleViewportSize = () => {
+      if (viewportResizeFrameRef.current !== null) return;
+      viewportResizeFrameRef.current = window.requestAnimationFrame(commitViewportSize);
+    };
+
+    commitViewportSize();
+    window.addEventListener("resize", scheduleViewportSize, { passive: true });
+    window.addEventListener("orientationchange", scheduleViewportSize);
 
     return () => {
-      window.removeEventListener("resize", setViewportSize);
-      window.removeEventListener("orientationchange", setViewportSize);
+      window.removeEventListener("resize", scheduleViewportSize);
+      window.removeEventListener("orientationchange", scheduleViewportSize);
+      if (viewportResizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(viewportResizeFrameRef.current);
+        viewportResizeFrameRef.current = null;
+      }
     };
   }, []);
 

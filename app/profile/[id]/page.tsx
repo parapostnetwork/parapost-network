@@ -3757,70 +3757,10 @@ useEffect(() => {
   }, [profilePostImages]);
 
   useEffect(() => {
-    let cancelled = false;
-
+    // Showcases are paused for launch. Keep the current UI state empty without
+    // shipping or executing the retired Supabase loading path.
     setProfileShowcases([]);
     setShowcasesLoaded(true);
-
-    // Showcases are paused for launch. Do not query profile_showcases until released again.
-    return () => {
-      cancelled = true;
-    };
-
-    const loadProfileShowcases = async () => {
-      const safeProfileId = typeof profileId === "string" ? profileId.trim() : "";
-      const isValidProfileId =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-          safeProfileId
-        );
-
-      if (!safeProfileId || !isValidProfileId) {
-        setProfileShowcases([]);
-        setShowcasesLoaded(true);
-        return;
-      }
-
-      setShowcasesLoaded(false);
-
-      const { data, error } = await supabase
-        .from("profile_showcases")
-        .select(
-          "id,user_id,title,cover_text,media_url,media_type,media_filename,font_key,text_position_x,text_position_y,overlay_font_size,duration,visibility,expires_at,created_at"
-        )
-        .eq("user_id", safeProfileId)
-        .order("created_at", { ascending: false });
-
-      if (cancelled) return;
-
-      if (error) {
-        const showcaseErrorMessage =
-          typeof error.message === "string" && error.message.trim()
-            ? error.message
-            : "Showcases could not be loaded from Supabase.";
-
-        console.warn("Profile Showcases unavailable:", showcaseErrorMessage);
-        setProfileShowcases([]);
-        setShowcasesLoaded(true);
-        return;
-      }
-
-      const now = Date.now();
-      const mapped = ((data || []) as ProfileShowcaseRow[])
-        .map(mapProfileShowcaseRow)
-        .filter((showcase) => {
-          if (!showcase.expiresAt) return true;
-          return new Date(showcase.expiresAt).getTime() > now;
-        });
-
-      setProfileShowcases(mapped);
-      setShowcasesLoaded(true);
-    };
-
-    loadProfileShowcases();
-
-    return () => {
-      cancelled = true;
-    };
   }, [profileId]);
 
   useEffect(() => {

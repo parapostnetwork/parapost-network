@@ -2696,99 +2696,6 @@ export default function DashboardPage() {
     // but do not query profile_showcases until this feature is released again.
     return [] as DashboardShowcaseItem[];
 
-    // Keep the same visibility rules, but do not make Showcase bubbles wait for profile lookups.
-    const showcaseUserIds = [
-      ...new Set([userId, ...friendIds].filter((id) => Boolean(id) && !blockedIds.includes(String(id)))),
-    ] as string[];
-
-    if (showcaseUserIds.length === 0) {
-      setFriendShowcases([]);
-      return [] as DashboardShowcaseItem[];
-    }
-
-    const { data: showcaseData, error: showcaseError } = await supabase
-      .from("profile_showcases")
-      .select("id, user_id, title, cover_text, media_url, media_type, media_filename, font_key, text_position_x, text_position_y, overlay_font_size, duration, visibility, expires_at, created_at")
-      .in("user_id", showcaseUserIds)
-      .order("created_at", { ascending: false })
-      .limit(24);
-
-    if (showcaseError) {
-      console.error("Error fetching dashboard friend showcases:", getDashboardErrorMessage(showcaseError));
-      setFriendShowcases([]);
-      return [] as DashboardShowcaseItem[];
-    }
-
-    const now = Date.now();
-    const nextItems = ((showcaseData || []) as Array<{
-      id: string;
-      user_id: string;
-      title: string | null;
-      cover_text: string | null;
-      media_url: string | null;
-      media_type: string | null;
-      media_filename?: string | null;
-      font_key?: string | null;
-      text_position_x?: number | string | null;
-      text_position_y?: number | string | null;
-      overlay_font_size?: number | null;
-      duration?: string | null;
-      visibility: string | null;
-      expires_at: string | null;
-      created_at: string | null;
-    }>)
-      .filter((item) => item.user_id && showcaseUserIds.includes(item.user_id))
-      .filter((item) => !blockedIds.includes(item.user_id))
-      .filter((item) => item.user_id === userId || item.visibility !== "private")
-      .filter((item) => !item.expires_at || new Date(item.expires_at).getTime() > now)
-      .map((item) => ({
-        ...item,
-        profile: null,
-      })) as DashboardShowcaseItem[];
-
-    // First paint: show the Showcase row as soon as Showcase rows arrive.
-    setFriendShowcases(nextItems);
-
-    const profileIds = [...new Set(nextItems.map((item) => item.user_id).filter(Boolean))].slice(0, 24);
-
-    if (profileIds.length > 0) {
-      void (async () => {
-        try {
-          const { data: profilesData, error: profilesError } = await supabase
-            .from("profiles")
-            .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
-            .in("id", profileIds)
-            .limit(24);
-
-          if (profilesError) {
-            logDashboardNetworkIssue("Dashboard showcase profile enrichment skipped", profilesError);
-            return;
-          }
-
-          const profileMap = new Map<string, ProfilePreview>();
-          for (const profile of (profilesData || []) as ProfilePreview[]) {
-            profileMap.set(profile.id, profile);
-          }
-
-          setFriendShowcases((currentItems) =>
-            currentItems.map((item) => ({
-              ...item,
-              profile: profileMap.get(item.user_id) || item.profile || null,
-            }))
-          );
-
-          setSelectedDashboardShowcase((currentShowcase) => {
-            if (!currentShowcase) return currentShowcase;
-            const enrichedProfile = profileMap.get(currentShowcase.user_id);
-            return enrichedProfile ? { ...currentShowcase, profile: enrichedProfile } : currentShowcase;
-          });
-        } catch (error) {
-          logDashboardNetworkIssue("Dashboard showcase profile enrichment skipped", error);
-        }
-      })();
-    }
-
-    return nextItems;
   }, []);
 
   const fetchRecentlyViewed = useCallback(async (userId?: string, blockedIds: string[] = []) => {
@@ -3288,7 +3195,6 @@ export default function DashboardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "followers" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${currentUserId}` }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "live_streams" }, schedulePulseRefresh)
@@ -3362,7 +3268,7 @@ export default function DashboardPage() {
       )
       .subscribe();
 
-    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 8000);
+    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 30000);
 
     const handleBadgeFocusRefresh = () => {
       refreshNotificationBadges();

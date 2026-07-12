@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -389,6 +389,7 @@ export default function NotificationsPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [reelActivityModal, setReelActivityModal] = useState<NotificationCard | null>(null);
+  const realtimeReloadTimerRef = useRef<number | null>(null);
 
   const displayNotifications = useMemo(() => {
     return groupReelActivityNotifications(groupParachatNotifications(notifications));
@@ -541,6 +542,17 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (!currentUserId) return;
 
+    const scheduleNotificationReload = () => {
+      if (realtimeReloadTimerRef.current) {
+        window.clearTimeout(realtimeReloadTimerRef.current);
+      }
+
+      realtimeReloadTimerRef.current = window.setTimeout(() => {
+        realtimeReloadTimerRef.current = null;
+        void loadNotifications(currentUserId);
+      }, 180);
+    };
+
     const channel = supabase
       .channel(`notifications-page-${currentUserId}`)
       .on(
@@ -551,13 +563,15 @@ export default function NotificationsPage() {
           table: "notifications",
           filter: `user_id=eq.${currentUserId}`,
         },
-        async () => {
-          await loadNotifications(currentUserId);
-        }
+        scheduleNotificationReload
       )
       .subscribe();
 
     return () => {
+      if (realtimeReloadTimerRef.current) {
+        window.clearTimeout(realtimeReloadTimerRef.current);
+        realtimeReloadTimerRef.current = null;
+      }
       void supabase.removeChannel(channel);
     };
   }, [currentUserId, loadNotifications]);
