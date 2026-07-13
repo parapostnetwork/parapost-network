@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -262,7 +263,13 @@ export default function ConversationPage() {
   }, [conversationId, scrollToBottom]);
 
   useEffect(() => {
-    loadConversation();
+    const timeoutId = window.setTimeout(() => {
+      void loadConversation();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [loadConversation]);
 
   useEffect(() => {
@@ -438,7 +445,14 @@ export default function ConversationPage() {
 
               <div style={avatarWrapStyle}>
                 {otherProfile?.avatar_url ? (
-                  <img src={otherProfile.avatar_url} alt="" style={avatarImageStyle} />
+                  <Image
+                    src={otherProfile.avatar_url}
+                    alt=""
+                    fill
+                    sizes="48px"
+                    unoptimized
+                    style={avatarImageStyle}
+                  />
                 ) : (
                   <div style={avatarFallbackStyle}>{getInitial(otherProfile)}</div>
                 )}
@@ -502,9 +516,12 @@ export default function ConversationPage() {
                           {!isMine ? (
                             <div style={smallAvatarStyle}>
                               {otherProfile?.avatar_url ? (
-                                <img
+                                <Image
                                   src={otherProfile.avatar_url}
                                   alt=""
+                                  fill
+                                  sizes="32px"
+                                  unoptimized
                                   style={smallAvatarImageStyle}
                                 />
                               ) : (
