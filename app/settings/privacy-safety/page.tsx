@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -218,10 +219,18 @@ export default function PrivacySafetySettingsPage() {
   };
 
   return (
-    <main className="px-3 py-5 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:px-6">
+    <main
+      className="privacy-safety-settings-page min-h-svh touch-pan-y overflow-x-hidden px-3 py-5 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:min-h-0 lg:px-6"
+      style={{
+        WebkitOverflowScrolling: "touch",
+        overscrollBehaviorY: "auto",
+        scrollPaddingTop: 16,
+        scrollPaddingBottom: "calc(9.5rem + env(safe-area-inset-bottom))",
+      }}
+    >
       <div className="relative z-10 mx-auto w-full max-w-4xl">
         <div className="mb-5 flex items-center justify-between gap-3">
-          <BackToPrevious label="← Back" fallbackHref="/settings" />
+          <BackToPrevious label="← Back to Settings" fallbackHref="/settings" />
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Privacy & Safety
           </span>
@@ -314,9 +323,13 @@ export default function PrivacySafetySettingsPage() {
                 }}
               >
                 {currentProfile?.avatar_url ? (
-                  <img
+                  <Image
                     src={currentProfile.avatar_url}
                     alt=""
+                    width={64}
+                    height={64}
+                    sizes="64px"
+                    unoptimized
                     className="h-full w-full object-cover object-center"
                   />
                 ) : (
