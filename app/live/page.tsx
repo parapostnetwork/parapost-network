@@ -2,6 +2,7 @@
 
 import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -297,7 +298,13 @@ export default function ParapostLivePage() {
   }, []);
 
   useEffect(() => {
-    void loadLiveManager();
+    const timeoutId = window.setTimeout(() => {
+      void loadLiveManager();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [loadLiveManager]);
 
   useEffect(() => {
@@ -610,7 +617,15 @@ export default function ParapostLivePage() {
                   <article key={stream.id} className="parapost-live-manager-show-card" style={showCardStyle}>
                     <div className="parapost-live-manager-thumb" style={thumbWrapStyle}>
                       {stream.thumbnail_url ? (
-                        <img src={stream.thumbnail_url} alt="" style={thumbImageStyle} />
+                        <Image
+                          src={stream.thumbnail_url}
+                          alt=""
+                          width={1280}
+                          height={720}
+                          sizes="(max-width: 900px) 100vw, 420px"
+                          unoptimized
+                          style={thumbImageStyle}
+                        />
                       ) : (
                         <div style={fallbackThumbStyle}>
                           <span style={fallbackBadgeStyle}>PARAPOST LIVE</span>
