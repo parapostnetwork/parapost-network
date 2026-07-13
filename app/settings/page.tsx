@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
@@ -404,12 +405,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="px-4 py-5 pb-[calc(8.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-6 lg:px-6">
+    <main className="settings-hub-page min-h-svh touch-pan-y overflow-x-hidden px-4 py-5 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:min-h-0 lg:px-6">
       <div className="relative z-10 mx-auto w-full max-w-3xl xl:max-w-6xl 2xl:max-w-7xl">
 
         {/* Top bar */}
         <div className="mb-5 flex items-center gap-3">
-          <BackToPrevious label="← Dashboard" fallbackHref="/dashboard" />
+          <BackToPrevious label="← Back to Dashboard" fallbackHref="/dashboard" />
         </div>
 
         {/* Hero — user card */}
@@ -418,7 +419,15 @@ export default function SettingsPage() {
             {/* Avatar */}
             <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-slate-900 text-sm font-black ring-2 ring-white/10">
               {currentProfile?.avatar_url ? (
-                <img src={currentProfile.avatar_url} alt="" className="h-full w-full object-cover object-center" />
+                <Image
+                  src={currentProfile.avatar_url}
+                  alt=""
+                  width={44}
+                  height={44}
+                  sizes="44px"
+                  unoptimized
+                  className="h-full w-full object-cover object-center"
+                />
               ) : (
                 getInitial(currentProfile)
               )}
@@ -641,8 +650,23 @@ export default function SettingsPage() {
         input[type="search"]::-webkit-search-cancel-button { display: none; }
         input[type="search"]::-ms-clear { display: none; }
 
+        .settings-hub-page {
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-y: auto;
+          scroll-padding-top: 16px;
+          scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+        }
+
+        @media (max-width: 1023px) {
+          .settings-hub-page {
+            min-height: 100svh;
+            height: auto;
+            overflow-y: visible;
+          }
+        }
+
         @media (max-width: 480px) {
-          main {
+          .settings-hub-page {
             padding-left: 14px !important;
             padding-right: 14px !important;
           }
