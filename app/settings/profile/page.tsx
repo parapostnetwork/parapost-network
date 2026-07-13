@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
@@ -340,7 +341,7 @@ export default function ProfileSettingsPage() {
 
   if (loading) {
     return (
-      <main className="profile-settings-root px-4 py-8 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-6">
+      <main className="profile-settings-root min-h-svh touch-pan-y overflow-x-hidden px-4 py-8 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:min-h-0 lg:px-6">
         <div className="mx-auto w-full max-w-4xl">
           <div className="animate-pulse rounded-[32px] border border-white/10 bg-white/[0.055] p-6 shadow-2xl">
             <div className="mb-5 h-8 w-48 rounded bg-white/10" />
@@ -355,11 +356,11 @@ export default function ProfileSettingsPage() {
   }
 
   return (
-    <main className="profile-settings-root px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-6">
+    <main className="profile-settings-root min-h-svh touch-pan-y overflow-x-hidden px-4 py-6 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:min-h-0 lg:px-6">
       <section className="relative z-10 mx-auto w-full max-w-4xl">
         <div className="profile-settings-topbar mb-5 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">
-            <BackToPrevious label="← Back" fallbackHref="/settings/account" />
+            <BackToPrevious label="← Back to Account" fallbackHref="/settings/account" />
             <span className="select-none text-slate-700">/</span>
             <Link
               href="/settings"
@@ -427,9 +428,13 @@ export default function ProfileSettingsPage() {
                 }}
               >
                 {displayedAvatarPreviewUrl ? (
-                  <img
+                  <Image
                     src={displayedAvatarPreviewUrl}
                     alt="Profile avatar preview"
+                    width={80}
+                    height={80}
+                    sizes="80px"
+                    unoptimized
                     className="h-full w-full object-cover object-center"
                   />
                 ) : (
@@ -681,13 +686,21 @@ export default function ProfileSettingsPage() {
 
       <style jsx global>{`
         .profile-settings-root {
-          min-height: 100dvh !important;
-          height: 100dvh !important;
-          overflow-y: auto !important;
+          min-height: 100svh !important;
+          height: auto !important;
+          overflow-y: visible !important;
           overflow-x: hidden !important;
-          overscroll-behavior-y: contain !important;
+          overscroll-behavior-y: auto !important;
           -webkit-overflow-scrolling: touch !important;
-          padding-bottom: calc(8.5rem + env(safe-area-inset-bottom)) !important;
+          scroll-padding-top: 16px;
+          scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+          padding-bottom: calc(9.5rem + env(safe-area-inset-bottom)) !important;
+        }
+
+        @media (min-width: 1024px) {
+          .profile-settings-root {
+            min-height: 0 !important;
+          }
         }
 
         .profile-settings-root input,
