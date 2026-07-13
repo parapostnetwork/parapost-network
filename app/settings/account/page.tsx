@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
@@ -246,12 +247,12 @@ export default function AccountSecuritySettingsPage() {
 
   return (
     <main
-      className="account-settings-page px-3 py-4 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6"
-      style={{ paddingBottom: "calc(7rem + env(safe-area-inset-bottom))" }}
+      className="account-settings-page min-h-svh touch-pan-y overflow-x-hidden px-3 py-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:min-h-0 lg:px-6"
+      style={{ paddingBottom: "calc(9.5rem + env(safe-area-inset-bottom))" }}
     >
       <div className="relative z-10 mx-auto w-full max-w-4xl">
         <div className="mb-5 flex items-center justify-between gap-3">
-          <BackToPrevious label="← Back" fallbackHref="/settings" />
+          <BackToPrevious label="← Back to Settings" fallbackHref="/settings" />
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Account & Security
           </span>
@@ -350,9 +351,13 @@ export default function AccountSecuritySettingsPage() {
                 }}
               >
                 {currentProfile?.avatar_url ? (
-                  <img
+                  <Image
                     src={currentProfile.avatar_url}
                     alt=""
+                    width={64}
+                    height={64}
+                    sizes="64px"
+                    unoptimized
                     className="h-full w-full object-cover object-center"
                   />
                 ) : (
@@ -575,6 +580,21 @@ export default function AccountSecuritySettingsPage() {
 
 
       <style jsx global>{`
+        .account-settings-page {
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-y: auto;
+          scroll-padding-top: 16px;
+          scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+        }
+
+        @media (max-width: 1023px) {
+          .account-settings-page {
+            min-height: 100svh;
+            height: auto;
+            overflow-y: visible;
+          }
+        }
+
         @media (max-width: 420px) {
           .account-settings-page h1 {
             letter-spacing: -0.05em;
@@ -595,7 +615,7 @@ export default function AccountSecuritySettingsPage() {
         @media (max-height: 620px) and (orientation: landscape) {
           .account-settings-page {
             padding-top: 12px !important;
-            padding-bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(7rem + env(safe-area-inset-bottom)) !important;
           }
         }
       `}</style>
