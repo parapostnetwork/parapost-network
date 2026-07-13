@@ -2,6 +2,7 @@
 
 import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
 type LiveProvider = "youtube" | "twitch";
@@ -131,7 +132,6 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
     };
   }
 
-  const host = url.hostname.replace(/^www\./, "").toLowerCase();
   const youtubeId = getYoutubeVideoId(url);
 
   if (youtubeId) {
@@ -192,7 +192,14 @@ export default function CreateLiveShowPage() {
 
     const params = new URLSearchParams(window.location.search);
     const editId = params.get("edit") || "";
-    setEditingStreamId(editId);
+
+    const timeoutId = window.setTimeout(() => {
+      setEditingStreamId(editId);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   useEffect(() => {
@@ -408,9 +415,13 @@ export default function CreateLiveShowPage() {
           <div style={previewWrapStyle} className="parapost-live-create-preview">
             <div className="parapost-live-create-preview-media" style={previewMediaStyle}>
               {detectedMeta.thumbnailUrl ? (
-                <img
+                <Image
                   src={detectedMeta.thumbnailUrl}
                   alt="Live thumbnail preview"
+                  width={1280}
+                  height={720}
+                  sizes="(max-width: 900px) 100vw, 360px"
+                  unoptimized
                   style={previewImageStyle}
                 />
               ) : (
