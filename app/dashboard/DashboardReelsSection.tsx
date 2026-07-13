@@ -2,6 +2,7 @@
 
 import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
 type ReelRow = {
@@ -88,7 +89,6 @@ function reelOwnerId(reel: ReelRow) {
 
 export default function DashboardReelsSection() {
   const [currentUserId, setCurrentUserId] = useState("");
-  const [friendIds, setFriendIds] = useState<string[]>([]);
   const [reels, setReels] = useState<ReelRow[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
   const [loading, setLoading] = useState(true);
@@ -152,7 +152,6 @@ export default function DashboardReelsSection() {
 
     if (userError || !user) {
       setCurrentUserId("");
-      setFriendIds([]);
       setReels([]);
       setProfilesMap({});
       setMessage("Sign in to see Reels from your friend circle.");
@@ -163,7 +162,6 @@ export default function DashboardReelsSection() {
     setCurrentUserId(user.id);
 
     const acceptedFriendIds = await fetchFriendIds(user.id);
-    setFriendIds(acceptedFriendIds);
 
     const allowedIds = [...new Set([user.id, ...acceptedFriendIds].filter(Boolean))];
 
@@ -219,7 +217,13 @@ export default function DashboardReelsSection() {
   }, [fetchFriendIds, fetchProfiles]);
 
   useEffect(() => {
-    void fetchDashboardReels();
+    const timeoutId = window.setTimeout(() => {
+      void fetchDashboardReels();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [fetchDashboardReels]);
 
   useEffect(() => {
@@ -316,11 +320,12 @@ export default function DashboardReelsSection() {
                 role="listitem"
               >
                 {reel.poster_url ? (
-                  <img
+                  <Image
                     src={reel.poster_url}
                     alt=""
-                    loading="lazy"
-                    decoding="async"
+                    fill
+                    sizes="(max-width: 410px) 124px, (max-width: 760px) 132px, (max-width: 1180px) 150px, 156px"
+                    unoptimized
                     style={reelVideoStyle}
                     className="dashboard-reel-video"
                   />
@@ -337,7 +342,14 @@ export default function DashboardReelsSection() {
                   <div style={reelAuthorRowStyle}>
                     <div style={reelAvatarStyle}>
                       {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt="" style={reelAvatarImageStyle} />
+                        <Image
+                          src={profile.avatar_url}
+                          alt=""
+                          fill
+                          sizes="28px"
+                          unoptimized
+                          style={reelAvatarImageStyle}
+                        />
                       ) : (
                         <span>{getInitial(profile?.full_name, profile?.username)}</span>
                       )}
