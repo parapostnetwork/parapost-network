@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -304,11 +305,19 @@ export default function ContentFeedSettingsPage() {
   };
 
   return (
-    <main className="px-3 py-4 pb-[calc(8rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6">
+    <main
+      className="content-feed-settings-page min-h-svh touch-pan-y overflow-x-hidden px-3 py-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:min-h-0 lg:px-6"
+      style={{
+        WebkitOverflowScrolling: "touch",
+        overscrollBehaviorY: "auto",
+        scrollPaddingTop: 16,
+        scrollPaddingBottom: "calc(9.5rem + env(safe-area-inset-bottom))",
+      }}
+    >
       <div className="relative z-10 mx-auto w-full max-w-4xl">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 min-w-0">
-            <BackToPrevious label="← Back" fallbackHref="/settings/privacy-safety" />
+            <BackToPrevious label="← Back to Privacy & Safety" fallbackHref="/settings/privacy-safety" />
             <span className="text-slate-700 select-none">/</span>
             <Link href="/settings" className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white">Settings</Link>
           </div>
@@ -394,7 +403,15 @@ export default function ContentFeedSettingsPage() {
                 }}
               >
                 {currentProfile?.avatar_url ? (
-                  <img src={currentProfile.avatar_url} alt="" className="h-full w-full object-cover object-center" />
+                  <Image
+                    src={currentProfile.avatar_url}
+                    alt=""
+                    width={64}
+                    height={64}
+                    sizes="64px"
+                    unoptimized
+                    className="h-full w-full object-cover object-center"
+                  />
                 ) : (
                   getInitial(currentProfile)
                 )}
