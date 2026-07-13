@@ -139,6 +139,16 @@ type SharedReelItem = {
   creator_profile_id: string | null;
 };
 
+type SharedReelSourceRow = {
+  id: string;
+  user_id: string | null;
+  creator_profile_id: string | null;
+  title: string | null;
+  caption: string | null;
+  video_url: string | null;
+  poster_url: string | null;
+};
+
 type SharedPostItem = {
   id: string;
   post_id: string;
@@ -2836,8 +2846,10 @@ export default function DashboardPage() {
       return [] as SharedReelItem[];
     }
 
-    const reelMap = new Map<string, any>();
-    for (const reel of reelRows || []) reelMap.set(reel.id, reel);
+    const reelMap = new Map<string, SharedReelSourceRow>();
+    for (const reel of (reelRows || []) as SharedReelSourceRow[]) {
+      reelMap.set(reel.id, reel);
+    }
 
     const nextShared = visibleShareRows
       .map((share) => {
