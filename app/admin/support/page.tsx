@@ -291,11 +291,24 @@ export default function AdminSupportInboxPage() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    void fetchMessages();
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchMessages();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [fetchMessages, isAdmin]);
 
   useEffect(() => {
-    setAdminNotesDraft(selectedMessage?.admin_notes || "");
+    const timeoutId = window.setTimeout(() => {
+      setAdminNotesDraft(selectedMessage?.admin_notes || "");
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [selectedMessage?.admin_notes, selectedMessage?.id]);
 
   const handleSelectMessage = (messageId: string) => {
