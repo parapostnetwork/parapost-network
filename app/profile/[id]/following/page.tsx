@@ -169,9 +169,23 @@ export default function ProfileFollowingPage() {
   return (
     <main style={pageStyle}>
       <section style={shellStyle}>
-        <button type="button" onClick={() => router.back()} style={backButtonStyle}>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="following-back-desktop"
+          style={backButtonStyle}
+        >
           ‹ Back
         </button>
+
+        <Link
+          href="/dashboard?menu=main"
+          className="following-back-mobile"
+          style={backButtonStyle}
+        >
+          <span aria-hidden="true">←</span>
+          <span>Back to Menu</span>
+        </Link>
 
         <div style={headerCardStyle}>
           <p style={eyebrowStyle}>Parapost Network</p>
@@ -179,7 +193,7 @@ export default function ProfileFollowingPage() {
           <p style={subtitleStyle}>
             Profiles {profile ? getDisplayName(profile) : "this member"} follows.
           </p>
-          <div style={metaRowStyle}>
+          <div className="following-meta-links" style={metaRowStyle}>
             <Link href={`/profile/${profileId}`} style={smallLinkStyle}>View profile</Link>
             <Link href={`/profile/${profileId}/followers`} style={smallLinkStyle}>Followers</Link>
           </div>
@@ -226,6 +240,33 @@ export default function ProfileFollowingPage() {
           )}
         </div>
       </section>
+
+      <style jsx global>{`
+        .following-back-mobile {
+          display: none !important;
+        }
+
+        @media (max-width: 1024px) {
+          .following-back-desktop,
+          .following-meta-links {
+            display: none !important;
+          }
+
+          .following-back-mobile {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 6px;
+            line-height: 1;
+            text-decoration: none;
+          }
+
+          .following-back-mobile > span {
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+          }
+        }
+      `}</style>
     </main>
   );
 }
