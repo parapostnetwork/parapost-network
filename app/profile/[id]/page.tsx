@@ -8805,6 +8805,44 @@ return (
         transition: border-color 160ms ease, background 160ms ease;
       }
 
+      .profile-shared-reel-share-meta {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+      }
+
+      @media (max-width: 760px) {
+        .profile-shared-reel-post-card .profile-shared-reel-card {
+          grid-template-columns: minmax(0, 38%) minmax(0, 1fr) !important;
+          width: 100% !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          border-radius: 17px !important;
+          border-left: 1px solid var(--parapost-accent-active-border) !important;
+          border-right: 1px solid var(--parapost-accent-active-border) !important;
+          overflow: hidden !important;
+        }
+
+        .profile-shared-reel-post-card .profile-shared-reel-preview {
+          width: 100% !important;
+          min-width: 0 !important;
+          min-height: 150px !important;
+          height: 100% !important;
+          max-height: 176px !important;
+        }
+
+        .profile-shared-reel-post-card .profile-shared-reel-copy {
+          min-width: 0 !important;
+          padding: 10px 11px !important;
+        }
+      }
+
+      @media (max-width: 410px) {
+        .profile-shared-reel-post-card .profile-shared-reel-card {
+          grid-template-columns: minmax(0, 38%) minmax(0, 1fr) !important;
+        }
+      }
+
       @media (min-width: 721px) and (max-width: 1180px) {
         .profile-page-shell {
           padding-left: 16px !important;
@@ -16442,8 +16480,11 @@ return (
                                   <strong style={postAuthorNameStyle}>
                                     {profileDisplayName || "Parapost Member"}
                                   </strong>
-                                  <span style={postMetaStyle}>
-                                    @{profileDisplayUsername || "new-member"} shared a reel · {formatTimeAgo(item.created_at)}
+                                  <span
+                                    className="profile-shared-reel-share-meta"
+                                    style={postMetaStyle}
+                                  >
+                                    shared a Parapost Reel · {formatTimeAgo(item.created_at)}
                                   </span>
                                 </div>
 
