@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -173,13 +174,42 @@ export default function ProfileVisibilitySettingsPage() {
 
   return (
     <main className="px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:px-6">
+      <style jsx global>{`
+        .profile-visibility-back-mobile {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .profile-visibility-back-desktop {
+            display: none !important;
+          }
+
+          .profile-visibility-back-mobile {
+            display: block !important;
+          }
+        }
+      `}</style>
       <div className="relative z-10 mx-auto w-full max-w-4xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <BackToPrevious label="← Back" fallbackHref="/settings/privacy-safety" />
-            <span className="text-slate-700 select-none">/</span>
-            <Link href="/settings" className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white">Settings</Link>
+        <div className="profile-visibility-back-row mb-5 flex items-center justify-between gap-3">
+          <div className="profile-visibility-back-desktop flex min-w-0 items-center gap-1.5">
+            <BackToPrevious label="Back" fallbackHref="/settings/privacy-safety" />
+            <span className="select-none text-slate-700">/</span>
+            <Link
+              href="/settings"
+              className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white"
+            >
+              Settings
+            </Link>
           </div>
+
+          <div className="profile-visibility-back-mobile">
+            <BackToPrevious
+              label="Back to Privacy & Safety"
+              fallbackHref="/dashboard?menu=settings-privacy"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Profile Visibility
           </span>
@@ -269,7 +299,15 @@ export default function ProfileVisibilitySettingsPage() {
                 }}
               >
                 {currentProfile?.avatar_url ? (
-                  <img src={currentProfile.avatar_url} alt="" className="h-full w-full object-cover object-center" />
+                                    <Image
+                    src={currentProfile.avatar_url}
+                    alt=""
+                    width={64}
+                    height={64}
+                    sizes="64px"
+                    unoptimized
+                    className="h-full w-full object-cover object-center"
+                  />
                 ) : (
                   getInitial(currentProfile)
                 )}
