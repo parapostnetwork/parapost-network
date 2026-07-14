@@ -1,30 +1,47 @@
 "use client";
 
 export default function BackToPrevious({
-  label = "← Back",
+  label = "Back",
   fallbackHref = "/settings",
+  alwaysUseFallback = false,
 }: {
   label?: string;
   fallbackHref?: string;
+  alwaysUseFallback?: boolean;
 }) {
+  const cleanLabel = label.replace(/^[←‹<]\s*/, "").trim() || "Back";
+
   const handleBack = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
+    if (typeof window === "undefined") return;
+
+    if (alwaysUseFallback) {
+      window.location.href = fallbackHref;
+      return;
+    }
+
+    if (window.history.length > 1) {
       window.history.back();
       return;
     }
-    if (typeof window !== "undefined") {
-      window.location.href = fallbackHref;
-    }
+
+    window.location.href = fallbackHref;
   };
 
   return (
     <button
       type="button"
       onClick={handleBack}
-      className="text-sm font-bold no-underline transition hover:text-white"
+      className="inline-flex items-center gap-1.5 text-sm font-bold leading-none no-underline transition hover:text-white"
       style={{ color: "var(--parapost-accent-text)" }}
+      aria-label={cleanLabel}
     >
-      {label}
+      <span
+        aria-hidden="true"
+        className="inline-flex shrink-0 items-center text-[1.15em] leading-none"
+      >
+        ←
+      </span>
+      <span className="inline-flex items-center leading-none">{cleanLabel}</span>
     </button>
   );
 }
