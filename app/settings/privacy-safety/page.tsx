@@ -228,9 +228,36 @@ export default function PrivacySafetySettingsPage() {
         scrollPaddingBottom: "calc(9.5rem + env(safe-area-inset-bottom))",
       }}
     >
+      <style jsx global>{`
+        .privacy-safety-back-mobile {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .privacy-safety-back-desktop {
+            display: none !important;
+          }
+
+          .privacy-safety-back-mobile {
+            display: block !important;
+          }
+        }
+      `}</style>
+
       <div className="relative z-10 mx-auto w-full max-w-4xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <BackToPrevious label="← Back to Settings" fallbackHref="/settings" />
+        <div className="privacy-safety-back-row mb-5 flex items-center justify-between gap-3">
+          <div className="privacy-safety-back-desktop">
+            <BackToPrevious label="Back to Settings" fallbackHref="/settings" />
+          </div>
+
+          <div className="privacy-safety-back-mobile">
+            <BackToPrevious
+              label="Back to Settings"
+              fallbackHref="/dashboard?menu=settings"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Privacy & Safety
           </span>
