@@ -1872,6 +1872,41 @@ function TwoLineExpandableComment({
   );
 }
 
+type DashboardMobileMenuSection =
+  | "main"
+  | "discover"
+  | "discoverRecentlyViewed"
+  | "discoverPeople"
+  | "discoverTrending"
+  | "discoverActivity"
+  | "settings"
+  | "settingsAccount"
+  | "settingsPrivacy"
+  | "settingsHelp"
+  | "creator"
+  | "ads"
+  | "hub";
+
+function getDashboardMenuSectionFromUrl(): DashboardMobileMenuSection | null {
+  if (typeof window === "undefined") return null;
+
+  const menuValue = new URLSearchParams(window.location.search).get("menu");
+
+  const menuMap: Record<string, DashboardMobileMenuSection> = {
+    main: "main",
+    discover: "discover",
+    creator: "creator",
+    ads: "ads",
+    hub: "hub",
+    settings: "settings",
+    "settings-account": "settingsAccount",
+    "settings-privacy": "settingsPrivacy",
+    "settings-help": "settingsHelp",
+  };
+
+  return menuValue ? menuMap[menuValue] || null : null;
+}
+
 export default function DashboardPage() {
   const [content, setContent] = useState("");
   const [postImages, setPostImages] = useState<File[]>([]);
@@ -1942,6 +1977,8 @@ export default function DashboardPage() {
   const [searchResults, setSearchResults] = useState<ProfilePreview[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuInitialSection, setMobileMenuInitialSection] =
+    useState<DashboardMobileMenuSection>("main");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dashboardShowcaseInputRef = useRef<HTMLInputElement | null>(null);
@@ -1954,6 +1991,17 @@ export default function DashboardPage() {
   const removedReelShareIdsRef = useRef<Set<string>>(new Set());
   const removedReelShareKeysRef = useRef<Set<string>>(new Set());
   const targetedPostScrollRef = useRef("");
+
+  useEffect(() => {
+    const requestedSection = getDashboardMenuSectionFromUrl();
+    if (!requestedSection) return;
+
+    const isMobileOrTablet = window.matchMedia("(max-width: 1024px)").matches;
+    if (!isMobileOrTablet) return;
+
+    setMobileMenuInitialSection(requestedSection);
+    setMobileMenuOpen(true);
+  }, []);
 
   const currentName = currentProfile?.full_name || currentProfile?.username || "there";
   const firstName = currentName.split(" ")[0] || "there";
@@ -4572,7 +4620,10 @@ export default function DashboardPage() {
           notificationsCount={notificationsCount}
           parachatUnreadCount={parachatUnreadCount}
           onOpenSearch={openSearch}
-          onOpenMenu={() => setMobileMenuOpen(true)}
+          onOpenMenu={() => {
+            setMobileMenuInitialSection("main");
+            setMobileMenuOpen(true);
+          }}
         />
 
         <div className="dashboard-grid-desktop-safe" style={dashboardGridStyle}>
@@ -4658,7 +4709,10 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   className="dashboard-tablet-menu-button"
-                  onClick={() => setMobileMenuOpen(true)}
+                  onClick={() => {
+                    setMobileMenuInitialSection("main");
+                    setMobileMenuOpen(true);
+                  }}
                   style={topIconButtonStyle}
                   aria-label="Open dashboard menu"
                 >
@@ -5001,6 +5055,7 @@ export default function DashboardPage() {
 
       <MobileDashboardMenuDrawer
         isOpen={mobileMenuOpen}
+        initialSection={mobileMenuInitialSection}
         currentProfile={currentProfile}
         currentUserId={currentUserId}
         notificationsCount={notificationsCount}
@@ -13046,6 +13101,7 @@ function SharedReelCard({
 
 function MobileDashboardMenuDrawer({
   isOpen,
+  initialSection,
   currentProfile,
   currentUserId,
   notificationsCount,
@@ -13063,6 +13119,7 @@ function MobileDashboardMenuDrawer({
   onCreatePost,
 }: {
   isOpen: boolean;
+  initialSection: DashboardMobileMenuSection;
   currentProfile: ProfilePreview | null;
   currentUserId: string;
   notificationsCount: number;
@@ -13079,27 +13136,12 @@ function MobileDashboardMenuDrawer({
   onClose: () => void;
   onCreatePost: () => void;
 }) {
-  type MobileMenuSection =
-    | "main"
-    | "discover"
-    | "discoverRecentlyViewed"
-    | "discoverPeople"
-    | "discoverTrending"
-    | "discoverActivity"
-    | "settings"
-    | "settingsAccount"
-    | "settingsPrivacy"
-    | "settingsHelp"
-    | "creator"
-    | "ads"
-    | "hub";
-
-  const [activeSection, setActiveSection] = useState<MobileMenuSection>("main");
+  const [activeSection, setActiveSection] = useState<DashboardMobileMenuSection>("main");
   const menuScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (isOpen) setActiveSection("main");
-  }, [isOpen]);
+    if (isOpen) setActiveSection(initialSection);
+  }, [initialSection, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -13123,7 +13165,7 @@ function MobileDashboardMenuDrawer({
 
   void currentProfile;
 
-  const parentSectionMap: Partial<Record<MobileMenuSection, MobileMenuSection>> = {
+  const parentSectionMap: Partial<Record<DashboardMobileMenuSection, DashboardMobileMenuSection>> = {
     discoverRecentlyViewed: "discover",
     discoverPeople: "discover",
     discoverTrending: "discover",
