@@ -314,13 +314,31 @@ export default function ContentFeedSettingsPage() {
         scrollPaddingBottom: "calc(9.5rem + env(safe-area-inset-bottom))",
       }}
     >
+      <style jsx global>{`
+        .content-feed-back-mobile { display:none; }
+
+        @media (max-width:1024px){
+          .content-feed-back-desktop{display:none !important;}
+          .content-feed-back-mobile{display:block !important;}
+        }
+      `}</style>
+
       <div className="relative z-10 mx-auto w-full max-w-4xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <BackToPrevious label="← Back to Privacy & Safety" fallbackHref="/settings/privacy-safety" />
+        <div className="content-feed-back-row mb-5 flex items-center justify-between gap-3">
+          <div className="content-feed-back-desktop flex items-center gap-1.5 min-w-0">
+            <BackToPrevious label="Back to Privacy & Safety" fallbackHref="/settings/privacy-safety" />
             <span className="text-slate-700 select-none">/</span>
             <Link href="/settings" className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white">Settings</Link>
           </div>
+
+          <div className="content-feed-back-mobile">
+            <BackToPrevious
+              label="Back to Privacy & Safety"
+              fallbackHref="/dashboard?menu=settings-privacy"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Content & Feed
           </span>
