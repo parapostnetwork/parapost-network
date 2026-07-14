@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -245,9 +246,35 @@ export default function HelpSupportSettingsPage() {
 
   return (
     <main className="px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6">
+      <style jsx global>{`
+        .help-support-back-mobile {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .help-support-back-desktop {
+            display: none !important;
+          }
+
+          .help-support-back-mobile {
+            display: block !important;
+          }
+        }
+      `}</style>
       <div className="relative z-10 mx-auto w-full max-w-4xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <BackToPrevious label="← Back" fallbackHref="/settings" />
+        <div className="help-support-back-row mb-5 flex items-center justify-between gap-3">
+          <div className="help-support-back-desktop">
+            <BackToPrevious label="Back" fallbackHref="/settings" />
+          </div>
+
+          <div className="help-support-back-mobile">
+            <BackToPrevious
+              label="Back to Help & Legal"
+              fallbackHref="/dashboard?menu=settings-help"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Help & Support
           </span>
@@ -330,7 +357,15 @@ export default function HelpSupportSettingsPage() {
                 }}
               >
                 {currentProfile?.avatar_url ? (
-                  <img src={currentProfile.avatar_url} alt="" className="h-full w-full object-cover object-center" />
+                  <Image
+                    src={currentProfile.avatar_url}
+                    alt=""
+                    width={64}
+                    height={64}
+                    sizes="64px"
+                    unoptimized
+                    className="h-full w-full object-cover object-center"
+                  />
                 ) : (
                   getInitial(currentProfile)
                 )}
