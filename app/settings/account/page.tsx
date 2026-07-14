@@ -251,8 +251,19 @@ export default function AccountSecuritySettingsPage() {
       style={{ paddingBottom: "calc(9.5rem + env(safe-area-inset-bottom))" }}
     >
       <div className="relative z-10 mx-auto w-full max-w-4xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <BackToPrevious label="← Back to Settings" fallbackHref="/settings" />
+        <div className="account-settings-back-row mb-5 flex items-center justify-between gap-3">
+          <div className="account-settings-back-desktop">
+            <BackToPrevious label="Back to Settings" fallbackHref="/settings" />
+          </div>
+
+          <div className="account-settings-back-mobile">
+            <BackToPrevious
+              label="Back to Your Account"
+              fallbackHref="/dashboard?menu=settings-account"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Account & Security
           </span>
@@ -585,6 +596,20 @@ export default function AccountSecuritySettingsPage() {
           overscroll-behavior-y: auto;
           scroll-padding-top: 16px;
           scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+        }
+
+        .account-settings-back-mobile {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .account-settings-back-desktop {
+            display: none !important;
+          }
+
+          .account-settings-back-mobile {
+            display: block !important;
+          }
         }
 
         @media (max-width: 1023px) {
