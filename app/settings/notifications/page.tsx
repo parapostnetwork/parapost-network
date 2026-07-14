@@ -284,9 +284,36 @@ export default function NotificationSettingsPage() {
         scrollPaddingBottom: "calc(9.5rem + env(safe-area-inset-bottom))",
       }}
     >
+      <style jsx global>{`
+        .notification-settings-back-mobile {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .notification-settings-back-desktop {
+            display: none !important;
+          }
+
+          .notification-settings-back-mobile {
+            display: block !important;
+          }
+        }
+      `}</style>
+
       <div className="relative z-10 mx-auto w-full max-w-4xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <BackToPrevious label="← Back to Settings" fallbackHref="/settings" />
+        <div className="notification-settings-back-row mb-5 flex items-center justify-between gap-3">
+          <div className="notification-settings-back-desktop">
+            <BackToPrevious label="Back to Settings" fallbackHref="/settings" />
+          </div>
+
+          <div className="notification-settings-back-mobile">
+            <BackToPrevious
+              label="Back to Privacy & Safety"
+              fallbackHref="/dashboard?menu=settings-privacy"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Notifications
           </span>
