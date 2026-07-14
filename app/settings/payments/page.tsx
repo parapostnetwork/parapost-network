@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -136,6 +137,20 @@ export default function PaymentsSettingsPage() {
 
         .payments-page-inner {
           width: min(100%, 1180px);
+        }
+
+        .payments-back-mobile {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .payments-back-desktop {
+            display: none !important;
+          }
+
+          .payments-back-mobile {
+            display: block !important;
+          }
         }
 
         .payments-hero-card,
@@ -286,7 +301,18 @@ export default function PaymentsSettingsPage() {
 
       <div className="payments-page-inner relative z-10 mx-auto w-full max-w-4xl">
         <div className="payments-back-row mb-5 flex items-center justify-between gap-3">
-          <BackToPrevious label="← Back" fallbackHref="/settings" />
+          <div className="payments-back-desktop">
+            <BackToPrevious label="Back" fallbackHref="/settings" />
+          </div>
+
+          <div className="payments-back-mobile">
+            <BackToPrevious
+              label="Back to Ads & Sponsors"
+              fallbackHref="/dashboard?menu=ads"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Payments
           </span>
@@ -375,7 +401,15 @@ export default function PaymentsSettingsPage() {
                 }}
               >
                 {currentProfile?.avatar_url ? (
-                  <img src={currentProfile.avatar_url} alt="" className="h-full w-full object-cover object-center" />
+                                    <Image
+                    src={currentProfile.avatar_url}
+                    alt=""
+                    width={64}
+                    height={64}
+                    sizes="64px"
+                    unoptimized
+                    className="h-full w-full object-cover object-center"
+                  />
                 ) : (
                   getInitial(currentProfile)
                 )}
