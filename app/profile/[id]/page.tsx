@@ -16509,30 +16509,23 @@ return (
                                 aria-label={`Watch ${item.reel?.title || "Parapost Reel"}`}
                               >
                                 <div className="profile-shared-reel-preview" style={sharedReelPreviewStyle}>
-                                  {item.reel?.video_url ? (
-                                    <video
-                                      src={item.reel.video_url}
-                                      poster={item.reel.poster_url || undefined}
-                                      muted
-                                      playsInline
-                                      preload="metadata"
+                                  {item.reel?.poster_url ? (
+                                    <div
+                                      role="img"
+                                      aria-label="Shared Parapost Reel preview"
                                       style={{
-                                        width: "100%",
-                                        height: "100%",
-                                        objectFit: "cover",
-                                        display: "block",
-                                        background: "#000",
+                                        ...sharedReelInlineMediaStyle,
+                                        backgroundImage: `url("${item.reel.poster_url}")`,
                                       }}
                                     />
                                   ) : (
                                     <div
                                       style={{
-                                        width: "100%",
-                                        height: "100%",
+                                        ...sharedReelInlineMediaStyle,
                                         display: "grid",
                                         placeItems: "center",
                                         color: "#9ca3af",
-                                        background: "#05070a",
+                                        backgroundColor: "#05070a",
                                         textAlign: "center",
                                         padding: "12px",
                                       }}
@@ -16546,24 +16539,20 @@ return (
                                   </div>
                                 </div>
 
-                                <div className="profile-shared-reel-copy" style={{ minWidth: 0, padding: "14px 15px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "7px" }}>
-                                  <span className="profile-shared-reel-network" style={sharedReelNetworkLabelStyle}>
+                                <div
+                                  className="profile-shared-reel-copy"
+                                  style={sharedReelCopyStyle}
+                                >
+                                  <span
+                                    className="profile-shared-reel-network"
+                                    style={sharedReelNetworkLabelStyle}
+                                  >
                                     Parapost Network
                                   </span>
 
                                   <h4
                                     className="profile-shared-reel-title"
-                                    style={{
-                                      margin: 0,
-                                      color: "#f9fafb",
-                                      fontSize: "18px",
-                                      lineHeight: 1.18,
-                                      letterSpacing: "-0.035em",
-                                      display: "-webkit-box",
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: "vertical",
-                                      overflow: "hidden",
-                                    }}
+                                    style={sharedReelTitleStyle}
                                   >
                                     {item.reel?.title || "Parapost Reel"}
                                   </h4>
@@ -18113,6 +18102,107 @@ function ProfileStableBottomNav({
           }
 
           .profile-shared-reel-copy {
+            flex-basis: 64% !important;
+            width: 64% !important;
+            max-width: 64% !important;
+            height: 154px !important;
+            max-height: 154px !important;
+            padding: 9px 10px !important;
+          }
+        }
+
+
+        /* FINAL Dashboard/Profile shared Reel parity */
+        @media (max-width: 1180px) {
+          .profile-shared-reel-post-card .profile-shared-reel-card {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+          }
+
+          .profile-shared-reel-post-card .profile-shared-reel-preview {
+            flex: 0 0 38% !important;
+            width: 38% !important;
+            min-width: 38% !important;
+            max-width: 38% !important;
+            height: 180px !important;
+            min-height: 180px !important;
+            max-height: 180px !important;
+            overflow: hidden !important;
+          }
+
+          .profile-shared-reel-post-card .profile-shared-reel-copy {
+            flex: 1 1 62% !important;
+            width: 62% !important;
+            min-width: 0 !important;
+            max-width: 62% !important;
+            height: 180px !important;
+            max-height: 180px !important;
+            padding: 13px 14px !important;
+            gap: 6px !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+          }
+
+          .profile-shared-reel-network {
+            display: block !important;
+            width: 100% !important;
+            white-space: nowrap !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .profile-shared-reel-post-card .profile-shared-reel-card {
+            height: 168px !important;
+            min-height: 168px !important;
+            max-height: 168px !important;
+          }
+
+          .profile-shared-reel-post-card .profile-shared-reel-preview {
+            flex-basis: 37% !important;
+            width: 37% !important;
+            min-width: 37% !important;
+            max-width: 37% !important;
+            height: 168px !important;
+            min-height: 168px !important;
+            max-height: 168px !important;
+          }
+
+          .profile-shared-reel-post-card .profile-shared-reel-copy {
+            flex-basis: 63% !important;
+            width: 63% !important;
+            max-width: 63% !important;
+            height: 168px !important;
+            max-height: 168px !important;
+            padding: 11px 12px !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          .profile-shared-reel-post-card .profile-shared-reel-card {
+            height: 154px !important;
+            min-height: 154px !important;
+            max-height: 154px !important;
+          }
+
+          .profile-shared-reel-post-card .profile-shared-reel-preview {
+            flex-basis: 36% !important;
+            width: 36% !important;
+            min-width: 36% !important;
+            max-width: 36% !important;
+            height: 154px !important;
+            min-height: 154px !important;
+            max-height: 154px !important;
+          }
+
+          .profile-shared-reel-post-card .profile-shared-reel-copy {
             flex-basis: 64% !important;
             width: 64% !important;
             max-width: 64% !important;
@@ -20147,35 +20237,69 @@ const sharedPostAvatarMiniStyle: CSSProperties = {
 };
 
 const sharedReelCardStyle: CSSProperties = {
-  marginTop: "12px",
   display: "grid",
   gridTemplateColumns: "minmax(118px, 36%) minmax(0, 1fr)",
   gap: 0,
   alignItems: "stretch",
-  borderRadius: "20px",
-  border: "1px solid var(--parapost-accent-active-border)",
-  background:
-    "linear-gradient(135deg, var(--parapost-accent-active-bg), rgba(0,0,0,0.38) 48%, rgba(34,211,238,0.10))",
+  marginTop: 12,
+  border:
+    "1px solid color-mix(in srgb, var(--parapost-accent-2) 24%, rgba(255,255,255,0.08))",
+  borderRadius: 20,
   padding: 0,
+  background:
+    "linear-gradient(135deg, rgba(0,0,0,0.36), color-mix(in srgb, var(--parapost-accent-muted-bg) 72%, rgba(12,15,26,0.92)))",
   overflow: "hidden",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 26px rgba(0,0,0,0.22)",
+  boxShadow:
+    "inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 26px rgba(0,0,0,0.20)",
   textDecoration: "none",
   color: "inherit",
   cursor: "pointer",
 };
 
 const sharedReelPreviewStyle: CSSProperties = {
+  position: "relative",
+  display: "block",
   width: "100%",
-  minWidth: 0,
-  minHeight: "150px",
+  minHeight: 150,
   height: "100%",
-  maxHeight: "230px",
   borderRadius: 0,
   overflow: "hidden",
   background: "#000",
-  flexShrink: 0,
-  position: "relative",
+  textDecoration: "none",
+  isolation: "isolate",
+};
+
+const sharedReelInlineMediaStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  minHeight: "inherit",
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+  backgroundRepeat: "no-repeat",
   display: "block",
+};
+
+const sharedReelCopyStyle: CSSProperties = {
+  minWidth: 0,
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  gap: 7,
+  padding: "14px 15px",
+};
+
+const sharedReelTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#fff",
+  fontSize: 18,
+  lineHeight: 1.12,
+  letterSpacing: "-0.03em",
+  fontWeight: 950,
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
 };
 
 const profilePostTextAreaStyle: CSSProperties = {
@@ -20283,10 +20407,13 @@ const sharedReelBadgeStyle: CSSProperties = {
 
 const sharedReelNetworkLabelStyle: CSSProperties = {
   color: "#aeb4c0",
-  fontSize: "12px",
+  fontSize: 12,
   lineHeight: 1.2,
   fontWeight: 850,
   letterSpacing: "0.015em",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const sharedReelPreviewFrameStyle: CSSProperties = {
@@ -20303,22 +20430,25 @@ const sharedReelPlayOverlayStyle: CSSProperties = {
   inset: 0,
   display: "grid",
   placeItems: "center",
-  pointerEvents: "none",
+  color: "#fff",
   background:
-    "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.10) 45%, rgba(0,0,0,0.38) 100%)",
+    "linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.42))",
+  pointerEvents: "none",
 };
 
 const sharedReelPlayButtonStyle: CSSProperties = {
-  width: "44px",
-  height: "44px",
+  width: 44,
+  height: 44,
   borderRadius: "999px",
   display: "grid",
   placeItems: "center",
-  background: "rgba(255,255,255,0.92)",
-  color: "#000",
-  fontSize: "22px",
-  fontWeight: 900,
-  boxShadow: "0 10px 26px rgba(0,0,0,0.38)",
+  paddingLeft: 4,
+  background: "rgba(0,0,0,0.42)",
+  color: "#fff",
+  border: "1px solid rgba(255,255,255,0.18)",
+  boxShadow: "0 14px 32px rgba(0,0,0,0.32)",
+  fontSize: 24,
+  lineHeight: 1,
 };
 
 const sharedReelMetaStyle: CSSProperties = {
