@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
 
@@ -64,7 +65,6 @@ function formatRelativeTime(value?: string | null) {
 }
 
 export default function BlockedUsersSettingsPage() {
-  const [currentUserId, setCurrentUserId] = useState("");
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserCard[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
@@ -137,14 +137,12 @@ export default function BlockedUsersSettingsPage() {
       if (cancelled) return;
 
       if (error || !user) {
-        setCurrentUserId("");
         setBlockedUsers([]);
         setPageLoading(false);
         setErrorMessage("Please sign in to manage blocked users.");
         return;
       }
 
-      setCurrentUserId(user.id);
       await loadBlockedUsers(user.id);
     }
 
@@ -194,13 +192,42 @@ export default function BlockedUsersSettingsPage() {
 
   return (
     <main className="blocked-users-settings-page px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:px-6">
+      <style jsx global>{`
+        .blocked-users-back-mobile {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .blocked-users-back-desktop {
+            display: none !important;
+          }
+
+          .blocked-users-back-mobile {
+            display: block !important;
+          }
+        }
+      `}</style>
       <div className="relative z-10 mx-auto w-full max-w-4xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <BackToPrevious label="← Back" fallbackHref="/settings/privacy-safety" />
-            <span className="text-slate-700 select-none">/</span>
-            <Link href="/settings" className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white">Settings</Link>
+        <div className="blocked-users-back-row mb-5 flex items-center justify-between gap-3">
+          <div className="blocked-users-back-desktop flex min-w-0 items-center gap-1.5">
+            <BackToPrevious label="Back" fallbackHref="/settings/privacy-safety" />
+            <span className="select-none text-slate-700">/</span>
+            <Link
+              href="/settings"
+              className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white"
+            >
+              Settings
+            </Link>
           </div>
+
+          <div className="blocked-users-back-mobile">
+            <BackToPrevious
+              label="Back to Privacy & Safety"
+              fallbackHref="/dashboard?menu=settings-privacy"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Blocked Users
           </span>
@@ -349,7 +376,15 @@ export default function BlockedUsersSettingsPage() {
                             }}
                           >
                             {profile?.avatar_url ? (
-                              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover object-center" />
+                                                <Image
+                    src={profile.avatar_url}
+                    alt=""
+                    width={56}
+                    height={56}
+                    sizes="56px"
+                    unoptimized
+                    className="h-full w-full object-cover object-center"
+                  />
                             ) : (
                               getInitial(profile)
                             )}
