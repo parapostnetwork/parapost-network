@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
@@ -257,6 +258,20 @@ export default function LegalSettingsPage() {
           scroll-padding-bottom: calc(9rem + env(safe-area-inset-bottom));
         }
 
+        .legal-settings-back-mobile {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .legal-settings-back-desktop {
+            display: none !important;
+          }
+
+          .legal-settings-back-mobile {
+            display: block !important;
+          }
+        }
+
         .legal-settings-page a,
         .legal-settings-page button {
           touch-action: manipulation;
@@ -398,11 +413,25 @@ export default function LegalSettingsPage() {
 
       <div className="legal-settings-inner relative z-10 mx-auto w-full max-w-4xl">
         <div className="legal-settings-topbar mb-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <BackToPrevious label={"\u2190 Back"} fallbackHref="/settings/help-support" />
-            <span className="text-slate-700 select-none">/</span>
-            <Link href="/settings" className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white">Settings</Link>
+          <div className="legal-settings-back-desktop flex min-w-0 items-center gap-1.5">
+            <BackToPrevious label="Back" fallbackHref="/settings/help-support" />
+            <span className="select-none text-slate-700">/</span>
+            <Link
+              href="/settings"
+              className="truncate text-xs font-bold text-slate-500 no-underline transition hover:text-white"
+            >
+              Settings
+            </Link>
           </div>
+
+          <div className="legal-settings-back-mobile">
+            <BackToPrevious
+              label="Back to Help & Legal"
+              fallbackHref="/dashboard?menu=settings-help"
+              alwaysUseFallback
+            />
+          </div>
+
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Legal & Policies
           </span>
@@ -501,9 +530,13 @@ export default function LegalSettingsPage() {
                 }}
               >
                 {currentProfile?.avatar_url ? (
-                  <img
+                  <Image
                     src={currentProfile.avatar_url}
                     alt=""
+                    width={64}
+                    height={64}
+                    sizes="64px"
+                    unoptimized
                     className="h-full w-full object-cover object-center"
                   />
                 ) : (
