@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { acceptFriendRequest, declineFriendRequest } from "@/lib/friends";
 
@@ -456,8 +457,8 @@ export default function FriendRequestsPage() {
             </div>
 
             <div className="friend-request-top-actions" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <Link href="/dashboard" style={secondaryLinkStyle}>
-                Back to Dashboard
+              <Link href="/dashboard?menu=friends" style={secondaryLinkStyle}>
+                Back to Friends
               </Link>
               <span style={countPillStyle}>
                 {pendingCount} pending
@@ -557,9 +558,13 @@ export default function FriendRequestsPage() {
                           }}
                         >
                           {sender?.avatar_url ? (
-                            <img
+                            <Image
                               src={sender.avatar_url}
                               alt={label}
+                              width={54}
+                              height={54}
+                              sizes="54px"
+                              unoptimized
                               style={{
                                 width: "54px",
                                 height: "54px",
