@@ -18112,102 +18112,119 @@ function ProfileStableBottomNav({
         }
 
 
-        /* FINAL Dashboard/Profile shared Reel parity */
-        @media (max-width: 1180px) {
+        /* FINAL exact Dashboard/Profile shared Reel parity */
+        .profile-shared-reel-post-card {
+          overflow: hidden !important;
+        }
+
+        .profile-shared-reel-card,
+        .profile-shared-reel-card * {
+          box-sizing: border-box !important;
+        }
+
+        .profile-shared-reel-post-card .profile-shared-reel-card {
+          display: grid !important;
+          grid-template-columns: minmax(118px, 36%) minmax(0, 1fr) !important;
+          gap: 0 !important;
+          align-items: stretch !important;
+          width: 100% !important;
+          height: auto !important;
+          min-height: 0 !important;
+          max-height: none !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+        }
+
+        .profile-shared-reel-post-card .profile-shared-reel-preview {
+          width: 100% !important;
+          min-width: 0 !important;
+          min-height: 150px !important;
+          height: 100% !important;
+          max-height: 230px !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          overflow: hidden !important;
+        }
+
+        .profile-shared-reel-post-card .profile-shared-reel-preview > div[role="img"] {
+          width: 100% !important;
+          height: 100% !important;
+          min-height: 150px !important;
+        }
+
+        .profile-shared-reel-post-card .profile-shared-reel-copy {
+          min-width: 0 !important;
+          width: auto !important;
+          max-width: none !important;
+          height: auto !important;
+          max-height: none !important;
+          overflow: hidden !important;
+          padding: 14px 15px !important;
+          justify-content: center !important;
+        }
+
+        .profile-shared-reel-title,
+        .profile-shared-reel-network {
+          overflow-wrap: anywhere !important;
+        }
+
+        @media (min-width: 1181px) {
           .profile-shared-reel-post-card .profile-shared-reel-card {
-            display: flex !important;
-            flex-direction: row !important;
-            align-items: stretch !important;
-            width: 100% !important;
-            height: 180px !important;
-            min-height: 180px !important;
-            max-height: 180px !important;
-            gap: 0 !important;
-            padding: 0 !important;
-            overflow: hidden !important;
+            grid-template-columns: minmax(150px, 31%) minmax(0, 1fr) !important;
           }
 
           .profile-shared-reel-post-card .profile-shared-reel-preview {
-            flex: 0 0 38% !important;
-            width: 38% !important;
-            min-width: 38% !important;
-            max-width: 38% !important;
-            height: 180px !important;
             min-height: 180px !important;
-            max-height: 180px !important;
-            overflow: hidden !important;
+            max-height: 230px !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .profile-shared-reel-post-card .profile-shared-reel-card {
+            grid-template-columns: minmax(138px, 34%) minmax(0, 1fr) !important;
           }
 
-          .profile-shared-reel-post-card .profile-shared-reel-copy {
-            flex: 1 1 62% !important;
-            width: 62% !important;
-            min-width: 0 !important;
-            max-width: 62% !important;
-            height: 180px !important;
-            max-height: 180px !important;
-            padding: 13px 14px !important;
-            gap: 6px !important;
-            justify-content: center !important;
-            overflow: hidden !important;
-          }
-
-          .profile-shared-reel-network {
-            display: block !important;
-            width: 100% !important;
-            white-space: nowrap !important;
+          .profile-shared-reel-post-card .profile-shared-reel-preview {
+            min-height: 170px !important;
+            max-height: 220px !important;
           }
         }
 
         @media (max-width: 760px) {
+          .profile-shared-reel-post-card {
+            padding: 13px !important;
+          }
+
           .profile-shared-reel-post-card .profile-shared-reel-card {
-            height: 168px !important;
-            min-height: 168px !important;
-            max-height: 168px !important;
+            grid-template-columns: 118px minmax(0, 1fr) !important;
+            margin-top: 10px !important;
+            border-radius: 17px !important;
           }
 
           .profile-shared-reel-post-card .profile-shared-reel-preview {
-            flex-basis: 37% !important;
-            width: 37% !important;
-            min-width: 37% !important;
-            max-width: 37% !important;
-            height: 168px !important;
-            min-height: 168px !important;
-            max-height: 168px !important;
+            min-height: 150px !important;
+            max-height: 176px !important;
           }
 
           .profile-shared-reel-post-card .profile-shared-reel-copy {
-            flex-basis: 63% !important;
-            width: 63% !important;
-            max-width: 63% !important;
-            height: 168px !important;
-            max-height: 168px !important;
-            padding: 11px 12px !important;
+            gap: 5px !important;
+            padding: 10px 11px !important;
           }
         }
 
         @media (max-width: 410px) {
           .profile-shared-reel-post-card .profile-shared-reel-card {
-            height: 154px !important;
-            min-height: 154px !important;
-            max-height: 154px !important;
+            grid-template-columns: 104px minmax(0, 1fr) !important;
           }
 
           .profile-shared-reel-post-card .profile-shared-reel-preview {
-            flex-basis: 36% !important;
-            width: 36% !important;
-            min-width: 36% !important;
-            max-width: 36% !important;
-            height: 154px !important;
-            min-height: 154px !important;
-            max-height: 154px !important;
+            min-height: 142px !important;
+            max-height: 166px !important;
           }
 
           .profile-shared-reel-post-card .profile-shared-reel-copy {
-            flex-basis: 64% !important;
-            width: 64% !important;
-            max-width: 64% !important;
-            height: 154px !important;
-            max-height: 154px !important;
             padding: 9px 10px !important;
           }
         }
