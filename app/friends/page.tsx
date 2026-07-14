@@ -2,6 +2,7 @@
 
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -292,8 +293,21 @@ export default function FriendsListPage() {
               style={searchInputStyle}
             />
 
-            <Link href="/dashboard" className="friends-pill-action" style={secondaryLinkStyle}>
+            <Link
+              href="/dashboard"
+              className="friends-pill-action friends-back-desktop"
+              style={secondaryLinkStyle}
+            >
               Back to Dashboard
+            </Link>
+
+            <Link
+              href="/dashboard?menu=main"
+              className="friends-pill-action friends-back-mobile"
+              style={secondaryLinkStyle}
+            >
+              <span aria-hidden="true">←</span>
+              <span>Back to Menu</span>
             </Link>
           </div>
 
@@ -345,7 +359,15 @@ export default function FriendsListPage() {
                       <Link href={`/profile/${friend.friendId}`} className="friends-avatar-shell" style={avatarShellStyle}>
                         <span style={avatarCropStyle}>
                           {profile?.avatar_url ? (
-                            <img src={profile.avatar_url} alt={label} style={avatarImageStyle} />
+                            <Image
+                              src={profile.avatar_url}
+                              alt={label}
+                              width={56}
+                              height={56}
+                              sizes="56px"
+                              unoptimized
+                              style={avatarImageStyle}
+                            />
                           ) : (
                             <span style={avatarFallbackStyle}>
                               {getInitial(profile?.full_name, profile?.username)}
@@ -444,6 +466,18 @@ export default function FriendsListPage() {
           transition: transform 160ms ease, filter 160ms ease, border-color 160ms ease;
         }
 
+        .friends-back-mobile {
+          display: none !important;
+          gap: 6px;
+          line-height: 1;
+        }
+
+        .friends-back-mobile > span {
+          display: inline-flex;
+          align-items: center;
+          line-height: 1;
+        }
+
         .friends-pill-action:hover,
         .friends-card-action:hover {
           transform: translateY(-1px);
@@ -452,6 +486,16 @@ export default function FriendsListPage() {
 
         .friends-search-input::placeholder {
           color: rgba(203, 213, 225, 0.70);
+        }
+
+        @media (max-width: 1024px) {
+          .friends-back-desktop {
+            display: none !important;
+          }
+
+          .friends-back-mobile {
+            display: inline-flex !important;
+          }
         }
 
         @media (max-width: 760px) {
