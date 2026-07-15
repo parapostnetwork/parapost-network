@@ -3127,6 +3127,7 @@ export default function ReelsPage() {
                       onCommentInputKeyDown={handleCommentInputKeyDown}
                       onAddComment={handleAddComment}
                       viewportType={viewportType}
+                      containedInParent={viewportType === "tablet"}
                       commentLikedMap={commentLikedMap}
                       commentLikeMap={commentLikeMap}
                       commentLikeBurstId={commentLikeBurstId}

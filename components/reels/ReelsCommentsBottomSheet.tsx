@@ -15,6 +15,7 @@ type Props = {
   subtitle?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  containedInParent?: boolean;
 };
 
 type ViewportType = "mobile" | "tablet" | "desktop";
@@ -32,6 +33,7 @@ export default function ReelsCommentsBottomSheet({
   subtitle,
   children,
   footer,
+  containedInParent = false,
 }: Props) {
   const [viewportWidth, setViewportWidth] = useState(1440);
   const [viewportHeight, setViewportHeight] = useState(900);
@@ -93,6 +95,33 @@ export default function ReelsCommentsBottomSheet({
   const isLandscapeTablet = isTablet && viewportWidth > viewportHeight;
 
   const sheetStyle = useMemo<CSSProperties>(() => {
+    if (containedInParent) {
+      return {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: "100%",
+        height: "56%",
+        minHeight: 280,
+        maxHeight: "60%",
+        transform: "none",
+        background:
+          "linear-gradient(180deg, rgba(20,20,24,0.985) 0%, rgba(11,11,14,0.99) 100%)",
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        border: "1px solid rgba(255,255,255,0.12)",
+        borderBottom: "none",
+        zIndex: 4,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        boxSizing: "border-box",
+        isolation: "isolate",
+        boxShadow: "0 -12px 32px rgba(0,0,0,0.42)",
+      };
+    }
+
     const shared: CSSProperties = {
       position: "fixed",
       left: "50%",
@@ -166,16 +195,17 @@ export default function ReelsCommentsBottomSheet({
     isTablet,
     isLandscapeTablet,
     isShortMobile,
+    containedInParent,
   ]);
 
   if (!isOpen || !mounted || typeof document === "undefined") return null;
 
-  return createPortal(
+  const content = (
     <>
       <button
         type="button"
         aria-label="Close comments"
-        style={overlayStyle}
+        style={containedInParent ? containedOverlayStyle : overlayStyle}
         onClick={onClose}
       />
 
@@ -269,10 +299,24 @@ export default function ReelsCommentsBottomSheet({
           </div>
         ) : null}
       </aside>
-    </>,
-    document.body,
+    </>
   );
+
+  return containedInParent ? content : createPortal(content, document.body);
 }
+
+const containedOverlayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  padding: 0,
+  border: "none",
+  background:
+    "linear-gradient(180deg, rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.06) 38%, rgba(0,0,0,0.30) 72%, rgba(0,0,0,0.52) 100%)",
+  zIndex: 3,
+  cursor: "default",
+};
 
 const overlayStyle: CSSProperties = {
   position: "fixed",

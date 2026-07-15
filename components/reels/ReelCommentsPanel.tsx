@@ -68,6 +68,7 @@ type ReelCommentsPanelProps = {
   onStartEditComment?: (comment: ReelComment) => void;
   onSaveEditComment?: (comment: ReelComment) => void;
   onCancelEditComment?: () => void;
+  containedInParent?: boolean;
 };
 
 const primaryButtonStyle: CSSProperties = {
@@ -194,6 +195,7 @@ export default function ReelCommentsPanel({
   onStartEditComment,
   onSaveEditComment,
   onCancelEditComment,
+  containedInParent = false,
 }: ReelCommentsPanelProps) {
   if (!isOpen) return null;
 
@@ -222,6 +224,7 @@ export default function ReelCommentsPanel({
         onClose={onClose}
         title="Comments"
         subtitle={`${getCommentCountLabel(activeComments.length)} · ${reelTitle}`}
+        containedInParent={containedInParent}
         footer={
           <div
             style={{
