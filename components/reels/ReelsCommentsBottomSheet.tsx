@@ -1,6 +1,12 @@
 "use client";
 
-import React, { CSSProperties, useEffect, useMemo, useState } from "react";
+import React, {
+  CSSProperties,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   isOpen: boolean;
@@ -15,7 +21,7 @@ type ViewportType = "mobile" | "tablet" | "desktop";
 
 function getViewportType(width: number): ViewportType {
   if (width <= 767) return "mobile";
-  if (width <= 1024) return "tablet";
+  if (width <= 1180) return "tablet";
   return "desktop";
 }
 
@@ -29,15 +35,21 @@ export default function ReelsCommentsBottomSheet({
 }: Props) {
   const [viewportWidth, setViewportWidth] = useState(1440);
   const [viewportHeight, setViewportHeight] = useState(900);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // This flag is required because createPortal can only run after the component
+    // reaches the browser. The update intentionally occurs once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+
     const setViewport = () => {
       setViewportWidth(window.innerWidth);
       setViewportHeight(window.innerHeight);
     };
 
     setViewport();
-    window.addEventListener("resize", setViewport);
+    window.addEventListener("resize", setViewport, { passive: true });
     window.addEventListener("orientationchange", setViewport);
 
     return () => {
@@ -50,9 +62,12 @@ export default function ReelsCommentsBottomSheet({
     if (!isOpen) return;
 
     const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousHtmlOverscroll =
+      document.documentElement.style.overscrollBehavior;
 
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     document.documentElement.style.overscrollBehavior = "none";
 
     const handleKey = (event: KeyboardEvent) => {
@@ -63,92 +78,101 @@ export default function ReelsCommentsBottomSheet({
 
     return () => {
       document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.documentElement.style.overscrollBehavior =
+        previousHtmlOverscroll;
       window.removeEventListener("keydown", handleKey);
     };
   }, [isOpen, onClose]);
 
   const viewportType = getViewportType(viewportWidth);
   const isDesktop = viewportType === "desktop";
+  const isTablet = viewportType === "tablet";
   const isMobile = viewportType === "mobile";
   const isShortMobile = isMobile && viewportHeight <= 700;
+  const isLandscapeTablet = isTablet && viewportWidth > viewportHeight;
 
   const sheetStyle = useMemo<CSSProperties>(() => {
+    const shared: CSSProperties = {
+      position: "fixed",
+      left: "50%",
+      right: "auto",
+      bottom: 0,
+      transform: "translate3d(-50%, 0, 0)",
+      background:
+        "linear-gradient(180deg, rgba(15,23,42,0.995) 0%, rgba(7,9,13,0.995) 100%)",
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
+      border: "1px solid rgba(255,255,255,0.12)",
+      borderBottom: "none",
+      zIndex: 2147483647,
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      boxSizing: "border-box",
+      isolation: "isolate",
+      margin: 0,
+    };
+
     if (isDesktop) {
       return {
-        position: "fixed",
-        left: "50%",
-        right: "auto",
-        bottom: 0,
-        width: "min(560px, calc(100vw - 48px))",
-        height: "min(72dvh, 720px)",
-        maxHeight: "calc(100dvh - 104px)",
-        transform: "translateX(-50%)",
-        background:
-          "linear-gradient(180deg, rgba(15,23,42,0.985) 0%, rgba(7,9,13,0.99) 100%)",
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        border: "1px solid rgba(255,255,255,0.12)",
-        borderBottom: "none",
-        zIndex: 151,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        boxShadow: "0 -24px 70px rgba(0,0,0,0.56), 0 0 44px rgba(168,85,247,0.12)",
+        ...shared,
+        width: "min(620px, calc(100vw - 48px))",
+        height: "min(74dvh, 760px)",
+        maxHeight: "calc(100dvh - 92px)",
+        boxShadow:
+          "0 -24px 70px rgba(0,0,0,0.56), 0 0 44px rgba(168,85,247,0.12)",
       };
     }
 
-    if (viewportType === "tablet") {
+    if (isTablet) {
+      const sideGap = isLandscapeTablet ? 28 : 18;
+
       return {
-        position: "fixed",
-        left: "50%",
-        right: "auto",
-        bottom: 0,
-        width: "min(760px, calc(100vw - 28px))",
-        height: "min(74dvh, 760px)",
-        maxHeight: "calc(100dvh - 86px)",
-        transform: "translateX(-50%)",
-        background:
-          "linear-gradient(180deg, rgba(15,23,42,0.99) 0%, rgba(7,9,13,0.99) 100%)",
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        border: "1px solid rgba(255,255,255,0.12)",
-        borderBottom: "none",
-        zIndex: 151,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        boxShadow: "0 -24px 60px rgba(0,0,0,0.52), 0 0 34px rgba(168,85,247,0.10)",
+        ...shared,
+        width: `min(860px, calc(100vw - ${sideGap * 2}px - env(safe-area-inset-left) - env(safe-area-inset-right)))`,
+        height: isLandscapeTablet
+          ? "min(82dvh, 720px)"
+          : "min(78dvh, 820px)",
+        maxHeight: isLandscapeTablet
+          ? "calc(100dvh - 52px - env(safe-area-inset-top))"
+          : "calc(100dvh - 70px - env(safe-area-inset-top))",
+        boxShadow:
+          "0 -24px 60px rgba(0,0,0,0.52), 0 0 34px rgba(168,85,247,0.10)",
       };
     }
 
     return {
-      position: "fixed",
+      ...shared,
       left: 0,
       right: 0,
-      bottom: 0,
+      width: "100%",
+      transform: "none",
       height: isShortMobile ? "72dvh" : "68dvh",
       maxHeight: "calc(100dvh - 72px)",
       minHeight: "min(54dvh, 520px)",
-      background:
-        "linear-gradient(180deg, rgba(15,23,42,0.995) 0%, rgba(7,9,13,0.995) 100%)",
       borderTopLeftRadius: 26,
       borderTopRightRadius: 26,
-      border: "1px solid rgba(255,255,255,0.12)",
-      borderBottom: "none",
-      zIndex: 151,
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      boxShadow: "0 -24px 60px rgba(0,0,0,0.56), 0 -1px 28px rgba(168,85,247,0.10)",
+      boxShadow:
+        "0 -24px 60px rgba(0,0,0,0.56), 0 -1px 28px rgba(168,85,247,0.10)",
     };
-  }, [isDesktop, viewportType, isShortMobile]);
+  }, [
+    isDesktop,
+    isTablet,
+    isLandscapeTablet,
+    isShortMobile,
+  ]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <>
-      <div style={overlayStyle} onClick={onClose} />
+      <button
+        type="button"
+        aria-label="Close comments"
+        style={overlayStyle}
+        onClick={onClose}
+      />
 
       <aside
         className="parapost-reels-comments-sheet"
@@ -165,27 +189,33 @@ export default function ReelsCommentsBottomSheet({
         <div
           style={{
             ...headerStyle,
-            padding: isDesktop ? "14px 18px 13px" : isMobile ? "10px 14px 11px" : "12px 18px 13px",
+            padding: isDesktop
+              ? "14px 18px 13px"
+              : isMobile
+                ? "10px 14px 11px"
+                : "13px 18px 14px",
           }}
         >
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, width: "100%" }}>
             <div style={eyebrowStyle}>Parapost Reels</div>
+
             <div style={titleRowStyle}>
               <h2
                 style={{
                   ...titleStyle,
-                  fontSize: isMobile ? 20 : titleStyle.fontSize,
+                  fontSize: isMobile ? 20 : 22,
                 }}
               >
                 {title}
               </h2>
+
               <button
                 type="button"
                 onClick={onClose}
                 style={{
                   ...closeButtonStyle,
-                  width: isMobile ? 36 : closeButtonStyle.width,
-                  height: isMobile ? 36 : closeButtonStyle.height,
+                  width: isMobile ? 36 : 40,
+                  height: isMobile ? 36 : 40,
                 }}
                 aria-label="Close comments"
               >
@@ -209,7 +239,11 @@ export default function ReelsCommentsBottomSheet({
         <div
           style={{
             ...contentStyle,
-            padding: isMobile ? "10px 12px 12px" : contentStyle.padding,
+            padding: isMobile
+              ? "10px 12px 12px"
+              : isTablet
+                ? "12px 18px 16px"
+                : contentStyle.padding,
           }}
         >
           {children}
@@ -221,24 +255,33 @@ export default function ReelsCommentsBottomSheet({
               ...footerStyle,
               padding: isMobile
                 ? "10px 12px calc(12px + env(safe-area-inset-bottom))"
-                : footerStyle.padding,
+                : isTablet
+                  ? "12px 18px calc(14px + env(safe-area-inset-bottom))"
+                  : footerStyle.padding,
             }}
           >
             {footer}
           </div>
         ) : null}
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }
 
 const overlayStyle: CSSProperties = {
   position: "fixed",
   inset: 0,
+  width: "100%",
+  height: "100%",
+  padding: 0,
+  border: "none",
   background:
     "radial-gradient(circle at center, rgba(0,0,0,0.36), rgba(0,0,0,0.72))",
   backdropFilter: "blur(5px)",
-  zIndex: 150,
+  WebkitBackdropFilter: "blur(5px)",
+  zIndex: 2147483646,
+  cursor: "default",
 };
 
 const handleWrapStyle: CSSProperties = {
@@ -258,6 +301,7 @@ const handleStyle: CSSProperties = {
 const headerStyle: CSSProperties = {
   borderBottom: "1px solid rgba(255,255,255,0.10)",
   flexShrink: 0,
+  boxSizing: "border-box",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -274,10 +318,12 @@ const titleRowStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
+  minWidth: 0,
 };
 
 const titleStyle: CSSProperties = {
   margin: 0,
+  minWidth: 0,
   color: "#fff",
   fontSize: 22,
   fontWeight: 950,
@@ -298,8 +344,8 @@ const subtitleStyle: CSSProperties = {
 };
 
 const closeButtonStyle: CSSProperties = {
-  width: 38,
-  height: 38,
+  width: 40,
+  height: 40,
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.12)",
   background: "rgba(255,255,255,0.07)",
@@ -316,17 +362,24 @@ const closeButtonStyle: CSSProperties = {
 
 const contentStyle: CSSProperties = {
   flex: 1,
+  minHeight: 0,
+  width: "100%",
   overflowY: "auto",
+  overflowX: "hidden",
   padding: "12px 16px 14px",
+  boxSizing: "border-box",
   overscrollBehavior: "contain",
   WebkitOverflowScrolling: "touch",
   touchAction: "pan-y",
 };
 
 const footerStyle: CSSProperties = {
+  width: "100%",
   padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
   borderTop: "1px solid rgba(255,255,255,0.10)",
   background: "rgba(7,9,13,0.97)",
   backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
   flexShrink: 0,
+  boxSizing: "border-box",
 };
