@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps, @next/next/no-img-element */
 "use client";
 
 import {
@@ -197,20 +198,6 @@ const overlayStyle: CSSProperties = {
   inset: 0,
   background: "rgba(0,0,0,0.64)",
   zIndex: 80,
-};
-
-const drawerStyle: CSSProperties = {
-  position: "fixed",
-  top: 0,
-  right: 0,
-  bottom: 0,
-  width: "min(430px, 100%)",
-  background: "#0b1020",
-  borderLeft: "1px solid rgba(255,255,255,0.10)",
-  zIndex: 90,
-  display: "flex",
-  flexDirection: "column",
-  boxShadow: "-16px 0 36px rgba(0,0,0,0.42)",
 };
 
 const modalWrapStyle: CSSProperties = {
@@ -532,6 +519,7 @@ export default function ProfileReelsViewerPage() {
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const heartTimeoutRef = useRef<number | null>(null);
   const playPauseFeedbackTimeoutRef = useRef<number | null>(null);
+  const playPauseFeedbackNonceRef = useRef(0);
   const initialTargetReelIdRef = useRef("");
   const hasInitialScrolledRef = useRef(false);
 
@@ -1137,7 +1125,7 @@ export default function ProfileReelsViewerPage() {
     if (viewportType === "tablet") {
       return {
         stageWidth: isTabletWide ? "min(68vw, 650px)" : "min(82vw, 590px)",
-        stageHeight: "min(88dvh, 960px)",
+        stageHeight: "min(calc(100dvh - 142px), 820px)",
         borderRadius: 30,
         showDesktopArrows: false,
         outerPadding: 18,
@@ -1172,9 +1160,7 @@ export default function ProfileReelsViewerPage() {
     isShortViewport,
     isTabletWide,
     isTinyPhone,
-    viewportHeight,
     viewportType,
-    viewportWidth,
   ]);
 
   const activeReel = useMemo(() => {
@@ -1345,7 +1331,12 @@ export default function ProfileReelsViewerPage() {
       window.clearTimeout(playPauseFeedbackTimeoutRef.current);
     }
 
-    setPlayPauseFeedback({ reelId, mode, nonce: Date.now() });
+    playPauseFeedbackNonceRef.current += 1;
+    setPlayPauseFeedback({
+      reelId,
+      mode,
+      nonce: playPauseFeedbackNonceRef.current,
+    });
 
     playPauseFeedbackTimeoutRef.current = window.setTimeout(() => {
       setPlayPauseFeedback(null);
@@ -2257,7 +2248,6 @@ export default function ProfileReelsViewerPage() {
     setReelMenu(null);
   };
 
-  const isOwnProfile = !!currentUserId && currentUserId === effectiveProfileId;
   const creatorName =
     profile?.display_name?.trim() ||
     profile?.full_name?.trim() ||
@@ -2267,15 +2257,37 @@ export default function ProfileReelsViewerPage() {
   const responsiveTopButtonStyle: CSSProperties = {
     ...buttonStyle,
     minHeight: viewportType === "mobile" ? 34 : 40,
-    padding: viewportType === "mobile" ? "7px 10px" : buttonStyle.padding,
-    fontSize: viewportType === "mobile" ? "12px" : buttonStyle.fontSize,
+    padding:
+      viewportType === "mobile"
+        ? "7px 10px"
+        : viewportType === "tablet"
+          ? "9px 13px"
+          : buttonStyle.padding,
+    fontSize:
+      viewportType === "mobile"
+        ? "12px"
+        : viewportType === "tablet"
+          ? "13px"
+          : buttonStyle.fontSize,
+    whiteSpace: "nowrap",
   };
 
   const responsiveTopLinkStyle: CSSProperties = {
     ...navLinkStyle,
     minHeight: viewportType === "mobile" ? 34 : 40,
-    padding: viewportType === "mobile" ? "7px 10px" : navLinkStyle.padding,
-    fontSize: viewportType === "mobile" ? "12px" : navLinkStyle.fontSize,
+    padding:
+      viewportType === "mobile"
+        ? "7px 10px"
+        : viewportType === "tablet"
+          ? "9px 13px"
+          : navLinkStyle.padding,
+    fontSize:
+      viewportType === "mobile"
+        ? "12px"
+        : viewportType === "tablet"
+          ? "13px"
+          : navLinkStyle.fontSize,
+    whiteSpace: "nowrap",
   };
 
   return (
@@ -2300,14 +2312,41 @@ export default function ProfileReelsViewerPage() {
         <div
           style={{
             ...topBarInnerStyle,
-            gap: viewportType === "mobile" ? "8px" : "12px",
-            alignItems:
-              viewportType === "mobile"
-                ? "flex-start"
-                : topBarInnerStyle.alignItems,
+            ...(viewportType === "mobile"
+              ? {
+                  gap: "8px",
+                  alignItems: "flex-start",
+                }
+              : viewportType === "tablet"
+                ? {
+                    width: "min(760px, calc(100vw - 32px))",
+                    margin: "0 auto",
+                    gap: "10px",
+                    flexDirection: "column",
+                    flexWrap: "nowrap",
+                    alignItems: "stretch",
+                    justifyContent: "flex-start",
+                    paddingInline: "4px",
+                  }
+                : {
+                    gap: "12px",
+                    alignItems: topBarInnerStyle.alignItems,
+                  }),
           }}
         >
-          <div style={{ paddingTop: `${stageMetrics.topHeaderPad}px` }}>
+          <div
+            style={{
+              paddingTop: `${stageMetrics.topHeaderPad}px`,
+              ...(viewportType === "tablet"
+                ? {
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    minHeight: "34px",
+                  }
+                : {}),
+            }}
+          >
             <h1
               style={{
                 margin: 0,
@@ -2328,11 +2367,26 @@ export default function ProfileReelsViewerPage() {
           <div
             style={{
               display: "flex",
-              gap: viewportType === "mobile" ? "7px" : "10px",
-              flexWrap: "wrap",
+              gap:
+                viewportType === "mobile"
+                  ? "7px"
+                  : viewportType === "tablet"
+                    ? "8px"
+                    : "10px",
+              flexWrap: viewportType === "tablet" ? "nowrap" : "wrap",
               justifyContent:
-                viewportType === "mobile" ? "flex-end" : "flex-start",
-              paddingTop: `${stageMetrics.topHeaderPad}px`,
+                viewportType === "mobile"
+                  ? "flex-end"
+                  : viewportType === "tablet"
+                    ? "flex-start"
+                    : "flex-start",
+              alignItems: "center",
+              width: viewportType === "tablet" ? "100%" : undefined,
+              minWidth: 0,
+              paddingTop:
+                viewportType === "tablet"
+                  ? 0
+                  : `${stageMetrics.topHeaderPad}px`,
             }}
           >
             <button
@@ -2645,7 +2699,11 @@ export default function ProfileReelsViewerPage() {
                 id={reel.id}
                 style={{
                   ...sectionStyle,
-                  padding: `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
+                  padding:
+                    viewportType === "tablet"
+                      ? `126px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`
+                      : `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
+                  boxSizing: "border-box",
                 }}
               >
                 <div
