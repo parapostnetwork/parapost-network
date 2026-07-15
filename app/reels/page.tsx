@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps, @next/next/no-img-element */
 "use client";
 // REELS FLOW POLISH v1 - smoother route exits, lightweight prefetch, and safer video pause behavior.
 
@@ -516,7 +517,6 @@ export default function ReelsPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
-  const [shareBoostMap, setShareBoostMap] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<ReelComment[]>(initialComments);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentLikeMap, setCommentLikeMap] = useState<Record<string, number>>({});
@@ -557,6 +557,7 @@ export default function ReelsPage() {
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const heartTimeoutRef = useRef<number | null>(null);
   const playPauseFeedbackTimeoutRef = useRef<number | null>(null);
+  const playPauseFeedbackNonceRef = useRef(0);
   const didPositionTargetReelRef = useRef(false);
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
   const commentTouchTimeRef = useRef<Record<string, number>>({});
@@ -1218,15 +1219,6 @@ export default function ReelsPage() {
     );
   }, [comments, activeReelId, hiddenCommentMap]);
 
-  const getVisibleRepliesForComment = (commentId: string) => {
-    return comments.filter(
-      (comment) =>
-        comment.reelId === activeReelId &&
-        comment.parentCommentId === commentId &&
-        !hiddenCommentMap[comment.id]
-    );
-  };
-
   const scrollToReel = (reelId: string) => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -1323,7 +1315,12 @@ export default function ReelsPage() {
       window.clearTimeout(playPauseFeedbackTimeoutRef.current);
     }
 
-    setPlayPauseFeedback({ reelId, mode, nonce: Date.now() });
+    playPauseFeedbackNonceRef.current += 1;
+    setPlayPauseFeedback({
+      reelId,
+      mode,
+      nonce: playPauseFeedbackNonceRef.current,
+    });
 
     playPauseFeedbackTimeoutRef.current = window.setTimeout(() => {
       setPlayPauseFeedback(null);
@@ -2319,7 +2316,14 @@ export default function ReelsPage() {
                   flexWrap: "nowrap",
                   alignItems: "flex-start",
                 }
-              : {}),
+              : viewportType === "tablet"
+                ? {
+                    gap: "14px",
+                    flexWrap: "nowrap",
+                    alignItems: "center",
+                    paddingInline: "4px",
+                  }
+                : {}),
           }}
         >
           <div style={{ paddingTop: `${stageMetrics.topHeaderPad}px` }}>
@@ -2339,11 +2343,13 @@ export default function ReelsPage() {
           <div
             style={{
               display: "flex",
-              gap: viewportType === "mobile" ? "6px" : "10px",
-              flexWrap: viewportType === "mobile" ? "nowrap" : "wrap",
+              gap: viewportType === "mobile" ? "6px" : viewportType === "tablet" ? "8px" : "10px",
+              flexWrap: "nowrap",
               paddingTop: `${stageMetrics.topHeaderPad}px`,
               justifyContent: "flex-end",
+              alignItems: "center",
               minWidth: 0,
+              flexShrink: 0,
             }}
           >
             <button
@@ -2354,14 +2360,26 @@ export default function ReelsPage() {
                 setDetailsReelId("");
                 setIsUploadModalOpen(true);
               }}
-              style={viewportType === "mobile" ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" } : buttonStyle}
+              style={
+                viewportType === "mobile"
+                  ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" }
+                  : viewportType === "tablet"
+                    ? { ...buttonStyle, padding: "9px 13px", fontSize: "13px", minHeight: "40px", whiteSpace: "nowrap" }
+                    : buttonStyle
+              }
             >
               {viewportType === "mobile" ? "+ Reel" : "+ Create Reel"}
             </button>
 
             <button
               onClick={() => setMuteAll((prev) => !prev)}
-              style={viewportType === "mobile" ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" } : buttonStyle}
+              style={
+                viewportType === "mobile"
+                  ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" }
+                  : viewportType === "tablet"
+                    ? { ...buttonStyle, padding: "9px 13px", fontSize: "13px", minHeight: "40px", whiteSpace: "nowrap" }
+                    : buttonStyle
+              }
             >
               {muteAll ? "Unmute" : "Mute"}
             </button>
@@ -2369,7 +2387,13 @@ export default function ReelsPage() {
             <Link
               href="/dashboard"
               onClick={prepareReelsRouteExit}
-              style={viewportType === "mobile" ? { ...navLinkStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" } : navLinkStyle}
+              style={
+                viewportType === "mobile"
+                  ? { ...navLinkStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" }
+                  : viewportType === "tablet"
+                    ? { ...navLinkStyle, padding: "9px 13px", fontSize: "13px", minHeight: "40px", whiteSpace: "nowrap" }
+                    : navLinkStyle
+              }
             >
               {viewportType === "mobile" ? "Dashboard" : "Back to Dashboard"}
             </Link>
