@@ -173,8 +173,17 @@ export default function ProfileVisibilitySettingsPage() {
   };
 
   return (
-    <main className="px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:px-6">
+    <main className="profile-visibility-page min-h-[100dvh] overflow-x-hidden px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:px-6">
       <style jsx global>{`
+        .profile-visibility-page{
+          scroll-padding-bottom:calc(8rem + env(safe-area-inset-bottom));
+        }
+
+        .profile-visibility-side-card{
+          display:flex;
+          flex-direction:column;
+        }
+
         .profile-visibility-back-mobile {
           display: none;
         }
@@ -186,6 +195,48 @@ export default function ProfileVisibilitySettingsPage() {
 
           .profile-visibility-back-mobile {
             display: block !important;
+          }
+        }
+
+        @media (max-width:430px){
+          .profile-visibility-page{
+            padding-top:max(14px,env(safe-area-inset-top)) !important;
+            padding-left:12px !important;
+            padding-right:12px !important;
+          }
+
+          .profile-visibility-back-row{
+            align-items:flex-start !important;
+          }
+
+          .profile-visibility-page h1{
+            font-size:clamp(2.25rem,11vw,3.3rem)!important;
+          }
+        }
+
+        @media (min-width:768px) and (max-width:1180px){
+          .profile-visibility-page{
+            padding-left:20px!important;
+            padding-right:20px!important;
+          }
+
+          .profile-visibility-hero-grid{
+            grid-template-columns:minmax(0,1fr) 320px!important;
+            align-items:stretch!important;
+          }
+
+          .profile-visibility-hero-grid>*{
+            height:100%!important;
+          }
+
+          .profile-visibility-side-grid{
+            display:grid!important;
+            grid-auto-rows:1fr!important;
+            gap:16px!important;
+          }
+
+          .profile-visibility-page h1 + p{
+            margin-top:24px!important;
           }
         }
       `}</style>
@@ -215,7 +266,7 @@ export default function ProfileVisibilitySettingsPage() {
           </span>
         </div>
 
-        <section className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <section className="profile-visibility-hero-grid mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
           <div
             className="rounded-[26px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[30px] sm:p-7"
             style={{
@@ -282,7 +333,7 @@ export default function ProfileVisibilitySettingsPage() {
           </div>
 
           <aside
-            className="rounded-[30px] border p-5 shadow-2xl ring-1 ring-white/[0.035]"
+            className="profile-visibility-side-card h-full rounded-[30px] border p-5 shadow-2xl ring-1 ring-white/[0.035]"
             style={{
               borderColor: "var(--parapost-accent-border)",
               background:
@@ -345,7 +396,7 @@ export default function ProfileVisibilitySettingsPage() {
           <div className="space-y-4">
             <section
               id="visibility-control"
-              className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
+              className="scroll-mt-24 rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
               style={{
                 borderColor: "var(--parapost-accent-border)",
                 background:
@@ -485,7 +536,7 @@ export default function ProfileVisibilitySettingsPage() {
             </section>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="profile-visibility-side-grid space-y-4">
             {visibilityCards.map((card) => (
               <section
                 key={card.title}
