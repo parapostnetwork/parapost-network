@@ -1135,7 +1135,7 @@ export default function ReelsPage() {
     if (viewportType === "mobile") {
       return {
         stageWidth: "100vw",
-        stageHeight: "100dvh",
+        stageHeight: "calc(100dvh - 104px)",
         borderRadius: 0,
         showDesktopArrows: false,
         outerPadding: 0,
@@ -2312,9 +2312,13 @@ export default function ReelsPage() {
             ...topBarInnerStyle,
             ...(viewportType === "mobile"
               ? {
+                  width: "calc(100vw - 20px)",
+                  margin: "0 auto",
                   gap: "8px",
+                  flexDirection: "column",
                   flexWrap: "nowrap",
-                  alignItems: "flex-start",
+                  alignItems: "stretch",
+                  justifyContent: "flex-start",
                 }
               : viewportType === "tablet"
                 ? {
@@ -2333,12 +2337,12 @@ export default function ReelsPage() {
           <div
             style={{
               paddingTop: `${stageMetrics.topHeaderPad}px`,
-              ...(viewportType === "tablet"
+              ...(viewportType === "mobile" || viewportType === "tablet"
                 ? {
                     width: "100%",
                     display: "flex",
                     alignItems: "center",
-                    minHeight: "34px",
+                    minHeight: viewportType === "mobile" ? "30px" : "34px",
                   }
                 : {}),
             }}
@@ -2361,10 +2365,19 @@ export default function ReelsPage() {
               display: "flex",
               gap: viewportType === "mobile" ? "6px" : viewportType === "tablet" ? "8px" : "10px",
               flexWrap: "nowrap",
-              paddingTop: viewportType === "tablet" ? 0 : `${stageMetrics.topHeaderPad}px`,
-              justifyContent: viewportType === "tablet" ? "flex-start" : "flex-end",
+              paddingTop:
+                viewportType === "mobile" || viewportType === "tablet"
+                  ? 0
+                  : `${stageMetrics.topHeaderPad}px`,
+              justifyContent:
+                viewportType === "mobile" || viewportType === "tablet"
+                  ? "flex-start"
+                  : "flex-end",
               alignItems: "center",
-              width: viewportType === "tablet" ? "100%" : undefined,
+              width:
+                viewportType === "mobile" || viewportType === "tablet"
+                  ? "100%"
+                  : undefined,
               minWidth: 0,
               flexShrink: 0,
             }}
@@ -2385,7 +2398,7 @@ export default function ReelsPage() {
                     : buttonStyle
               }
             >
-              {viewportType === "mobile" ? "+ Reel" : "+ Create Reel"}
+              + Create Reel
             </button>
 
             <button
@@ -2613,9 +2626,11 @@ export default function ReelsPage() {
                 style={{
                   ...sectionStyle,
                   padding:
-                    viewportType === "tablet"
-                      ? `126px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`
-                      : `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
+                    viewportType === "mobile"
+                      ? `104px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`
+                      : viewportType === "tablet"
+                        ? `126px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`
+                        : `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
                   boxSizing: "border-box",
                 }}
               >
