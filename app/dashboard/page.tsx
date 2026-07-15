@@ -9826,6 +9826,88 @@ export default function DashboardPage() {
         }
 
 
+        /* FINAL universal tablet dashboard shell correction */
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .dashboard-mobile-header {
+            display: flex !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 130 !important;
+            width: 100% !important;
+            max-width: 900px !important;
+            min-height: 62px !important;
+            margin: 0 auto 14px !important;
+            padding: max(9px, env(safe-area-inset-top)) 12px 9px !important;
+            border-radius: 20px !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+          }
+
+          .dashboard-desktop-topbar {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+          }
+
+          .dashboard-main-column {
+            width: 100% !important;
+            max-width: 900px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+
+          .dashboard-feed-tabs {
+            display: grid !important;
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            align-items: center !important;
+            gap: 5px !important;
+            width: 100% !important;
+            min-height: 58px !important;
+            margin: 12px 0 !important;
+            padding: 5px !important;
+            border-radius: 18px !important;
+            overflow: hidden !important;
+          }
+
+          .dashboard-feed-tabs > a,
+          .dashboard-feed-tabs > button {
+            width: 100% !important;
+            min-width: 0 !important;
+            height: 46px !important;
+            min-height: 46px !important;
+            padding: 0 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: clamp(13px, 1.8vw, 15px) !important;
+            line-height: 1 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 900px) {
+          .dashboard-mobile-header {
+            max-width: 760px !important;
+          }
+
+          .dashboard-feed-tabs {
+            min-height: 56px !important;
+          }
+
+          .dashboard-feed-tabs > a,
+          .dashboard-feed-tabs > button {
+            height: 44px !important;
+            min-height: 44px !important;
+          }
+        }
+
+
         /* === Dashboard clean-lines polish: no redesign, smoother overall feel === */
         .dashboard-grid-desktop-safe,
         .dashboard-main-column,
@@ -11395,7 +11477,7 @@ function ComposerActionPill({
 
 function FeedTabs({ feedMode, setFeedMode }: { feedMode: FeedMode; setFeedMode: (mode: FeedMode) => void }) {
   return (
-    <div className="dashboard-card" style={feedTabsStyle}>
+    <div className="dashboard-card dashboard-feed-tabs" style={feedTabsStyle}>
       <FeedTab label="For You" active={feedMode === "for_you"} onClick={() => setFeedMode("for_you")} />
       <FeedTab label="Friends" active={feedMode === "friends"} onClick={() => setFeedMode("friends")} />
       <FeedTab label="Following" active={feedMode === "following"} onClick={() => setFeedMode("following")} />
