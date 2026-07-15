@@ -126,24 +126,24 @@ export default function ReelsCommentsBottomSheet({
     }
 
     if (isTablet) {
-      const sideGap = isLandscapeTablet ? 34 : 24;
-
       return {
         ...shared,
         top: "50%",
         bottom: "auto",
-        width: `min(760px, calc(100vw - ${sideGap * 2}px - env(safe-area-inset-left) - env(safe-area-inset-right)))`,
+        width: isLandscapeTablet
+          ? "min(620px, calc(100vw - 96px))"
+          : "min(590px, calc(100vw - 72px))",
         height: isLandscapeTablet
-          ? "min(72dvh, 650px)"
-          : "min(70dvh, 720px)",
+          ? "min(72dvh, 620px)"
+          : "min(70dvh, 680px)",
         maxHeight: isLandscapeTablet
-          ? "calc(100dvh - 88px - env(safe-area-inset-top) - env(safe-area-inset-bottom))"
-          : "calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom))",
+          ? "calc(100dvh - 72px)"
+          : "calc(100dvh - 96px)",
         transform: "translate3d(-50%, -50%, 0)",
         borderRadius: 28,
         borderBottom: "1px solid rgba(255,255,255,0.12)",
         boxShadow:
-          "0 24px 70px rgba(0,0,0,0.58), 0 0 36px rgba(168,85,247,0.12)",
+          "0 24px 70px rgba(0,0,0,0.58), 0 0 34px rgba(168,85,247,0.12)",
       };
     }
 
