@@ -472,7 +472,7 @@ export default function ProfileSettingsPage() {
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div
-            className="rounded-[30px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-6"
+            className="profile-settings-main-card scroll-mt-24 rounded-[30px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-6"
             style={{
               borderColor: "var(--parapost-accent-border)",
               background: "linear-gradient(135deg, rgba(255,255,255,0.065), rgba(15,23,42,0.68))",
@@ -617,9 +617,9 @@ export default function ProfileSettingsPage() {
             </div>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="profile-settings-side-grid space-y-4">
             <section
-              className="rounded-[26px] border p-5 shadow-xl"
+              className="profile-settings-side-card h-full rounded-[26px] border p-5 shadow-xl"
               style={{
                 borderColor: "var(--parapost-accent-border)",
                 background: "linear-gradient(135deg, var(--parapost-accent-muted-bg), rgba(255,255,255,0.045), rgba(15,23,42,0.52))",
@@ -652,7 +652,7 @@ export default function ProfileSettingsPage() {
             </section>
 
             <section
-              className="rounded-[26px] border p-5 shadow-xl"
+              className="profile-settings-side-card h-full rounded-[26px] border p-5 shadow-xl"
               style={{
                 borderColor: "var(--parapost-accent-border)",
                 background: "linear-gradient(135deg, var(--parapost-accent-muted-bg), rgba(255,255,255,0.045), rgba(15,23,42,0.52))",
@@ -686,7 +686,7 @@ export default function ProfileSettingsPage() {
 
       <style jsx global>{`
         .profile-settings-root {
-          min-height: 100svh !important;
+          min-height: 100dvh !important;
           height: auto !important;
           overflow-y: visible !important;
           overflow-x: hidden !important;
@@ -697,9 +697,47 @@ export default function ProfileSettingsPage() {
           padding-bottom: calc(9.5rem + env(safe-area-inset-bottom)) !important;
         }
 
+        .profile-settings-side-card {
+          display: flex;
+          flex-direction: column;
+        }
+
         @media (min-width: 1024px) {
           .profile-settings-root {
             min-height: 0 !important;
+          }
+
+          .profile-settings-side-grid {
+            display: grid !important;
+            grid-auto-rows: 1fr !important;
+            gap: 16px !important;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1180px) {
+          .profile-settings-root {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+            padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
+          }
+
+          .profile-settings-hero-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: stretch !important;
+          }
+
+          .profile-settings-hero-grid > * {
+            height: 100% !important;
+          }
+
+          .profile-settings-side-grid {
+            display: grid !important;
+            grid-auto-rows: 1fr !important;
+            gap: 16px !important;
+          }
+
+          .profile-settings-root h1 + p {
+            margin-top: 24px !important;
           }
         }
 
@@ -712,7 +750,7 @@ export default function ProfileSettingsPage() {
           .profile-settings-root {
             padding-left: 12px !important;
             padding-right: 12px !important;
-            padding-top: 18px !important;
+            padding-top: max(14px, env(safe-area-inset-top)) !important;
           }
 
           .profile-settings-root h1 {
