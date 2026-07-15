@@ -220,7 +220,7 @@ export default function PrivacySafetySettingsPage() {
 
   return (
     <main
-      className="privacy-safety-settings-page min-h-svh touch-pan-y overflow-x-hidden px-3 py-5 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:min-h-0 lg:px-6"
+      className="privacy-safety-settings-page min-h-[100dvh] touch-pan-y overflow-x-hidden px-3 py-5 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:min-h-0 lg:px-6"
       style={{
         WebkitOverflowScrolling: "touch",
         overscrollBehaviorY: "auto",
@@ -229,8 +229,17 @@ export default function PrivacySafetySettingsPage() {
       }}
     >
       <style jsx global>{`
+        .privacy-safety-settings-page {
+          scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+        }
+
         .privacy-safety-back-mobile {
           display: none;
+        }
+
+        .privacy-safety-action-card {
+          display: flex;
+          flex-direction: column;
         }
 
         @media (max-width: 1024px) {
@@ -240,6 +249,62 @@ export default function PrivacySafetySettingsPage() {
 
           .privacy-safety-back-mobile {
             display: block !important;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .privacy-safety-settings-page {
+            padding-top: max(14px, env(safe-area-inset-top)) !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+
+          .privacy-safety-back-row {
+            align-items: flex-start !important;
+          }
+
+          .privacy-safety-settings-page h1 {
+            font-size: clamp(2.2rem, 11vw, 3.35rem) !important;
+            line-height: 0.96 !important;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1180px) {
+          .privacy-safety-settings-page {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+            padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
+          }
+
+          .privacy-safety-hero-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: stretch !important;
+          }
+
+          .privacy-safety-hero-grid > * {
+            height: 100% !important;
+          }
+
+          .privacy-safety-content-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: start !important;
+          }
+
+          .privacy-safety-action-grid {
+            display: grid !important;
+            grid-auto-rows: 1fr !important;
+            gap: 16px !important;
+          }
+
+          .privacy-safety-settings-page h1 + p {
+            margin-top: 24px !important;
+          }
+        }
+
+        @media (max-height: 720px) and (max-width: 980px) {
+          .privacy-safety-settings-page {
+            padding-top: max(12px, env(safe-area-inset-top)) !important;
+            padding-bottom: calc(7rem + env(safe-area-inset-bottom)) !important;
           }
         }
       `}</style>
@@ -263,7 +328,7 @@ export default function PrivacySafetySettingsPage() {
           </span>
         </div>
 
-        <section className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <section className="privacy-safety-hero-grid mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
           <div
             className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[30px] sm:p-7"
             style={{
@@ -392,9 +457,9 @@ export default function PrivacySafetySettingsPage() {
           </aside>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="privacy-safety-content-grid grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
           <div className="space-y-4">
-            <section id="safety-contact" className="rounded-[24px] border border-purple-200/15 bg-white/[0.055] p-4 shadow-2xl sm:rounded-[28px] sm:p-6">
+            <section id="safety-contact" className="scroll-mt-24 rounded-[24px] border border-purple-200/15 bg-white/[0.055] p-4 shadow-2xl sm:rounded-[28px] sm:p-6">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-purple-200">
@@ -495,10 +560,10 @@ export default function PrivacySafetySettingsPage() {
             </section>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="privacy-safety-action-grid space-y-4">
             {primarySafetyActions.map((card) => (
-              <Link key={card.title} href={card.href} className="block text-white no-underline">
-                <section className="rounded-[22px] border border-purple-200/15 bg-white/[0.045] p-4 shadow-xl transition hover:bg-white/[0.065] sm:rounded-[26px] sm:p-5">
+              <Link key={card.title} href={card.href} className="privacy-safety-action-link block h-full text-white no-underline">
+                <section className="privacy-safety-action-card h-full rounded-[22px] border border-purple-200/15 bg-white/[0.045] p-4 shadow-xl transition hover:bg-white/[0.065] sm:rounded-[26px] sm:p-5">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <span className="text-[11px] font-black uppercase tracking-[0.16em] text-purple-200">
                       {card.status}
