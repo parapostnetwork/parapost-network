@@ -276,7 +276,7 @@ export default function NotificationSettingsPage() {
 
   return (
     <main
-      className="notification-settings-page min-h-svh touch-pan-y overflow-x-hidden px-3 py-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:min-h-0 lg:px-6"
+      className="notification-settings-page min-h-[100dvh] touch-pan-y overflow-x-hidden px-3 py-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:min-h-0 lg:px-6"
       style={{
         WebkitOverflowScrolling: "touch",
         overscrollBehaviorY: "auto",
@@ -285,8 +285,18 @@ export default function NotificationSettingsPage() {
       }}
     >
       <style jsx global>{`
+        .notification-settings-page {
+          scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+        }
+
         .notification-settings-back-mobile {
           display: none;
+        }
+
+        .notification-preference-card,
+        .notification-info-card {
+          display: flex;
+          flex-direction: column;
         }
 
         @media (max-width: 1024px) {
@@ -296,6 +306,68 @@ export default function NotificationSettingsPage() {
 
           .notification-settings-back-mobile {
             display: block !important;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .notification-settings-page {
+            padding-top: max(14px, env(safe-area-inset-top)) !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+
+          .notification-settings-back-row {
+            align-items: flex-start !important;
+          }
+
+          .notification-settings-page h1 {
+            font-size: clamp(2.2rem, 11vw, 3.35rem) !important;
+            line-height: 0.96 !important;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1180px) {
+          .notification-settings-page {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+            padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
+          }
+
+          .notification-settings-hero-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: stretch !important;
+          }
+
+          .notification-settings-hero-grid > * {
+            height: 100% !important;
+          }
+
+          .notification-settings-content-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: start !important;
+          }
+
+          .notification-settings-info-grid {
+            display: grid !important;
+            grid-auto-rows: 1fr !important;
+            gap: 16px !important;
+          }
+
+          .notification-settings-page h1 + p {
+            margin-top: 24px !important;
+          }
+        }
+
+        @media (min-width: 640px) {
+          .notification-preference-card {
+            min-height: 170px;
+          }
+        }
+
+        @media (max-height: 720px) and (max-width: 980px) {
+          .notification-settings-page {
+            padding-top: max(12px, env(safe-area-inset-top)) !important;
+            padding-bottom: calc(7rem + env(safe-area-inset-bottom)) !important;
           }
         }
       `}</style>
@@ -319,7 +391,7 @@ export default function NotificationSettingsPage() {
           </span>
         </div>
 
-        <section className="mb-4 grid gap-4 sm:mb-5 lg:grid-cols-[minmax(0,1fr)_330px]">
+        <section className="notification-settings-hero-grid mb-4 grid gap-4 sm:mb-5 lg:grid-cols-[minmax(0,1fr)_330px]">
           <div
             className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[30px] sm:p-7"
             style={{
@@ -432,11 +504,11 @@ export default function NotificationSettingsPage() {
           </aside>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="notification-settings-content-grid grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
           <div className="space-y-4">
             <section
               id="notification-preferences"
-              className="rounded-[24px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-4 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
+              className="scroll-mt-24 rounded-[24px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-4 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
             >
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -466,7 +538,7 @@ export default function NotificationSettingsPage() {
                   return (
                     <div
                       key={item.key}
-                      className="rounded-[20px] border border-purple-200/15 bg-black/25 p-4 sm:rounded-[24px]"
+                      className="notification-preference-card h-full rounded-[20px] border border-purple-200/15 bg-black/25 p-4 sm:rounded-[24px]"
                     >
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
@@ -608,11 +680,11 @@ export default function NotificationSettingsPage() {
             </section>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="notification-settings-info-grid space-y-4">
             {notificationInfoCards.map((card) => (
-              <Link key={card.title} href={card.href} className="block text-white no-underline">
+              <Link key={card.title} href={card.href} className="notification-info-link block h-full text-white no-underline">
                 <section
-                  className="rounded-[22px] border p-4 shadow-xl transition hover:bg-white/[0.065] sm:rounded-[26px] sm:p-5"
+                  className="notification-info-card h-full rounded-[22px] border p-4 shadow-xl transition hover:bg-white/[0.065] sm:rounded-[26px] sm:p-5"
                   style={{
                     borderColor: "var(--parapost-accent-border)",
                     background:
