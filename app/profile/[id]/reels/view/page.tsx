@@ -2314,8 +2314,13 @@ export default function ProfileReelsViewerPage() {
             ...topBarInnerStyle,
             ...(viewportType === "mobile"
               ? {
+                  width: "auto",
+                  margin: 0,
                   gap: "8px",
+                  flexDirection: "column",
+                  flexWrap: "nowrap",
                   alignItems: "flex-start",
+                  justifyContent: "flex-start",
                 }
               : viewportType === "tablet"
                 ? {
@@ -2337,12 +2342,12 @@ export default function ProfileReelsViewerPage() {
           <div
             style={{
               paddingTop: `${stageMetrics.topHeaderPad}px`,
-              ...(viewportType === "tablet"
+              ...(viewportType === "mobile" || viewportType === "tablet"
                 ? {
                     width: "100%",
                     display: "flex",
                     alignItems: "center",
-                    minHeight: "34px",
+                    minHeight: viewportType === "mobile" ? "30px" : "34px",
                   }
                 : {}),
             }}
@@ -2373,18 +2378,22 @@ export default function ProfileReelsViewerPage() {
                   : viewportType === "tablet"
                     ? "8px"
                     : "10px",
-              flexWrap: viewportType === "tablet" ? "nowrap" : "wrap",
+              flexWrap:
+                viewportType === "mobile" || viewportType === "tablet"
+                  ? "nowrap"
+                  : "wrap",
               justifyContent:
-                viewportType === "mobile"
-                  ? "flex-end"
-                  : viewportType === "tablet"
-                    ? "flex-start"
-                    : "flex-start",
+                viewportType === "mobile" || viewportType === "tablet"
+                  ? "flex-start"
+                  : "flex-start",
               alignItems: "center",
-              width: viewportType === "tablet" ? "100%" : undefined,
+              width:
+                viewportType === "mobile" || viewportType === "tablet"
+                  ? "100%"
+                  : undefined,
               minWidth: 0,
               paddingTop:
-                viewportType === "tablet"
+                viewportType === "mobile" || viewportType === "tablet"
                   ? 0
                   : `${stageMetrics.topHeaderPad}px`,
             }}
@@ -2700,9 +2709,11 @@ export default function ProfileReelsViewerPage() {
                 style={{
                   ...sectionStyle,
                   padding:
-                    viewportType === "tablet"
-                      ? `126px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`
-                      : `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
+                    viewportType === "mobile"
+                      ? `0px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`
+                      : viewportType === "tablet"
+                        ? `126px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`
+                        : `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
                   boxSizing: "border-box",
                 }}
               >
