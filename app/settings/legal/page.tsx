@@ -250,12 +250,17 @@ export default function LegalSettingsPage() {
   ).length;
 
   return (
-    <main className="legal-settings-page px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-6">
+    <main className="legal-settings-page relative min-h-[100dvh] overflow-x-hidden px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-6">
       <style jsx global>{`
         .legal-settings-page {
-          -webkit-overflow-scrolling: touch;
-          overscroll-behavior-y: contain;
+          min-height: 100dvh;
+          overflow-y: visible;
           scroll-padding-bottom: calc(9rem + env(safe-area-inset-bottom));
+        }
+
+        html,
+        body {
+          min-height: 100%;
         }
 
         .legal-settings-back-mobile {
@@ -356,6 +361,15 @@ export default function LegalSettingsPage() {
             grid-template-columns: 1fr !important;
           }
 
+          .legal-settings-page,
+          .legal-settings-inner,
+          .legal-settings-hero,
+          .legal-settings-content-grid {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+          }
+
           .legal-settings-policy-card {
             border-radius: 22px !important;
             padding: 16px !important;
@@ -373,6 +387,9 @@ export default function LegalSettingsPage() {
 
           .legal-settings-inner {
             max-width: 900px !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
           }
 
           .legal-settings-hero,
@@ -587,7 +604,7 @@ export default function LegalSettingsPage() {
           <div className="space-y-4">
             <section
               id="policy-areas"
-              className="legal-settings-policy-shell rounded-[28px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-6"
+              className="legal-settings-policy-shell scroll-mt-24 rounded-[28px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-6"
               style={{
                 borderColor: "var(--parapost-accent-border)",
                 background:
