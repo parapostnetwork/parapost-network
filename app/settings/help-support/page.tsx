@@ -245,10 +245,20 @@ export default function HelpSupportSettingsPage() {
   };
 
   return (
-    <main className="px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6">
+    <main className="help-support-page min-h-[100dvh] overflow-x-hidden px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6">
       <style jsx global>{`
+        .help-support-page {
+          scroll-padding-bottom: calc(9rem + env(safe-area-inset-bottom));
+        }
+
         .help-support-back-mobile {
           display: none;
+        }
+
+        .help-support-quick-card {
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
         }
 
         @media (max-width: 1024px) {
@@ -258,6 +268,54 @@ export default function HelpSupportSettingsPage() {
 
           .help-support-back-mobile {
             display: block !important;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .help-support-page {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            padding-top: max(14px, env(safe-area-inset-top)) !important;
+          }
+
+          .help-support-back-row {
+            align-items: flex-start !important;
+          }
+
+          .help-support-hero-title {
+            font-size: clamp(34px, 11vw, 44px) !important;
+            line-height: 0.98 !important;
+            letter-spacing: -0.05em !important;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1180px) {
+          .help-support-page {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+            padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
+          }
+
+          .help-support-content-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: start !important;
+          }
+
+          .help-support-quick-links {
+            display: grid !important;
+            grid-auto-rows: 1fr !important;
+            gap: 16px !important;
+          }
+
+          .help-support-safety > div {
+            gap: 14px !important;
+          }
+        }
+
+        @media (max-height: 720px) and (max-width: 980px) {
+          .help-support-page {
+            padding-top: max(12px, env(safe-area-inset-top)) !important;
+            padding-bottom: calc(7rem + env(safe-area-inset-bottom)) !important;
           }
         }
       `}</style>
@@ -297,7 +355,7 @@ export default function HelpSupportSettingsPage() {
               Help & Support
             </p>
 
-            <h1 className="max-w-3xl text-3xl font-black leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
+            <h1 className="help-support-hero-title max-w-3xl text-3xl font-black leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
               Get help with your Parapost Network account.
             </h1>
 
@@ -394,11 +452,11 @@ export default function HelpSupportSettingsPage() {
           </aside>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="help-support-content-grid grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
           <div className="space-y-4 min-w-0">
             <section
               id="support-form"
-              className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
+              className="scroll-mt-24 rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
               style={{
                 borderColor: "var(--parapost-accent-border)",
                 background:
@@ -496,7 +554,7 @@ export default function HelpSupportSettingsPage() {
               </form>
             </section>
 
-            <section className="rounded-[28px] border border-amber-300/20 bg-amber-400/10 p-5 shadow-2xl shadow-amber-950/10 sm:p-6">
+            <section className="help-support-safety rounded-[28px] border border-amber-300/20 bg-amber-400/10 p-5 shadow-2xl shadow-amber-950/10 sm:p-6">
               <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100">
                 Support Safety
               </p>
@@ -514,7 +572,7 @@ export default function HelpSupportSettingsPage() {
             </section>
           </div>
 
-          <aside className="space-y-4 min-w-0">
+          <aside className="help-support-quick-links min-w-0 space-y-4">
             {canSeeAdminSupport ? (
               <Link href="/admin/support" className="block text-white no-underline">
                 <section className="rounded-[26px] border border-emerald-300/20 bg-emerald-400/10 p-5 shadow-xl transition hover:bg-emerald-400/15">
@@ -538,7 +596,7 @@ export default function HelpSupportSettingsPage() {
             {quickHelpCards.map((card) => (
               <Link key={card.title} href={card.href} className="block text-white no-underline">
                 <section
-                  className="rounded-[24px] border p-4 shadow-xl transition hover:bg-white/[0.06] sm:rounded-[26px] sm:p-5"
+                  className="help-support-quick-card h-full rounded-[24px] border p-4 shadow-xl transition hover:bg-white/[0.06] sm:rounded-[26px] sm:p-5"
                   style={{
                     borderColor: "var(--parapost-accent-border)",
                     background:
