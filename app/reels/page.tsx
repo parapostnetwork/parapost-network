@@ -1161,7 +1161,7 @@ export default function ReelsPage() {
 
       return {
         stageWidth: isNarrowTablet ? "min(88vw, 560px)" : "min(72vw, 620px)",
-        stageHeight: "min(88dvh, 960px)",
+        stageHeight: "min(calc(100dvh - 142px), 820px)",
         borderRadius: 30,
         showDesktopArrows: false,
         outerPadding: isNarrowTablet ? 14 : 20,
@@ -2318,15 +2318,31 @@ export default function ReelsPage() {
                 }
               : viewportType === "tablet"
                 ? {
-                    gap: "14px",
+                    width: "min(760px, calc(100vw - 32px))",
+                    margin: "0 auto",
+                    gap: "10px",
+                    flexDirection: "column",
                     flexWrap: "nowrap",
-                    alignItems: "center",
+                    alignItems: "stretch",
+                    justifyContent: "flex-start",
                     paddingInline: "4px",
                   }
                 : {}),
           }}
         >
-          <div style={{ paddingTop: `${stageMetrics.topHeaderPad}px` }}>
+          <div
+            style={{
+              paddingTop: `${stageMetrics.topHeaderPad}px`,
+              ...(viewportType === "tablet"
+                ? {
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    minHeight: "34px",
+                  }
+                : {}),
+            }}
+          >
             <h1
               style={{
                 margin: 0,
@@ -2345,9 +2361,10 @@ export default function ReelsPage() {
               display: "flex",
               gap: viewportType === "mobile" ? "6px" : viewportType === "tablet" ? "8px" : "10px",
               flexWrap: "nowrap",
-              paddingTop: `${stageMetrics.topHeaderPad}px`,
-              justifyContent: "flex-end",
+              paddingTop: viewportType === "tablet" ? 0 : `${stageMetrics.topHeaderPad}px`,
+              justifyContent: viewportType === "tablet" ? "flex-start" : "flex-end",
               alignItems: "center",
+              width: viewportType === "tablet" ? "100%" : undefined,
               minWidth: 0,
               flexShrink: 0,
             }}
@@ -2595,7 +2612,11 @@ export default function ReelsPage() {
                 id={reel.id}
                 style={{
                   ...sectionStyle,
-                  padding: `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
+                  padding:
+                    viewportType === "tablet"
+                      ? `126px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`
+                      : `${stageMetrics.topOffset}px ${stageMetrics.outerPadding}px ${stageMetrics.outerPadding}px`,
+                  boxSizing: "border-box",
                 }}
               >
                 <ReelCard
