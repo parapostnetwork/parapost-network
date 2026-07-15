@@ -269,7 +269,7 @@ export default function AccountSecuritySettingsPage() {
           </span>
         </div>
 
-        <section className="mb-4 grid gap-4 sm:mb-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="account-settings-hero-grid mb-4 grid gap-4 sm:mb-5 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div
             className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[30px] sm:p-7"
             style={{
@@ -426,7 +426,7 @@ export default function AccountSecuritySettingsPage() {
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-4">
             <section
-              className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
+              className="scroll-mt-24 rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
               style={{
                 borderColor: "var(--parapost-accent-border)",
                 background:
@@ -455,9 +455,9 @@ export default function AccountSecuritySettingsPage() {
                 </span>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="account-security-card-grid grid gap-3 sm:grid-cols-2">
                 {accountControls.map((card) => (
-                  <article key={card.title} className="rounded-[20px] border border-white/10 bg-black/25 p-4 sm:rounded-[24px]">
+                  <article key={card.title} className="account-security-card h-full rounded-[20px] border border-white/10 bg-black/25 p-4 sm:rounded-[24px]">
                     <span
                       className="rounded-full border px-2.5 py-1 text-[11px] font-black"
                       style={{
@@ -552,10 +552,10 @@ export default function AccountSecuritySettingsPage() {
               </p>
               <h3 className="text-lg font-black tracking-[-0.02em]">Account help and data tools</h3>
 
-              <div className="mt-4 grid gap-3">
+              <div className="account-related-card-grid mt-4 grid gap-3">
                 <Link
                   href="/settings/data"
-                  className="block rounded-2xl border border-white/10 bg-black/25 p-4 text-white no-underline transition hover:bg-white/[0.06]"
+                  className="account-related-card block h-full rounded-2xl border border-white/10 bg-black/25 p-4 text-white no-underline transition hover:bg-white/[0.06]"
                 >
                   <strong className="block text-sm font-black">Data & Account</strong>
                   <span className="mt-1 block text-xs leading-5 text-slate-400">
@@ -565,7 +565,7 @@ export default function AccountSecuritySettingsPage() {
 
                 <Link
                   href="/settings/help-support"
-                  className="block rounded-2xl border border-white/10 bg-black/25 p-4 text-white no-underline transition hover:bg-white/[0.06]"
+                  className="account-related-card block h-full rounded-2xl border border-white/10 bg-black/25 p-4 text-white no-underline transition hover:bg-white/[0.06]"
                 >
                   <strong className="block text-sm font-black">Account Support</strong>
                   <span className="mt-1 block text-xs leading-5 text-slate-400">
@@ -576,7 +576,7 @@ export default function AccountSecuritySettingsPage() {
                 {canSeeAdminSupport ? (
                   <Link
                     href="/admin/support"
-                    className="block rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-4 text-emerald-100 no-underline transition hover:bg-emerald-400/15"
+                    className="account-related-card block h-full rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-4 text-emerald-100 no-underline transition hover:bg-emerald-400/15"
                   >
                     <strong className="block text-sm font-black">Admin Support Inbox</strong>
                     <span className="mt-1 block text-xs leading-5 text-emerald-100/75">
@@ -612,11 +612,23 @@ export default function AccountSecuritySettingsPage() {
           }
         }
 
+        .account-security-card,
+        .account-related-card {
+          display: flex;
+          flex-direction: column;
+        }
+
         @media (max-width: 1023px) {
           .account-settings-page {
-            min-height: 100svh;
+            min-height: 100dvh;
             height: auto;
             overflow-y: visible;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .account-settings-page {
+            padding-top: max(14px, env(safe-area-inset-top)) !important;
           }
         }
 
@@ -634,6 +646,39 @@ export default function AccountSecuritySettingsPage() {
           .account-settings-page button,
           .account-settings-page a {
             min-height: 42px;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1180px) {
+          .account-settings-page {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+            padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
+          }
+
+          .account-settings-hero-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: stretch !important;
+          }
+
+          .account-settings-hero-grid > * {
+            height: 100% !important;
+          }
+
+          .account-security-card-grid {
+            grid-auto-rows: 1fr !important;
+          }
+
+          .account-related-card-grid {
+            grid-auto-rows: 1fr !important;
+          }
+
+          .account-settings-page h1 + p {
+            margin-top: 24px !important;
+          }
+
+          .account-settings-page h1 + p + div {
+            margin-top: 28px !important;
           }
         }
 
