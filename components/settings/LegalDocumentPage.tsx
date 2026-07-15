@@ -29,12 +29,16 @@ export default function LegalDocumentPage({
   sections,
 }: LegalDocumentPageProps) {
   return (
-    <main className="legal-document-page h-dvh min-h-dvh overflow-y-auto overflow-x-hidden overscroll-y-contain bg-[#05050b] px-4 py-6 pb-[calc(8rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-8">
+    <main className="legal-document-page relative min-h-[100dvh] overflow-x-hidden bg-[#05050b] px-4 py-6 pb-[calc(8rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-8">
       <style>{`
         .legal-document-page {
-          -webkit-overflow-scrolling: touch;
-          overscroll-behavior-y: contain;
+          min-height: 100dvh;
           scroll-padding-bottom: calc(9rem + env(safe-area-inset-bottom));
+        }
+
+        html,
+        body {
+          min-height: 100%;
         }
 
         .legal-document-page a,
@@ -82,7 +86,7 @@ export default function LegalDocumentPage({
           }
 
           .legal-document-navigation {
-            position: static !important;
+            display: none !important;
           }
         }
 
@@ -94,17 +98,17 @@ export default function LegalDocumentPage({
       `}</style>
 
       <div
-        className="pointer-events-none fixed -right-28 -top-28 h-96 w-96 rounded-full blur-3xl"
+        className="pointer-events-none absolute -right-28 -top-28 h-96 w-96 rounded-full blur-3xl"
         style={{ background: "var(--parapost-accent-soft)" }}
       />
 
       <div
-        className="pointer-events-none fixed left-1/2 top-24 h-80 w-80 -translate-x-1/2 rounded-full blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-24 h-80 w-80 -translate-x-1/2 rounded-full blur-3xl"
         style={{ background: "var(--parapost-accent-muted-bg)" }}
       />
 
       <div
-        className="pointer-events-none fixed -bottom-28 -left-28 h-96 w-96 rounded-full blur-3xl"
+        className="pointer-events-none absolute -bottom-28 -left-28 h-96 w-96 rounded-full blur-3xl"
         style={{ background: "var(--parapost-accent-soft)" }}
       />
 
@@ -195,8 +199,8 @@ export default function LegalDocumentPage({
                     id={sectionId}
                     className={
                       sectionIndex === 0
-                        ? "scroll-mt-6"
-                        : "scroll-mt-6 border-t border-purple-200/15 pt-8"
+                        ? "scroll-mt-24"
+                        : "scroll-mt-24 border-t border-purple-200/15 pt-8"
                     }
                   >
                     <h2 className="text-xl font-black tracking-[-0.025em] sm:text-2xl">
