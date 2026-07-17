@@ -274,10 +274,30 @@ export default function DataAccountSettingsPage() {
   };
 
   return (
-    <main className="px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-6 max-[480px]:px-3 max-[480px]:py-4 max-[480px]:pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
+    <main className="data-account-page min-h-[100dvh] overflow-x-hidden px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-6 max-[480px]:px-3 max-[480px]:py-4 max-[480px]:pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
       <style jsx global>{`
+        .data-account-page{
+          min-height:100dvh;
+          overflow-x:hidden;
+          -webkit-overflow-scrolling:touch;
+          scrollbar-gutter:stable;
+        }
+
         .data-account-back-mobile {
           display: none;
+        }
+
+        @media (max-width:640px){
+          .data-account-page{
+            padding-top:max(14px,env(safe-area-inset-top)) !important;
+          }
+        }
+
+        @media (min-width:641px) and (max-width:1180px){
+          .data-account-hero-grid{grid-template-columns:minmax(0,1fr) 320px!important;}
+          .data-account-content-grid{grid-template-columns:minmax(0,1fr) 320px!important;align-items:start!important;}
+          .data-account-info-grid{display:grid!important;grid-auto-rows:auto!important;gap:16px!important;}
+          .data-account-info-grid>*{height:auto!important;min-height:0!important;}
         }
 
         @media (max-width: 1024px) {
@@ -316,7 +336,7 @@ export default function DataAccountSettingsPage() {
           </span>
         </div>
 
-        <section className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+        <section className="data-account-hero-grid mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
           <div
             className="rounded-[30px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-7 max-[480px]:rounded-[24px] max-[480px]:p-4"
             style={{
@@ -440,11 +460,11 @@ export default function DataAccountSettingsPage() {
           </aside>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px] max-[480px]:gap-3">
+        <section className="data-account-content-grid grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px] max-[480px]:gap-3">
           <div className="space-y-4 max-[480px]:space-y-3">
             <section
               id="data-request"
-              className="rounded-[28px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-6 max-[480px]:rounded-[24px] max-[480px]:p-4"
+              className="scroll-mt-24 rounded-[28px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-6 max-[480px]:rounded-[24px] max-[480px]:p-4"
               style={{
                 borderColor: "var(--parapost-accent-border)",
                 background:
@@ -590,7 +610,7 @@ export default function DataAccountSettingsPage() {
             </section>
           </div>
 
-          <aside className="space-y-4 max-[480px]:space-y-3">
+          <aside className="data-account-info-grid space-y-4 max-[480px]:space-y-3">
             {accountDataCards.map((card) => {
               const content = (
                 <section
