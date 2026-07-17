@@ -421,11 +421,14 @@ export default function PersonalizationSettingsPage() {
   };
 
   return (
-    <main className="parapost-personalization-page px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6">
+    <main className="parapost-personalization-page min-h-[100dvh] overflow-x-hidden px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6">
       <style jsx global>{`
         .parapost-personalization-page {
+          min-height: 100dvh;
+          overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
           scrollbar-gutter: stable;
+          scroll-padding-bottom: calc(8rem + env(safe-area-inset-bottom));
         }
 
         .personalization-back-mobile {
@@ -452,6 +455,16 @@ export default function PersonalizationSettingsPage() {
         }
 
         @media (max-width: 640px) {
+          .parapost-personalization-page {
+            padding-top: max(14px, env(safe-area-inset-top)) !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+
+          .personalization-back-row {
+            align-items: flex-start !important;
+          }
+
           .parapost-personalization-page h1 {
             font-size: clamp(2.25rem, 11vw, 3.25rem) !important;
             line-height: 0.96 !important;
@@ -497,7 +510,44 @@ export default function PersonalizationSettingsPage() {
           }
         }
 
-        @media (min-width: 641px) and (max-width: 1024px) {
+        @media (min-width: 641px) and (max-width: 1180px) {
+          .parapost-personalization-page {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+            padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
+          }
+
+          .parapost-personalization-hero-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: stretch !important;
+          }
+
+          .parapost-personalization-hero-grid > * {
+            height: 100% !important;
+          }
+
+          .parapost-personalization-content-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: start !important;
+          }
+
+          .parapost-personalization-info-grid {
+            display: grid !important;
+            grid-auto-rows: auto !important;
+            align-items: start !important;
+            gap: 16px !important;
+          }
+
+          .parapost-personalization-info-grid > * {
+            height: auto !important;
+            min-height: 0 !important;
+            align-self: start !important;
+          }
+
+          .parapost-personalization-page h1 + p {
+            margin-top: 24px !important;
+          }
+
           .parapost-personalization-actions > a,
           .parapost-personalization-actions > button {
             min-width: 170px;
@@ -543,7 +593,7 @@ export default function PersonalizationSettingsPage() {
           </span>
         </div>
 
-        <section className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+        <section className="parapost-personalization-hero-grid mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
           <div
             className="rounded-[30px] border p-5 shadow-2xl ring-1 ring-white/[0.035] sm:p-7"
             style={{
@@ -660,11 +710,11 @@ export default function PersonalizationSettingsPage() {
           </aside>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="parapost-personalization-content-grid grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
           <div className="space-y-4">
             <section
               id="accent-colors"
-              className="rounded-[28px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-5 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:p-6"
+              className="scroll-mt-24 rounded-[28px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-5 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:p-6"
             >
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -718,7 +768,7 @@ export default function PersonalizationSettingsPage() {
 
             <section
               id="theme-appearance"
-              className="rounded-[28px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-5 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:p-6"
+              className="scroll-mt-24 rounded-[28px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-5 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:p-6"
             >
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -775,7 +825,7 @@ export default function PersonalizationSettingsPage() {
             </section>
             <section
               id="font-style"
-              className="rounded-[28px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-5 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:p-6"
+              className="scroll-mt-24 rounded-[28px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-5 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:p-6"
             >
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -913,7 +963,7 @@ export default function PersonalizationSettingsPage() {
             </section>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="parapost-personalization-info-grid space-y-4">
             {[
               {
                 title: "Account-backed style",
