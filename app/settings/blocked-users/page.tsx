@@ -191,10 +191,39 @@ export default function BlockedUsersSettingsPage() {
   };
 
   return (
-    <main className="blocked-users-settings-page px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:px-6">
+    <main className="blocked-users-settings-page min-h-[100dvh] overflow-x-hidden px-3 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-6 lg:px-6">
       <style jsx global>{`
+        .blocked-users-settings-page {
+          min-height:100dvh;
+          overflow-x:hidden;
+          -webkit-overflow-scrolling:touch;
+          scrollbar-gutter:stable;
+        }
+
         .blocked-users-back-mobile {
           display: none;
+        }
+
+        @media (max-width:640px){
+          .blocked-users-settings-page{
+            padding-top:max(14px,env(safe-area-inset-top)) !important;
+          }
+        }
+
+        @media (min-width:641px) and (max-width:1180px){
+          .blocked-users-content-grid{
+            grid-template-columns:minmax(0,1fr) 320px !important;
+            align-items:start !important;
+          }
+          .blocked-users-info-grid{
+            display:grid !important;
+            grid-auto-rows:auto !important;
+            gap:16px !important;
+          }
+          .blocked-users-info-grid>*{
+            height:auto !important;
+            min-height:0 !important;
+          }
         }
 
         @media (max-width: 1024px) {
@@ -289,7 +318,7 @@ export default function BlockedUsersSettingsPage() {
           </div>
         ) : null}
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="blocked-users-content-grid grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div
             className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
             style={{
@@ -425,7 +454,7 @@ export default function BlockedUsersSettingsPage() {
             )}
           </div>
 
-          <aside className="space-y-4">
+          <aside className="blocked-users-info-grid space-y-4">
             <section
               className="rounded-[24px] border p-4 shadow-xl sm:rounded-[26px] sm:p-5"
               style={{
