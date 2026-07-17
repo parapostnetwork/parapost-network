@@ -128,8 +128,15 @@ export default function PaymentsSettingsPage() {
   }, []);
 
   return (
-    <main className="payments-page-root px-3 py-4 pb-[calc(8rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6">
+    <main className="payments-page-root min-h-[100dvh] overflow-x-hidden px-3 py-4 pb-[calc(8rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:px-6">
       <style jsx global>{`
+        .payments-page-root{
+          min-height:100dvh;
+          overflow-x:hidden;
+          -webkit-overflow-scrolling:touch;
+          scrollbar-gutter:stable;
+        }
+
         .payments-page-root,
         .payments-page-root * {
           box-sizing: border-box;
