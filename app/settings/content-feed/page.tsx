@@ -306,7 +306,7 @@ export default function ContentFeedSettingsPage() {
 
   return (
     <main
-      className="content-feed-settings-page min-h-svh touch-pan-y overflow-x-hidden px-3 py-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:min-h-0 lg:px-6"
+      className="content-feed-settings-page min-h-[100dvh] touch-pan-y overflow-x-hidden px-3 py-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:min-h-0 lg:px-6"
       style={{
         WebkitOverflowScrolling: "touch",
         overscrollBehaviorY: "auto",
@@ -315,11 +315,92 @@ export default function ContentFeedSettingsPage() {
       }}
     >
       <style jsx global>{`
-        .content-feed-back-mobile { display:none; }
+        .content-feed-settings-page {
+          scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+        }
 
-        @media (max-width:1024px){
-          .content-feed-back-desktop{display:none !important;}
-          .content-feed-back-mobile{display:block !important;}
+        .content-feed-back-mobile {
+          display: none;
+        }
+
+        .content-feed-related-link,
+        .content-feed-related-card {
+          height: auto;
+          min-height: 0;
+        }
+
+        @media (max-width: 1024px) {
+          .content-feed-back-desktop {
+            display: none !important;
+          }
+
+          .content-feed-back-mobile {
+            display: block !important;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .content-feed-settings-page {
+            padding-top: max(14px, env(safe-area-inset-top)) !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+
+          .content-feed-back-row {
+            align-items: flex-start !important;
+          }
+
+          .content-feed-settings-page h1 {
+            font-size: clamp(2.2rem, 11vw, 3.35rem) !important;
+            line-height: 0.96 !important;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1180px) {
+          .content-feed-settings-page {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+            padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
+          }
+
+          .content-feed-hero-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: stretch !important;
+          }
+
+          .content-feed-hero-grid > * {
+            height: 100% !important;
+          }
+
+          .content-feed-content-grid {
+            grid-template-columns: minmax(0, 1fr) 320px !important;
+            align-items: start !important;
+          }
+
+          .content-feed-related-grid {
+            display: grid !important;
+            grid-auto-rows: auto !important;
+            align-items: start !important;
+            gap: 16px !important;
+          }
+
+          .content-feed-related-link,
+          .content-feed-related-card {
+            height: auto !important;
+            min-height: 0 !important;
+            align-self: start !important;
+          }
+
+          .content-feed-settings-page h1 + p {
+            margin-top: 24px !important;
+          }
+        }
+
+        @media (max-height: 720px) and (max-width: 980px) {
+          .content-feed-settings-page {
+            padding-top: max(12px, env(safe-area-inset-top)) !important;
+            padding-bottom: calc(7rem + env(safe-area-inset-bottom)) !important;
+          }
         }
       `}</style>
 
@@ -344,7 +425,7 @@ export default function ContentFeedSettingsPage() {
           </span>
         </div>
 
-        <section className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+        <section className="content-feed-hero-grid mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
           <div
             className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[30px] sm:p-7"
             style={{
@@ -464,11 +545,11 @@ export default function ContentFeedSettingsPage() {
           </aside>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="content-feed-content-grid grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
           <div className="space-y-4">
             <section
               id="feed-controls"
-              className="rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
+              className="scroll-mt-24 rounded-[24px] border p-4 shadow-2xl ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
               style={{
                 borderColor: "var(--parapost-accent-border)",
                 background:
@@ -641,11 +722,11 @@ export default function ContentFeedSettingsPage() {
             </section>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="content-feed-related-grid space-y-4">
             {quickLinks.map((card) => (
-              <Link key={card.title} href={card.href} className="block text-white no-underline">
+              <Link key={card.title} href={card.href} className="content-feed-related-link block text-white no-underline">
                 <section
-                  className="rounded-[22px] border p-4 shadow-xl transition hover:bg-white/[0.06] sm:rounded-[26px] sm:p-5"
+                  className="content-feed-related-card h-auto rounded-[22px] border p-4 shadow-xl transition hover:bg-white/[0.06] sm:rounded-[26px] sm:p-5"
                   style={{
                     borderColor: "var(--parapost-accent-border)",
                     background:
