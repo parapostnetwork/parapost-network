@@ -295,8 +295,9 @@ export default function NotificationSettingsPage() {
 
         .notification-preference-card,
         .notification-info-card {
-          display: flex;
-          flex-direction: column;
+          display: block;
+          height: auto;
+          min-height: 0;
         }
 
         @media (max-width: 1024px) {
@@ -349,18 +350,20 @@ export default function NotificationSettingsPage() {
 
           .notification-settings-info-grid {
             display: grid !important;
-            grid-auto-rows: 1fr !important;
+            grid-auto-rows: auto !important;
+            align-items: start !important;
             gap: 16px !important;
+          }
+
+          .notification-info-link,
+          .notification-info-card {
+            height: auto !important;
+            min-height: 0 !important;
+            align-self: start !important;
           }
 
           .notification-settings-page h1 + p {
             margin-top: 24px !important;
-          }
-        }
-
-        @media (min-width: 640px) {
-          .notification-preference-card {
-            min-height: 170px;
           }
         }
 
@@ -538,7 +541,7 @@ export default function NotificationSettingsPage() {
                   return (
                     <div
                       key={item.key}
-                      className="notification-preference-card h-full rounded-[20px] border border-purple-200/15 bg-black/25 p-4 sm:rounded-[24px]"
+                      className="notification-preference-card h-auto rounded-[20px] border border-purple-200/15 bg-black/25 p-4 sm:rounded-[24px]"
                     >
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
@@ -682,9 +685,9 @@ export default function NotificationSettingsPage() {
 
           <aside className="notification-settings-info-grid space-y-4">
             {notificationInfoCards.map((card) => (
-              <Link key={card.title} href={card.href} className="notification-info-link block h-full text-white no-underline">
+              <Link key={card.title} href={card.href} className="notification-info-link block text-white no-underline">
                 <section
-                  className="notification-info-card h-full rounded-[22px] border p-4 shadow-xl transition hover:bg-white/[0.065] sm:rounded-[26px] sm:p-5"
+                  className="notification-info-card h-auto rounded-[22px] border p-4 shadow-xl transition hover:bg-white/[0.065] sm:rounded-[26px] sm:p-5"
                   style={{
                     borderColor: "var(--parapost-accent-border)",
                     background:

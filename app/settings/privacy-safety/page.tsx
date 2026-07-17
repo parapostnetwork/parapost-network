@@ -238,8 +238,9 @@ export default function PrivacySafetySettingsPage() {
         }
 
         .privacy-safety-action-card {
-          display: flex;
-          flex-direction: column;
+          display: block;
+          height: auto;
+          min-height: 0;
         }
 
         @media (max-width: 1024px) {
@@ -292,8 +293,16 @@ export default function PrivacySafetySettingsPage() {
 
           .privacy-safety-action-grid {
             display: grid !important;
-            grid-auto-rows: 1fr !important;
+            grid-auto-rows: auto !important;
+            align-items: start !important;
             gap: 16px !important;
+          }
+
+          .privacy-safety-action-link,
+          .privacy-safety-action-card {
+            height: auto !important;
+            min-height: 0 !important;
+            align-self: start !important;
           }
 
           .privacy-safety-settings-page h1 + p {
@@ -562,8 +571,8 @@ export default function PrivacySafetySettingsPage() {
 
           <aside className="privacy-safety-action-grid space-y-4">
             {primarySafetyActions.map((card) => (
-              <Link key={card.title} href={card.href} className="privacy-safety-action-link block h-full text-white no-underline">
-                <section className="privacy-safety-action-card h-full rounded-[22px] border border-purple-200/15 bg-white/[0.045] p-4 shadow-xl transition hover:bg-white/[0.065] sm:rounded-[26px] sm:p-5">
+              <Link key={card.title} href={card.href} className="privacy-safety-action-link block text-white no-underline">
+                <section className="privacy-safety-action-card h-auto rounded-[22px] border border-purple-200/15 bg-white/[0.045] p-4 shadow-xl transition hover:bg-white/[0.065] sm:rounded-[26px] sm:p-5">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <span className="text-[11px] font-black uppercase tracking-[0.16em] text-purple-200">
                       {card.status}
