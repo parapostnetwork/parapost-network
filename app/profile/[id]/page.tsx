@@ -2525,6 +2525,7 @@ export default function ProfilePage() {
 
   const [viewerId, setViewerId] = useState("");
   const [viewerEmail, setViewerEmail] = useState("");
+  const [viewerAvatarUrl, setViewerAvatarUrl] = useState("");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [profilePostContent, setProfilePostContent] = useState("");
   const [profilePostImages, setProfilePostImages] = useState<File[]>([]);
@@ -3138,6 +3139,22 @@ const closeProfileMobileSearch = useCallback(() => {
     const nextViewerId = user?.id || "";
     setViewerId(nextViewerId);
     setViewerEmail(user?.email || "");
+
+    if (nextViewerId) {
+      const { data: viewerProfileData } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", nextViewerId)
+        .maybeSingle();
+
+      setViewerAvatarUrl(
+        typeof viewerProfileData?.avatar_url === "string"
+          ? viewerProfileData.avatar_url
+          : ""
+      );
+    } else {
+      setViewerAvatarUrl("");
+    }
 
     const profileAchievementsPromise = loadProfileAchievements(profileId, Boolean(nextViewerId && nextViewerId === profileId));
     const profileAchievementActivityPromise = loadProfileAchievementActivityRows(profileId);
@@ -17864,6 +17881,7 @@ return (
       {!showcaseComposerOpen ? (
         <ProfileStableBottomNav
           viewerId={viewerId}
+          avatarUrl={viewerAvatarUrl}
           onCreatePost={handleMobileCreatePostClick}
         />
       ) : null}
@@ -17874,9 +17892,11 @@ return (
 
 function ProfileStableBottomNav({
   viewerId,
+  avatarUrl,
   onCreatePost,
 }: {
   viewerId: string;
+  avatarUrl: string;
   onCreatePost: () => void;
 }) {
   const profileHref = viewerId ? `/profile/${viewerId}` : "/dashboard";
@@ -17933,10 +17953,14 @@ function ProfileStableBottomNav({
           style={profileStableBottomNavItemActiveStyle}
         >
           <span style={profileStableBottomNavIconStyle}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-              <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" style={profileStableBottomNavAvatarStyle} />
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+                <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            )}
           </span>
           <span style={profileStableBottomNavLabelStyle}>Profile</span>
         </Link>
@@ -17984,15 +18008,27 @@ function ProfileStableBottomNav({
           transform: translateY(-18px) !important;
         }
 
-        @media (min-width: 761px) {
+        @media (min-width: 1181px) {
           .profile-stable-bottom-nav {
             display: none !important;
           }
         }
 
-        @media (max-width: 760px) {
+        @media (max-width: 1180px) {
           .profile-stable-bottom-nav {
             display: grid !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .profile-stable-bottom-nav {
+            width: calc(100vw - 24px) !important;
+            max-width: none !important;
+          }
+
+          .profile-page-shell,
+          .profile-main-shell {
+            padding-bottom: 112px !important;
           }
         }
 
@@ -18635,6 +18671,16 @@ const profileStableBottomNavLabelStyle: CSSProperties = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+};
+
+const profileStableBottomNavAvatarStyle: CSSProperties = {
+  width: 26,
+  height: 26,
+  display: "block",
+  borderRadius: 999,
+  objectFit: "cover",
+  border: "1.5px solid rgba(255,255,255,0.72)",
+  boxShadow: "0 0 0 2px var(--parapost-accent-soft)",
 };
 
 const profileStableCreateButtonStyle: CSSProperties = {

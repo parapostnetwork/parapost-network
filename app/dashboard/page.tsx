@@ -5225,7 +5225,7 @@ export default function DashboardPage() {
         }}
       />
 
-      <MobileBottomNav currentUserId={currentUserId} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
+      <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
 
       <DashboardPostImageViewerModal viewer={dashboardPostImageViewer} onClose={closeDashboardPostImageViewer} />
 
@@ -10724,6 +10724,23 @@ export default function DashboardPage() {
           }
         }
 
+
+        /* Tablet navigation: reuse the exact mobile bottom bar layout. */
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .dashboard-bottom-nav {
+            display: grid !important;
+            width: calc(100vw - 24px) !important;
+            max-width: none !important;
+            left: 50% !important;
+            right: auto !important;
+            transform: translateX(-50%) !important;
+          }
+
+          .dashboard-shell-pad {
+            padding-bottom: 112px !important;
+          }
+        }
+
         ` }} />
     </div>
   );
@@ -14577,10 +14594,12 @@ function DashboardShowcaseComposerModal({
 
 function MobileBottomNav({
   currentUserId,
+  avatarUrl,
   parachatUnreadCount,
   onCreatePost,
 }: {
   currentUserId: string;
+  avatarUrl: string;
   parachatUnreadCount: number;
   onCreatePost: () => void;
 }) {
@@ -14610,10 +14629,14 @@ function MobileBottomNav({
 
       <Link href={currentUserId ? `/profile/${currentUserId}` : "/dashboard"} style={mobileNavItemStyle} aria-label="Profile">
         <span style={mobileNavIconSlotStyle}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-            <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" style={mobileNavAvatarStyle} />
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+              <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          )}
         </span>
         <span style={mobileNavLabelStyle}>Profile</span>
       </Link>
@@ -17622,6 +17645,15 @@ const mobileNavLabelStyle: CSSProperties = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+};
+const mobileNavAvatarStyle: CSSProperties = {
+  width: 26,
+  height: 26,
+  display: "block",
+  borderRadius: 999,
+  objectFit: "cover",
+  border: "1.5px solid rgba(255,255,255,0.72)",
+  boxShadow: "0 0 0 2px var(--parapost-accent-soft)",
 };
 const mobileCenterPlusStyle: CSSProperties = {
   width: 58,
