@@ -139,16 +139,6 @@ type SharedReelItem = {
   creator_profile_id: string | null;
 };
 
-type SharedReelSourceRow = {
-  id: string;
-  user_id: string | null;
-  creator_profile_id: string | null;
-  title: string | null;
-  caption: string | null;
-  video_url: string | null;
-  poster_url: string | null;
-};
-
 type SharedPostItem = {
   id: string;
   post_id: string;
@@ -885,29 +875,20 @@ function DashboardPostImageViewerModal({
     const htmlStyle = document.documentElement.style;
     const previousBodyOverflow = bodyStyle.overflow;
     const previousBodyOverscrollBehavior = bodyStyle.overscrollBehavior;
-    const previousBodyTouchAction = bodyStyle.touchAction;
     const previousHtmlOverflow = htmlStyle.overflow;
     const previousHtmlOverscrollBehavior = htmlStyle.overscrollBehavior;
 
-    // Do not set body position:fixed here. On iPad Safari that can offset a
-    // fixed portal by the current page scroll and leave the original post visible.
     bodyStyle.overflow = "hidden";
     bodyStyle.overscrollBehavior = "none";
-    bodyStyle.touchAction = "none";
     htmlStyle.overflow = "hidden";
     htmlStyle.overscrollBehavior = "none";
-
-    const preventTouchMove = (event: TouchEvent) => event.preventDefault();
-    document.addEventListener("touchmove", preventTouchMove, { passive: false });
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       bodyStyle.overflow = previousBodyOverflow;
       bodyStyle.overscrollBehavior = previousBodyOverscrollBehavior;
-      bodyStyle.touchAction = previousBodyTouchAction;
       htmlStyle.overflow = previousHtmlOverflow;
       htmlStyle.overscrollBehavior = previousHtmlOverscrollBehavior;
-      document.removeEventListener("touchmove", preventTouchMove);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [viewer, onClose]);
@@ -926,40 +907,43 @@ function DashboardPostImageViewerModal({
         width: "100vw",
         height: "100dvh",
         minHeight: "100dvh",
-        maxHeight: "100dvh",
+        zIndex: 2147483647,
         overflow: "hidden",
         isolation: "isolate",
-        zIndex: 2147483647,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
-        background: "rgba(3,5,10,0.92)",
+        display: "grid",
+        placeItems: "center",
+        padding: "72px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
+        background: "rgba(3,5,10,0.96)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
       }}
     >
       <button
         type="button"
-        onClick={onClose}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
         aria-label="Close image viewer"
         style={{
-          position: "fixed",
-          top: "max(14px, env(safe-area-inset-top))",
-          right: "max(14px, env(safe-area-inset-right))",
-          width: 44,
-          height: 44,
+          position: "absolute",
+          top: "max(16px, env(safe-area-inset-top))",
+          right: "max(16px, env(safe-area-inset-right))",
+          width: 48,
+          height: 48,
           borderRadius: 999,
-          border: "1px solid rgba(255,255,255,0.18)",
-          background: "rgba(8,10,16,0.86)",
+          border: "1px solid rgba(255,255,255,0.24)",
+          background: "rgba(8,10,16,0.94)",
           color: "#ffffff",
           display: "grid",
           placeItems: "center",
-          fontSize: 28,
+          fontSize: 30,
           lineHeight: 1,
-          fontWeight: 700,
+          fontWeight: 800,
           cursor: "pointer",
-          boxShadow: "0 18px 44px rgba(0,0,0,0.38)",
+          boxShadow: "0 18px 44px rgba(0,0,0,0.52)",
+          zIndex: 20,
+          touchAction: "manipulation",
         }}
       >
         ×
@@ -970,6 +954,7 @@ function DashboardPostImageViewerModal({
         style={{
           width: "100%",
           height: "100%",
+          minHeight: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -979,8 +964,8 @@ function DashboardPostImageViewerModal({
           src={viewer.url}
           alt={viewer.alt}
           style={{
-            maxWidth: "min(92vw, 1120px)",
-            maxHeight: "min(86dvh, 900px)",
+            maxWidth: "min(96vw, 1320px)",
+            maxHeight: "calc(100dvh - 104px)",
             width: "auto",
             height: "auto",
             objectFit: "contain",
@@ -1896,41 +1881,6 @@ function TwoLineExpandableComment({
   );
 }
 
-type DashboardMobileMenuSection =
-  | "main"
-  | "discover"
-  | "discoverRecentlyViewed"
-  | "discoverPeople"
-  | "discoverTrending"
-  | "discoverActivity"
-  | "settings"
-  | "settingsAccount"
-  | "settingsPrivacy"
-  | "settingsHelp"
-  | "creator"
-  | "ads"
-  | "hub";
-
-function getDashboardMenuSectionFromUrl(): DashboardMobileMenuSection | null {
-  if (typeof window === "undefined") return null;
-
-  const menuValue = new URLSearchParams(window.location.search).get("menu");
-
-  const menuMap: Record<string, DashboardMobileMenuSection> = {
-    main: "main",
-    discover: "discover",
-    creator: "creator",
-    ads: "ads",
-    hub: "hub",
-    settings: "settings",
-    "settings-account": "settingsAccount",
-    "settings-privacy": "settingsPrivacy",
-    "settings-help": "settingsHelp",
-  };
-
-  return menuValue ? menuMap[menuValue] || null : null;
-}
-
 export default function DashboardPage() {
   const [content, setContent] = useState("");
   const [postImages, setPostImages] = useState<File[]>([]);
@@ -2001,8 +1951,6 @@ export default function DashboardPage() {
   const [searchResults, setSearchResults] = useState<ProfilePreview[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileMenuInitialSection, setMobileMenuInitialSection] =
-    useState<DashboardMobileMenuSection>("main");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dashboardShowcaseInputRef = useRef<HTMLInputElement | null>(null);
@@ -2015,17 +1963,6 @@ export default function DashboardPage() {
   const removedReelShareIdsRef = useRef<Set<string>>(new Set());
   const removedReelShareKeysRef = useRef<Set<string>>(new Set());
   const targetedPostScrollRef = useRef("");
-
-  useEffect(() => {
-    const requestedSection = getDashboardMenuSectionFromUrl();
-    if (!requestedSection) return;
-
-    const isMobileOrTablet = window.matchMedia("(max-width: 1024px)").matches;
-    if (!isMobileOrTablet) return;
-
-    setMobileMenuInitialSection(requestedSection);
-    setMobileMenuOpen(true);
-  }, []);
 
   const currentName = currentProfile?.full_name || currentProfile?.username || "there";
   const firstName = currentName.split(" ")[0] || "there";
@@ -2778,6 +2715,99 @@ export default function DashboardPage() {
     // but do not query profile_showcases until this feature is released again.
     return [] as DashboardShowcaseItem[];
 
+    // Keep the same visibility rules, but do not make Showcase bubbles wait for profile lookups.
+    const showcaseUserIds = [
+      ...new Set([userId, ...friendIds].filter((id) => Boolean(id) && !blockedIds.includes(String(id)))),
+    ] as string[];
+
+    if (showcaseUserIds.length === 0) {
+      setFriendShowcases([]);
+      return [] as DashboardShowcaseItem[];
+    }
+
+    const { data: showcaseData, error: showcaseError } = await supabase
+      .from("profile_showcases")
+      .select("id, user_id, title, cover_text, media_url, media_type, media_filename, font_key, text_position_x, text_position_y, overlay_font_size, duration, visibility, expires_at, created_at")
+      .in("user_id", showcaseUserIds)
+      .order("created_at", { ascending: false })
+      .limit(24);
+
+    if (showcaseError) {
+      console.error("Error fetching dashboard friend showcases:", getDashboardErrorMessage(showcaseError));
+      setFriendShowcases([]);
+      return [] as DashboardShowcaseItem[];
+    }
+
+    const now = Date.now();
+    const nextItems = ((showcaseData || []) as Array<{
+      id: string;
+      user_id: string;
+      title: string | null;
+      cover_text: string | null;
+      media_url: string | null;
+      media_type: string | null;
+      media_filename?: string | null;
+      font_key?: string | null;
+      text_position_x?: number | string | null;
+      text_position_y?: number | string | null;
+      overlay_font_size?: number | null;
+      duration?: string | null;
+      visibility: string | null;
+      expires_at: string | null;
+      created_at: string | null;
+    }>)
+      .filter((item) => item.user_id && showcaseUserIds.includes(item.user_id))
+      .filter((item) => !blockedIds.includes(item.user_id))
+      .filter((item) => item.user_id === userId || item.visibility !== "private")
+      .filter((item) => !item.expires_at || new Date(item.expires_at).getTime() > now)
+      .map((item) => ({
+        ...item,
+        profile: null,
+      })) as DashboardShowcaseItem[];
+
+    // First paint: show the Showcase row as soon as Showcase rows arrive.
+    setFriendShowcases(nextItems);
+
+    const profileIds = [...new Set(nextItems.map((item) => item.user_id).filter(Boolean))].slice(0, 24);
+
+    if (profileIds.length > 0) {
+      void (async () => {
+        try {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+            .in("id", profileIds)
+            .limit(24);
+
+          if (profilesError) {
+            logDashboardNetworkIssue("Dashboard showcase profile enrichment skipped", profilesError);
+            return;
+          }
+
+          const profileMap = new Map<string, ProfilePreview>();
+          for (const profile of (profilesData || []) as ProfilePreview[]) {
+            profileMap.set(profile.id, profile);
+          }
+
+          setFriendShowcases((currentItems) =>
+            currentItems.map((item) => ({
+              ...item,
+              profile: profileMap.get(item.user_id) || item.profile || null,
+            }))
+          );
+
+          setSelectedDashboardShowcase((currentShowcase) => {
+            if (!currentShowcase) return currentShowcase;
+            const enrichedProfile = profileMap.get(currentShowcase.user_id);
+            return enrichedProfile ? { ...currentShowcase, profile: enrichedProfile } : currentShowcase;
+          });
+        } catch (error) {
+          logDashboardNetworkIssue("Dashboard showcase profile enrichment skipped", error);
+        }
+      })();
+    }
+
+    return nextItems;
   }, []);
 
   const fetchRecentlyViewed = useCallback(async (userId?: string, blockedIds: string[] = []) => {
@@ -2918,10 +2948,8 @@ export default function DashboardPage() {
       return [] as SharedReelItem[];
     }
 
-    const reelMap = new Map<string, SharedReelSourceRow>();
-    for (const reel of (reelRows || []) as SharedReelSourceRow[]) {
-      reelMap.set(reel.id, reel);
-    }
+    const reelMap = new Map<string, any>();
+    for (const reel of reelRows || []) reelMap.set(reel.id, reel);
 
     const nextShared = visibleShareRows
       .map((share) => {
@@ -3279,6 +3307,7 @@ export default function DashboardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "followers" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, schedulePulseRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${currentUserId}` }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "live_streams" }, schedulePulseRefresh)
@@ -3352,7 +3381,7 @@ export default function DashboardPage() {
       )
       .subscribe();
 
-    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 30000);
+    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 8000);
 
     const handleBadgeFocusRefresh = () => {
       refreshNotificationBadges();
@@ -4644,10 +4673,7 @@ export default function DashboardPage() {
           notificationsCount={notificationsCount}
           parachatUnreadCount={parachatUnreadCount}
           onOpenSearch={openSearch}
-          onOpenMenu={() => {
-            setMobileMenuInitialSection("main");
-            setMobileMenuOpen(true);
-          }}
+          onOpenMenu={() => setMobileMenuOpen(true)}
         />
 
         <div className="dashboard-grid-desktop-safe" style={dashboardGridStyle}>
@@ -4733,10 +4759,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   className="dashboard-tablet-menu-button"
-                  onClick={() => {
-                    setMobileMenuInitialSection("main");
-                    setMobileMenuOpen(true);
-                  }}
+                  onClick={() => setMobileMenuOpen(true)}
                   style={topIconButtonStyle}
                   aria-label="Open dashboard menu"
                 >
@@ -5079,7 +5102,6 @@ export default function DashboardPage() {
 
       <MobileDashboardMenuDrawer
         isOpen={mobileMenuOpen}
-        initialSection={mobileMenuInitialSection}
         currentProfile={currentProfile}
         currentUserId={currentUserId}
         notificationsCount={notificationsCount}
@@ -9850,88 +9872,6 @@ export default function DashboardPage() {
         }
 
 
-        /* FINAL universal tablet dashboard shell correction */
-        @media (min-width: 761px) and (max-width: 1180px) {
-          .dashboard-mobile-header {
-            display: flex !important;
-            position: sticky !important;
-            top: 0 !important;
-            z-index: 130 !important;
-            width: 100% !important;
-            max-width: 900px !important;
-            min-height: 62px !important;
-            margin: 0 auto 14px !important;
-            padding: max(9px, env(safe-area-inset-top)) 12px 9px !important;
-            border-radius: 20px !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-          }
-
-          .dashboard-desktop-topbar {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: hidden !important;
-          }
-
-          .dashboard-main-column {
-            width: 100% !important;
-            max-width: 900px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-          }
-
-          .dashboard-feed-tabs {
-            display: grid !important;
-            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-            align-items: center !important;
-            gap: 5px !important;
-            width: 100% !important;
-            min-height: 58px !important;
-            margin: 12px 0 !important;
-            padding: 5px !important;
-            border-radius: 18px !important;
-            overflow: hidden !important;
-          }
-
-          .dashboard-feed-tabs > a,
-          .dashboard-feed-tabs > button {
-            width: 100% !important;
-            min-width: 0 !important;
-            height: 46px !important;
-            min-height: 46px !important;
-            padding: 0 8px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: clamp(13px, 1.8vw, 15px) !important;
-            line-height: 1 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-          }
-        }
-
-        @media (min-width: 761px) and (max-width: 900px) {
-          .dashboard-mobile-header {
-            max-width: 760px !important;
-          }
-
-          .dashboard-feed-tabs {
-            min-height: 56px !important;
-          }
-
-          .dashboard-feed-tabs > a,
-          .dashboard-feed-tabs > button {
-            height: 44px !important;
-            min-height: 44px !important;
-          }
-        }
-
-
         /* === Dashboard clean-lines polish: no redesign, smoother overall feel === */
         .dashboard-grid-desktop-safe,
         .dashboard-main-column,
@@ -10655,58 +10595,19 @@ export default function DashboardPage() {
           }
         }
 
-
-
-        /* === Tablet post sizing only: preserve the full Dashboard layout === */
+      
+        /* Tablet-only post media sizing. Desktop and phones keep their original rules. */
         @media (min-width: 761px) and (max-width: 1180px) {
-          /* Do not resize the dashboard shell, composer, showcases, reels, or tabs. */
-          .dashboard-grid-desktop-safe,
-          .dashboard-main-column,
-          .dashboard-composer-card,
-          .dashboard-showcase-row,
-          .dashboard-feed-pulse {
-            width: revert !important;
-            max-width: none !important;
-            margin-left: revert !important;
-            margin-right: revert !important;
-          }
-
-          /* Posts should align with the Dashboard sections above them. */
-          .dashboard-feed-card {
-            width: 100% !important;
-            max-width: none !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-            box-sizing: border-box !important;
-          }
-
           .dashboard-post-single-media {
-            width: auto !important;
-            max-width: 100% !important;
-            max-height: 480px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-            object-fit: contain !important;
-          }
-          video.dashboard-post-single-media {
             width: 100% !important;
-            max-height: 430px !important;
+            height: clamp(460px, 64vw, 720px) !important;
+            max-height: 720px !important;
             object-fit: contain !important;
+            background: #05070d !important;
           }
-          .dashboard-post-media-grid { max-height: 500px !important; }
-          .dashboard-post-media-tile { min-height: 0 !important; max-height: 246px !important; }
-          .dashboard-post-media-item { max-height: 246px !important; object-fit: cover !important; }
         }
 
-        @media (min-width: 761px) and (max-width: 900px) {
-          .dashboard-feed-card {
-            width: 100% !important;
-            max-width: none !important;
-          }
-          .dashboard-post-single-media { max-height: 440px !important; }
-          video.dashboard-post-single-media { max-height: 400px !important; }
-        }
-      ` }} />
+        ` }} />
     </div>
   );
 }
@@ -11552,7 +11453,7 @@ function ComposerActionPill({
 
 function FeedTabs({ feedMode, setFeedMode }: { feedMode: FeedMode; setFeedMode: (mode: FeedMode) => void }) {
   return (
-    <div className="dashboard-card dashboard-feed-tabs" style={feedTabsStyle}>
+    <div className="dashboard-card" style={feedTabsStyle}>
       <FeedTab label="For You" active={feedMode === "for_you"} onClick={() => setFeedMode("for_you")} />
       <FeedTab label="Friends" active={feedMode === "friends"} onClick={() => setFeedMode("friends")} />
       <FeedTab label="Following" active={feedMode === "following"} onClick={() => setFeedMode("following")} />
@@ -13258,7 +13159,6 @@ function SharedReelCard({
 
 function MobileDashboardMenuDrawer({
   isOpen,
-  initialSection,
   currentProfile,
   currentUserId,
   notificationsCount,
@@ -13276,7 +13176,6 @@ function MobileDashboardMenuDrawer({
   onCreatePost,
 }: {
   isOpen: boolean;
-  initialSection: DashboardMobileMenuSection;
   currentProfile: ProfilePreview | null;
   currentUserId: string;
   notificationsCount: number;
@@ -13293,12 +13192,27 @@ function MobileDashboardMenuDrawer({
   onClose: () => void;
   onCreatePost: () => void;
 }) {
-  const [activeSection, setActiveSection] = useState<DashboardMobileMenuSection>("main");
+  type MobileMenuSection =
+    | "main"
+    | "discover"
+    | "discoverRecentlyViewed"
+    | "discoverPeople"
+    | "discoverTrending"
+    | "discoverActivity"
+    | "settings"
+    | "settingsAccount"
+    | "settingsPrivacy"
+    | "settingsHelp"
+    | "creator"
+    | "ads"
+    | "hub";
+
+  const [activeSection, setActiveSection] = useState<MobileMenuSection>("main");
   const menuScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (isOpen) setActiveSection(initialSection);
-  }, [initialSection, isOpen]);
+    if (isOpen) setActiveSection("main");
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -13322,7 +13236,7 @@ function MobileDashboardMenuDrawer({
 
   void currentProfile;
 
-  const parentSectionMap: Partial<Record<DashboardMobileMenuSection, DashboardMobileMenuSection>> = {
+  const parentSectionMap: Partial<Record<MobileMenuSection, MobileMenuSection>> = {
     discoverRecentlyViewed: "discover",
     discoverPeople: "discover",
     discoverTrending: "discover",
@@ -16970,7 +16884,7 @@ const postTextLinkStyle: CSSProperties = {
   pointerEvents: "auto",
   touchAction: "manipulation",
 };
-const postImageStyle: CSSProperties = { width: "100%", maxHeight: 560, objectFit: "contain", display: "block", borderRadius: 20, border: "1px solid rgba(255,255,255,0.10)", marginTop: 14, background: "#05070d", boxShadow: "0 18px 38px rgba(0,0,0,0.32)" };
+const postImageStyle: CSSProperties = { width: "100%", maxHeight: 680, objectFit: "cover", display: "block", borderRadius: 20, border: "1px solid rgba(255,255,255,0.10)", marginTop: 14, background: "#05070d", boxShadow: "0 18px 38px rgba(0,0,0,0.32)" };
 const postImageGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 14, borderRadius: 22, overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(0,0,0,0.26)", boxShadow: "0 18px 38px rgba(0,0,0,0.32)" };
 const postImageGridTileStyle: CSSProperties = { position: "relative", minHeight: 230, overflow: "hidden", background: "rgba(255,255,255,0.04)" };
 const postImageGridLargeTileStyle: CSSProperties = { gridRow: "span 2", minHeight: 468 };
