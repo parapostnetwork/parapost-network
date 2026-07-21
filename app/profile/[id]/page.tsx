@@ -1809,14 +1809,11 @@ function ProfilePostImageViewerModal({
       if (event.key === "Escape") onClose();
     };
 
-    const scrollY = window.scrollY;
     const bodyStyle = document.body.style;
     const htmlStyle = document.documentElement.style;
     const previousBody = {
       overflow: bodyStyle.overflow,
-      position: bodyStyle.position,
-      top: bodyStyle.top,
-      width: bodyStyle.width,
+      overscrollBehavior: bodyStyle.overscrollBehavior,
       touchAction: bodyStyle.touchAction,
     };
     const previousHtml = {
@@ -1824,25 +1821,26 @@ function ProfilePostImageViewerModal({
       overscrollBehavior: htmlStyle.overscrollBehavior,
     };
 
+    // Keeping the body positioned normally avoids the iPad Safari fixed-layer
+    // offset that can show both the original image and a second viewer image.
     bodyStyle.overflow = "hidden";
-    bodyStyle.position = "fixed";
-    bodyStyle.top = `-${scrollY}px`;
-    bodyStyle.width = "100%";
+    bodyStyle.overscrollBehavior = "none";
     bodyStyle.touchAction = "none";
     htmlStyle.overflow = "hidden";
     htmlStyle.overscrollBehavior = "none";
+
+    const preventTouchMove = (event: TouchEvent) => event.preventDefault();
+    document.addEventListener("touchmove", preventTouchMove, { passive: false });
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       bodyStyle.overflow = previousBody.overflow;
-      bodyStyle.position = previousBody.position;
-      bodyStyle.top = previousBody.top;
-      bodyStyle.width = previousBody.width;
+      bodyStyle.overscrollBehavior = previousBody.overscrollBehavior;
       bodyStyle.touchAction = previousBody.touchAction;
       htmlStyle.overflow = previousHtml.overflow;
       htmlStyle.overscrollBehavior = previousHtml.overscrollBehavior;
+      document.removeEventListener("touchmove", preventTouchMove);
       window.removeEventListener("keydown", handleKeyDown);
-      window.scrollTo(0, scrollY);
     };
   }, [viewer, onClose]);
 
@@ -1863,6 +1861,7 @@ function ProfilePostImageViewerModal({
         overflow: "hidden",
         overscrollBehavior: "contain",
         touchAction: "none",
+        isolation: "isolate",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -18590,11 +18589,11 @@ function ProfileStableBottomNav({
           .profile-feed-list-all-posts > .profile-feed-card,
           .profile-feed-list-all-posts .profile-feed-card,
           .profile-feed-card {
-            width: min(100%, 680px) !important;
-            max-width: 680px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-            justify-self: center !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            justify-self: stretch !important;
             box-sizing: border-box !important;
           }
 
@@ -18634,8 +18633,8 @@ function ProfileStableBottomNav({
           .profile-feed-list-all-posts > .profile-feed-card,
           .profile-feed-list-all-posts .profile-feed-card,
           .profile-feed-card {
-            width: min(100%, 640px) !important;
-            max-width: 640px !important;
+            width: 100% !important;
+            max-width: none !important;
           }
         }
 

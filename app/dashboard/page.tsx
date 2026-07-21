@@ -881,36 +881,34 @@ function DashboardPostImageViewerModal({
       if (event.key === "Escape") onClose();
     };
 
-    const scrollY = window.scrollY;
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousBodyPosition = document.body.style.position;
-    const previousBodyTop = document.body.style.top;
-    const previousBodyWidth = document.body.style.width;
-    const previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousHtmlOverscrollBehavior = document.documentElement.style.overscrollBehavior;
+    const bodyStyle = document.body.style;
+    const htmlStyle = document.documentElement.style;
+    const previousBodyOverflow = bodyStyle.overflow;
+    const previousBodyOverscrollBehavior = bodyStyle.overscrollBehavior;
+    const previousBodyTouchAction = bodyStyle.touchAction;
+    const previousHtmlOverflow = htmlStyle.overflow;
+    const previousHtmlOverscrollBehavior = htmlStyle.overscrollBehavior;
 
-    // iPad Safari can continue scrolling a page behind a fixed overlay unless
-    // the document body itself is frozen at its current scroll position.
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    document.body.style.overscrollBehavior = "none";
-    document.documentElement.style.overflow = "hidden";
-    document.documentElement.style.overscrollBehavior = "none";
+    // Do not set body position:fixed here. On iPad Safari that can offset a
+    // fixed portal by the current page scroll and leave the original post visible.
+    bodyStyle.overflow = "hidden";
+    bodyStyle.overscrollBehavior = "none";
+    bodyStyle.touchAction = "none";
+    htmlStyle.overflow = "hidden";
+    htmlStyle.overscrollBehavior = "none";
+
+    const preventTouchMove = (event: TouchEvent) => event.preventDefault();
+    document.addEventListener("touchmove", preventTouchMove, { passive: false });
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.body.style.position = previousBodyPosition;
-      document.body.style.top = previousBodyTop;
-      document.body.style.width = previousBodyWidth;
-      document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.documentElement.style.overscrollBehavior = previousHtmlOverscrollBehavior;
+      bodyStyle.overflow = previousBodyOverflow;
+      bodyStyle.overscrollBehavior = previousBodyOverscrollBehavior;
+      bodyStyle.touchAction = previousBodyTouchAction;
+      htmlStyle.overflow = previousHtmlOverflow;
+      htmlStyle.overscrollBehavior = previousHtmlOverscrollBehavior;
+      document.removeEventListener("touchmove", preventTouchMove);
       window.removeEventListener("keydown", handleKeyDown);
-      window.scrollTo(0, scrollY);
     };
   }, [viewer, onClose]);
 
@@ -925,6 +923,12 @@ function DashboardPostImageViewerModal({
       style={{
         position: "fixed",
         inset: 0,
+        width: "100vw",
+        height: "100dvh",
+        minHeight: "100dvh",
+        maxHeight: "100dvh",
+        overflow: "hidden",
+        isolation: "isolate",
         zIndex: 2147483647,
         display: "flex",
         alignItems: "center",
@@ -10667,12 +10671,12 @@ export default function DashboardPage() {
             margin-right: revert !important;
           }
 
-          /* Only timeline post cards get the narrower tablet presentation. */
+          /* Posts should align with the Dashboard sections above them. */
           .dashboard-feed-card {
-            width: min(100%, 680px) !important;
-            max-width: 680px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
             box-sizing: border-box !important;
           }
 
@@ -10696,8 +10700,8 @@ export default function DashboardPage() {
 
         @media (min-width: 761px) and (max-width: 900px) {
           .dashboard-feed-card {
-            width: min(100%, 620px) !important;
-            max-width: 620px !important;
+            width: 100% !important;
+            max-width: none !important;
           }
           .dashboard-post-single-media { max-height: 440px !important; }
           video.dashboard-post-single-media { max-height: 400px !important; }
