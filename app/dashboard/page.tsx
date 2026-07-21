@@ -10653,24 +10653,29 @@ export default function DashboardPage() {
 
 
 
-        /* === iPad/tablet feed media + lightbox hardening === */
+        /* === Tablet post sizing only: preserve the full Dashboard layout === */
         @media (min-width: 761px) and (max-width: 1180px) {
-          .dashboard-grid-desktop-safe { max-width: 700px !important; }
-          .dashboard-main-column {
-            width: min(100%, 660px) !important;
-            max-width: 660px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-          }
-          .dashboard-feed-card,
+          /* Do not resize the dashboard shell, composer, showcases, reels, or tabs. */
+          .dashboard-grid-desktop-safe,
+          .dashboard-main-column,
           .dashboard-composer-card,
           .dashboard-showcase-row,
           .dashboard-feed-pulse {
-            width: 100% !important;
-            max-width: 660px !important;
+            width: revert !important;
+            max-width: none !important;
+            margin-left: revert !important;
+            margin-right: revert !important;
+          }
+
+          /* Only timeline post cards get the narrower tablet presentation. */
+          .dashboard-feed-card {
+            width: min(100%, 680px) !important;
+            max-width: 680px !important;
             margin-left: auto !important;
             margin-right: auto !important;
+            box-sizing: border-box !important;
           }
+
           .dashboard-post-single-media {
             width: auto !important;
             max-width: 100% !important;
@@ -10690,12 +10695,10 @@ export default function DashboardPage() {
         }
 
         @media (min-width: 761px) and (max-width: 900px) {
-          .dashboard-grid-desktop-safe,
-          .dashboard-main-column,
-          .dashboard-feed-card,
-          .dashboard-composer-card,
-          .dashboard-showcase-row,
-          .dashboard-feed-pulse { max-width: 610px !important; }
+          .dashboard-feed-card {
+            width: min(100%, 620px) !important;
+            max-width: 620px !important;
+          }
           .dashboard-post-single-media { max-height: 440px !important; }
           video.dashboard-post-single-media { max-height: 400px !important; }
         }

@@ -18565,6 +18565,80 @@ function ProfileStableBottomNav({
           }
         }
 
+
+        /* === PROFILE TABLET POSTS-ONLY WIDTH + CENTERING FIX v2 ===
+           Keep the full Profile page, header, tabs, timeline heading and section
+           surfaces at their original tablet width. Only feed cards are compact. */
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .profile-feed-list-all-posts,
+          .profile-feed-stack,
+          .profile-feed-list {
+            width: 100% !important;
+            max-width: none !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+          }
+
+          .profile-feed-list-all-posts {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            justify-items: center !important;
+            align-items: start !important;
+          }
+
+          .profile-feed-list-all-posts > .profile-feed-card,
+          .profile-feed-list-all-posts .profile-feed-card,
+          .profile-feed-card {
+            width: min(100%, 680px) !important;
+            max-width: 680px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            justify-self: center !important;
+            box-sizing: border-box !important;
+          }
+
+          .profile-post-image,
+          .profile-feed-card img.profile-post-image,
+          .profile-feed-card video.profile-post-image {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: 500px !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            background: #05060a !important;
+          }
+
+          .profile-post-image-grid {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            max-height: 520px !important;
+          }
+
+          .profile-post-media-item {
+            max-height: 256px !important;
+            object-fit: cover !important;
+          }
+
+          .profile-shared-post-frame .profile-post-image {
+            max-height: 420px !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 899px) {
+          .profile-feed-list-all-posts > .profile-feed-card,
+          .profile-feed-list-all-posts .profile-feed-card,
+          .profile-feed-card {
+            width: min(100%, 640px) !important;
+            max-width: 640px !important;
+          }
+        }
+
         /* === FINAL FEED SPACING TIGHTENING v2 === */
         @media (min-width: 1181px) {
           .dashboard-feed-card,
