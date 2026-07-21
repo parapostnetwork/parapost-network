@@ -10700,6 +10700,30 @@ export default function DashboardPage() {
 
       
 
+
+        /* === Final tablet header override ===
+           Keep the compact tablet header and suppress the duplicate desktop
+           search/notification/Parachat/avatar bar. This rule is intentionally
+           last because earlier tablet rules re-enable that desktop bar. */
+        @media (min-width: 761px) and (max-width: 1180px) {
+          main .dashboard-desktop-topbar,
+          .dashboard-main-column > .dashboard-desktop-topbar,
+          .dashboard-desktop-topbar {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
+          }
+
+          .dashboard-mobile-header {
+            display: flex !important;
+          }
+        }
+
         ` }} />
     </div>
   );
