@@ -870,7 +870,10 @@ function DashboardPostImageViewerModal({
     width: 0,
     height: 0,
   }));
-  const [isTabletViewer, setIsTabletViewer] = useState(false);
+  const [isTabletViewer, setIsTabletViewer] = useState(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(min-width: 768px) and (max-width: 1180px)").matches
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -925,9 +928,15 @@ function DashboardPostImageViewerModal({
     const previousHtmlOverflow = htmlStyle.overflow;
     const previousHtmlOverscrollBehavior = htmlStyle.overscrollBehavior;
 
-    bodyStyle.overflow = "hidden";
+    // iPad Safari shifts fixed elements to the layout viewport when html/body
+    // overflow is changed. Keep the tablet document in place and let the
+    // full-screen overlay block touch gestures instead. Desktop/mobile retain
+    // their existing scroll lock behavior.
+    if (!isTabletViewer) {
+      bodyStyle.overflow = "hidden";
+      htmlStyle.overflow = "hidden";
+    }
     bodyStyle.overscrollBehavior = "none";
-    htmlStyle.overflow = "hidden";
     htmlStyle.overscrollBehavior = "none";
     window.addEventListener("keydown", handleKeyDown);
 
@@ -938,7 +947,7 @@ function DashboardPostImageViewerModal({
       htmlStyle.overscrollBehavior = previousHtmlOverscrollBehavior;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [viewer, onClose]);
+  }, [viewer, onClose, isTabletViewer]);
 
   if (!viewer || typeof document === "undefined") return null;
 
@@ -949,12 +958,16 @@ function DashboardPostImageViewerModal({
       aria-label="Post image viewer"
       onClick={onClose}
       style={{
-        position: isTabletViewer ? "fixed" : "absolute",
-        top: isTabletViewer ? 0 : visualViewportBox.top,
-        left: isTabletViewer ? 0 : visualViewportBox.left,
-        width: isTabletViewer ? "100vw" : visualViewportBox.width || "100vw",
-        height: isTabletViewer ? "100dvh" : visualViewportBox.height || "100dvh",
-        minHeight: isTabletViewer ? "100dvh" : visualViewportBox.height || "100dvh",
+        // Use the same document-positioned visual viewport geometry that is
+        // already reliable on mobile and desktop. `position: fixed` on iPad
+        // Safari anchors to the page/layout viewport and makes the viewer jump
+        // upward instead of covering the image that was tapped.
+        position: "absolute",
+        top: visualViewportBox.top,
+        left: visualViewportBox.left,
+        width: visualViewportBox.width || "100vw",
+        height: visualViewportBox.height || "100dvh",
+        minHeight: visualViewportBox.height || "100dvh",
         zIndex: 2147483647,
         overflow: "hidden",
         isolation: "isolate",
@@ -966,6 +979,7 @@ function DashboardPostImageViewerModal({
         background: isTabletViewer ? "#03050a" : "rgba(3,5,10,0.96)",
         backdropFilter: isTabletViewer ? "none" : "blur(16px)",
         WebkitBackdropFilter: isTabletViewer ? "none" : "blur(16px)",
+        touchAction: isTabletViewer ? "none" : "auto",
       }}
     >
       <button
@@ -1014,12 +1028,14 @@ function DashboardPostImageViewerModal({
           src={viewer.url}
           alt={viewer.alt}
           style={{
-            maxWidth: isTabletViewer ? "calc(100vw - 32px)" : "min(96vw, 1320px)",
-            maxHeight: isTabletViewer
-              ? "calc(100dvh - 104px)"
-              : visualViewportBox.height
-                ? Math.max(240, visualViewportBox.height - 104)
-                : "calc(100dvh - 104px)",
+            maxWidth: isTabletViewer
+              ? visualViewportBox.width
+                ? Math.max(240, visualViewportBox.width - 32)
+                : "calc(100vw - 32px)"
+              : "min(96vw, 1320px)",
+            maxHeight: visualViewportBox.height
+              ? Math.max(240, visualViewportBox.height - 104)
+              : "calc(100dvh - 104px)",
             width: "auto",
             height: "auto",
             objectFit: "contain",
