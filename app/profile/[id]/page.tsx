@@ -1889,16 +1889,16 @@ function ProfilePostImageViewerModal({
       aria-label="Post image viewer"
       onClick={onClose}
       style={{
-        // Use the same document-positioned visual viewport geometry that is
-        // already reliable on mobile and desktop. `position: fixed` on iPad
-        // Safari anchors to the page/layout viewport and makes the viewer jump
-        // upward instead of covering the image that was tapped.
-        position: "absolute",
-        top: visualViewportBox.top,
-        left: visualViewportBox.left,
-        width: visualViewportBox.width || "100vw",
-        height: visualViewportBox.height || "100dvh",
-        minHeight: visualViewportBox.height || "100dvh",
+        // Tablet-only correction: keep the portal attached to the visible
+        // browser viewport. Do not add scrollY/visualViewport offsets here;
+        // those offsets move the lightbox into document space and reveal the
+        // original post underneath on iPad Safari.
+        position: isTabletViewer ? "fixed" : "absolute",
+        top: isTabletViewer ? 0 : visualViewportBox.top,
+        left: isTabletViewer ? 0 : visualViewportBox.left,
+        width: isTabletViewer ? "100vw" : visualViewportBox.width || "100vw",
+        height: isTabletViewer ? "100dvh" : visualViewportBox.height || "100dvh",
+        minHeight: isTabletViewer ? "100dvh" : visualViewportBox.height || "100dvh",
         zIndex: 2147483647,
         overflow: "hidden",
         isolation: "isolate",
@@ -1960,13 +1960,13 @@ function ProfilePostImageViewerModal({
           alt={viewer.alt}
           style={{
             maxWidth: isTabletViewer
-              ? visualViewportBox.width
-                ? Math.max(240, visualViewportBox.width - 32)
-                : "calc(100vw - 32px)"
+              ? "calc(100vw - 32px)"
               : "min(96vw, 1320px)",
-            maxHeight: visualViewportBox.height
-              ? Math.max(240, visualViewportBox.height - 104)
-              : "calc(100dvh - 104px)",
+            maxHeight: isTabletViewer
+              ? "calc(100dvh - 104px)"
+              : visualViewportBox.height
+                ? Math.max(240, visualViewportBox.height - 104)
+                : "calc(100dvh - 104px)",
             width: "auto",
             height: "auto",
             objectFit: "contain",
