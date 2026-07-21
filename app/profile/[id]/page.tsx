@@ -1795,6 +1795,40 @@ function ProfilePostImageViewerModal({
   viewer: ProfilePostImageViewer | null;
   onClose: () => void;
 }) {
+  const [visualViewportBox, setVisualViewportBox] = useState(() => ({
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+  }));
+
+  useEffect(() => {
+    if (!viewer || typeof window === "undefined") return;
+
+    const updateVisualViewportBox = () => {
+      const viewport = window.visualViewport;
+      setVisualViewportBox({
+        top: window.scrollY + (viewport?.offsetTop || 0),
+        left: window.scrollX + (viewport?.offsetLeft || 0),
+        width: viewport?.width || window.innerWidth,
+        height: viewport?.height || window.innerHeight,
+      });
+    };
+
+    updateVisualViewportBox();
+    window.addEventListener("resize", updateVisualViewportBox);
+    window.addEventListener("orientationchange", updateVisualViewportBox);
+    window.visualViewport?.addEventListener("resize", updateVisualViewportBox);
+    window.visualViewport?.addEventListener("scroll", updateVisualViewportBox);
+
+    return () => {
+      window.removeEventListener("resize", updateVisualViewportBox);
+      window.removeEventListener("orientationchange", updateVisualViewportBox);
+      window.visualViewport?.removeEventListener("resize", updateVisualViewportBox);
+      window.visualViewport?.removeEventListener("scroll", updateVisualViewportBox);
+    };
+  }, [viewer]);
+
   useEffect(() => {
     if (!viewer || typeof window === "undefined") return;
 
@@ -1833,11 +1867,12 @@ function ProfilePostImageViewerModal({
       aria-label="Post image viewer"
       onClick={onClose}
       style={{
-        position: "fixed",
-        inset: 0,
-        width: "100vw",
-        height: "100dvh",
-        minHeight: "100dvh",
+        position: "absolute",
+        top: visualViewportBox.top,
+        left: visualViewportBox.left,
+        width: visualViewportBox.width || "100vw",
+        height: visualViewportBox.height || "100dvh",
+        minHeight: visualViewportBox.height || "100dvh",
         zIndex: 2147483647,
         overflow: "hidden",
         isolation: "isolate",
@@ -1896,7 +1931,7 @@ function ProfilePostImageViewerModal({
           alt={viewer.alt}
           style={{
             maxWidth: "min(96vw, 1320px)",
-            maxHeight: "calc(100dvh - 104px)",
+            maxHeight: visualViewportBox.height ? Math.max(240, visualViewportBox.height - 104) : "calc(100dvh - 104px)",
             width: "auto",
             height: "auto",
             objectFit: "contain",
@@ -18451,16 +18486,6 @@ function ProfileStableBottomNav({
         }
 
       
-        /* Tablet-only post media sizing. Desktop and phones keep their original rules. */
-        @media (min-width: 761px) and (max-width: 1180px) {
-          .profile-post-image {
-            width: 100% !important;
-            height: clamp(460px, 64vw, 720px) !important;
-            max-height: 720px !important;
-            object-fit: contain !important;
-            background: #05070d !important;
-          }
-        }
 
       `}</style>
     </>
