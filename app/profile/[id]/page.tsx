@@ -1801,6 +1801,19 @@ function ProfilePostImageViewerModal({
     width: 0,
     height: 0,
   }));
+  const [isTabletViewer, setIsTabletViewer] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const tabletQuery = window.matchMedia("(min-width: 768px) and (max-width: 1180px)");
+    const updateTabletViewer = () => setIsTabletViewer(tabletQuery.matches);
+
+    updateTabletViewer();
+    tabletQuery.addEventListener?.("change", updateTabletViewer);
+
+    return () => tabletQuery.removeEventListener?.("change", updateTabletViewer);
+  }, []);
 
   useEffect(() => {
     if (!viewer || typeof window === "undefined") return;
@@ -1867,21 +1880,23 @@ function ProfilePostImageViewerModal({
       aria-label="Post image viewer"
       onClick={onClose}
       style={{
-        position: "absolute",
-        top: visualViewportBox.top,
-        left: visualViewportBox.left,
-        width: visualViewportBox.width || "100vw",
-        height: visualViewportBox.height || "100dvh",
-        minHeight: visualViewportBox.height || "100dvh",
+        position: isTabletViewer ? "fixed" : "absolute",
+        top: isTabletViewer ? 0 : visualViewportBox.top,
+        left: isTabletViewer ? 0 : visualViewportBox.left,
+        width: isTabletViewer ? "100vw" : visualViewportBox.width || "100vw",
+        height: isTabletViewer ? "100dvh" : visualViewportBox.height || "100dvh",
+        minHeight: isTabletViewer ? "100dvh" : visualViewportBox.height || "100dvh",
         zIndex: 2147483647,
         overflow: "hidden",
         isolation: "isolate",
         display: "grid",
         placeItems: "center",
-        padding: "72px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
-        background: "rgba(3,5,10,0.96)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
+        padding: isTabletViewer
+          ? "72px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))"
+          : "72px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
+        background: isTabletViewer ? "#03050a" : "rgba(3,5,10,0.96)",
+        backdropFilter: isTabletViewer ? "none" : "blur(16px)",
+        WebkitBackdropFilter: isTabletViewer ? "none" : "blur(16px)",
       }}
     >
       <button
@@ -1893,7 +1908,7 @@ function ProfilePostImageViewerModal({
         aria-label="Close image viewer"
         style={{
           position: "absolute",
-          top: "max(16px, env(safe-area-inset-top))",
+          top: isTabletViewer ? "max(18px, env(safe-area-inset-top))" : "max(16px, env(safe-area-inset-top))",
           right: "max(16px, env(safe-area-inset-right))",
           width: 48,
           height: 48,
@@ -1930,8 +1945,12 @@ function ProfilePostImageViewerModal({
           src={viewer.url}
           alt={viewer.alt}
           style={{
-            maxWidth: "min(96vw, 1320px)",
-            maxHeight: visualViewportBox.height ? Math.max(240, visualViewportBox.height - 104) : "calc(100dvh - 104px)",
+            maxWidth: isTabletViewer ? "calc(100vw - 32px)" : "min(96vw, 1320px)",
+            maxHeight: isTabletViewer
+              ? "calc(100dvh - 104px)"
+              : visualViewportBox.height
+                ? Math.max(240, visualViewportBox.height - 104)
+                : "calc(100dvh - 104px)",
             width: "auto",
             height: "auto",
             objectFit: "contain",
