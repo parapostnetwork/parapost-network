@@ -867,6 +867,8 @@ function DashboardPostImageViewerModal({
   const [visualViewportBox, setVisualViewportBox] = useState(() => ({
     top: 0,
     left: 0,
+    offsetTop: 0,
+    offsetLeft: 0,
     width: 0,
     height: 0,
   }));
@@ -893,8 +895,12 @@ function DashboardPostImageViewerModal({
     const updateVisualViewportBox = () => {
       const viewport = window.visualViewport;
       setVisualViewportBox({
+        // Document coordinates are retained for the existing desktop/mobile
+        // implementation. Tablet uses only the visual viewport offsets below.
         top: window.scrollY + (viewport?.offsetTop || 0),
         left: window.scrollX + (viewport?.offsetLeft || 0),
+        offsetTop: viewport?.offsetTop || 0,
+        offsetLeft: viewport?.offsetLeft || 0,
         width: viewport?.width || window.innerWidth,
         height: viewport?.height || window.innerHeight,
       });
@@ -938,6 +944,18 @@ function DashboardPostImageViewerModal({
     }
     bodyStyle.overscrollBehavior = "none";
     htmlStyle.overscrollBehavior = "none";
+
+    // iPad Safari does not consistently honor touch-action on a fixed portal.
+    // Block document touch movement with a non-passive listener while leaving
+    // body/html positioning untouched, so the page does not jump or freeze.
+    const preventTabletTouchMove = (event: TouchEvent) => {
+      if (isTabletViewer) event.preventDefault();
+    };
+
+    if (isTabletViewer) {
+      document.addEventListener("touchmove", preventTabletTouchMove, { passive: false });
+    }
+
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
@@ -945,6 +963,7 @@ function DashboardPostImageViewerModal({
       bodyStyle.overscrollBehavior = previousBodyOverscrollBehavior;
       htmlStyle.overflow = previousHtmlOverflow;
       htmlStyle.overscrollBehavior = previousHtmlOverscrollBehavior;
+      document.removeEventListener("touchmove", preventTabletTouchMove);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [viewer, onClose, isTabletViewer]);
@@ -963,11 +982,21 @@ function DashboardPostImageViewerModal({
         // those offsets move the lightbox into document space and reveal the
         // original post underneath on iPad Safari.
         position: isTabletViewer ? "fixed" : "absolute",
-        top: isTabletViewer ? 0 : visualViewportBox.top,
-        left: isTabletViewer ? 0 : visualViewportBox.left,
-        width: isTabletViewer ? "100vw" : visualViewportBox.width || "100vw",
-        height: isTabletViewer ? "100dvh" : visualViewportBox.height || "100dvh",
-        minHeight: isTabletViewer ? "100dvh" : visualViewportBox.height || "100dvh",
+        // On iPad, fixed positioning is relative to the layout viewport while
+        // Safari's toolbar changes the visual viewport. Use visualViewport
+        // offsets only (never scrollY) so the viewer remains over the tapped
+        // post without drifting sideways or upward.
+        top: isTabletViewer ? visualViewportBox.offsetTop : visualViewportBox.top,
+        left: isTabletViewer ? visualViewportBox.offsetLeft : visualViewportBox.left,
+        width: isTabletViewer
+          ? visualViewportBox.width || "100vw"
+          : visualViewportBox.width || "100vw",
+        height: isTabletViewer
+          ? visualViewportBox.height || "100dvh"
+          : visualViewportBox.height || "100dvh",
+        minHeight: isTabletViewer
+          ? visualViewportBox.height || "100dvh"
+          : visualViewportBox.height || "100dvh",
         zIndex: 2147483647,
         overflow: "hidden",
         isolation: "isolate",
@@ -1029,10 +1058,14 @@ function DashboardPostImageViewerModal({
           alt={viewer.alt}
           style={{
             maxWidth: isTabletViewer
-              ? "calc(100vw - 32px)"
+              ? visualViewportBox.width
+                ? Math.max(240, visualViewportBox.width - 32)
+                : "calc(100vw - 32px)"
               : "min(96vw, 1320px)",
             maxHeight: isTabletViewer
-              ? "calc(100dvh - 104px)"
+              ? visualViewportBox.height
+                ? Math.max(240, visualViewportBox.height - 104)
+                : "calc(100dvh - 104px)"
               : visualViewportBox.height
                 ? Math.max(240, visualViewportBox.height - 104)
                 : "calc(100dvh - 104px)",
