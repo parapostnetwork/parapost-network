@@ -1809,16 +1809,40 @@ function ProfilePostImageViewerModal({
       if (event.key === "Escape") onClose();
     };
 
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
+    const scrollY = window.scrollY;
+    const bodyStyle = document.body.style;
+    const htmlStyle = document.documentElement.style;
+    const previousBody = {
+      overflow: bodyStyle.overflow,
+      position: bodyStyle.position,
+      top: bodyStyle.top,
+      width: bodyStyle.width,
+      touchAction: bodyStyle.touchAction,
+    };
+    const previousHtml = {
+      overflow: htmlStyle.overflow,
+      overscrollBehavior: htmlStyle.overscrollBehavior,
+    };
+
+    bodyStyle.overflow = "hidden";
+    bodyStyle.position = "fixed";
+    bodyStyle.top = `-${scrollY}px`;
+    bodyStyle.width = "100%";
+    bodyStyle.touchAction = "none";
+    htmlStyle.overflow = "hidden";
+    htmlStyle.overscrollBehavior = "none";
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
+      bodyStyle.overflow = previousBody.overflow;
+      bodyStyle.position = previousBody.position;
+      bodyStyle.top = previousBody.top;
+      bodyStyle.width = previousBody.width;
+      bodyStyle.touchAction = previousBody.touchAction;
+      htmlStyle.overflow = previousHtml.overflow;
+      htmlStyle.overscrollBehavior = previousHtml.overscrollBehavior;
       window.removeEventListener("keydown", handleKeyDown);
+      window.scrollTo(0, scrollY);
     };
   }, [viewer, onClose]);
 
@@ -1833,7 +1857,12 @@ function ProfilePostImageViewerModal({
       style={{
         position: "fixed",
         inset: 0,
+        width: "100vw",
+        height: "100dvh",
         zIndex: 2147483647,
+        overflow: "hidden",
+        overscrollBehavior: "contain",
+        touchAction: "none",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1883,8 +1912,8 @@ function ProfilePostImageViewerModal({
           src={viewer.url}
           alt={viewer.alt}
           style={{
-            maxWidth: "min(100%, 1320px)",
-            maxHeight: "calc(100dvh - 96px)",
+            maxWidth: "min(92vw, 1180px)",
+            maxHeight: "min(86dvh, 900px)",
             width: "auto",
             height: "auto",
             objectFit: "contain",
@@ -18472,6 +18501,70 @@ function ProfileStableBottomNav({
         }
 
 
+        /* === PROFILE TABLET FEED + IMAGE VIEWER FIX v1 === */
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .profile-feed-list-all-posts,
+          .profile-feed-stack,
+          .profile-feed-list {
+            width: min(100%, 640px) !important;
+            max-width: 640px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+
+          .profile-feed-card {
+            width: 100% !important;
+            max-width: 640px !important;
+            box-sizing: border-box !important;
+          }
+
+          .profile-post-image,
+          .profile-feed-card img.profile-post-image,
+          .profile-feed-card video.profile-post-image {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: 500px !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            background: #05060a !important;
+          }
+
+          .profile-post-image-grid {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            max-height: 520px !important;
+          }
+
+          .profile-post-media-item {
+            max-height: 256px !important;
+            object-fit: cover !important;
+          }
+
+          .profile-shared-post-frame .profile-post-image {
+            max-height: 420px !important;
+          }
+        }
+
+        @media (min-width: 900px) and (max-width: 1180px) {
+          .profile-feed-list-all-posts,
+          .profile-feed-stack,
+          .profile-feed-list,
+          .profile-feed-card {
+            max-width: 600px !important;
+          }
+
+          .profile-post-image,
+          .profile-feed-card img.profile-post-image,
+          .profile-feed-card video.profile-post-image {
+            max-height: 460px !important;
+          }
+        }
+
         /* === FINAL FEED SPACING TIGHTENING v2 === */
         @media (min-width: 1181px) {
           .dashboard-feed-card,
@@ -19945,10 +20038,11 @@ const profileComposerPreviewOverlayStyle: CSSProperties = {
 
 const postImageStyle: CSSProperties = {
   width: "100%",
-  maxHeight: "720px",
-  marginTop: "14px",
+  maxHeight: "560px",
+  marginTop: "12px",
   borderRadius: "16px",
-  objectFit: "cover",
+  objectFit: "contain",
+  objectPosition: "center",
   display: "block",
   border: "1px solid rgba(255,255,255,0.10)",
   boxShadow: "0 12px 26px rgba(0,0,0,0.28)",

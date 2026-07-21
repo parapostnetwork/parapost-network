@@ -881,16 +881,36 @@ function DashboardPostImageViewerModal({
       if (event.key === "Escape") onClose();
     };
 
+    const scrollY = window.scrollY;
     const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyPosition = document.body.style.position;
+    const previousBodyTop = document.body.style.top;
+    const previousBodyWidth = document.body.style.width;
+    const previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
     const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousHtmlOverscrollBehavior = document.documentElement.style.overscrollBehavior;
+
+    // iPad Safari can continue scrolling a page behind a fixed overlay unless
+    // the document body itself is frozen at its current scroll position.
     document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    document.body.style.overscrollBehavior = "none";
     document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.body.style.overflow = previousBodyOverflow;
+      document.body.style.position = previousBodyPosition;
+      document.body.style.top = previousBodyTop;
+      document.body.style.width = previousBodyWidth;
+      document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
       document.documentElement.style.overflow = previousHtmlOverflow;
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscrollBehavior;
       window.removeEventListener("keydown", handleKeyDown);
+      window.scrollTo(0, scrollY);
     };
   }, [viewer, onClose]);
 
@@ -955,8 +975,8 @@ function DashboardPostImageViewerModal({
           src={viewer.url}
           alt={viewer.alt}
           style={{
-            maxWidth: "min(100%, 1320px)",
-            maxHeight: "calc(100dvh - 96px)",
+            maxWidth: "min(92vw, 1120px)",
+            maxHeight: "min(86dvh, 900px)",
             width: "auto",
             height: "auto",
             objectFit: "contain",
@@ -10631,6 +10651,54 @@ export default function DashboardPage() {
           }
         }
 
+
+
+        /* === iPad/tablet feed media + lightbox hardening === */
+        @media (min-width: 761px) and (max-width: 1180px) {
+          .dashboard-grid-desktop-safe { max-width: 700px !important; }
+          .dashboard-main-column {
+            width: min(100%, 660px) !important;
+            max-width: 660px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+          .dashboard-feed-card,
+          .dashboard-composer-card,
+          .dashboard-showcase-row,
+          .dashboard-feed-pulse {
+            width: 100% !important;
+            max-width: 660px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+          .dashboard-post-single-media {
+            width: auto !important;
+            max-width: 100% !important;
+            max-height: 480px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            object-fit: contain !important;
+          }
+          video.dashboard-post-single-media {
+            width: 100% !important;
+            max-height: 430px !important;
+            object-fit: contain !important;
+          }
+          .dashboard-post-media-grid { max-height: 500px !important; }
+          .dashboard-post-media-tile { min-height: 0 !important; max-height: 246px !important; }
+          .dashboard-post-media-item { max-height: 246px !important; object-fit: cover !important; }
+        }
+
+        @media (min-width: 761px) and (max-width: 900px) {
+          .dashboard-grid-desktop-safe,
+          .dashboard-main-column,
+          .dashboard-feed-card,
+          .dashboard-composer-card,
+          .dashboard-showcase-row,
+          .dashboard-feed-pulse { max-width: 610px !important; }
+          .dashboard-post-single-media { max-height: 440px !important; }
+          video.dashboard-post-single-media { max-height: 400px !important; }
+        }
       ` }} />
     </div>
   );
@@ -16895,7 +16963,7 @@ const postTextLinkStyle: CSSProperties = {
   pointerEvents: "auto",
   touchAction: "manipulation",
 };
-const postImageStyle: CSSProperties = { width: "100%", maxHeight: 680, objectFit: "cover", display: "block", borderRadius: 20, border: "1px solid rgba(255,255,255,0.10)", marginTop: 14, background: "#05070d", boxShadow: "0 18px 38px rgba(0,0,0,0.32)" };
+const postImageStyle: CSSProperties = { width: "100%", maxHeight: 560, objectFit: "contain", display: "block", borderRadius: 20, border: "1px solid rgba(255,255,255,0.10)", marginTop: 14, background: "#05070d", boxShadow: "0 18px 38px rgba(0,0,0,0.32)" };
 const postImageGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 14, borderRadius: 22, overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(0,0,0,0.26)", boxShadow: "0 18px 38px rgba(0,0,0,0.32)" };
 const postImageGridTileStyle: CSSProperties = { position: "relative", minHeight: 230, overflow: "hidden", background: "rgba(255,255,255,0.04)" };
 const postImageGridLargeTileStyle: CSSProperties = { gridRow: "span 2", minHeight: 468 };
