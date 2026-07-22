@@ -2696,7 +2696,32 @@ function MessagesPage() {
           }
         }
 
-        @media (max-width: 980px) {
+        /* Tablet Parachat uses one full-width screen for either inbox or chat.
+           This prevents 981–1180px iPad viewports from falling into the compact
+           desktop two-column grid and narrowing an individual conversation. */
+        @media (min-width: 641px) and (max-width: 1180px) {
+          .parachat-shell {
+            grid-template-columns: minmax(0, 1fr) !important;
+            width: 100% !important;
+            max-width: none !important;
+          }
+
+          .parachat-mobile-chat-open .parachat-inbox {
+            display: none !important;
+          }
+
+          .parachat-mobile-chat-open .parachat-panel {
+            display: grid !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            margin: 0 !important;
+            grid-column: 1 / -1 !important;
+            justify-self: stretch !important;
+          }
+        }
+
+        @media (max-width: 1180px) {
           .parachat-page-root {
             min-height: 100svh !important;
             min-height: 100dvh !important;
@@ -2822,13 +2847,13 @@ function MessagesPage() {
           }
         }
 
-        @media (min-width: 981px) {
+        @media (min-width: 1181px) {
           .parachat-mobile-back {
             display: none !important;
           }
         }
 
-        @media (min-width: 641px) and (max-width: 980px) {
+        @media (min-width: 641px) and (max-width: 1180px) {
           .parachat-inbox {
             padding: 18px 22px calc(116px + env(safe-area-inset-bottom)) !important;
           }
@@ -2840,8 +2865,11 @@ function MessagesPage() {
           }
 
           .parachat-mobile-chat-open .parachat-panel {
-            max-width: 820px !important;
-            margin: 0 auto !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            margin: 0 !important;
+            justify-self: stretch !important;
             border-left: 1px solid rgba(255,255,255,0.08) !important;
             border-right: 1px solid rgba(255,255,255,0.08) !important;
           }
@@ -2950,7 +2978,7 @@ function MessagesPage() {
           }
         }
 
-        @media (max-height: 560px) and (max-width: 980px) {
+        @media (max-height: 560px) and (max-width: 1180px) {
           .parachat-inbox {
             padding-top: 8px !important;
           }
