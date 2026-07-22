@@ -10734,7 +10734,7 @@ export default function DashboardPage() {
             max-width: none !important;
             left: 50% !important;
             right: auto !important;
-            bottom: 0 !important;
+            bottom: max(10px, env(safe-area-inset-bottom)) !important;
             z-index: 2147483000 !important;
             transform: translate3d(-50%, 0, 0) !important;
             -webkit-transform: translate3d(-50%, 0, 0) !important;
@@ -10748,21 +10748,6 @@ export default function DashboardPage() {
 
           html body .dashboard-bottom-nav > button {
             z-index: 3 !important;
-          }
-
-          @media (orientation: portrait) {
-            html body .dashboard-bottom-nav {
-              transform: translate3d(
-                -50%,
-                var(--tablet-nav-portrait-offset, 0px),
-                0
-              ) !important;
-              -webkit-transform: translate3d(
-                -50%,
-                var(--tablet-nav-portrait-offset, 0px),
-                0
-              ) !important;
-            }
           }
 
           .dashboard-shell-pad {
@@ -14643,43 +14628,6 @@ function MobileBottomNav({
     return () => tabletQuery.removeEventListener?.("change", syncTabletPortal);
   }, []);
 
-  useEffect(() => {
-    const portraitTabletQuery = window.matchMedia(
-      "(min-width: 761px) and (max-width: 1180px) and (orientation: portrait)"
-    );
-    const viewport = window.visualViewport;
-
-    const syncPortraitViewportOffset = () => {
-      if (!portraitTabletQuery.matches || !viewport) {
-        document.documentElement.style.setProperty("--tablet-nav-portrait-offset", "0px");
-        return;
-      }
-
-      const browserChromeInset = Math.max(
-        0,
-        window.innerHeight - viewport.height - viewport.offsetTop
-      );
-
-      document.documentElement.style.setProperty(
-        "--tablet-nav-portrait-offset",
-        `${Math.round(browserChromeInset)}px`
-      );
-    };
-
-    syncPortraitViewportOffset();
-    viewport?.addEventListener("resize", syncPortraitViewportOffset);
-    viewport?.addEventListener("scroll", syncPortraitViewportOffset);
-    window.addEventListener("orientationchange", syncPortraitViewportOffset);
-    portraitTabletQuery.addEventListener?.("change", syncPortraitViewportOffset);
-
-    return () => {
-      viewport?.removeEventListener("resize", syncPortraitViewportOffset);
-      viewport?.removeEventListener("scroll", syncPortraitViewportOffset);
-      window.removeEventListener("orientationchange", syncPortraitViewportOffset);
-      portraitTabletQuery.removeEventListener?.("change", syncPortraitViewportOffset);
-      document.documentElement.style.removeProperty("--tablet-nav-portrait-offset");
-    };
-  }, []);
 
   const navigation = (
     <nav className="dashboard-bottom-nav" style={mobileBottomNavStyle} aria-label="Mobile dashboard navigation">
