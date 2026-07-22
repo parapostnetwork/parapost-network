@@ -17911,10 +17911,90 @@ function ProfileStableBottomNav({
     return () => tabletQuery.removeEventListener?.("change", syncTabletPortal);
   }, []);
 
+  const tabletNavRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!useTabletPortal) return;
+
+    const portraitQuery = window.matchMedia(
+      "(min-width: 761px) and (max-width: 1180px) and (orientation: portrait)"
+    );
+    const viewport = window.visualViewport;
+    let animationFrame = 0;
+
+    const clearPortraitPosition = () => {
+      const nav = tabletNavRef.current;
+      if (!nav) return;
+
+      nav.style.removeProperty("position");
+      nav.style.removeProperty("top");
+      nav.style.removeProperty("bottom");
+    };
+
+    const placeAtVisibleViewportBottom = () => {
+      window.cancelAnimationFrame(animationFrame);
+
+      animationFrame = window.requestAnimationFrame(() => {
+        const nav = tabletNavRef.current;
+        if (!nav) return;
+
+        if (!portraitQuery.matches) {
+          clearPortraitPosition();
+          return;
+        }
+
+        const visiblePageTop =
+          viewport && Number.isFinite(viewport.pageTop)
+            ? viewport.pageTop
+            : window.scrollY;
+
+        const visibleHeight =
+          viewport && Number.isFinite(viewport.height)
+            ? viewport.height
+            : window.innerHeight;
+
+        const navHeight = nav.getBoundingClientRect().height || 76;
+        const top = Math.max(0, visiblePageTop + visibleHeight - navHeight - 10);
+
+        /*
+         * iPad Safari portrait changes its visual viewport while the browser
+         * toolbar expands and collapses. An ordinary fixed element follows the
+         * layout viewport and appears to move. Positioning the body-level portal
+         * at the visual viewport's document-space bottom keeps it stationary.
+         */
+        nav.style.setProperty("position", "absolute", "important");
+        nav.style.setProperty("top", `${Math.round(top)}px`, "important");
+        nav.style.setProperty("bottom", "auto", "important");
+      });
+    };
+
+    placeAtVisibleViewportBottom();
+    window.requestAnimationFrame(placeAtVisibleViewportBottom);
+
+    window.addEventListener("scroll", placeAtVisibleViewportBottom, { passive: true });
+    window.addEventListener("resize", placeAtVisibleViewportBottom, { passive: true });
+    window.addEventListener("orientationchange", placeAtVisibleViewportBottom);
+    viewport?.addEventListener("scroll", placeAtVisibleViewportBottom);
+    viewport?.addEventListener("resize", placeAtVisibleViewportBottom);
+    portraitQuery.addEventListener?.("change", placeAtVisibleViewportBottom);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("scroll", placeAtVisibleViewportBottom);
+      window.removeEventListener("resize", placeAtVisibleViewportBottom);
+      window.removeEventListener("orientationchange", placeAtVisibleViewportBottom);
+      viewport?.removeEventListener("scroll", placeAtVisibleViewportBottom);
+      viewport?.removeEventListener("resize", placeAtVisibleViewportBottom);
+      portraitQuery.removeEventListener?.("change", placeAtVisibleViewportBottom);
+      clearPortraitPosition();
+    };
+  }, [useTabletPortal]);
+
 
   const navigation = (
     <>
       <nav
+        ref={tabletNavRef}
         className="profile-stable-bottom-nav"
         aria-label="Primary bottom navigation"
         style={profileStableBottomNavStyle}
