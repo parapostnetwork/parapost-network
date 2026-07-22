@@ -18022,8 +18022,18 @@ function ProfileStableBottomNav({
 
         @media (min-width: 761px) and (max-width: 1180px) {
           .profile-stable-bottom-nav {
+            position: fixed !important;
             width: calc(100vw - 24px) !important;
             max-width: none !important;
+            left: 50% !important;
+            right: auto !important;
+            bottom: 0 !important;
+            transform: translate3d(-50%, 0, 0) !important;
+            -webkit-transform: translate3d(-50%, 0, 0) !important;
+            will-change: transform !important;
+            backface-visibility: hidden !important;
+            -webkit-backface-visibility: hidden !important;
+            contain: layout paint style !important;
           }
 
           .profile-page-shell,

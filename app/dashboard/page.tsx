@@ -10729,11 +10729,18 @@ export default function DashboardPage() {
         @media (min-width: 761px) and (max-width: 1180px) {
           .dashboard-bottom-nav {
             display: grid !important;
+            position: fixed !important;
             width: calc(100vw - 24px) !important;
             max-width: none !important;
             left: 50% !important;
             right: auto !important;
-            transform: translateX(-50%) !important;
+            bottom: 0 !important;
+            transform: translate3d(-50%, 0, 0) !important;
+            -webkit-transform: translate3d(-50%, 0, 0) !important;
+            will-change: transform !important;
+            backface-visibility: hidden !important;
+            -webkit-backface-visibility: hidden !important;
+            contain: layout paint style !important;
           }
 
           .dashboard-shell-pad {
