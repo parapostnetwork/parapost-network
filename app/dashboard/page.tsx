@@ -10727,7 +10727,7 @@ export default function DashboardPage() {
 
         /* Tablet navigation: reuse the exact mobile bottom bar layout. */
         @media (min-width: 761px) and (max-width: 1180px) {
-          .dashboard-bottom-nav {
+          html body .dashboard-bottom-nav {
             display: grid !important;
             position: fixed !important;
             width: calc(100vw - 24px) !important;
@@ -10735,16 +10735,23 @@ export default function DashboardPage() {
             left: 50% !important;
             right: auto !important;
             bottom: 0 !important;
+            z-index: 2147483000 !important;
             transform: translate3d(-50%, 0, 0) !important;
             -webkit-transform: translate3d(-50%, 0, 0) !important;
             will-change: transform !important;
             backface-visibility: hidden !important;
             -webkit-backface-visibility: hidden !important;
-            contain: layout paint style !important;
+            contain: layout style !important;
+            overflow: visible !important;
+            isolation: isolate !important;
+          }
+
+          html body .dashboard-bottom-nav > button {
+            z-index: 3 !important;
           }
 
           .dashboard-shell-pad {
-            padding-bottom: 112px !important;
+            padding-bottom: calc(118px + env(safe-area-inset-bottom)) !important;
           }
         }
 
@@ -14610,7 +14617,18 @@ function MobileBottomNav({
   parachatUnreadCount: number;
   onCreatePost: () => void;
 }) {
-  return (
+  const [useTabletPortal, setUseTabletPortal] = useState(false);
+
+  useEffect(() => {
+    const tabletQuery = window.matchMedia("(min-width: 761px) and (max-width: 1180px)");
+    const syncTabletPortal = () => setUseTabletPortal(tabletQuery.matches);
+
+    syncTabletPortal();
+    tabletQuery.addEventListener?.("change", syncTabletPortal);
+    return () => tabletQuery.removeEventListener?.("change", syncTabletPortal);
+  }, []);
+
+  const navigation = (
     <nav className="dashboard-bottom-nav" style={mobileBottomNavStyle} aria-label="Mobile dashboard navigation">
       <Link href="/dashboard" style={mobileNavItemActiveStyle} aria-label="Home">
         <span style={mobileNavIconSlotStyle}><HomeIcon /></span>
@@ -14649,6 +14667,10 @@ function MobileBottomNav({
       </Link>
     </nav>
   );
+
+  return useTabletPortal && typeof document !== "undefined"
+    ? createPortal(navigation, document.body)
+    : navigation;
 }
 
 

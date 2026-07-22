@@ -17900,8 +17900,18 @@ function ProfileStableBottomNav({
   onCreatePost: () => void;
 }) {
   const profileHref = viewerId ? `/profile/${viewerId}` : "/dashboard";
+  const [useTabletPortal, setUseTabletPortal] = useState(false);
 
-  return (
+  useEffect(() => {
+    const tabletQuery = window.matchMedia("(min-width: 761px) and (max-width: 1180px)");
+    const syncTabletPortal = () => setUseTabletPortal(tabletQuery.matches);
+
+    syncTabletPortal();
+    tabletQuery.addEventListener?.("change", syncTabletPortal);
+    return () => tabletQuery.removeEventListener?.("change", syncTabletPortal);
+  }, []);
+
+  const navigation = (
     <>
       <nav
         className="profile-stable-bottom-nav"
@@ -18021,24 +18031,31 @@ function ProfileStableBottomNav({
         }
 
         @media (min-width: 761px) and (max-width: 1180px) {
-          .profile-stable-bottom-nav {
+          html body .profile-stable-bottom-nav {
             position: fixed !important;
             width: calc(100vw - 24px) !important;
             max-width: none !important;
             left: 50% !important;
             right: auto !important;
             bottom: 0 !important;
+            z-index: 2147483000 !important;
             transform: translate3d(-50%, 0, 0) !important;
             -webkit-transform: translate3d(-50%, 0, 0) !important;
             will-change: transform !important;
             backface-visibility: hidden !important;
             -webkit-backface-visibility: hidden !important;
-            contain: layout paint style !important;
+            contain: layout style !important;
+            overflow: visible !important;
+            isolation: isolate !important;
+          }
+
+          html body .profile-stable-create-button {
+            z-index: 3 !important;
           }
 
           .profile-page-shell,
           .profile-main-shell {
-            padding-bottom: 112px !important;
+            padding-bottom: calc(118px + env(safe-area-inset-bottom)) !important;
           }
         }
 
@@ -18604,6 +18621,10 @@ function ProfileStableBottomNav({
       `}</style>
     </>
   );
+
+  return useTabletPortal && typeof document !== "undefined"
+    ? createPortal(navigation, document.body)
+    : navigation;
 }
 
 
