@@ -10725,28 +10725,49 @@ export default function DashboardPage() {
         }
 
 
-        /* Tablet navigation: reuse the exact mobile bottom bar layout. */
+        /* Tablet navigation: fixed full-width wrapper, no transforms on the fixed layer. */
         @media (min-width: 761px) and (max-width: 1180px) {
-          html body .dashboard-bottom-nav {
-            display: grid !important;
+          html body .dashboard-tablet-nav-fixed-layer {
             position: fixed !important;
-            width: calc(100vw - 24px) !important;
-            max-width: none !important;
-            left: 50% !important;
-            right: auto !important;
-            bottom: max(10px, env(safe-area-inset-bottom)) !important;
+            left: 0 !important;
+            right: 0 !important;
+            top: auto !important;
+            bottom: 0 !important;
             z-index: 2147483000 !important;
-            transform: translate3d(-50%, 0, 0) !important;
-            -webkit-transform: translate3d(-50%, 0, 0) !important;
-            will-change: transform !important;
-            backface-visibility: hidden !important;
-            -webkit-backface-visibility: hidden !important;
-            contain: layout style !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: flex-end !important;
+            width: 100% !important;
+            padding: 0 12px env(safe-area-inset-bottom) !important;
+            margin: 0 !important;
+            pointer-events: none !important;
+            transform: none !important;
+            -webkit-transform: none !important;
             overflow: visible !important;
-            isolation: isolate !important;
           }
 
-          html body .dashboard-bottom-nav > button {
+          html body .dashboard-tablet-nav-fixed-layer > .dashboard-bottom-nav {
+            display: grid !important;
+            position: relative !important;
+            left: auto !important;
+            right: auto !important;
+            top: auto !important;
+            bottom: auto !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            transform: none !important;
+            -webkit-transform: none !important;
+            will-change: auto !important;
+            backface-visibility: visible !important;
+            -webkit-backface-visibility: visible !important;
+            contain: none !important;
+            overflow: visible !important;
+            isolation: isolate !important;
+            pointer-events: auto !important;
+          }
+
+          html body .dashboard-tablet-nav-fixed-layer > .dashboard-bottom-nav > button {
             z-index: 3 !important;
           }
 
@@ -14628,88 +14649,9 @@ function MobileBottomNav({
     return () => tabletQuery.removeEventListener?.("change", syncTabletPortal);
   }, []);
 
-  const tabletNavRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!useTabletPortal) return;
-
-    const portraitQuery = window.matchMedia(
-      "(min-width: 761px) and (max-width: 1180px) and (orientation: portrait)"
-    );
-    const viewport = window.visualViewport;
-    let animationFrame = 0;
-
-    const clearPortraitPosition = () => {
-      const nav = tabletNavRef.current;
-      if (!nav) return;
-
-      nav.style.removeProperty("position");
-      nav.style.removeProperty("top");
-      nav.style.removeProperty("bottom");
-    };
-
-    const placeAtVisibleViewportBottom = () => {
-      window.cancelAnimationFrame(animationFrame);
-
-      animationFrame = window.requestAnimationFrame(() => {
-        const nav = tabletNavRef.current;
-        if (!nav) return;
-
-        if (!portraitQuery.matches) {
-          clearPortraitPosition();
-          return;
-        }
-
-        const visiblePageTop =
-          viewport && Number.isFinite(viewport.pageTop)
-            ? viewport.pageTop
-            : window.scrollY;
-
-        const visibleHeight =
-          viewport && Number.isFinite(viewport.height)
-            ? viewport.height
-            : window.innerHeight;
-
-        const navHeight = nav.getBoundingClientRect().height || 76;
-        const top = Math.max(0, visiblePageTop + visibleHeight - navHeight - 10);
-
-        /*
-         * iPad Safari portrait changes its visual viewport while the browser
-         * toolbar expands and collapses. An ordinary fixed element follows the
-         * layout viewport and appears to move. Positioning the body-level portal
-         * at the visual viewport's document-space bottom keeps it stationary.
-         */
-        nav.style.setProperty("position", "absolute", "important");
-        nav.style.setProperty("top", `${Math.round(top)}px`, "important");
-        nav.style.setProperty("bottom", "auto", "important");
-      });
-    };
-
-    placeAtVisibleViewportBottom();
-    window.requestAnimationFrame(placeAtVisibleViewportBottom);
-
-    window.addEventListener("scroll", placeAtVisibleViewportBottom, { passive: true });
-    window.addEventListener("resize", placeAtVisibleViewportBottom, { passive: true });
-    window.addEventListener("orientationchange", placeAtVisibleViewportBottom);
-    viewport?.addEventListener("scroll", placeAtVisibleViewportBottom);
-    viewport?.addEventListener("resize", placeAtVisibleViewportBottom);
-    portraitQuery.addEventListener?.("change", placeAtVisibleViewportBottom);
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      window.removeEventListener("scroll", placeAtVisibleViewportBottom);
-      window.removeEventListener("resize", placeAtVisibleViewportBottom);
-      window.removeEventListener("orientationchange", placeAtVisibleViewportBottom);
-      viewport?.removeEventListener("scroll", placeAtVisibleViewportBottom);
-      viewport?.removeEventListener("resize", placeAtVisibleViewportBottom);
-      portraitQuery.removeEventListener?.("change", placeAtVisibleViewportBottom);
-      clearPortraitPosition();
-    };
-  }, [useTabletPortal]);
-
 
   const navigation = (
-    <nav ref={tabletNavRef} className="dashboard-bottom-nav" style={mobileBottomNavStyle} aria-label="Mobile dashboard navigation">
+    <nav className="dashboard-bottom-nav" style={mobileBottomNavStyle} aria-label="Mobile dashboard navigation">
       <Link href="/dashboard" style={mobileNavItemActiveStyle} aria-label="Home">
         <span style={mobileNavIconSlotStyle}><HomeIcon /></span>
         <span style={mobileNavLabelStyle}>Home</span>
@@ -14749,7 +14691,12 @@ function MobileBottomNav({
   );
 
   return useTabletPortal && typeof document !== "undefined"
-    ? createPortal(navigation, document.body)
+    ? createPortal(
+        <div className="dashboard-tablet-nav-fixed-layer">
+          {navigation}
+        </div>,
+        document.body
+      )
     : navigation;
 }
 
