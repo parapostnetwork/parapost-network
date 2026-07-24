@@ -183,14 +183,6 @@ export default function ProfileFollowersPage() {
           className="followers-back-mobile"
           style={backButtonStyle}
           onClick={() => {
-            // Return to the exact Dashboard/menu entry in browser history.
-            // This keeps the tablet menu state instead of loading a fresh
-            // Dashboard page with the menu closed.
-            if (window.history.length > 1) {
-              router.back();
-              return;
-            }
-
             router.push("/dashboard?menu=main");
           }}
         >
