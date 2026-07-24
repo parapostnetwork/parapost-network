@@ -178,14 +178,25 @@ export default function ProfileFollowingPage() {
           ‹ Back
         </button>
 
-        <Link
-          href="/dashboard?menu=main"
+        <button
+          type="button"
           className="following-back-mobile"
           style={backButtonStyle}
+          onClick={() => {
+            // Return to the exact Dashboard/menu entry in browser history.
+            // This keeps the tablet menu state instead of loading a fresh
+            // Dashboard page with the menu closed.
+            if (window.history.length > 1) {
+              router.back();
+              return;
+            }
+
+            router.push("/dashboard?menu=main");
+          }}
         >
           <span aria-hidden="true">←</span>
           <span>Back to Menu</span>
-        </Link>
+        </button>
 
         <div style={headerCardStyle}>
           <p style={eyebrowStyle}>Parapost Network</p>
