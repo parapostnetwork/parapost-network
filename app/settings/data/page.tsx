@@ -326,7 +326,7 @@ export default function DataAccountSettingsPage() {
           <div className="data-account-back-mobile">
             <BackToPrevious
               label="Back to Your Account"
-              fallbackHref="/dashboard?menu=settings-account"
+              fallbackHref="/dashboard?menu=settingsAccount"
               alwaysUseFallback
             />
           </div>

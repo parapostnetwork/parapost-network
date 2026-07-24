@@ -582,10 +582,10 @@ export default function PersonalizationSettingsPage() {
 
           <div className="personalization-back-mobile">
             <BackToPrevious
-              label="Back to Privacy & Safety"
-              fallbackHref="/dashboard?menu=settings-privacy"
+              label="Back to Your Account"
+              fallbackHref="/dashboard?menu=settingsAccount"
               alwaysUseFallback
-            />
+             />
           </div>
 
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">

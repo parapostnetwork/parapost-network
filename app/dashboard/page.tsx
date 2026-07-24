@@ -2075,7 +2075,11 @@ export default function DashboardPage() {
     const searchParams = new URLSearchParams(window.location.search);
     const requestedMenu = searchParams.get("menu");
 
-    if (requestedMenu !== "main" && requestedMenu !== "ads") return;
+    if (
+     requestedMenu !== "main" &&
+     requestedMenu !== "ads" &&
+     requestedMenu !== "settingsAccount"
+   ) return;
 
     const isMobileOrTablet = window.matchMedia("(max-width: 1180px)").matches;
     if (!isMobileOrTablet) return;

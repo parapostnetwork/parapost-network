@@ -360,7 +360,11 @@ export default function ProfileSettingsPage() {
       <section className="relative z-10 mx-auto w-full max-w-4xl">
         <div className="profile-settings-topbar mb-5 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">
-            <BackToPrevious label="← Back to Account" fallbackHref="/settings/account" />
+            <BackToPrevious
+               label="Back to Your Account"
+               fallbackHref="/dashboard?menu=settingsAccount"
+               alwaysUseFallback
+              />
             <span className="select-none text-slate-700">/</span>
             <Link
               href="/settings"

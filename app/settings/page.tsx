@@ -410,7 +410,11 @@ export default function SettingsPage() {
 
         {/* Top bar */}
         <div className="mb-5 flex items-center gap-3">
-          <BackToPrevious label="← Back to Dashboard" fallbackHref="/dashboard" />
+          <BackToPrevious
+            label="Back to Your Account"
+            fallbackHref="/dashboard?menu=settingsAccount"
+            alwaysUseFallback
+          />
         </div>
 
         {/* Hero — user card */}
