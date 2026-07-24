@@ -306,14 +306,6 @@ export default function FriendsListPage() {
               className="friends-pill-action friends-back-mobile"
               style={secondaryLinkStyle}
               onClick={() => {
-                // Return to the exact Dashboard/menu entry in browser history.
-                // This keeps the tablet menu state instead of starting a fresh
-                // Dashboard navigation with the menu closed.
-                if (window.history.length > 1) {
-                  router.back();
-                  return;
-                }
-
                 router.push("/dashboard?menu=main");
               }}
             >
