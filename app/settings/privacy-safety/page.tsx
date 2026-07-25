@@ -243,7 +243,7 @@ export default function PrivacySafetySettingsPage() {
           min-height: 0;
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1180px) {
           .privacy-safety-back-desktop {
             display: none !important;
           }
@@ -326,8 +326,8 @@ export default function PrivacySafetySettingsPage() {
 
           <div className="privacy-safety-back-mobile">
             <BackToPrevious
-              label="Back to Settings"
-              fallbackHref="/dashboard?menu=settings"
+              label="Back to Privacy & Safety"
+              fallbackHref="/dashboard?menu=settingsPrivacy"
               alwaysUseFallback
             />
           </div>

@@ -226,7 +226,7 @@ export default function BlockedUsersSettingsPage() {
           }
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1180px) {
           .blocked-users-back-desktop {
             display: none !important;
           }
@@ -252,7 +252,7 @@ export default function BlockedUsersSettingsPage() {
           <div className="blocked-users-back-mobile">
             <BackToPrevious
               label="Back to Privacy & Safety"
-              fallbackHref="/dashboard?menu=settings-privacy"
+              fallbackHref="/dashboard?menu=settingsPrivacy"
               alwaysUseFallback
             />
           </div>

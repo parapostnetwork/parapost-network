@@ -188,7 +188,7 @@ export default function ProfileVisibilitySettingsPage() {
           display: none;
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1180px) {
           .profile-visibility-back-desktop {
             display: none !important;
           }
@@ -256,7 +256,7 @@ export default function ProfileVisibilitySettingsPage() {
           <div className="profile-visibility-back-mobile">
             <BackToPrevious
               label="Back to Privacy & Safety"
-              fallbackHref="/dashboard?menu=settings-privacy"
+              fallbackHref="/dashboard?menu=settingsPrivacy"
               alwaysUseFallback
             />
           </div>

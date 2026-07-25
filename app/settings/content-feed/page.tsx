@@ -329,7 +329,7 @@ export default function ContentFeedSettingsPage() {
           min-height: 0;
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1180px) {
           .content-feed-back-desktop {
             display: none !important;
           }
@@ -415,7 +415,7 @@ export default function ContentFeedSettingsPage() {
           <div className="content-feed-back-mobile">
             <BackToPrevious
               label="Back to Privacy & Safety"
-              fallbackHref="/dashboard?menu=settings-privacy"
+              fallbackHref="/dashboard?menu=settingsPrivacy"
               alwaysUseFallback
             />
           </div>
