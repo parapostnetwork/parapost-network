@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 export default function BackToPrevious({
   label = "Back",
   fallbackHref = "/settings",
@@ -9,22 +11,22 @@ export default function BackToPrevious({
   fallbackHref?: string;
   alwaysUseFallback?: boolean;
 }) {
+  const router = useRouter();
+
   const cleanLabel = label.replace(/^[←‹<]\s*/, "").trim() || "Back";
 
   const handleBack = () => {
-    if (typeof window === "undefined") return;
-
     if (alwaysUseFallback) {
-      window.location.href = fallbackHref;
+      router.push(fallbackHref);
       return;
     }
 
     if (window.history.length > 1) {
-      window.history.back();
+      router.back();
       return;
     }
 
-    window.location.href = fallbackHref;
+    router.push(fallbackHref);
   };
 
   return (
@@ -41,7 +43,10 @@ export default function BackToPrevious({
       >
         ←
       </span>
-      <span className="inline-flex items-center leading-none">{cleanLabel}</span>
+
+      <span className="inline-flex items-center leading-none">
+        {cleanLabel}
+      </span>
     </button>
   );
 }
