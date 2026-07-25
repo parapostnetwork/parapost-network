@@ -252,9 +252,9 @@ export default function BlockedUsersSettingsPage() {
           <div className="blocked-users-back-mobile">
             <BackToPrevious
               label="Back to Privacy & Safety"
-              fallbackHref="/dashboard?menu=settingsPrivacy"
+              fallbackHref="/dashboard?menu=settings-privacy"
               alwaysUseFallback
-            />
+             />
           </div>
 
           <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
