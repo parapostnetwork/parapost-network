@@ -2075,16 +2075,27 @@ export default function DashboardPage() {
     const searchParams = new URLSearchParams(window.location.search);
     const requestedMenu = searchParams.get("menu");
 
-    if (
-     requestedMenu !== "main" &&
-     requestedMenu !== "ads" &&
-     requestedMenu !== "settingsAccount"
-   ) return;
+    const resolvedMenu: DashboardMobileMenuSection | null =
+      requestedMenu === "settings-privacy"
+        ? "settingsPrivacy"
+        : requestedMenu === "settings-account"
+          ? "settingsAccount"
+          : requestedMenu === "settings-help"
+            ? "settingsHelp"
+            : requestedMenu === "main" ||
+                requestedMenu === "ads" ||
+                requestedMenu === "settingsAccount" ||
+                requestedMenu === "settingsPrivacy" ||
+                requestedMenu === "settingsHelp"
+              ? requestedMenu
+              : null;
+
+    if (!resolvedMenu) return;
 
     const isMobileOrTablet = window.matchMedia("(max-width: 1180px)").matches;
     if (!isMobileOrTablet) return;
 
-    setMobileMenuInitialSection(requestedMenu);
+    setMobileMenuInitialSection(resolvedMenu);
     setMobileMenuOpen(true);
 
     searchParams.delete("menu");
