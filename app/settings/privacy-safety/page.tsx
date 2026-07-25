@@ -56,10 +56,34 @@ const primarySafetyActions = [
   {
     title: "Content & Feed",
     description:
-      "Manage feed preferences, hidden content, muted words, discovery, and Parapost Reels content controls.",
+      "Manage feed preferences, hidden content, muted words, discovery, and general content controls.",
     href: "/settings/content-feed",
     status: "Content control",
-    items: ["Feed preferences", "Hidden posts", "Muted words", "Reels controls"],
+    items: ["Feed preferences", "Hidden posts", "Muted words", "Discovery"],
+  },
+  {
+    title: "Reel Preferences",
+    description:
+      "Manage how Reels are recommended, displayed, and personalized for your account.",
+    href: "/settings/reel-preferences",
+    status: "Reels control",
+    items: ["Recommendations", "Sensitive content", "Muted topics", "Autoplay"],
+  },
+  {
+    title: "Message Requests",
+    description:
+      "Choose who can send you new message requests and how those requests are handled.",
+    href: "/settings/message-requests",
+    status: "Messaging control",
+    items: ["Followers", "Other people", "Filtered requests", "Request controls"],
+  },
+  {
+    title: "Reporting & Moderation",
+    description:
+      "Report content, review safety concerns, and access moderation information.",
+    href: "/settings/reporting-moderation",
+    status: "Safety control",
+    items: ["Report users", "Report content", "Report status", "Safety resources"],
   },
   {
     title: "Help & Support",
