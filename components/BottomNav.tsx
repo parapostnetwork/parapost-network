@@ -1,6 +1,7 @@
 "use client";
 
 import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -20,6 +21,11 @@ export default function BottomNav({
   const router = useRouter();
   const pathname = usePathname();
   const [resolvedUserId, setResolvedUserId] = useState(currentUserId);
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (currentUserId) {
@@ -57,7 +63,7 @@ export default function BottomNav({
     pathname?.startsWith("/notifications") ||
     pathname?.startsWith("/settings");
 
-  if (!shouldShow) return null;
+  if (!shouldShow || !portalReady) return null;
 
   const profileHref = resolvedUserId ? `/profile/${resolvedUserId}` : "/dashboard";
 
@@ -83,7 +89,7 @@ export default function BottomNav({
     goTo("/dashboard?createPost=1");
   };
 
-  return (
+  return createPortal(
     <>
       <nav
         aria-label="Primary bottom navigation"
@@ -243,7 +249,8 @@ export default function BottomNav({
           }
         }
       `}</style>
-    </>
+    </>,
+    document.body
   );
 }
 
