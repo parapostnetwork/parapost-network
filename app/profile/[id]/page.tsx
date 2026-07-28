@@ -5331,35 +5331,9 @@ useEffect(() => {
 
     setFriendLoading(true);
     try {
+      // The shared helper creates the acceptance notification and updates the
+      // friendship consistently for Profile and Friend Requests.
       await acceptFriendRequest(supabase, viewerId, profileId);
-
-      const { data: acceptedRow } = await supabase
-        .from("friend_requests")
-        .select("id")
-        .eq("sender_id", profileId)
-        .eq("receiver_id", viewerId)
-        .eq("status", "accepted")
-        .maybeSingle();
-
-      const { error: notifyError } = await supabase
-        .from("notifications")
-        .insert([
-          {
-            user_id: profileId,
-            actor_id: viewerId,
-            type: "friend_accept",
-            post_id: null,
-            comment_id: null,
-            friend_request_id: acceptedRow?.id || null,
-            message: "accepted your friend request.",
-            is_read: false,
-          },
-        ]);
-
-      if (notifyError) {
-        console.error("Friend accept notification error:", notifyError.message);
-      }
-
       setFriendStatus("friends");
       showFriendStatus("Friend request accepted.");
     } catch (error) {

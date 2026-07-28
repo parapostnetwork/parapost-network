@@ -121,7 +121,10 @@ async function createNotification(
     type: string;
     friend_request_id?: string | null;
     message: string;
-  }
+  },
+  options: {
+    required?: boolean;
+  } = {}
 ) {
   if (!payload.user_id || !payload.actor_id || payload.user_id === payload.actor_id) return;
 
@@ -138,7 +141,36 @@ async function createNotification(
     },
   ]);
 
-  if (error) console.warn("Friend notification warning:", error.message);
+  if (!error) return;
+
+  // Repeated taps or a database trigger may already have created the same
+  // notification. A duplicate is safe and should not block acceptance.
+  if (isDuplicateError(error)) return;
+
+  if (options.required) {
+    throw new Error(`Unable to create the friend acceptance notification. ${error.message}`);
+  }
+
+  console.warn("Friend notification warning:", error.message);
+}
+
+async function removeFriendAcceptanceNotification(
+  supabase: SupabaseClient,
+  requestId: string,
+  acceptingUserId: string,
+  senderUserId: string
+) {
+  const { error } = await supabase
+    .from("notifications")
+    .delete()
+    .eq("user_id", senderUserId)
+    .eq("actor_id", acceptingUserId)
+    .eq("type", "friend_accept")
+    .eq("friend_request_id", requestId);
+
+  if (error) {
+    console.warn("Friend acceptance notification cleanup warning:", error.message);
+  }
 }
 
 async function markFriendRequestNotificationsRead(supabase: SupabaseClient, requestId: string, userId: string) {
@@ -315,43 +347,92 @@ export async function acceptFriendRequest(
   currentUserId: string,
   senderUserId: string
 ) {
+  if (!currentUserId || !senderUserId) throw new Error("Missing user IDs.");
+  if (currentUserId === senderUserId) throw new Error("You cannot accept your own friend request.");
+
   await ensureOwnProfileRow(supabase, currentUserId);
   await ensureTargetProfileExists(supabase, senderUserId);
 
   const { data: request, error } = await supabase
     .from("friend_requests")
-    .select("*")
+    .select("id, sender_id, receiver_id, status")
     .eq("sender_id", senderUserId)
     .eq("receiver_id", currentUserId)
     .eq("status", "pending")
-    .single();
+    .maybeSingle();
 
-  if (error || !request) throw new Error("No request found.");
+  if (error) throw new Error(error.message);
 
-  const { user_one, user_two } = getFriendshipPair(currentUserId, senderUserId);
+  if (!request) {
+    if (await friendshipAlreadyExists(supabase, currentUserId, senderUserId)) {
+      return true;
+    }
 
-  const { error: insertError } = await supabase.from("friendships").insert([{ user_one, user_two }]);
-
-  if (insertError && !isDuplicateError(insertError)) {
-    throw new Error(insertError.message);
+    throw new Error("No pending friend request was found.");
   }
 
-  const { error: updateError } = await supabase
-    .from("friend_requests")
-    .update({ status: "accepted" })
-    .eq("id", request.id);
+  const { user_one, user_two } = getFriendshipPair(currentUserId, senderUserId);
+  let friendshipCreated = false;
 
-  if (updateError) throw new Error(updateError.message);
+  const { error: insertError } = await supabase
+    .from("friendships")
+    .insert([{ user_one, user_two }]);
+
+  if (insertError) {
+    if (!isDuplicateError(insertError)) {
+      throw new Error(insertError.message);
+    }
+  } else {
+    friendshipCreated = true;
+  }
+
+  try {
+    // Create this while the request is still pending. This preserves the
+    // sender/receiver context used by notification security policies and makes
+    // acceptance from every screen follow the same reliable path.
+    await createNotification(
+      supabase,
+      {
+        user_id: senderUserId,
+        actor_id: currentUserId,
+        type: "friend_accept",
+        friend_request_id: request.id,
+        message: "accepted your friend request.",
+      },
+      { required: true }
+    );
+
+    const { error: updateError } = await supabase
+      .from("friend_requests")
+      .update({ status: "accepted" })
+      .eq("id", request.id)
+      .eq("status", "pending");
+
+    if (updateError) throw new Error(updateError.message);
+  } catch (acceptError) {
+    await removeFriendAcceptanceNotification(
+      supabase,
+      request.id,
+      currentUserId,
+      senderUserId
+    );
+
+    if (friendshipCreated) {
+      const { error: rollbackError } = await supabase
+        .from("friendships")
+        .delete()
+        .eq("user_one", user_one)
+        .eq("user_two", user_two);
+
+      if (rollbackError) {
+        console.warn("Friendship rollback warning:", rollbackError.message);
+      }
+    }
+
+    throw acceptError;
+  }
 
   await markFriendRequestNotificationsRead(supabase, request.id, currentUserId);
-
-  await createNotification(supabase, {
-    user_id: senderUserId,
-    actor_id: currentUserId,
-    type: "friend_accept",
-    friend_request_id: request.id,
-    message: "accepted your friend request.",
-  });
 
   return true;
 }
