@@ -1,8 +1,8 @@
 "use client";
 
-import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 function getFriendlyResetError(message: string) {
   const lowerMessage = message.toLowerCase();
@@ -35,7 +35,6 @@ function getHashParamsFromUrl(currentUrl: URL) {
 }
 
 export default function ResetPasswordPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   const [password, setPassword] = useState("");

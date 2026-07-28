@@ -104,6 +104,13 @@ export default function Home() {
 
   useEffect(() => {
     let isActive = true;
+    let redirectStarted = false;
+
+    const redirectToDashboard = () => {
+      if (redirectStarted) return;
+      redirectStarted = true;
+      window.location.replace("/dashboard");
+    };
 
     const verifySavedSession = async () => {
       try {
@@ -153,27 +160,39 @@ export default function Home() {
         if (!isActive) return;
 
         if (error) {
-          await clearLocalAuthSessionSilently();
+          setAuthError("We could not restore your saved session. Please sign in again.");
           return;
         }
 
         if (data.session?.user) {
-          window.location.replace("/dashboard");
-          return;
+          redirectToDashboard();
         }
       } catch {
-        await clearLocalAuthSessionSilently();
-      } finally {
         if (isActive) {
+          setAuthError("We could not check your saved session. Please try again.");
+        }
+      } finally {
+        if (isActive && !redirectStarted) {
           setCheckingSession(false);
         }
       }
     };
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isActive) return;
+
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
+        redirectToDashboard();
+      }
+    });
+
     void verifySavedSession();
 
     return () => {
       isActive = false;
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -215,15 +234,12 @@ export default function Home() {
       setLoading(true);
 
       if (isLogin) {
-        await clearLocalAuthSessionSilently();
-
         const { error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
         });
 
         if (error) {
-          await clearLocalAuthSessionSilently();
           setAuthError(getFriendlySigninError(error.message, passwordHasEdgeSpaces));
           return;
         }
