@@ -13987,18 +13987,74 @@ function RailHeroProfile({
   currentUserId: string;
   userEmail: string;
 }) {
+  const displayName =
+    profile?.full_name || profile?.username || "Your profile";
+  const username = profile?.username || "parapost";
+
   return (
-    <div style={railHeroProfileStyle}>
+    <div style={{ ...railHeroProfileStyle, minWidth: 0 }}>
       <Avatar profile={profile} size={48} />
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <strong style={{ display: "block", color: "#fff", fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {profile?.full_name || profile?.username || "Your profile"}
+
+      <div
+        style={{
+          minWidth: 0,
+          flex: "1 1 auto",
+          overflow: "hidden",
+        }}
+      >
+        <strong
+          title={displayName}
+          style={{
+            display: "block",
+            color: "#fff",
+            fontSize: 15,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {displayName}
         </strong>
-        <span style={railMetaStyle}>@{profile?.username || "parapost"}</span>
-        {userEmail ? <span style={{ ...railMetaStyle, wordBreak: "break-word" }}>{userEmail}</span> : null}
+
+        <span
+          title={`@${username}`}
+          style={{
+            ...railMetaStyle,
+            display: "block",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          @{username}
+        </span>
+
+        {userEmail ? (
+          <span
+            title={userEmail}
+            style={{
+              ...railMetaStyle,
+              display: "block",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {userEmail}
+          </span>
+        ) : null}
       </div>
-      <Link href={currentUserId ? `/profile/${currentUserId}` : "/dashboard"} style={railProfileButtonStyle}>
-        View
+
+      <Link
+        href={currentUserId ? `/profile/${currentUserId}` : "/dashboard"}
+        style={{
+          ...railProfileButtonStyle,
+          flex: "0 0 auto",
+          flexShrink: 0,
+          whiteSpace: "nowrap",
+        }}
+      >
+        View Profile
       </Link>
     </div>
   );
