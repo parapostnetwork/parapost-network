@@ -26,6 +26,10 @@ function getFriendshipPair(currentUserId: string, targetUserId: string) {
   };
 }
 
+function getFriendshipPairFilter(currentUserId: string, targetUserId: string) {
+  return `and(user_one.eq.${currentUserId},user_two.eq.${targetUserId}),and(user_one.eq.${targetUserId},user_two.eq.${currentUserId})`;
+}
+
 function isDuplicateError(error: { code?: string | null; message?: string | null }) {
   const message = String(error.message || "").toLowerCase();
   return (
@@ -199,13 +203,10 @@ async function findExistingFriendRequest(supabase: SupabaseClient, currentUserId
 }
 
 async function friendshipAlreadyExists(supabase: SupabaseClient, currentUserId: string, targetUserId: string) {
-  const { user_one, user_two } = getFriendshipPair(currentUserId, targetUserId);
-
   const { data, error } = await supabase
     .from("friendships")
     .select("user_one, user_two")
-    .eq("user_one", user_one)
-    .eq("user_two", user_two)
+    .or(getFriendshipPairFilter(currentUserId, targetUserId))
     .limit(1);
 
   if (error) return false;
@@ -465,13 +466,16 @@ export async function removeFriend(
   currentUserId: string,
   targetUserId: string
 ) {
-  const { user_one, user_two } = getFriendshipPair(currentUserId, targetUserId);
+  if (!currentUserId || !targetUserId) throw new Error("Missing user IDs.");
+  if (currentUserId === targetUserId) throw new Error("You cannot remove yourself as a friend.");
 
+  // Delete either column orientation. Older friendship rows were not always
+  // stored in the same UUID order, so deleting only the sorted orientation
+  // could report success while leaving a legacy friendship row behind.
   const { error: friendshipError } = await supabase
     .from("friendships")
     .delete()
-    .eq("user_one", user_one)
-    .eq("user_two", user_two);
+    .or(getFriendshipPairFilter(currentUserId, targetUserId));
 
   if (friendshipError) throw new Error(friendshipError.message);
 
@@ -482,6 +486,27 @@ export async function removeFriend(
     .or(getFriendPairFilter(currentUserId, targetUserId));
 
   if (requestError) throw new Error(requestError.message);
+
+  const [remainingFriendship, remainingRequest] = await Promise.all([
+    supabase
+      .from("friendships")
+      .select("user_one, user_two")
+      .or(getFriendshipPairFilter(currentUserId, targetUserId))
+      .limit(1),
+    supabase
+      .from("friend_requests")
+      .select("id")
+      .eq("status", "accepted")
+      .or(getFriendPairFilter(currentUserId, targetUserId))
+      .limit(1),
+  ]);
+
+  if (remainingFriendship.error) throw new Error(remainingFriendship.error.message);
+  if (remainingRequest.error) throw new Error(remainingRequest.error.message);
+
+  if ((remainingFriendship.data?.length || 0) > 0 || (remainingRequest.data?.length || 0) > 0) {
+    throw new Error("The friendship could not be completely removed. Please refresh and try again.");
+  }
 
   return true;
 }
