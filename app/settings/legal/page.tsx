@@ -140,6 +140,22 @@ const legalSections: LegalSection[] = [
     href: "/settings/legal/copyright",
     status: "Available",
   },
+  {
+    eyebrow: "Safety Policy",
+    title: "Child Safety Standards",
+    description:
+      "Review Parapost Network standards for preventing child sexual abuse and exploitation, reporting concerns, and enforcing child safety requirements.",
+    items: [
+      "Zero-tolerance policy",
+      "In-app reporting",
+      "Account enforcement",
+      "Content removal",
+      "Legal reporting",
+      "Safety contact",
+    ],
+    href: "/settings/legal/child-safety",
+    status: "Available",
+  },
 ];
 
 const trustCards = [
