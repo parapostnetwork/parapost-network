@@ -1,5 +1,4 @@
 "use client";
-// PARACHAT FLOW POLISH v1 - smoother route feel, cleaner mobile back behavior, and lightweight prefetch for common exits.
 
 import {
   ChangeEvent,
@@ -297,21 +296,10 @@ function waitForParachatImageUrlRetry(delayMs: number) {
   });
 }
 
-const parachatSignedImageUrlCache = new Map<
-  string,
-  { url: string; expiresAt: number }
->();
-
 async function attachSignedImageUrlToMessage(message: MessageRow) {
   if (!message.image_path) return message;
-  if (message.signedImageUrl) return message;
 
-  const cached = parachatSignedImageUrlCache.get(message.image_path);
-  if (cached && cached.expiresAt > Date.now() + 60_000) {
-    return { ...message, signedImageUrl: cached.url };
-  }
-
-  const maxAttempts = 4;
+  const maxAttempts = 5;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const { data, error } = await supabase.storage
@@ -319,16 +307,11 @@ async function attachSignedImageUrlToMessage(message: MessageRow) {
       .createSignedUrl(message.image_path, 60 * 60);
 
     if (!error && data?.signedUrl) {
-      parachatSignedImageUrlCache.set(message.image_path, {
-        url: data.signedUrl,
-        expiresAt: Date.now() + 55 * 60 * 1000,
-      });
-
       return { ...message, signedImageUrl: data.signedUrl };
     }
 
     if (attempt < maxAttempts) {
-      await waitForParachatImageUrlRetry(250 * attempt);
+      await waitForParachatImageUrlRetry(350 * attempt);
       continue;
     }
 
@@ -739,80 +722,24 @@ function MicrophoneIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-function ParachatLoadingFallback() {
-  return (
-    <main
-      style={{
-        minHeight: "100dvh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        background:
-          "radial-gradient(circle at 20% 0%, rgba(168,85,247,0.24), transparent 34%), radial-gradient(circle at 80% 18%, rgba(124,58,237,0.18), transparent 30%), linear-gradient(180deg, #05050b 0%, #07090d 52%, #05050b 100%)",
-        color: "#ffffff",
-      }}
-      aria-busy="true"
-      aria-live="polite"
-    >
-      <div
-        style={{
-          width: "min(420px, 100%)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: "28px",
-          padding: "26px",
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(15,23,42,0.72))",
-          boxShadow: "0 24px 70px rgba(0,0,0,0.42)",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            width: "58px",
-            height: "58px",
-            margin: "0 auto 16px",
-            borderRadius: "18px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "linear-gradient(135deg, #a855f7, #7c3aed, #d946ef)",
-            boxShadow: "0 16px 34px rgba(168,85,247,0.32)",
-            fontSize: "24px",
-            fontWeight: 900,
-            letterSpacing: "-0.08em",
-          }}
-        >
-          P
-        </div>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "24px",
-            fontWeight: 900,
-            letterSpacing: "-0.04em",
-          }}
-        >
-          Loading Parachat
-        </h1>
-        <p
-          style={{
-            margin: "8px 0 0",
-            color: "#c4b5fd",
-            fontSize: "14px",
-            fontWeight: 700,
-          }}
-        >
-          Opening your messages...
-        </p>
-      </div>
-    </main>
-  );
-}
-
 export default function MessagesPageWrapper() {
   return (
-    <Suspense fallback={<ParachatLoadingFallback />}>
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            background: "#05070a",
+            color: "white",
+            display: "grid",
+            placeItems: "center",
+            fontWeight: 900,
+          }}
+        >
+          Loading Parachat...
+        </div>
+      }
+    >
       <MessagesPage />
     </Suspense>
   );
@@ -824,13 +751,6 @@ function MessagesPage() {
 
   const selectedConversationFromUrl = searchParams.get("conversation") || "";
   const selectedUserFromUrl = searchParams.get("user") || "";
-
-  useEffect(() => {
-    router.prefetch("/dashboard");
-    router.prefetch("/notifications");
-    router.prefetch("/friends");
-    router.prefetch("/settings");
-  }, [router]);
 
   const [viewerId, setViewerId] = useState("");
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
@@ -873,10 +793,6 @@ function MessagesPage() {
   const activeConversationIdRef = useRef(selectedConversationFromUrl);
   const conversationsRef = useRef<ConversationItem[]>([]);
   const messagesRef = useRef<MessageRow[]>([]);
-  const viewportFrameRef = useRef<number | null>(null);
-  const scrollFrameRef = useRef<number | null>(null);
-  const delayedScrollTimerRef = useRef<number | null>(null);
-  const inboxRefreshTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -897,28 +813,14 @@ function MessagesPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const commitViewportWidth = () => {
-      viewportFrameRef.current = null;
-      setViewportWidth(window.innerWidth);
-    };
-
-    const scheduleViewportWidth = () => {
-      if (viewportFrameRef.current !== null) return;
-      viewportFrameRef.current = window.requestAnimationFrame(commitViewportWidth);
-    };
-
-    commitViewportWidth();
-    window.addEventListener("resize", scheduleViewportWidth, { passive: true });
-    window.addEventListener("orientationchange", scheduleViewportWidth);
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    updateViewportWidth();
+    window.addEventListener("resize", updateViewportWidth);
+    window.addEventListener("orientationchange", updateViewportWidth);
 
     return () => {
-      window.removeEventListener("resize", scheduleViewportWidth);
-      window.removeEventListener("orientationchange", scheduleViewportWidth);
-
-      if (viewportFrameRef.current !== null) {
-        window.cancelAnimationFrame(viewportFrameRef.current);
-        viewportFrameRef.current = null;
-      }
+      window.removeEventListener("resize", updateViewportWidth);
+      window.removeEventListener("orientationchange", updateViewportWidth);
     };
   }, []);
 
@@ -926,18 +828,6 @@ function MessagesPage() {
     return () => {
       if (selectedImagePreviewUrlRef.current) {
         URL.revokeObjectURL(selectedImagePreviewUrlRef.current);
-      }
-
-      if (scrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(scrollFrameRef.current);
-      }
-
-      if (delayedScrollTimerRef.current) {
-        window.clearTimeout(delayedScrollTimerRef.current);
-      }
-
-      if (inboxRefreshTimerRef.current) {
-        window.clearTimeout(inboxRefreshTimerRef.current);
       }
     };
   }, []);
@@ -1151,7 +1041,6 @@ function MessagesPage() {
     if (typeof window === "undefined") return;
 
     const scrollNow = () => {
-      scrollFrameRef.current = null;
       const messagesArea = messagesAreaRef.current;
 
       if (messagesArea) {
@@ -1159,23 +1048,16 @@ function MessagesPage() {
           top: messagesArea.scrollHeight,
           behavior,
         });
-      } else {
-        messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
       }
+
+      messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
     };
 
-    if (scrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(scrollFrameRef.current);
-    }
-    scrollFrameRef.current = window.requestAnimationFrame(scrollNow);
-
-    if (delayedScrollTimerRef.current) {
-      window.clearTimeout(delayedScrollTimerRef.current);
-    }
-    delayedScrollTimerRef.current = window.setTimeout(() => {
-      delayedScrollTimerRef.current = null;
-      scrollNow();
-    }, 220);
+    // Run more than once because image messages can change height after the first render.
+    window.setTimeout(scrollNow, 0);
+    window.setTimeout(scrollNow, 90);
+    window.setTimeout(scrollNow, 260);
+    window.setTimeout(scrollNow, 650);
   }, []);
 
   const markConversationRead = useCallback(
@@ -1442,31 +1324,24 @@ function MessagesPage() {
     );
 
     const allMessages = ((messageData as MessageRow[]) || []).filter(Boolean);
-    const lastMessageByConversation = new Map<string, MessageRow>();
-    const unreadCountByConversation = new Map<string, number>();
-
-    for (const message of allMessages) {
-      const currentLast = lastMessageByConversation.get(message.conversation_id);
-      if (
-        !currentLast ||
-        new Date(message.created_at).getTime() > new Date(currentLast.created_at).getTime()
-      ) {
-        lastMessageByConversation.set(message.conversation_id, message);
-      }
-
-      if (message.sender_id !== user.id && message.is_read === false) {
-        unreadCountByConversation.set(
-          message.conversation_id,
-          (unreadCountByConversation.get(message.conversation_id) || 0) + 1
-        );
-      }
-    }
 
     const nextItems: ConversationItem[] = rawConversations
       .map((conversation) => {
         const otherUserId = getConversationOtherUserId(conversation, user.id);
-        const lastMessage = lastMessageByConversation.get(conversation.id) || null;
-        const unreadCount = unreadCountByConversation.get(conversation.id) || 0;
+
+        const conversationMessages = allMessages.filter(
+          (message) => message.conversation_id === conversation.id
+        );
+
+        const lastMessage =
+          conversationMessages.sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )[0] || null;
+
+        const unreadCount = conversationMessages.filter(
+          (message) => message.sender_id !== user.id && message.is_read === false
+        ).length;
 
         return {
           ...conversation,
@@ -1534,20 +1409,6 @@ function MessagesPage() {
 
     setLoadingInbox(false);
   }, [router, selectedConversationFromUrl, selectedUserFromUrl]);
-
-  const scheduleInboxRefresh = useCallback(
-    (delayMs = 320) => {
-      if (inboxRefreshTimerRef.current) {
-        window.clearTimeout(inboxRefreshTimerRef.current);
-      }
-
-      inboxRefreshTimerRef.current = window.setTimeout(() => {
-        inboxRefreshTimerRef.current = null;
-        void loadInbox();
-      }, delayMs);
-    },
-    [loadInbox]
-  );
 
   const loadMessages = useCallback(
     async (conversationId: string, currentViewerId: string) => {
@@ -1700,7 +1561,19 @@ function MessagesPage() {
           );
 
           if (!belongsToUser) {
-            scheduleInboxRefresh(180);
+            await loadInbox();
+
+            // Image messages can arrive through Realtime before the receiver inbox
+            // has fully reconciled the new/updated conversation. Run a short
+            // follow-up refresh so the receiver sees the new photo without a manual refresh.
+            globalThis.setTimeout(() => {
+              void loadInbox();
+            }, 900);
+
+            globalThis.setTimeout(() => {
+              void loadInbox();
+            }, 1800);
+
             return;
           }
 
@@ -1757,10 +1630,14 @@ function MessagesPage() {
 
             scrollToBottom();
 
-            if (isImageMessage(nextMessage) && !nextMessage.signedImageUrl) {
-              window.setTimeout(() => {
+            if (isImageMessage(nextMessage)) {
+              globalThis.setTimeout(() => {
                 void loadMessages(nextMessage.conversation_id, viewerId);
-              }, 650);
+              }, 900);
+
+              globalThis.setTimeout(() => {
+                void loadMessages(nextMessage.conversation_id, viewerId);
+              }, 1800);
             }
           }
         }
@@ -1860,7 +1737,6 @@ function MessagesPage() {
     blockedUserIds,
     loadInbox,
     loadMessages,
-    scheduleInboxRefresh,
     markConversationRead,
     scrollToBottom,
     viewerId,
@@ -2303,9 +2179,7 @@ function MessagesPage() {
     setConversationMenuAnchor(null);
     setOpenMessageMenuId(null);
     setMessageMenuAnchor(null);
-    setImageViewer(null);
     setMobileChatOpen(false);
-    clearConversationUrl();
   };
 
   const handleCloseActiveConversation = () => {
@@ -2573,9 +2447,13 @@ function MessagesPage() {
     scrollToBottom();
 
     if (imageDraft) {
-      window.setTimeout(() => {
+      globalThis.setTimeout(() => {
         void loadMessages(sendConversationId, viewerId);
-      }, 650);
+      }, 900);
+
+      globalThis.setTimeout(() => {
+        void loadMessages(sendConversationId, viewerId);
+      }, 1800);
     }
   };
 
@@ -2617,16 +2495,6 @@ function MessagesPage() {
       <style>{`
         .parachat-page-root {
           overflow-x: hidden !important;
-        }
-
-        .parachat-conversation-row,
-        .parachat-message-group {
-          content-visibility: auto;
-          contain-intrinsic-size: 80px;
-        }
-
-        .parachat-message-image {
-          transition: opacity 180ms ease, transform 180ms ease;
         }
 
         .parachat-shell,
@@ -2696,32 +2564,7 @@ function MessagesPage() {
           }
         }
 
-        /* Tablet Parachat uses one full-width screen for either inbox or chat.
-           This prevents 981–1180px iPad viewports from falling into the compact
-           desktop two-column grid and narrowing an individual conversation. */
-        @media (min-width: 641px) and (max-width: 1180px) {
-          .parachat-shell {
-            grid-template-columns: minmax(0, 1fr) !important;
-            width: 100% !important;
-            max-width: none !important;
-          }
-
-          .parachat-mobile-chat-open .parachat-inbox {
-            display: none !important;
-          }
-
-          .parachat-mobile-chat-open .parachat-panel {
-            display: grid !important;
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: none !important;
-            margin: 0 !important;
-            grid-column: 1 / -1 !important;
-            justify-self: stretch !important;
-          }
-        }
-
-        @media (max-width: 1180px) {
+        @media (max-width: 980px) {
           .parachat-page-root {
             min-height: 100svh !important;
             min-height: 100dvh !important;
@@ -2847,13 +2690,13 @@ function MessagesPage() {
           }
         }
 
-        @media (min-width: 1181px) {
+        @media (min-width: 981px) {
           .parachat-mobile-back {
             display: none !important;
           }
         }
 
-        @media (min-width: 641px) and (max-width: 1180px) {
+        @media (min-width: 641px) and (max-width: 980px) {
           .parachat-inbox {
             padding: 18px 22px calc(116px + env(safe-area-inset-bottom)) !important;
           }
@@ -2862,14 +2705,19 @@ function MessagesPage() {
             max-width: 760px !important;
             margin-left: auto !important;
             margin-right: auto !important;
+            box-sizing: border-box !important;
+          }
+
+          .parachat-status-strip {
+            width: fit-content !important;
+            max-width: 100% !important;
+            margin-left: max(0px, calc((100% - 760px) / 2)) !important;
+            margin-right: auto !important;
           }
 
           .parachat-mobile-chat-open .parachat-panel {
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: none !important;
-            margin: 0 !important;
-            justify-self: stretch !important;
+            max-width: 820px !important;
+            margin: 0 auto !important;
             border-left: 1px solid rgba(255,255,255,0.08) !important;
             border-right: 1px solid rgba(255,255,255,0.08) !important;
           }
@@ -2978,7 +2826,7 @@ function MessagesPage() {
           }
         }
 
-        @media (max-height: 560px) and (max-width: 1180px) {
+        @media (max-height: 560px) and (max-width: 980px) {
           .parachat-inbox {
             padding-top: 8px !important;
           }
@@ -3009,15 +2857,7 @@ function MessagesPage() {
       >
         <aside className="parachat-inbox" style={inboxStyle}>
           <div style={inboxHeaderStyle}>
-            <Link
-              href="/dashboard"
-              style={backLinkStyle}
-              onClick={() => {
-                closeConversationOptions();
-                closeMessageOptions();
-                setImageViewer(null);
-              }}
-            >
+            <Link href="/dashboard" style={backLinkStyle}>
               ← Feed
             </Link>
 
@@ -3041,7 +2881,7 @@ function MessagesPage() {
             ) : null}
           </div>
 
-          <div style={statusStripStyle}>
+          <div className="parachat-status-strip" style={statusStripStyle}>
             <span style={statusDotStyle} />
             <span>
               {totalUnreadCount > 0
@@ -3221,11 +3061,6 @@ function MessagesPage() {
                     <Link
                       href={`/profile/${activeConversation.otherUserId}`}
                       style={profileButtonStyle}
-                      onClick={() => {
-                        closeConversationOptions();
-                        closeMessageOptions();
-                        setImageViewer(null);
-                      }}
                     >
                       Profile
                     </Link>
@@ -3364,20 +3199,9 @@ function MessagesPage() {
                                         <img
                                           src={message.signedImageUrl}
                                           alt={message.body || "Parachat image"}
-                                          className="parachat-message-image"
                                           style={messageImageStyle}
-                                          loading="lazy"
-                                          decoding="async"
                                           onClick={() => handleOpenImageViewer(message, isMine)}
-                                          onLoad={() => {
-                                            const area = messagesAreaRef.current;
-                                            if (!area) return;
-                                            const distanceFromBottom =
-                                              area.scrollHeight - area.scrollTop - area.clientHeight;
-                                            if (distanceFromBottom < 220) {
-                                              scrollToBottom("auto");
-                                            }
-                                          }}
+                                          onLoad={() => scrollToBottom("auto")}
                                           title="Open photo"
                                         />
                                       ) : (
@@ -4016,7 +3840,8 @@ const totalBadgeStyle: React.CSSProperties = {
 };
 
 const statusStripStyle: React.CSSProperties = {
-  display: "inline-flex",
+  display: "flex",
+  width: "fit-content",
   alignItems: "center",
   gap: "8px",
   color: "#d1d5db",
