@@ -4501,7 +4501,7 @@ useEffect(() => {
         setCommentsLoadingPostId((current) => (current === postId ? null : current));
       }
     },
-    []
+    [viewerId]
   );
 
   const handleToggleProfileCommentLike = useCallback(
