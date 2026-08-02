@@ -16978,19 +16978,20 @@ return (
                                         Math.max(edgePadding, rect.right - menuWidth)
                                       );
 
-                                      setOpenPostMenuId((prev) => {
-                                        if (prev === post.id) {
-                                          setProfilePostMenuAnchor(null);
-                                          return null;
-                                        }
+                                      if (openPostMenuIdRef.current === post.id) {
+                                        openPostMenuIdRef.current = null;
+                                        setOpenPostMenuId(null);
+                                        setProfilePostMenuAnchor(null);
+                                        return;
+                                      }
 
-                                        setProfilePostMenuAnchor({
-                                          top,
-                                          left,
-                                          width: menuWidth,
-                                        });
-                                        return post.id;
+                                      openPostMenuIdRef.current = post.id;
+                                      setProfilePostMenuAnchor({
+                                        top,
+                                        left,
+                                        width: menuWidth,
                                       });
+                                      setOpenPostMenuId(post.id);
                                     }}
                                     style={dotsButtonStyle}
                                     aria-label="Open post menu"
