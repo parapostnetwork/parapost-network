@@ -142,7 +142,7 @@ function Avatar({
         height: imageSize,
         minWidth: imageSize,
         borderRadius: "999px",
-        overflow: "hidden",
+        overflow: "visible",
         position: "relative",
         border: "2px solid rgba(7,9,13,0.95)",
         boxShadow: "0 10px 20px rgba(0,0,0,0.28)",
@@ -169,6 +169,7 @@ function Avatar({
             height: "100%",
             objectFit: "cover",
             display: "block",
+            borderRadius: "999px",
           }}
         />
       ) : (
@@ -180,8 +181,8 @@ function Avatar({
           aria-hidden="true"
           style={{
             position: "absolute",
-            right: 2,
-            bottom: 2,
+            right: -4,
+            bottom: -2,
             width: 10,
             height: 10,
             borderRadius: "999px",
@@ -381,6 +382,7 @@ export default function MutualFriendsPreviewCard({
         style={{
           display: "flex",
           alignItems: "center",
+          gap: "10px",
           marginTop: "14px",
           paddingLeft: "2px",
           minWidth: 0,
@@ -389,12 +391,10 @@ export default function MutualFriendsPreviewCard({
           scrollbarWidth: "none",
         }}
       >
-        {state.profiles.map((profile, index) => (
+        {state.profiles.map((profile) => (
           <div
             key={profile.id}
             style={{
-              marginLeft: index === 0 ? 0 : -10,
-              zIndex: state.profiles.length - index,
               flexShrink: 0,
             }}
           >
