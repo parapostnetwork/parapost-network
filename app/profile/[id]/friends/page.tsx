@@ -102,7 +102,7 @@ function FriendAvatar({ profile }: { profile: ProfileRow }) {
         width: "72px",
         height: "72px",
         borderRadius: "50%",
-        overflow: "hidden",
+        overflow: "visible",
         flexShrink: 0,
         border: "2px solid rgba(255,255,255,0.10)",
         boxShadow: "0 10px 24px rgba(0,0,0,0.24)",
@@ -119,6 +119,7 @@ function FriendAvatar({ profile }: { profile: ProfileRow }) {
             height: "72px",
             objectFit: "cover",
             display: "block",
+            borderRadius: "50%",
           }}
         />
       ) : (
@@ -144,8 +145,8 @@ function FriendAvatar({ profile }: { profile: ProfileRow }) {
         <span
           style={{
             position: "absolute",
-            right: "5px",
-            bottom: "5px",
+            right: "-5px",
+            bottom: "-3px",
             width: "13px",
             height: "13px",
             borderRadius: "50%",
@@ -366,43 +367,7 @@ export default function ProfileFriendsPage() {
   return (
     <div className="min-h-screen text-white" style={pageShellStyle}>
       <div className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
-        <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
-          <aside style={sideCardStyle}>
-            <h2 style={{ marginTop: 0, fontSize: "24px" }}>Parapost Network</h2>
-            <p style={{ color: "#9ca3af", fontSize: "14px", marginTop: 0 }}>Friends view</p>
-
-            <div
-              style={{
-                marginTop: "22px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-              }}
-            >
-              <Link href="/dashboard" style={navItemLinkStyle}>
-                Home Feed
-              </Link>
-              {viewerId ? (
-                <Link href={`/profile/${viewerId}`} style={navItemLinkStyle}>
-                  My Profile
-                </Link>
-              ) : (
-                <div style={navItemStyle}>My Profile</div>
-              )}
-              <Link href="/friends" style={navItemLinkStyle}>
-                Friends
-              </Link>
-              <Link href="/notifications" style={navItemLinkStyle}>
-                Notifications
-              </Link>
-              <Link href="/messages" style={navItemLinkStyle}>
-                Parachat
-              </Link>
-              <Link href="/settings" style={navItemLinkStyle}>
-                Settings
-              </Link>
-            </div>
-          </aside>
+        <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
 
           <section className="min-w-0">
             <div className="mx-auto w-full max-w-4xl space-y-4 md:space-y-6">
@@ -741,15 +706,6 @@ export default function ProfileFriendsPage() {
               )}
             </div>
 
-            <div style={sideCardStyle}>
-              <h3 style={{ marginTop: 0 }}>Quick Filters</h3>
-              <p style={{ color: "#d1d5db", lineHeight: 1.7, marginBottom: "12px" }}>
-                Search by profile name, narrow the list to mutual or online friends, and move through pages without overcrowding the screen.
-              </p>
-              <div style={mutedPillStyle}>
-                {isPrivateLocked ? "Private profile protected" : "Social-style browsing added"}
-              </div>
-            </div>
           </aside>
         </div>
       </div>
@@ -816,22 +772,6 @@ const friendCardStyle: CSSProperties = {
   borderRadius: "26px",
   padding: "16px",
   boxShadow: "0 14px 32px rgba(0,0,0,0.30)",
-};
-
-const navItemStyle: CSSProperties = {
-  padding: "12px 14px",
-  borderRadius: "16px",
-  background:
-    "linear-gradient(135deg, rgba(124,58,237,0.13), rgba(255,255,255,0.045))",
-  border: "1px solid rgba(196,181,253,0.13)",
-  color: "#f9fafb",
-  fontWeight: 650,
-};
-
-const navItemLinkStyle: CSSProperties = {
-  ...navItemStyle,
-  textDecoration: "none",
-  display: "block",
 };
 
 const primaryButtonStyle: CSSProperties = {
