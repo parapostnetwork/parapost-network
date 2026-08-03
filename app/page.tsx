@@ -332,6 +332,49 @@ export default function Home() {
     }
   };
 
+  if (checkingSession) {
+    return (
+      <main
+        className="flex min-h-[100dvh] items-center justify-center bg-black px-6 text-white"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 0%, rgba(168,85,247,0.24) 0%, rgba(7,9,13,0.88) 38%, #05070b 78%), linear-gradient(180deg, #090b11 0%, #05070b 100%)",
+        }}
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div className="flex max-w-sm flex-col items-center text-center">
+          <div
+            className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[30px] border border-purple-300/25"
+            style={{
+              background:
+                "radial-gradient(circle at 50% 0%, rgba(168,85,247,0.55), rgba(124,58,237,0.20) 46%, rgba(255,255,255,0.04) 100%)",
+              boxShadow: "0 0 38px rgba(168,85,247,0.36)",
+            }}
+          >
+            <img
+              src="/parapost-icon-white.png"
+              alt="Parapost Network"
+              className="h-14 w-14 object-contain"
+              draggable={false}
+            />
+          </div>
+
+          <h1 className="mt-5 text-2xl font-black tracking-[-0.04em]">
+            Parapost Network
+          </h1>
+          <p className="mt-2 text-sm font-semibold text-zinc-400">
+            Opening your dashboard...
+          </p>
+
+          <div className="mt-5 h-1.5 w-32 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-purple-500" />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-[100dvh] bg-black text-white">
       <div
