@@ -994,11 +994,13 @@ export default function NotificationsPage() {
                       style={notificationMainButtonStyle}
                     >
                       <div className="notifications-avatar" style={avatarShellStyle}>
-                        {notification.actor?.avatar_url ? (
-                          <img src={notification.actor.avatar_url} alt="" style={avatarImageStyle} />
-                        ) : (
-                          <span style={avatarFallbackStyle}>{getInitial(notification.actor)}</span>
-                        )}
+                        <span style={avatarClipStyle}>
+                          {notification.actor?.avatar_url ? (
+                            <img src={notification.actor.avatar_url} alt="" style={avatarImageStyle} />
+                          ) : (
+                            <span style={avatarFallbackStyle}>{getInitial(notification.actor)}</span>
+                          )}
+                        </span>
 
                         {isNotificationProfileActuallyOnline(notification.actor) ? <span style={onlineDotStyle} /> : null}
 
@@ -1560,6 +1562,9 @@ const avatarShellStyle: CSSProperties = {
   width: "54px",
   height: "54px",
   minWidth: "54px",
+  aspectRatio: "1 / 1",
+  boxSizing: "border-box",
+  flexShrink: 0,
   borderRadius: "999px",
   padding: "3px",
   position: "relative",
@@ -1569,9 +1574,24 @@ const avatarShellStyle: CSSProperties = {
   boxShadow: "0 0 18px var(--parapost-accent-glow)",
 };
 
+const avatarClipStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  minWidth: 0,
+  minHeight: 0,
+  boxSizing: "border-box",
+  borderRadius: "999px",
+  overflow: "hidden",
+  display: "grid",
+  placeItems: "center",
+};
+
 const avatarImageStyle: CSSProperties = {
   width: "100%",
   height: "100%",
+  maxWidth: "100%",
+  maxHeight: "100%",
+  boxSizing: "border-box",
   display: "block",
   objectFit: "cover",
   objectPosition: "center",
@@ -1582,6 +1602,7 @@ const avatarImageStyle: CSSProperties = {
 const avatarFallbackStyle: CSSProperties = {
   width: "100%",
   height: "100%",
+  boxSizing: "border-box",
   borderRadius: "999px",
   border: "2px solid #07090d",
   display: "grid",
@@ -1812,6 +1833,8 @@ const reelActivityPersonRowStyle: CSSProperties = {
 const reelActivityPersonAvatarStyle: CSSProperties = {
   width: "42px",
   height: "42px",
+  aspectRatio: "1 / 1",
+  boxSizing: "border-box",
   borderRadius: "999px",
   overflow: "hidden",
   flexShrink: 0,
@@ -1823,6 +1846,11 @@ const reelActivityPersonAvatarStyle: CSSProperties = {
 const reelActivityPersonAvatarImageStyle: CSSProperties = {
   width: "100%",
   height: "100%",
+  maxWidth: "100%",
+  maxHeight: "100%",
+  boxSizing: "border-box",
+  display: "block",
+  borderRadius: "999px",
   objectFit: "cover",
   objectPosition: "center",
 };
