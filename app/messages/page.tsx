@@ -94,6 +94,13 @@ type ConversationItem = ConversationRow & {
   isNewFriend: boolean;
 };
 
+type ParachatTypingPayload = {
+  conversationId: string;
+  userId: string;
+  isTyping: boolean;
+  sentAt: number;
+};
+
 function formatMessageTime(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -156,6 +163,9 @@ function getProfileName(profile?: ProfileRow | null) {
 }
 
 const PARACHAT_ONLINE_TIMEOUT_MS = 3 * 60 * 1000;
+const PARACHAT_TYPING_IDLE_MS = 1400;
+const PARACHAT_TYPING_REMOTE_TIMEOUT_MS = 3500;
+const PARACHAT_TYPING_BROADCAST_THROTTLE_MS = 700;
 
 const PARACHAT_IMAGE_BUCKET = "parachat-images";
 const PARACHAT_MAX_IMAGE_DIMENSION = 1600;
@@ -784,6 +794,7 @@ function MessagesPage() {
   const [sharingMessage, setSharingMessage] = useState<MessageRow | null>(null);
   const [sharingMessageId, setSharingMessageId] = useState<string | null>(null);
   const [voiceComingSoonOpen, setVoiceComingSoonOpen] = useState(false);
+  const [remoteTypingUserId, setRemoteTypingUserId] = useState("");
 
   const messagesAreaRef = useRef<HTMLElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -793,6 +804,10 @@ function MessagesPage() {
   const activeConversationIdRef = useRef(selectedConversationFromUrl);
   const conversationsRef = useRef<ConversationItem[]>([]);
   const messagesRef = useRef<MessageRow[]>([]);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const localTypingStopTimeoutRef = useRef<number | null>(null);
+  const remoteTypingTimeoutRef = useRef<number | null>(null);
+  const lastTypingBroadcastAtRef = useRef(0);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -852,6 +867,118 @@ function MessagesPage() {
   const activeConversation = useMemo(() => {
     return conversations.find((conversation) => conversation.id === activeConversationId) || null;
   }, [conversations, activeConversationId]);
+
+  const sendTypingStatus = useCallback(
+    (isTyping: boolean) => {
+      const channel = typingChannelRef.current;
+      const conversationId = activeConversationIdRef.current;
+
+      if (!channel || !viewerId || !conversationId) return;
+
+      void channel.send({
+        type: "broadcast",
+        event: "typing",
+        payload: {
+          conversationId,
+          userId: viewerId,
+          isTyping,
+          sentAt: Date.now(),
+        } satisfies ParachatTypingPayload,
+      });
+    },
+    [viewerId]
+  );
+
+  const stopLocalTyping = useCallback(() => {
+    if (localTypingStopTimeoutRef.current !== null) {
+      window.clearTimeout(localTypingStopTimeoutRef.current);
+      localTypingStopTimeoutRef.current = null;
+    }
+
+    lastTypingBroadcastAtRef.current = 0;
+    sendTypingStatus(false);
+  }, [sendTypingStatus]);
+
+  useEffect(() => {
+    setRemoteTypingUserId("");
+
+    if (remoteTypingTimeoutRef.current !== null) {
+      window.clearTimeout(remoteTypingTimeoutRef.current);
+      remoteTypingTimeoutRef.current = null;
+    }
+
+    if (!viewerId || !activeConversationId) {
+      typingChannelRef.current = null;
+      return;
+    }
+
+    const conversationId = activeConversationId;
+    const channel = supabase
+      .channel(`parachat-typing-${conversationId}`, {
+        config: { broadcast: { self: false } },
+      })
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        const typingPayload = payload as Partial<ParachatTypingPayload>;
+
+        if (
+          typingPayload.conversationId !== conversationId ||
+          !typingPayload.userId ||
+          typingPayload.userId === viewerId
+        ) {
+          return;
+        }
+
+        if (remoteTypingTimeoutRef.current !== null) {
+          window.clearTimeout(remoteTypingTimeoutRef.current);
+          remoteTypingTimeoutRef.current = null;
+        }
+
+        if (!typingPayload.isTyping) {
+          setRemoteTypingUserId("");
+          return;
+        }
+
+        setRemoteTypingUserId(typingPayload.userId);
+        remoteTypingTimeoutRef.current = window.setTimeout(() => {
+          setRemoteTypingUserId("");
+          remoteTypingTimeoutRef.current = null;
+        }, PARACHAT_TYPING_REMOTE_TIMEOUT_MS);
+      })
+      .subscribe();
+
+    typingChannelRef.current = channel;
+
+    return () => {
+      if (localTypingStopTimeoutRef.current !== null) {
+        window.clearTimeout(localTypingStopTimeoutRef.current);
+        localTypingStopTimeoutRef.current = null;
+      }
+
+      if (remoteTypingTimeoutRef.current !== null) {
+        window.clearTimeout(remoteTypingTimeoutRef.current);
+        remoteTypingTimeoutRef.current = null;
+      }
+
+      lastTypingBroadcastAtRef.current = 0;
+
+      void channel.send({
+        type: "broadcast",
+        event: "typing",
+        payload: {
+          conversationId,
+          userId: viewerId,
+          isTyping: false,
+          sentAt: Date.now(),
+        } satisfies ParachatTypingPayload,
+      });
+
+      if (typingChannelRef.current === channel) {
+        typingChannelRef.current = null;
+      }
+
+      void supabase.removeChannel(channel);
+    };
+  }, [activeConversationId, viewerId]);
 
   const handleOpenImageViewer = useCallback(
     (message: MessageRow, isMine: boolean) => {
@@ -1059,6 +1186,11 @@ function MessagesPage() {
     window.setTimeout(scrollNow, 260);
     window.setTimeout(scrollNow, 650);
   }, []);
+
+  useEffect(() => {
+    if (!remoteTypingUserId) return;
+    scrollToBottom("smooth");
+  }, [remoteTypingUserId, scrollToBottom]);
 
   const markConversationRead = useCallback(
     async (conversationId: string, currentViewerId: string) => {
@@ -1625,6 +1757,13 @@ function MessagesPage() {
             });
 
             if (nextMessage.sender_id !== viewerId) {
+              setRemoteTypingUserId("");
+
+              if (remoteTypingTimeoutRef.current !== null) {
+                window.clearTimeout(remoteTypingTimeoutRef.current);
+                remoteTypingTimeoutRef.current = null;
+              }
+
               await markConversationRead(nextMessage.conversation_id, viewerId);
             }
 
@@ -2175,6 +2314,8 @@ function MessagesPage() {
   };
 
   const handleMobileBackToInbox = () => {
+    stopLocalTyping();
+    setRemoteTypingUserId("");
     setOpenConversationMenuId(null);
     setConversationMenuAnchor(null);
     setOpenMessageMenuId(null);
@@ -2183,6 +2324,8 @@ function MessagesPage() {
   };
 
   const handleCloseActiveConversation = () => {
+    stopLocalTyping();
+    setRemoteTypingUserId("");
     setOpenConversationMenuId(null);
     setConversationMenuAnchor(null);
     setOpenMessageMenuId(null);
@@ -2204,11 +2347,42 @@ function MessagesPage() {
   };
 
   const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    setMessageText(event.target.value);
+    const nextValue = event.target.value;
+    setMessageText(nextValue);
 
     const textarea = event.currentTarget;
     textarea.style.height = "44px";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 130)}px`;
+
+    if (
+      !nextValue.trim() ||
+      !viewerId ||
+      !activeConversationId ||
+      !activeConversationIsAcceptedFriend ||
+      activeConversationIsBlocked
+    ) {
+      stopLocalTyping();
+      return;
+    }
+
+    const now = Date.now();
+    if (
+      lastTypingBroadcastAtRef.current === 0 ||
+      now - lastTypingBroadcastAtRef.current >= PARACHAT_TYPING_BROADCAST_THROTTLE_MS
+    ) {
+      lastTypingBroadcastAtRef.current = now;
+      sendTypingStatus(true);
+    }
+
+    if (localTypingStopTimeoutRef.current !== null) {
+      window.clearTimeout(localTypingStopTimeoutRef.current);
+    }
+
+    localTypingStopTimeoutRef.current = window.setTimeout(() => {
+      lastTypingBroadcastAtRef.current = 0;
+      sendTypingStatus(false);
+      localTypingStopTimeoutRef.current = null;
+    }, PARACHAT_TYPING_IDLE_MS);
   };
 
   const handleSelectImage = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -2306,6 +2480,7 @@ function MessagesPage() {
       return;
     }
 
+    stopLocalTyping();
     setSending(true);
     setErrorMessage("");
     setImageError("");
@@ -2475,6 +2650,38 @@ function MessagesPage() {
   const activeBlockedNotice = activeConversationIsBlocked
     ? "This Parachat is blocked. You can view previous messages, but new messages and photos are disabled."
     : "";
+  const otherParticipantIsTyping = Boolean(
+    remoteTypingUserId &&
+      activeConversation?.otherUserId === remoteTypingUserId &&
+      activeConversationIsAcceptedFriend &&
+      !activeConversationIsBlocked
+  );
+  const typingIndicator = otherParticipantIsTyping ? (
+    <div
+      className="parachat-typing-indicator"
+      style={typingIndicatorRowStyle}
+      role="status"
+      aria-live="polite"
+      aria-label={`${activeName} is typing`}
+    >
+      <div style={typingAvatarStyle} aria-hidden="true">
+        {activeProfile?.avatar_url ? (
+          <img src={activeProfile.avatar_url} alt="" style={typingAvatarImageStyle} />
+        ) : (
+          <span>{getInitial(activeProfile)}</span>
+        )}
+      </div>
+
+      <div style={typingBubbleStyle}>
+        <span style={typingLabelStyle}>{activeName} is typing</span>
+        <span className="parachat-typing-dots" style={typingDotsStyle} aria-hidden="true">
+          <span className="parachat-typing-dot" />
+          <span className="parachat-typing-dot" />
+          <span className="parachat-typing-dot" />
+        </span>
+      </div>
+    </div>
+  ) : null;
   const inputDisabled =
     loadingInbox ||
     sending ||
@@ -2512,6 +2719,42 @@ function MessagesPage() {
 
         .parachat-composer textarea {
           touch-action: manipulation !important;
+        }
+
+        .parachat-typing-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: currentColor;
+          display: block;
+          opacity: 0.42;
+          animation: parachatTypingBounce 1.05s infinite ease-in-out;
+        }
+
+        .parachat-typing-dot:nth-child(2) {
+          animation-delay: 0.14s;
+        }
+
+        .parachat-typing-dot:nth-child(3) {
+          animation-delay: 0.28s;
+        }
+
+        @keyframes parachatTypingBounce {
+          0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.38;
+          }
+          30% {
+            transform: translateY(-4px);
+            opacity: 1;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .parachat-typing-dot {
+            animation: none !important;
+            opacity: 0.72;
+          }
         }
 
         @media (min-width: 1181px) {
@@ -3096,15 +3339,19 @@ function MessagesPage() {
                     </button>
                   </div>
                 ) : messages.length === 0 ? (
-                  <div style={emptyStateStyle}>
-                    <div style={emptyIconStyle}>👋</div>
-                    <strong>No messages yet</strong>
-                    <span>
-                      {activeConversation?.isNewFriend
-                        ? `${activeName} is now your friend. Send the first Parachat when you are ready.`
-                        : `Start the Parachat with ${activeName}.`}
-                    </span>
-                  </div>
+                  <>
+                    <div style={emptyStateStyle}>
+                      <div style={emptyIconStyle}>👋</div>
+                      <strong>No messages yet</strong>
+                      <span>
+                        {activeConversation?.isNewFriend
+                          ? `${activeName} is now your friend. Send the first Parachat when you are ready.`
+                          : `Start the Parachat with ${activeName}.`}
+                      </span>
+                    </div>
+                    {typingIndicator}
+                    <div ref={messagesEndRef} />
+                  </>
                 ) : (
                   <div style={messageStackStyle}>
                     {groupedMessages.map((group) => (
@@ -3264,6 +3511,7 @@ function MessagesPage() {
                       </div>
                     ))}
 
+                    {typingIndicator}
                     <div ref={messagesEndRef} />
                   </div>
                 )}
@@ -4967,6 +5215,68 @@ const imageViewerCaptionStyle: React.CSSProperties = {
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",
   padding: "0 4px 3px",
+};
+
+const typingIndicatorRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  gap: "8px",
+  width: "fit-content",
+  maxWidth: "min(82%, 420px)",
+  marginTop: "4px",
+  marginBottom: "4px",
+};
+
+const typingAvatarStyle: React.CSSProperties = {
+  width: "30px",
+  height: "30px",
+  borderRadius: "999px",
+  display: "grid",
+  placeItems: "center",
+  overflow: "hidden",
+  flexShrink: 0,
+  border: "1px solid rgba(255,255,255,0.13)",
+  background: "linear-gradient(135deg, #a855f7, #111827)",
+  color: "#ffffff",
+  fontSize: "11px",
+  fontWeight: 950,
+};
+
+const typingAvatarImageStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  display: "block",
+};
+
+const typingBubbleStyle: React.CSSProperties = {
+  minHeight: "38px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "9px",
+  padding: "9px 12px",
+  borderRadius: "18px 18px 18px 6px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.075)",
+  color: "#d8b4fe",
+  boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
+};
+
+const typingLabelStyle: React.CSSProperties = {
+  color: "#d1d5db",
+  fontSize: "12px",
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const typingDotsStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "4px",
+  color: "#c084fc",
+  flexShrink: 0,
 };
 
 const composerShellStyle: React.CSSProperties = {
