@@ -87,6 +87,8 @@ type ProfileRow = {
   is_private?: boolean | null;
 };
 
+type ReelRelationship = "you" | "friends" | "following" | "follower" | "profile";
+
 type MenuState = {
   reelId: string;
   x: number;
@@ -318,6 +320,54 @@ function formatCompactCount(value: number | string) {
   return `${next >= 10 ? next.toFixed(0) : next.toFixed(1)}M`;
 }
 
+function getRelationshipLabel(relationship: ReelRelationship) {
+  if (relationship === "you") return "You";
+  if (relationship === "friends") return "Friends";
+  if (relationship === "following") return "Following";
+  if (relationship === "follower") return "Follower";
+  return "Profile";
+}
+
+function getRelationshipBadgeStyle(relationship: ReelRelationship): CSSProperties {
+  if (relationship === "friends") {
+    return {
+      background: "rgba(168,85,247,0.26)",
+      borderColor: "rgba(216,180,254,0.36)",
+      color: "#f3e8ff",
+    };
+  }
+
+  if (relationship === "following") {
+    return {
+      background: "rgba(59,130,246,0.20)",
+      borderColor: "rgba(147,197,253,0.30)",
+      color: "#dbeafe",
+    };
+  }
+
+  if (relationship === "follower") {
+    return {
+      background: "rgba(34,197,94,0.18)",
+      borderColor: "rgba(134,239,172,0.28)",
+      color: "#dcfce7",
+    };
+  }
+
+  if (relationship === "you") {
+    return {
+      background: "rgba(255,255,255,0.16)",
+      borderColor: "rgba(255,255,255,0.24)",
+      color: "#ffffff",
+    };
+  }
+
+  return {
+    background: "rgba(255,255,255,0.10)",
+    borderColor: "rgba(255,255,255,0.18)",
+    color: "#f9fafb",
+  };
+}
+
 function isValidUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
@@ -497,7 +547,7 @@ export default function ProfileReelsViewerPage() {
   const [videoFitMap, setVideoFitMap] = useState<
     Record<string, "cover" | "contain">
   >({});
-  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
+  const [relationshipMap, setRelationshipMap] = useState<Record<string, ReelRelationship>>({});
   const [reelMenu, setReelMenu] = useState<MenuState>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editingReelId, setEditingReelId] = useState<string | null>(null);
@@ -541,7 +591,7 @@ export default function ProfileReelsViewerPage() {
       setCommentLikeMap({});
       setCommentLikedMap({});
       setLikedMap({});
-      setFollowingMap({});
+      setRelationshipMap({});
       setCanViewProfileContent(false);
       setPageErrorMessage("Profile not found.");
       setIsFetchingReels(false);
@@ -573,7 +623,7 @@ export default function ProfileReelsViewerPage() {
       setCommentLikeMap({});
       setCommentLikedMap({});
       setLikedMap({});
-      setFollowingMap({});
+      setRelationshipMap({});
       setCanViewProfileContent(false);
       setPageErrorMessage(
         profileResult.error.message || "Unable to load profile.",
@@ -630,7 +680,7 @@ export default function ProfileReelsViewerPage() {
       setCommentLikeMap({});
       setCommentLikedMap({});
       setLikedMap({});
-      setFollowingMap({});
+      setRelationshipMap({});
       setCanViewProfileContent(false);
       setPageErrorMessage("Profile not found.");
       setIsFetchingReels(false);
@@ -672,12 +722,17 @@ export default function ProfileReelsViewerPage() {
       setLikedMap({});
       setShareBoostMap({});
       setActiveReelId("");
-      setFollowingMap({});
+      setRelationshipMap({});
       setIsFetchingReels(false);
       return;
     }
 
-    const [reelsResult, followersResult] = await Promise.all([
+    const [
+      reelsResult,
+      friendRelationshipResult,
+      followingResult,
+      followerResult,
+    ] = await Promise.all([
       supabase
         .from("reels")
         .select("*")
@@ -687,19 +742,66 @@ export default function ProfileReelsViewerPage() {
         .order("created_at", { ascending: false }),
       nextUserId && nextProfileId && nextUserId !== nextProfileId
         ? supabase
+            .from("friend_requests")
+            .select("sender_id, receiver_id, status")
+            .eq("status", "accepted")
+            .or(
+              `and(sender_id.eq.${nextUserId},receiver_id.eq.${nextProfileId}),and(sender_id.eq.${nextProfileId},receiver_id.eq.${nextUserId})`,
+            )
+            .limit(1)
+        : Promise.resolve({ data: [], error: null }),
+      nextUserId && nextProfileId && nextUserId !== nextProfileId
+        ? supabase
             .from("followers")
             .select("follower_id, following_id")
             .eq("follower_id", nextUserId)
             .eq("following_id", nextProfileId)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
+            .limit(1)
+        : Promise.resolve({ data: [], error: null }),
+      nextUserId && nextProfileId && nextUserId !== nextProfileId
+        ? supabase
+            .from("followers")
+            .select("follower_id, following_id")
+            .eq("following_id", nextUserId)
+            .eq("follower_id", nextProfileId)
+            .limit(1)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
-    if (followersResult.data) {
-      setFollowingMap({ [nextProfileId]: true });
-    } else {
-      setFollowingMap({});
+    if (friendRelationshipResult.error) {
+      console.warn(
+        "Profile reel relationship friend check skipped:",
+        friendRelationshipResult.error.message,
+      );
     }
+
+    if (followingResult.error) {
+      console.warn(
+        "Profile reel relationship following check skipped:",
+        followingResult.error.message,
+      );
+    }
+
+    if (followerResult.error) {
+      console.warn(
+        "Profile reel relationship follower check skipped:",
+        followerResult.error.message,
+      );
+    }
+
+    let nextRelationship: ReelRelationship = viewerIsOwner ? "you" : "profile";
+
+    if (!viewerIsOwner) {
+      if (friendRelationshipResult.data?.length) {
+        nextRelationship = "friends";
+      } else if (followingResult.data?.length) {
+        nextRelationship = "following";
+      } else if (followerResult.data?.length) {
+        nextRelationship = "follower";
+      }
+    }
+
+    setRelationshipMap({ [nextProfileId]: nextRelationship });
 
     if (reelsResult.error) {
       console.error("Error loading profile reels:", reelsResult.error.message);
@@ -1465,45 +1567,6 @@ export default function ProfileReelsViewerPage() {
         reelId,
       });
     }
-  };
-
-  const handleFollowToggle = async () => {
-    if (
-      !currentUserId ||
-      !effectiveProfileId ||
-      currentUserId === effectiveProfileId
-    )
-      return;
-
-    const isFollowing = !!followingMap[effectiveProfileId];
-    if (isFollowing) {
-      const { error } = await supabase
-        .from("followers")
-        .delete()
-        .eq("follower_id", currentUserId)
-        .eq("following_id", effectiveProfileId);
-
-      if (error) {
-        alert(`Unfollow error: ${error.message}`);
-        return;
-      }
-
-      setFollowingMap({});
-      return;
-    }
-
-    const { error } = await supabase
-      .from("followers")
-      .insert([
-        { follower_id: currentUserId, following_id: effectiveProfileId },
-      ]);
-
-    if (error) {
-      alert(`Follow error: ${error.message}`);
-      return;
-    }
-
-    setFollowingMap({ [effectiveProfileId]: true });
   };
 
   const handleShareLink = async (reelId: string) => {
@@ -2688,7 +2751,13 @@ export default function ProfileReelsViewerPage() {
               currentUserId,
               effectiveProfileId,
             );
-            const isFollowingCreator = !!followingMap[effectiveProfileId];
+            const creatorProfileId =
+              reel.creator_profile_id || reel.user_id || effectiveProfileId;
+            const creatorProfileHref = creatorProfileId
+              ? `/profile/${creatorProfileId}`
+              : "/reels";
+            const relationship =
+              relationshipMap[creatorProfileId] || (isOwner ? "you" : "profile");
             const displayedLikes = reel.likes;
             const displayedComments = comments.filter(
               (comment) => comment.reelId === reel.id,
@@ -3146,7 +3215,11 @@ export default function ProfileReelsViewerPage() {
                         flexWrap: "wrap",
                       }}
                     >
-                      <div
+                      <Link
+                        href={creatorProfileHref}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                        }}
                         style={{
                           width: "40px",
                           height: "40px",
@@ -3160,6 +3233,9 @@ export default function ProfileReelsViewerPage() {
                           fontWeight: 800,
                           fontSize: "15px",
                           backdropFilter: "blur(12px)",
+                          color: "#ffffff",
+                          textDecoration: "none",
+                          flexShrink: 0,
                         }}
                       >
                         {reel.creatorAvatarUrl ? (
@@ -3175,42 +3251,82 @@ export default function ProfileReelsViewerPage() {
                         ) : (
                           reel.creatorName.charAt(0)
                         )}
-                      </div>
+                      </Link>
 
                       <div style={{ minWidth: 0 }}>
                         <div
                           style={{
-                            fontWeight: 800,
-                            fontSize: "15px",
-                            lineHeight: 1.15,
-                            textShadow: "0 2px 10px rgba(0,0,0,0.42)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            minWidth: 0,
+                            flexWrap: "wrap",
                           }}
                         >
-                          {reel.creatorName}
+                          <Link
+                            href={creatorProfileHref}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                            style={{
+                              fontWeight: 800,
+                              fontSize: "15px",
+                              lineHeight: 1.15,
+                              textShadow: "0 2px 10px rgba(0,0,0,0.42)",
+                              color: "#ffffff",
+                              textDecoration: "none",
+                              minWidth: 0,
+                            }}
+                          >
+                            {reel.creatorName}
+                          </Link>
+
+                          <Link
+                            href={creatorProfileHref}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              minHeight: "22px",
+                              borderRadius: "999px",
+                              border: "1px solid rgba(255,255,255,0.18)",
+                              padding: "3px 8px",
+                              fontSize: "11px",
+                              fontWeight: 850,
+                              lineHeight: 1,
+                              textDecoration: "none",
+                              backdropFilter: "blur(12px)",
+                              boxShadow: "0 4px 12px rgba(0,0,0,0.20)",
+                              ...getRelationshipBadgeStyle(relationship),
+                            }}
+                          >
+                            {getRelationshipLabel(relationship)}
+                          </Link>
                         </div>
-                        <div
+
+                        <Link
+                          href={creatorProfileHref}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
                           style={{
                             fontSize: "13px",
                             color: "#e5e7eb",
                             textShadow: "0 2px 10px rgba(0,0,0,0.42)",
+                            textDecoration: "none",
+                            display: "inline-flex",
+                            maxWidth: "100%",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {reel.creator}
-                        </div>
+                        </Link>
                       </div>
-
-                      {!isOwner && (
-                        <button
-                          onClick={handleFollowToggle}
-                          style={
-                            isFollowingCreator
-                              ? buttonStyle
-                              : primaryButtonStyle
-                          }
-                        >
-                          {isFollowingCreator ? "Following" : "Follow"}
-                        </button>
-                      )}
                     </div>
 
                     <div
