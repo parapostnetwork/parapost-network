@@ -38,6 +38,17 @@ type ProfilePreview = {
   updated_at?: string | null;
 };
 
+type DashboardLikeListTarget = {
+  kind: "post" | "comment";
+  id: string;
+  title: string;
+};
+
+type DashboardLikeListPerson = {
+  userId: string;
+  profile: ProfilePreview | null;
+};
+
 type ShowcaseDuration = "24h" | "30d" | "permanent";
 type ShowcaseVisibility = "public" | "friends" | "private";
 type ShowcaseMediaType = "image" | "video" | "text";
@@ -183,7 +194,7 @@ type MixedFeedItem =
   | { type: "reel_share"; id: string; created_at: string; share: SharedReelItem }
   | { type: "live_stream"; id: string; created_at: string; liveStream: DashboardLiveStreamItem };
 
-type FeedMode = "for_you" | "friends" | "following";
+type FeedMode = "for_you" | "friends" | "following" | "live";
 
 type FeelingActivityIconKey =
   | "smile"
@@ -221,6 +232,81 @@ const FEED_BATCH_INCREMENT = 10;
 const DASHBOARD_REALTIME_REFRESH_DELAY_MS = 1500;
 const DASHBOARD_BACKGROUND_REFRESH_MS = 120000;
 const DASHBOARD_COMMENT_PREVIEW_LIMIT = 2;
+
+const DASHBOARD_VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "m4v", "ogg", "3gp", "3gpp", "mkv"]);
+const DASHBOARD_IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif"]);
+
+function getDashboardFileExtension(file: File) {
+  return file.name.split(".").pop()?.trim().toLowerCase().replace(/[^a-z0-9]/g, "") || "";
+}
+
+function getDashboardMediaKind(file: File): "image" | "video" | null {
+  const mimeType = (file.type || "").toLowerCase();
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("image/")) return "image";
+
+  const extension = getDashboardFileExtension(file);
+  if (DASHBOARD_VIDEO_EXTENSIONS.has(extension)) return "video";
+  if (DASHBOARD_IMAGE_EXTENSIONS.has(extension)) return "image";
+  return null;
+}
+
+function isDashboardVideoFile(file?: File | null) {
+  return Boolean(file && getDashboardMediaKind(file) === "video");
+}
+
+function getDashboardUploadContentType(file: File) {
+  if (file.type && file.type !== "application/octet-stream") return file.type;
+
+  const extension = getDashboardFileExtension(file);
+  const fallbackTypes: Record<string, string> = {
+    mp4: "video/mp4",
+    m4v: "video/mp4",
+    mov: "video/quicktime",
+    webm: "video/webm",
+    ogg: "video/ogg",
+    "3gp": "video/3gpp",
+    "3gpp": "video/3gpp",
+    mkv: "video/x-matroska",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    heic: "image/heic",
+    heif: "image/heif",
+    avif: "image/avif",
+  };
+
+  return fallbackTypes[extension] || "application/octet-stream";
+}
+
+function getDashboardUploadErrorMessage(file: File, errorMessage?: string | null) {
+  const message = (errorMessage || "Upload failed").trim();
+  const normalized = message.toLowerCase();
+  const isVideo = isDashboardVideoFile(file);
+
+  if (
+    normalized.includes("maximum allowed size") ||
+    normalized.includes("payload too large") ||
+    normalized.includes("entity too large") ||
+    normalized.includes("413") ||
+    normalized.includes("file size")
+  ) {
+    return `${isVideo ? "Video" : "Photo"} upload failed because the file is larger than the storage limit. Try a lower-resolution copy or a smaller file.`;
+  }
+
+  if (
+    normalized.includes("failed to fetch") ||
+    normalized.includes("network") ||
+    normalized.includes("timeout") ||
+    normalized.includes("connection")
+  ) {
+    return `${isVideo ? "Video" : "Photo"} upload was interrupted. Keep Parapost open, check the connection, and try again.`;
+  }
+
+  return `Upload error: ${message}`;
+}
 
 const FEELING_ACTIVITY_OPTIONS: FeelingActivityOption[] = [
   { id: "happy", label: "Feeling happy", category: "Feeling", helper: "Share a positive mood", icon: "smile" },
@@ -1080,6 +1166,223 @@ function DashboardPostImageViewerModal({
           }}
         />
       </div>
+    </div>,
+    document.body
+  );
+}
+
+function DashboardLikesModal({
+  target,
+  people,
+  loading,
+  error,
+  onClose,
+}: {
+  target: DashboardLikeListTarget | null;
+  people: DashboardLikeListPerson[];
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (!target || typeof document === "undefined") return;
+
+    setSearchQuery("");
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [target, onClose]);
+
+  if (!target || typeof document === "undefined") return null;
+
+  const cleanQuery = searchQuery.trim().toLowerCase();
+  const visiblePeople = people.filter(({ profile }) => {
+    if (!cleanQuery) return true;
+    const displayName = profile?.full_name || profile?.username || "Parapost member";
+    const username = profile?.username || "";
+    return `${displayName} ${username}`.toLowerCase().includes(cleanQuery);
+  });
+
+  return createPortal(
+    <div
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2147483647,
+        display: "grid",
+        placeItems: "center",
+        padding: "max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))",
+        background: "rgba(2,4,9,0.84)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={target.title}
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          width: "min(100%, 560px)",
+          maxHeight: "min(82dvh, 760px)",
+          overflow: "hidden",
+          display: "grid",
+          gridTemplateRows: "auto auto minmax(0, 1fr)",
+          borderRadius: 26,
+          border: "1px solid var(--parapost-accent-border, rgba(255,255,255,0.14))",
+          background: "linear-gradient(180deg, rgba(20,23,32,0.99), rgba(7,9,14,0.995))",
+          boxShadow: "0 36px 110px rgba(0,0,0,0.68), 0 0 42px var(--parapost-accent-glow, rgba(168,85,247,0.16))",
+          color: "#ffffff",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            padding: "18px 18px 14px",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: "var(--parapost-accent-text, #d8b4fe)", fontSize: 11, fontWeight: 950, letterSpacing: "0.13em", textTransform: "uppercase" }}>
+              Parapost Network
+            </div>
+            <h2 style={{ margin: "4px 0 0", fontSize: 24, lineHeight: 1.05, letterSpacing: "-0.04em" }}>
+              {target.title}
+            </h2>
+            <p style={{ margin: "6px 0 0", color: "#94a3b8", fontSize: 13, fontWeight: 750 }}>
+              {loading ? "Loading members..." : `${people.length} ${people.length === 1 ? "member" : "members"}`}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close likes list"
+            style={{
+              width: 42,
+              height: 42,
+              flexShrink: 0,
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(255,255,255,0.07)",
+              color: "#ffffff",
+              fontSize: 26,
+              lineHeight: 1,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </header>
+
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search people who liked this"
+            aria-label="Search likes"
+            style={{
+              width: "100%",
+              minHeight: 44,
+              boxSizing: "border-box",
+              borderRadius: 15,
+              border: "1px solid rgba(255,255,255,0.11)",
+              background: "rgba(0,0,0,0.30)",
+              color: "#ffffff",
+              padding: "0 14px",
+              outline: "none",
+              fontSize: 14,
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            minHeight: 0,
+            overflowY: "auto",
+            overscrollBehavior: "contain",
+            WebkitOverflowScrolling: "touch",
+            padding: 10,
+          }}
+        >
+          {loading ? (
+            <div style={{ padding: "34px 18px", textAlign: "center", color: "#a1a1aa", fontWeight: 800 }}>
+              Loading likes...
+            </div>
+          ) : error ? (
+            <div style={{ margin: 6, padding: 16, borderRadius: 16, border: "1px solid rgba(248,113,113,0.22)", background: "rgba(127,29,29,0.18)", color: "#fecaca", lineHeight: 1.5 }}>
+              {error}
+            </div>
+          ) : visiblePeople.length === 0 ? (
+            <div style={{ padding: "34px 18px", textAlign: "center", color: "#a1a1aa", fontWeight: 800 }}>
+              {people.length === 0 ? "No likes to show yet." : "No matching members found."}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 6 }}>
+              {visiblePeople.map(({ userId, profile }) => {
+                const displayName = profile?.full_name || profile?.username || "Parapost member";
+                const username = profile?.username ? `@${profile.username.replace(/^@+/, "")}` : "Parapost member";
+
+                return (
+                  <Link
+                    key={`${target.kind}-${target.id}-${userId}`}
+                    href={`/profile/${userId}`}
+                    onClick={onClose}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      minHeight: 64,
+                      padding: "9px 10px",
+                      borderRadius: 17,
+                      color: "#ffffff",
+                      textDecoration: "none",
+                      border: "1px solid transparent",
+                      background: "rgba(255,255,255,0.025)",
+                    }}
+                  >
+                    <Avatar profile={profile} size={46} />
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 15 }}>
+                        {displayName}
+                      </strong>
+                      <span style={{ display: "block", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#94a3b8", fontSize: 12.5, fontWeight: 750 }}>
+                        {username}
+                      </span>
+                    </span>
+                    <span aria-hidden="true" style={{ color: "var(--parapost-accent-text, #d8b4fe)", fontSize: 24, fontWeight: 900 }}>
+                      ›
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
     </div>,
     document.body
   );
@@ -2048,6 +2351,10 @@ export default function DashboardPage() {
   const [selectedFeelingActivity, setSelectedFeelingActivity] = useState<FeelingActivityOption | null>(null);
   const [visibleFeedLimit, setVisibleFeedLimit] = useState(FEED_INITIAL_BATCH_SIZE);
   const [dashboardPostImageViewer, setDashboardPostImageViewer] = useState<DashboardPostImageViewer | null>(null);
+  const [likeListTarget, setLikeListTarget] = useState<DashboardLikeListTarget | null>(null);
+  const [likeListPeople, setLikeListPeople] = useState<DashboardLikeListPerson[]>([]);
+  const [likeListLoading, setLikeListLoading] = useState(false);
+  const [likeListError, setLikeListError] = useState("");
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -2068,6 +2375,40 @@ export default function DashboardPage() {
   const removedReelShareIdsRef = useRef<Set<string>>(new Set());
   const removedReelShareKeysRef = useRef<Set<string>>(new Set());
   const targetedPostScrollRef = useRef("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const hasTargetedPost = Boolean(
+      params.get("post") || window.location.hash.startsWith("#post-")
+    );
+
+    if (hasTargetedPost) return;
+
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+
+    const resetDashboardScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    resetDashboardScroll();
+    const firstFrame = window.requestAnimationFrame(resetDashboardScroll);
+    const secondFrame = window.setTimeout(resetDashboardScroll, 80);
+
+    const handlePageShow = () => resetDashboardScroll();
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.clearTimeout(secondFrame);
+      window.removeEventListener("pageshow", handlePageShow);
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2239,6 +2580,20 @@ export default function DashboardPage() {
   }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, sharedReelItems]);
 
   const filteredFeedItems = useMemo(() => {
+    if (feedMode === "live") {
+      const liveRelationshipIds = new Set([
+        currentUserId,
+        ...acceptedFriendUserIds,
+        ...followedUserIds,
+      ].filter(Boolean));
+
+      return mixedFeedItems.filter(
+        (item) =>
+          item.type === "live_stream" &&
+          liveRelationshipIds.has(item.liveStream.user_id)
+      );
+    }
+
     if (feedMode === "friends" && currentUserId) {
       return mixedFeedItems.filter((item) => {
         const authorId =
@@ -2323,6 +2678,14 @@ export default function DashboardPage() {
     const handleDashboardEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
 
+      if (likeListTarget) {
+        setLikeListTarget(null);
+        setLikeListPeople([]);
+        setLikeListError("");
+        setLikeListLoading(false);
+        return;
+      }
+
       if (selectedDashboardShowcase) {
         setSelectedDashboardShowcase(null);
         return;
@@ -2367,6 +2730,7 @@ export default function DashboardPage() {
     };
   }, [
     feelingActivityOpen,
+    likeListTarget,
     mobileMenuOpen,
     openCommentsPostId,
     openPostMenuId,
@@ -3261,7 +3625,16 @@ export default function DashboardPage() {
 
       // First paint: show the timeline as soon as the post rows arrive.
       // Images, shared posts, live cards, profile maps, and counts continue below.
-      setPosts(visiblePostsBase.map((post) => ({ ...post, images: [] })));
+      setPosts((currentPosts) => {
+        const currentImagesMap = new Map(
+          currentPosts.map((post) => [post.id, post.images || []] as const)
+        );
+
+        return visiblePostsBase.map((post) => ({
+          ...post,
+          images: currentImagesMap.get(post.id) || [],
+        }));
+      });
       hasLoadedDashboardOnceRef.current = true;
       setFetchingPosts(false);
 
@@ -3447,11 +3820,8 @@ export default function DashboardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "followers" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${currentUserId}` }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "live_streams" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "recently_viewed_profiles" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "blocked_users" }, schedulePulseRefresh)
       .subscribe();
 
@@ -3607,6 +3977,15 @@ export default function DashboardPage() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+
+      if (likeListTarget) {
+        setLikeListTarget(null);
+        setLikeListPeople([]);
+        setLikeListError("");
+        setLikeListLoading(false);
+        return;
+      }
+
       setSearchOpen(false);
       setFeelingActivityOpen(false);
       setOpenPostMenuId(null);
@@ -3619,7 +3998,7 @@ export default function DashboardPage() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [likeListTarget]);
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -3863,9 +4242,7 @@ export default function DashboardPage() {
 
   const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const incomingFiles = Array.from(event.target.files || []);
-    const selectedFiles = incomingFiles.filter(
-      (file) => file.type.startsWith("image/") || file.type.startsWith("video/")
-    );
+    const selectedFiles = incomingFiles.filter((file) => Boolean(getDashboardMediaKind(file)));
 
     const rejectedFiles = incomingFiles.length - selectedFiles.length;
 
@@ -3876,13 +4253,13 @@ export default function DashboardPage() {
     }
 
     const oversizedFile = selectedFiles.find((file) => {
-      const isVideo = file.type.startsWith("video/");
+      const isVideo = isDashboardVideoFile(file);
       const maxMb = isVideo ? MAX_POST_VIDEO_MB : MAX_POST_IMAGE_MB;
       return file.size > maxMb * 1024 * 1024;
     });
 
     if (oversizedFile) {
-      const isVideo = oversizedFile.type.startsWith("video/");
+      const isVideo = isDashboardVideoFile(oversizedFile);
       alert(
         `Please choose ${isVideo ? "videos" : "photos"} under ${
           isVideo ? MAX_POST_VIDEO_MB : MAX_POST_IMAGE_MB
@@ -3892,7 +4269,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const selectedVideoFiles = selectedFiles.filter((file) => file.type.startsWith("video/"));
+    const selectedVideoFiles = selectedFiles.filter((file) => isDashboardVideoFile(file));
 
     if (selectedVideoFiles.length > 0) {
       for (const videoFile of selectedVideoFiles) {
@@ -3909,7 +4286,7 @@ export default function DashboardPage() {
     }
 
     setPostImages((prev) => {
-      const existingVideo = prev.some((file) => file.type.startsWith("video/"));
+      const existingVideo = prev.some((file) => isDashboardVideoFile(file));
       const remainingSlots = Math.max(MAX_POST_IMAGES - prev.length, 0);
 
       if (remainingSlots <= 0) {
@@ -3921,8 +4298,8 @@ export default function DashboardPage() {
       const selectedHasVideo = selectedVideoFiles.length > 0;
 
       if (existingVideo || selectedHasVideo) {
-        const videoFiles = acceptedFiles.filter((file) => file.type.startsWith("video/"));
-        const imageFiles = acceptedFiles.filter((file) => file.type.startsWith("image/"));
+        const videoFiles = acceptedFiles.filter((file) => isDashboardVideoFile(file));
+        const imageFiles = acceptedFiles.filter((file) => getDashboardMediaKind(file) === "image");
 
         if (existingVideo) {
           acceptedFiles = imageFiles;
@@ -3974,7 +4351,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const postVideos = postImages.filter((file) => file.type.startsWith("video/"));
+    const postVideos = postImages.filter((file) => isDashboardVideoFile(file));
     if (postVideos.length > 1) {
       alert("You can add one video per dashboard post for launch.");
       return;
@@ -4004,18 +4381,20 @@ export default function DashboardPage() {
     const uploadedImages: Array<{ image_url: string; storage_path: string; display_order: number }> = [];
 
     for (const [index, imageFile] of postImages.entries()) {
-      const fileExt = imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
-      const safeExt = fileExt.replace(/[^a-z0-9]/g, "") || "jpg";
+      const mediaKind = getDashboardMediaKind(imageFile);
+      const fileExt = getDashboardFileExtension(imageFile) || (mediaKind === "video" ? "mp4" : "jpg");
+      const safeExt = fileExt.replace(/[^a-z0-9]/g, "") || (mediaKind === "video" ? "mp4" : "jpg");
       const fileName = `${user.id}/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${safeExt}`;
 
       const { error: uploadError } = await supabase.storage.from("post-images").upload(fileName, imageFile, {
         cacheControl: "604800",
+        contentType: getDashboardUploadContentType(imageFile),
         upsert: false,
       });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
-        alert(`Upload error: ${uploadError.message}`);
+        alert(getDashboardUploadErrorMessage(imageFile, uploadError.message));
         setLoading(false);
         return;
       }
@@ -4100,6 +4479,78 @@ export default function DashboardPage() {
     void fetchDashboardData(false);
     setLoading(false);
   };
+
+  const handleOpenDashboardLikeList = useCallback(
+    async (target: DashboardLikeListTarget) => {
+      if (!target.id) return;
+
+      setLikeListTarget(target);
+      setLikeListPeople([]);
+      setLikeListError("");
+      setLikeListLoading(true);
+
+      try {
+        const table = target.kind === "post" ? "likes" : "comment_likes";
+        const idColumn = target.kind === "post" ? "post_id" : "comment_id";
+
+        const { data: likeRows, error: likesError } = await supabase
+          .from(table)
+          .select("user_id")
+          .eq(idColumn, target.id);
+
+        if (likesError) {
+          setLikeListError(`Could not load likes: ${likesError.message}`);
+          return;
+        }
+
+        const userIds = [
+          ...new Set(
+            (likeRows || [])
+              .map((row) => String(row.user_id || ""))
+              .filter((userId) => userId && !blockedUserIds.includes(userId))
+          ),
+        ];
+
+        if (userIds.length === 0) {
+          setLikeListPeople([]);
+          return;
+        }
+
+        const { data: profileRows, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+          .in("id", userIds);
+
+        if (profileError) {
+          setLikeListError(`Could not load member profiles: ${profileError.message}`);
+          return;
+        }
+
+        const profileMap = new Map(
+          ((profileRows || []) as ProfilePreview[]).map((profile) => [profile.id, profile])
+        );
+
+        setLikeListPeople(
+          userIds.map((userId) => ({
+            userId,
+            profile: profileMap.get(userId) || profilesMap[userId] || null,
+          }))
+        );
+      } catch (error) {
+        setLikeListError(`Could not load likes: ${getDashboardErrorMessage(error)}`);
+      } finally {
+        setLikeListLoading(false);
+      }
+    },
+    [blockedUserIds, profilesMap]
+  );
+
+  const closeDashboardLikeList = useCallback(() => {
+    setLikeListTarget(null);
+    setLikeListPeople([]);
+    setLikeListError("");
+    setLikeListLoading(false);
+  }, []);
 
   const handleLikeToggle = async (postId: string) => {
     const {
@@ -4968,14 +5419,18 @@ export default function DashboardPage() {
                       ? "No friend posts yet"
                       : feedMode === "following"
                         ? "No followed posts yet"
-                        : "No posts yet"
+                        : feedMode === "live"
+                          ? "No live shows yet"
+                          : "No posts yet"
                   }
                   text={
                     feedMode === "friends"
                       ? "Posts from accepted friends will appear here automatically."
                       : feedMode === "following"
                         ? "Follow more members to build your personal feed."
-                        : "Be the first to share an update, photo, video, thought, or Parapost Reel."
+                        : feedMode === "live"
+                          ? "Live shows, upcoming broadcasts, and replays from friends and people you follow will appear here."
+                          : "Be the first to share an update, photo, video, thought, or Parapost Reel."
                   }
                 />
               ) : (
@@ -5020,6 +5475,8 @@ export default function DashboardPage() {
                             onSaveEditComment={(comment) => handleSaveDashboardComment(item.post.id, comment)}
                             onCancelEditComment={handleCancelEditDashboardComment}
                             onLike={() => handleLikeToggle(item.post.id)}
+                            onOpenPostLikes={() => handleOpenDashboardLikeList({ kind: "post", id: item.post.id, title: "Liked by" })}
+                            onOpenCommentLikes={(commentId) => handleOpenDashboardLikeList({ kind: "comment", id: commentId, title: "Comment likes" })}
                             onToggleComments={() => handleToggleDashboardComments(item.post.id)}
                             onCommentDraftChange={(value) => handleDashboardCommentDraftChange(item.post.id, value)}
                             onAddComment={() => handleAddDashboardComment(item.post.id, item.post.user_id)}
@@ -5068,6 +5525,8 @@ export default function DashboardPage() {
                             onSaveEditComment={(comment) => handleSaveDashboardComment(item.sharedPost.post_id, comment)}
                             onCancelEditComment={handleCancelEditDashboardComment}
                             onLikeOriginal={() => handleLikeToggle(item.sharedPost.post_id)}
+                            onOpenPostLikes={() => handleOpenDashboardLikeList({ kind: "post", id: item.sharedPost.post_id, title: "Liked by" })}
+                            onOpenCommentLikes={(commentId) => handleOpenDashboardLikeList({ kind: "comment", id: commentId, title: "Comment likes" })}
                             onToggleComments={() => handleToggleDashboardComments(item.sharedPost.post_id)}
                             onCommentDraftChange={(value) => handleDashboardCommentDraftChange(item.sharedPost.post_id, value)}
                             onAddComment={() => handleAddDashboardComment(item.sharedPost.post_id, item.sharedPost.original_post.user_id)}
@@ -5271,6 +5730,14 @@ export default function DashboardPage() {
 
       <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
 
+      <DashboardLikesModal
+        target={likeListTarget}
+        people={likeListPeople}
+        loading={likeListLoading}
+        error={likeListError}
+        onClose={closeDashboardLikeList}
+      />
+
       <DashboardPostImageViewerModal viewer={dashboardPostImageViewer} onClose={closeDashboardPostImageViewer} />
 
       {feelingActivityOpen ? (
@@ -5300,7 +5767,7 @@ export default function DashboardPage() {
 
       <style dangerouslySetInnerHTML={{ __html: `
         html {
-          scroll-behavior: smooth;
+          scroll-behavior: auto;
         }
 
         .profile-showcase-modal-header,
@@ -11597,7 +12064,7 @@ function ComposerCard({
           >
             {imagePreviewUrls.slice(0, MAX_POST_IMAGES).map((previewUrl, index) => {
               const selectedFile = images[index];
-              const isVideo = selectedFile?.type.startsWith("video/") || isVideoMediaUrl(previewUrl);
+              const isVideo = isDashboardVideoFile(selectedFile) || isVideoMediaUrl(previewUrl);
 
               return (
                 <button
@@ -11739,7 +12206,7 @@ function FeedTabs({ feedMode, setFeedMode }: { feedMode: FeedMode; setFeedMode: 
       <FeedTab label="For You" active={feedMode === "for_you"} onClick={() => setFeedMode("for_you")} />
       <FeedTab label="Friends" active={feedMode === "friends"} onClick={() => setFeedMode("friends")} />
       <FeedTab label="Following" active={feedMode === "following"} onClick={() => setFeedMode("following")} />
-      <FeedTab label="Live" href="/live" />
+      <FeedTab label="Live" active={feedMode === "live"} onClick={() => setFeedMode("live")} />
     </div>
   );
 }
@@ -12285,6 +12752,8 @@ function PostCard({
   onSaveEditComment,
   onCancelEditComment,
   onLike,
+  onOpenPostLikes,
+  onOpenCommentLikes,
   onToggleComments,
   onCommentDraftChange,
   onAddComment,
@@ -12329,6 +12798,8 @@ function PostCard({
   onSaveEditComment: (comment: DashboardComment) => void;
   onCancelEditComment: () => void;
   onLike: () => void;
+  onOpenPostLikes: () => void;
+  onOpenCommentLikes: (commentId: string) => void;
   onToggleComments: () => void;
   onCommentDraftChange: (value: string) => void;
   onAddComment: () => void;
@@ -12424,7 +12895,11 @@ function PostCard({
 
       {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
         <div style={postStatsSummaryStyle}>
-          <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+          {likeCount > 0 ? (
+            <button type="button" onClick={onOpenPostLikes} style={postStatsLinkButtonStyle}>
+              {likeCount} {likeCount === 1 ? "Like" : "Likes"}
+            </button>
+          ) : <span />}
           <span style={postStatsRightStyle}>
             {commentCount > 0 ? (
               <button type="button" onClick={onToggleComments} style={postStatsLinkButtonStyle}>
@@ -12483,6 +12958,8 @@ function PostCard({
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
           onLike={onLike}
+          onOpenPostLikes={onOpenPostLikes}
+          onOpenCommentLikes={onOpenCommentLikes}
           onShare={onShare}
           onOpenImage={onOpenImage}
           onCloseComments={onToggleComments}
@@ -12731,6 +13208,8 @@ function DashboardCommentsPanel({
   onDeleteComment,
   onReportComment,
   onLike,
+  onOpenPostLikes,
+  onOpenCommentLikes,
   onShare,
   onOpenImage,
   onCloseComments,
@@ -12764,6 +13243,8 @@ function DashboardCommentsPanel({
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
   onLike: () => void;
+  onOpenPostLikes: () => void;
+  onOpenCommentLikes: (commentId: string) => void;
   onShare: () => void;
   onOpenImage?: (url: string, alt: string) => void;
   onCloseComments: () => void;
@@ -12938,7 +13419,15 @@ function DashboardCommentsPanel({
                   </button>
                 </>
               ) : null}
-              {commentLikeCount > 0 ? <span style={dashboardCommentLikeCountStyle}>{commentLikeCount} {commentLikeCount === 1 ? "like" : "likes"}</span> : null}
+              {commentLikeCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenCommentLikes(comment.id)}
+                  style={{ ...dashboardCommentLikeCountStyle, border: 0, padding: 0, background: "transparent", cursor: "pointer" }}
+                >
+                  {commentLikeCount} {commentLikeCount === 1 ? "like" : "likes"}
+                </button>
+              ) : null}
               {canManage ? (
                 <>
                   <button type="button" onClick={() => onStartEditComment(comment)} style={dashboardCommentEditActionButtonStyle}>Edit</button>
@@ -13050,7 +13539,11 @@ function DashboardCommentsPanel({
 
             {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
               <div style={postStatsSummaryStyle}>
-                <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+                {likeCount > 0 ? (
+                  <button type="button" onClick={onOpenPostLikes} style={postStatsLinkButtonStyle}>
+                    {likeCount} {likeCount === 1 ? "Like" : "Likes"}
+                  </button>
+                ) : <span />}
                 <span style={postStatsRightStyle}>
                   {commentCount > 0 ? `${commentCount} ${commentCount === 1 ? "Comment" : "Comments"}` : ""}
                   {commentCount > 0 && shareCount > 0 ? " · " : ""}
@@ -13193,6 +13686,8 @@ function SharedPostCard({
   onSaveEditComment,
   onCancelEditComment,
   onLikeOriginal,
+  onOpenPostLikes,
+  onOpenCommentLikes,
   onToggleComments,
   onCommentDraftChange,
   onAddComment,
@@ -13237,6 +13732,8 @@ function SharedPostCard({
   onSaveEditComment: (comment: DashboardComment) => void;
   onCancelEditComment: () => void;
   onLikeOriginal: () => void;
+  onOpenPostLikes: () => void;
+  onOpenCommentLikes: (commentId: string) => void;
   onToggleComments: () => void;
   onCommentDraftChange: (value: string) => void;
   onAddComment: () => void;
@@ -13396,7 +13893,11 @@ function SharedPostCard({
 
       {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
         <div style={postStatsSummaryStyle}>
-          <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+          {likeCount > 0 ? (
+            <button type="button" onClick={onOpenPostLikes} style={postStatsLinkButtonStyle}>
+              {likeCount} {likeCount === 1 ? "Like" : "Likes"}
+            </button>
+          ) : <span />}
           <span style={postStatsRightStyle}>
             {commentCount > 0 ? (
               <button type="button" onClick={onToggleComments} style={postStatsLinkButtonStyle}>
@@ -13455,6 +13956,8 @@ function SharedPostCard({
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
           onLike={onLikeOriginal}
+          onOpenPostLikes={onOpenPostLikes}
+          onOpenCommentLikes={onOpenCommentLikes}
           onShare={onShareOriginal}
           onOpenImage={onOpenImage}
           onCloseComments={onToggleComments}
