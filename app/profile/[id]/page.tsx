@@ -2737,6 +2737,20 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
+    if (!openCommentsPostId || typeof document === "undefined") return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, [openCommentsPostId]);
+
+  useEffect(() => {
     return () => {
       showcasePendingTextPositionRef.current = null;
 
@@ -4420,6 +4434,9 @@ useEffect(() => {
       setCommentsLoadingPostId(postId);
 
       try {
+        const { data: authData } = await supabase.auth.getUser();
+        const activeViewerId = authData.user?.id || viewerId;
+
         const { data, error } = await supabase
           .from("comments")
           .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
@@ -4466,7 +4483,7 @@ useEffect(() => {
               const commentId = String(like.comment_id || "");
               if (!commentId) continue;
               nextLikeCounts[commentId] = (nextLikeCounts[commentId] || 0) + 1;
-              if (viewerId && like.user_id === viewerId) nextUserLikes[commentId] = true;
+              if (activeViewerId && like.user_id === activeViewerId) nextUserLikes[commentId] = true;
             }
 
             setProfileCommentLikeCounts((current) => ({ ...current, ...nextLikeCounts }));
@@ -5097,96 +5114,265 @@ useEffect(() => {
     );
   };
 
-  const renderProfileCommentsPanel = (postId: string, postOwnerId?: string | null) => {
+  const renderProfileCommentsPanel = (
+    post: Post,
+    postOwnerId?: string | null,
+    postAuthorProfile?: ProfileRow | null,
+    isLiked = false,
+    likeCount = 0,
+    commentCount = 0,
+    shareCount = 0,
+  ) => {
+    const postId = post.id;
     const comments = commentsByPostId[postId] || [];
     const draft = commentDrafts[postId] || "";
     const isLoadingComments = commentsLoadingPostId === postId;
     const isPostingComment = postingCommentPostId === postId;
+    const authorProfile =
+      postAuthorProfile ||
+      commentProfilesMap[post.user_id] ||
+      (post.user_id === profile?.id ? profile : null);
+    const authorName =
+      authorProfile?.full_name ||
+      authorProfile?.username ||
+      "Parapost Member";
+    const authorHandle = authorProfile?.username || "member";
+    const currentViewerProfile =
+      commentProfilesMap[viewerId] ||
+      (viewerId === profile?.id ? profile : null);
+    const { headerActivityText, bodyContent } = splitPostFeelingActivityContent(post.content || "");
 
-    return (
-      <section className="profile-comments-panel profile-comments-open-panel" style={profileCommentsPanelStyle} onClick={(event) => event.stopPropagation()}>
-        <div style={profileCommentsHeaderStyle}>
-          <strong style={profileCommentsTitleStyle}>Comments</strong>
-          <span style={profileCommentsHeaderCountStyle}>
-            {isLoadingComments ? "Loading..." : `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}
-          </span>
-        </div>
+    if (!isClientMounted || typeof document === "undefined") return null;
 
-        <div style={profileCommentComposerStyle}>
-          <textarea
-            value={draft}
-            onChange={(event) => handleProfileCommentDraftChange(postId, event.target.value)}
-            placeholder={viewerId ? "Write a comment..." : "Log in to comment"}
-            disabled={!viewerId || isPostingComment}
-            rows={2}
-            maxLength={1200}
-            style={profileCommentInputStyle}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                event.preventDefault();
-                handleAddProfileComment(postId, postOwnerId);
-              }
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => handleAddProfileComment(postId, postOwnerId)}
-            disabled={!viewerId || !draft.trim() || isPostingComment}
-            style={{
-              ...profileCommentSubmitButtonStyle,
-              opacity: !viewerId || !draft.trim() || isPostingComment ? 0.58 : 1,
-              cursor: !viewerId || !draft.trim() || isPostingComment ? "not-allowed" : "pointer",
-            }}
-          >
-            {isPostingComment ? "Posting..." : "Post"}
-          </button>
-        </div>
+    return createPortal(
+      <div
+        className="profile-comments-overlay"
+        style={profileCommentsOverlayBackdropStyle}
+        role="presentation"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setOpenCommentsPostId(null);
+        }}
+      >
+        <section
+          className="profile-comments-overlay-shell"
+          style={profileCommentsOverlayShellStyle}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Comments on ${authorName}'s post`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="profile-comments-overlay-header" style={profileCommentsOverlayHeaderStyle}>
+            <div style={{ minWidth: 0 }}>
+              <strong style={profileCommentsOverlayTitleStyle}>{authorName}&apos;s post</strong>
+              <span style={profileCommentsOverlaySubtitleStyle}>
+                {isLoadingComments ? "Loading comments..." : `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}
+              </span>
+            </div>
 
-        {isLoadingComments ? (
-          <div style={profileCommentsEmptyStyle}>Loading comments...</div>
-        ) : comments.length === 0 ? (
-          <div style={profileCommentsEmptyStyle}>No comments yet. Be the first to reply.</div>
-        ) : (
-          <div style={profileCommentsListStyle}>
-            {comments
-              .filter((comment) => !comment.parent_comment_id)
-              .map((comment) => {
-                const replies = comments.filter((reply) => reply.parent_comment_id === comment.id);
-                const repliesExpanded = !!expandedProfileReplyThreadsMap[comment.id];
+            <button
+              type="button"
+              onClick={() => setOpenCommentsPostId(null)}
+              style={profileCommentsOverlayCloseButtonStyle}
+              aria-label="Close comments"
+            >
+              ×
+            </button>
+          </header>
 
-                return (
-                  <div key={`profile-thread-${postId}-${comment.id}`} style={{ display: "grid", gap: 8 }}>
-                    {renderProfileCommentRow(postId, postOwnerId, comment, "open", comment, false)}
+          <div className="profile-comments-overlay-scroll" style={profileCommentsOverlayScrollStyle}>
+            <article className="profile-comments-overlay-post" style={profileCommentsOverlayPostStyle}>
+              <header style={postHeaderStyle}>
+                <Link href={`/profile/${post.user_id}`} style={profileCommentsOverlayAuthorAvatarStyle}>
+                  {authorProfile?.avatar_url ? (
+                    <img
+                      src={authorProfile.avatar_url}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : (
+                    <span>{getInitial(authorName, authorHandle)}</span>
+                  )}
+                </Link>
 
-                    {replies.length > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => setExpandedProfileReplyThreadsMap((current) => ({ ...current, [comment.id]: !current[comment.id] }))}
-                        style={{
-                          justifySelf: "start",
-                          marginLeft: 72,
-                          padding: 0,
-                          border: "none",
-                          background: "transparent",
-                          color: "var(--parapost-accent-text, #d8b4fe)",
-                          fontSize: 11.5,
-                          fontWeight: 900,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {repliesExpanded ? "Hide replies" : `View ${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
-                      </button>
-                    ) : null}
+                <div style={postAuthorTextStyle}>
+                  <Link href={`/profile/${post.user_id}`} style={{ ...postAuthorNameStyle, textDecoration: "none" }}>
+                    {authorName}
+                  </Link>
+                  <span style={postMetaStyle}>
+                    @{authorHandle} · {formatTimeAgo(post.created_at)}
+                    {headerActivityText ? ` · ${headerActivityText}` : ""}
+                  </span>
+                </div>
+              </header>
 
-                    {repliesExpanded
-                      ? replies.map((reply) => renderProfileCommentRow(postId, postOwnerId, reply, "reply", comment, true))
-                      : null}
-                  </div>
-                );
-              })}
+              {bodyContent ? (
+                <>
+                  <ExpandableFeedText
+                    text={bodyContent}
+                    hasMedia={getPostImageUrls(post).length > 0 || Boolean(getFirstSafeLinkPreview(bodyContent))}
+                    style={postContentStyle}
+                  />
+                  <LinkPreviewCard text={bodyContent} />
+                </>
+              ) : null}
+
+              <ProfilePostImageGrid
+                imageUrls={getPostImageUrls(post)}
+                alt="Post image"
+                onOpenImage={openProfilePostImageViewer}
+              />
+
+              {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
+                <div style={profilePostStatsSummaryStyle}>
+                  <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+                  <span style={profilePostStatsRightStyle}>
+                    {commentCount > 0 ? `${commentCount} ${commentCount === 1 ? "Comment" : "Comments"}` : ""}
+                    {commentCount > 0 && shareCount > 0 ? " · " : ""}
+                    {shareCount > 0 ? `${shareCount} ${shareCount === 1 ? "Share" : "Shares"}` : ""}
+                  </span>
+                </div>
+              ) : null}
+
+              <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
+                <button
+                  className={`profile-post-action-button profile-post-like-button ${isLiked ? "profile-post-like-button-active" : ""}`}
+                  onClick={() => handleLikeToggle(postId)}
+                  style={isLiked ? postLikeButtonActiveStyle : actionButtonStyle}
+                  aria-pressed={isLiked}
+                  type="button"
+                >
+                  <HeartIcon filled={isLiked} />
+                  <span>Like</span>
+                </button>
+
+                <button
+                  className="profile-post-action-button"
+                  style={{ ...actionButtonStyle, color: "var(--parapost-accent-readable-text)" }}
+                  type="button"
+                  aria-pressed={true}
+                >
+                  <CommentIcon />
+                  <span>Comment</span>
+                </button>
+
+                <button
+                  className="profile-post-action-button"
+                  onClick={() => handleProfileShareAction(postId)}
+                  style={actionButtonStyle}
+                  type="button"
+                >
+                  <ShareIcon />
+                  <span>Share</span>
+                </button>
+              </div>
+            </article>
+
+            <section style={profileCommentsConversationStyle}>
+              <div style={profileCommentsConversationHeaderStyle}>
+                <strong style={profileCommentsTitleStyle}>Comments</strong>
+                <span style={profileCommentsHeaderCountStyle}>
+                  {isLoadingComments ? "Loading..." : `${comments.length} total`}
+                </span>
+              </div>
+
+              {isLoadingComments ? (
+                <div style={profileCommentsEmptyStyle}>Loading comments...</div>
+              ) : comments.length === 0 ? (
+                <div style={profileCommentsEmptyStyle}>No comments yet. Be the first to reply.</div>
+              ) : (
+                <div style={{ ...profileCommentsListStyle, maxHeight: "none", overflowY: "visible" }}>
+                  {comments
+                    .filter((comment) => !comment.parent_comment_id)
+                    .map((comment) => {
+                      const replies = comments.filter((reply) => reply.parent_comment_id === comment.id);
+                      const repliesExpanded = !!expandedProfileReplyThreadsMap[comment.id];
+
+                      return (
+                        <div key={`profile-thread-${postId}-${comment.id}`} style={{ display: "grid", gap: 8 }}>
+                          {renderProfileCommentRow(postId, postOwnerId, comment, "open", comment, false)}
+
+                          {replies.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedProfileReplyThreadsMap((current) => ({ ...current, [comment.id]: !current[comment.id] }))}
+                              style={{
+                                justifySelf: "start",
+                                marginLeft: 54,
+                                minHeight: 34,
+                                padding: 0,
+                                border: "none",
+                                background: "transparent",
+                                color: "var(--parapost-accent-text, #d8b4fe)",
+                                fontSize: 12,
+                                fontWeight: 900,
+                                cursor: "pointer",
+                                touchAction: "manipulation",
+                              }}
+                            >
+                              {repliesExpanded ? "Hide replies" : `View ${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+                            </button>
+                          ) : null}
+
+                          {repliesExpanded
+                            ? replies.map((reply) => renderProfileCommentRow(postId, postOwnerId, reply, "reply", comment, true))
+                            : null}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </section>
           </div>
-        )}
-      </section>
+
+          <footer className="profile-comments-overlay-composer" style={profileCommentsOverlayComposerStyle}>
+            <Link
+              href={viewerId ? `/profile/${viewerId}` : "#"}
+              style={{ ...profileCommentsOverlayAuthorAvatarStyle, width: 38, height: 38, minWidth: 38 }}
+              aria-label="Open your profile"
+            >
+              {currentViewerProfile?.avatar_url ? (
+                <img
+                  src={currentViewerProfile.avatar_url}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              ) : (
+                <span>{getInitial(currentViewerProfile?.full_name, currentViewerProfile?.username)}</span>
+              )}
+            </Link>
+
+            <textarea
+              value={draft}
+              onChange={(event) => handleProfileCommentDraftChange(postId, event.target.value)}
+              placeholder={viewerId ? "Write a comment..." : "Log in to comment"}
+              disabled={!viewerId || isPostingComment}
+              rows={1}
+              maxLength={1200}
+              style={profileCommentInputStyle}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  handleAddProfileComment(postId, postOwnerId);
+                }
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => handleAddProfileComment(postId, postOwnerId)}
+              disabled={!viewerId || !draft.trim() || isPostingComment}
+              style={{
+                ...profileCommentSubmitButtonStyle,
+                opacity: !viewerId || !draft.trim() || isPostingComment ? 0.58 : 1,
+                cursor: !viewerId || !draft.trim() || isPostingComment ? "not-allowed" : "pointer",
+              }}
+            >
+              {isPostingComment ? "Posting..." : "Post"}
+            </button>
+          </footer>
+        </section>
+      </div>,
+      document.body
     );
   };
 
@@ -16766,6 +16952,7 @@ return (
                             "Original creator";
                           const originalHandle = originalCreator?.username || "member";
                           const originalPostLiked = !!userLikes[originalPost.id];
+                          const originalPostLikeCount = likeCounts[originalPost.id] || 0;
                           const originalPostCommentCount = commentCounts[originalPost.id] || 0;
                           const originalPostShareCount = shareCounts[originalPost.id] || 0;
 
@@ -16855,11 +17042,28 @@ return (
 
                               </div>
 
-                              {originalPostCommentCount > 0 || originalPostShareCount > 0 ? (
+                              {originalPostLikeCount > 0 || originalPostCommentCount > 0 || originalPostShareCount > 0 ? (
                                 <div style={profilePostStatsSummaryStyle}>
-                                  <span>{originalPostCommentCount} Comments</span>
-                                  <span>·</span>
-                                  <span>{originalPostShareCount} Shares</span>
+                                  <span>
+                                    {originalPostLikeCount > 0
+                                      ? `${originalPostLikeCount} ${originalPostLikeCount === 1 ? "Like" : "Likes"}`
+                                      : ""}
+                                  </span>
+                                  <span style={profilePostStatsRightStyle}>
+                                    {originalPostCommentCount > 0 ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProfileCommentAction(originalPost.id)}
+                                        style={profilePostStatsButtonStyle}
+                                      >
+                                        {originalPostCommentCount} {originalPostCommentCount === 1 ? "Comment" : "Comments"}
+                                      </button>
+                                    ) : null}
+                                    {originalPostCommentCount > 0 && originalPostShareCount > 0 ? <span>·</span> : null}
+                                    {originalPostShareCount > 0 ? (
+                                      <span>{originalPostShareCount} {originalPostShareCount === 1 ? "Share" : "Shares"}</span>
+                                    ) : null}
+                                  </span>
                                 </div>
                               ) : null}
 
@@ -16897,15 +17101,24 @@ return (
                                 </button>
                               </div>
 
-                              {openCommentsPostId !== originalPost.id ? renderProfileCommentsPreview(originalPost.id, originalPost.user_id) : null}
-
-                              {openCommentsPostId === originalPost.id ? renderProfileCommentsPanel(originalPost.id, originalPost.user_id) : null}
+                              {openCommentsPostId === originalPost.id
+                                ? renderProfileCommentsPanel(
+                                    originalPost,
+                                    originalPost.user_id,
+                                    originalCreator,
+                                    originalPostLiked,
+                                    originalPostLikeCount,
+                                    originalPostCommentCount,
+                                    originalPostShareCount,
+                                  )
+                                : null}
                             </article>
                           );
                         }
 
                         const post = item;
                         const liked = !!userLikes[post.id];
+                        const likeCount = likeCounts[post.id] || 0;
                         const commentCount = commentCounts[post.id] || 0;
                         const shareCount = shareCounts[post.id] || 0;
                         const isPostOwner = canManageProfilePost(post);
@@ -17080,11 +17293,22 @@ return (
 
                             <ProfilePostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" onOpenImage={openProfilePostImageViewer} />
 
-                            {commentCount > 0 || shareCount > 0 ? (
+                            {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
                               <div style={profilePostStatsSummaryStyle}>
-                                <span>{commentCount} Comments</span>
-                                <span>·</span>
-                                <span>{shareCount} Shares</span>
+                                <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+                                <span style={profilePostStatsRightStyle}>
+                                  {commentCount > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleProfileCommentAction(post.id)}
+                                      style={profilePostStatsButtonStyle}
+                                    >
+                                      {commentCount} {commentCount === 1 ? "Comment" : "Comments"}
+                                    </button>
+                                  ) : null}
+                                  {commentCount > 0 && shareCount > 0 ? <span>·</span> : null}
+                                  {shareCount > 0 ? <span>{shareCount} {shareCount === 1 ? "Share" : "Shares"}</span> : null}
+                                </span>
                               </div>
                             ) : null}
 
@@ -17122,9 +17346,17 @@ return (
                               </button>
                             </div>
 
-                            {openCommentsPostId !== post.id ? renderProfileCommentsPreview(post.id, post.user_id) : null}
-
-                            {openCommentsPostId === post.id ? renderProfileCommentsPanel(post.id, post.user_id) : null}
+                            {openCommentsPostId === post.id
+                              ? renderProfileCommentsPanel(
+                                  post,
+                                  post.user_id,
+                                  profile,
+                                  liked,
+                                  likeCount,
+                                  commentCount,
+                                  shareCount,
+                                )
+                              : null}
                           </article>
                         );
                       })}
@@ -18616,6 +18848,75 @@ function ProfileStableBottomNav({
 
       
 
+
+        .profile-comments-overlay-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.58) rgba(255,255,255,0.08);
+        }
+
+        .profile-comments-overlay-scroll::-webkit-scrollbar {
+          width: 10px;
+        }
+
+        .profile-comments-overlay-scroll::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.06);
+        }
+
+        .profile-comments-overlay-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.45);
+          border-radius: 999px;
+          border: 2px solid rgba(8,10,17,0.96);
+        }
+
+        @media (max-width: 760px) {
+          .profile-comments-overlay {
+            padding: 0 !important;
+            place-items: stretch !important;
+          }
+
+          .profile-comments-overlay-shell {
+            width: 100vw !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+          }
+
+          .profile-comments-overlay-header {
+            min-height: 60px !important;
+            padding: 9px 12px !important;
+          }
+
+          .profile-comments-overlay-post {
+            padding: 13px 12px 12px !important;
+          }
+
+          .profile-comments-overlay-composer {
+            grid-template-columns: auto minmax(0, 1fr) auto !important;
+            gap: 8px !important;
+            padding: 9px 10px calc(9px + env(safe-area-inset-bottom)) !important;
+          }
+
+          .profile-comments-overlay-composer textarea {
+            min-height: 42px !important;
+            max-height: 96px !important;
+            resize: none !important;
+          }
+
+          .profile-comments-overlay-composer button {
+            min-width: 58px !important;
+            min-height: 42px !important;
+            padding-inline: 12px !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 1100px) {
+          .profile-comments-overlay-shell {
+            width: min(760px, calc(100vw - 28px)) !important;
+            height: calc(100dvh - 28px) !important;
+            max-height: calc(100dvh - 28px) !important;
+          }
+        }
       `}</style>
     </>
   );
@@ -20126,15 +20427,36 @@ const profilePostImageGridOverlayStyle: CSSProperties = {
 
 const profilePostStatsSummaryStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "flex-end",
+  justifyContent: "space-between",
   flexWrap: "wrap",
-  gap: 9,
+  gap: 12,
   alignItems: "center",
   color: "#d1d5db",
   fontSize: 13,
   borderBottom: "1px solid rgba(255,255,255,0.10)",
   paddingBottom: 11,
   marginTop: 13,
+};
+
+const profilePostStatsRightStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  flexWrap: "wrap",
+  gap: 8,
+  marginLeft: "auto",
+};
+
+const profilePostStatsButtonStyle: CSSProperties = {
+  appearance: "none",
+  WebkitAppearance: "none",
+  border: 0,
+  background: "transparent",
+  color: "inherit",
+  padding: 0,
+  font: "inherit",
+  cursor: "pointer",
+  touchAction: "manipulation",
 };
 
 const postActionsRowStyle: CSSProperties = {
@@ -24430,6 +24752,132 @@ const profileAchievementViewerProgressWrapStyle: CSSProperties = {
 };
 
 
+const profileCommentsOverlayBackdropStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 2147483000,
+  display: "grid",
+  placeItems: "center",
+  padding: 16,
+  background: "rgba(0,0,0,0.76)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+};
+
+const profileCommentsOverlayShellStyle: CSSProperties = {
+  width: "min(760px, calc(100vw - 32px))",
+  height: "min(900px, calc(100dvh - 32px))",
+  maxHeight: "calc(100dvh - 32px)",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr) auto",
+  overflow: "hidden",
+  borderRadius: 22,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "linear-gradient(180deg, rgba(20,22,31,0.99), rgba(8,10,17,0.995))",
+  boxShadow: "0 28px 90px rgba(0,0,0,0.72)",
+  color: "#ffffff",
+};
+
+const profileCommentsOverlayHeaderStyle: CSSProperties = {
+  minHeight: 66,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+  padding: "12px 16px",
+  borderBottom: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(12,14,22,0.98)",
+};
+
+const profileCommentsOverlayTitleStyle: CSSProperties = {
+  display: "block",
+  color: "#ffffff",
+  fontSize: 17,
+  fontWeight: 950,
+  lineHeight: 1.2,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const profileCommentsOverlaySubtitleStyle: CSSProperties = {
+  display: "block",
+  marginTop: 3,
+  color: "#9ca3af",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const profileCommentsOverlayCloseButtonStyle: CSSProperties = {
+  width: 42,
+  height: 42,
+  flexShrink: 0,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.07)",
+  color: "#ffffff",
+  display: "grid",
+  placeItems: "center",
+  fontSize: 27,
+  lineHeight: 1,
+  cursor: "pointer",
+  touchAction: "manipulation",
+};
+
+const profileCommentsOverlayScrollStyle: CSSProperties = {
+  minHeight: 0,
+  overflowY: "auto",
+  overflowX: "hidden",
+  overscrollBehavior: "contain",
+  WebkitOverflowScrolling: "touch",
+  touchAction: "pan-y",
+  scrollbarGutter: "stable",
+};
+
+const profileCommentsOverlayPostStyle: CSSProperties = {
+  padding: "16px 18px 14px",
+  borderBottom: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.018)",
+};
+
+const profileCommentsOverlayAuthorAvatarStyle: CSSProperties = {
+  width: 44,
+  height: 44,
+  minWidth: 44,
+  borderRadius: 999,
+  overflow: "hidden",
+  textDecoration: "none",
+  display: "grid",
+  placeItems: "center",
+  background: "linear-gradient(135deg, var(--parapost-accent-1), #111827)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 950,
+  border: "1px solid rgba(255,255,255,0.12)",
+};
+
+const profileCommentsConversationStyle: CSSProperties = {
+  padding: "14px 18px 28px",
+};
+
+const profileCommentsConversationHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 4,
+};
+
+const profileCommentsOverlayComposerStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "auto minmax(0, 1fr) auto",
+  gap: 10,
+  alignItems: "center",
+  padding: "12px 14px",
+  borderTop: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(10,12,19,0.99)",
+};
+
 const profileCommentsPanelStyle: CSSProperties = {
   marginTop: "12px",
   borderRadius: "22px",
@@ -24575,10 +25023,10 @@ const profileCommentAvatarStyle: CSSProperties = {
 };
 
 const profileCommentBubbleStyle: CSSProperties = {
-  borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.085)",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.050), rgba(255,255,255,0.028))",
-  padding: "10px 11px",
+  borderRadius: "14px",
+  border: 0,
+  background: "rgba(255,255,255,0.035)",
+  padding: "9px 11px",
 };
 
 const profileCommentMetaRowStyle: CSSProperties = {

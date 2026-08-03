@@ -10820,6 +10820,75 @@ export default function DashboardPage() {
           }
         }
 
+
+        .parapost-comments-overlay-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.58) rgba(255,255,255,0.08);
+        }
+
+        .parapost-comments-overlay-scroll::-webkit-scrollbar {
+          width: 10px;
+        }
+
+        .parapost-comments-overlay-scroll::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.06);
+        }
+
+        .parapost-comments-overlay-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.45);
+          border-radius: 999px;
+          border: 2px solid rgba(8,10,17,0.96);
+        }
+
+        @media (max-width: 760px) {
+          .parapost-comments-overlay {
+            padding: 0 !important;
+            place-items: stretch !important;
+          }
+
+          .parapost-comments-overlay-shell {
+            width: 100vw !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+          }
+
+          .parapost-comments-overlay-header {
+            min-height: 60px !important;
+            padding: 9px 12px !important;
+          }
+
+          .parapost-comments-overlay-post {
+            padding: 13px 12px 12px !important;
+          }
+
+          .parapost-comments-overlay-composer {
+            grid-template-columns: auto minmax(0, 1fr) auto !important;
+            gap: 8px !important;
+            padding: 9px 10px calc(9px + env(safe-area-inset-bottom)) !important;
+          }
+
+          .parapost-comments-overlay-composer textarea {
+            min-height: 42px !important;
+            max-height: 96px !important;
+            resize: none !important;
+          }
+
+          .parapost-comments-overlay-composer button {
+            min-width: 58px !important;
+            min-height: 42px !important;
+            padding-inline: 12px !important;
+          }
+        }
+
+        @media (min-width: 761px) and (max-width: 1100px) {
+          .parapost-comments-overlay-shell {
+            width: min(760px, calc(100vw - 28px)) !important;
+            height: calc(100dvh - 28px) !important;
+            max-height: calc(100dvh - 28px) !important;
+          }
+        }
         ` }} />
     </div>
   );
@@ -12355,11 +12424,16 @@ function PostCard({
 
       {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
         <div style={postStatsSummaryStyle}>
-          {likeCount > 0 ? <span>{likeCount} {likeCount === 1 ? "Like" : "Likes"}</span> : null}
-          {likeCount > 0 && (commentCount > 0 || shareCount > 0) ? <span>·</span> : null}
-          {commentCount > 0 ? <span>{commentCount} {commentCount === 1 ? "Comment" : "Comments"}</span> : null}
-          {commentCount > 0 && shareCount > 0 ? <span>·</span> : null}
-          {shareCount > 0 ? <span>{shareCount} {shareCount === 1 ? "Share" : "Shares"}</span> : null}
+          <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+          <span style={postStatsRightStyle}>
+            {commentCount > 0 ? (
+              <button type="button" onClick={onToggleComments} style={postStatsLinkButtonStyle}>
+                {commentCount} {commentCount === 1 ? "Comment" : "Comments"}
+              </button>
+            ) : null}
+            {commentCount > 0 && shareCount > 0 ? <span>·</span> : null}
+            {shareCount > 0 ? <span>{shareCount} {shareCount === 1 ? "Share" : "Shares"}</span> : null}
+          </span>
         </div>
       ) : null}
 
@@ -12378,31 +12452,10 @@ function PostCard({
         </ActionButton>
       </div>
 
-      {!commentsOpen && comments.length > 0 ? (
-        <DashboardCommentsPreview
-          postId={post.id}
-          comments={comments}
-          commentCount={commentCount}
-          profilesMap={profilesMap}
-          currentUserId={currentUserId}
-          onToggleComments={onToggleComments}
-          editingCommentId={editingCommentId}
-          editingCommentText={editingCommentText}
-          savingCommentId={savingCommentId}
-          commentLikeCounts={commentLikeCounts}
-          commentUserLikes={commentUserLikes}
-          setEditingCommentText={setEditingCommentText}
-          onToggleCommentLike={onToggleCommentLike}
-          onStartEditComment={onStartEditComment}
-          onSaveEditComment={onSaveEditComment}
-          onCancelEditComment={onCancelEditComment}
-          onDeleteComment={onDeleteComment}
-          onReportComment={onReportComment}
-        />
-      ) : null}
-
       {commentsOpen ? (
         <DashboardCommentsPanel
+          post={post}
+          profile={profile}
           postId={post.id}
           postOwnerId={post.user_id}
           comments={comments}
@@ -12411,6 +12464,10 @@ function PostCard({
           loading={commentsLoading}
           draft={commentDraft}
           posting={postingComment}
+          isLiked={isLiked}
+          likeCount={likeCount}
+          commentCount={commentCount}
+          shareCount={shareCount}
           onDraftChange={onCommentDraftChange}
           onAddComment={onAddComment}
           editingCommentId={editingCommentId}
@@ -12425,6 +12482,9 @@ function PostCard({
           onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
+          onLike={onLike}
+          onShare={onShare}
+          onOpenImage={onOpenImage}
           onCloseComments={onToggleComments}
         />
       ) : null}
@@ -12642,6 +12702,8 @@ function DashboardCommentsPreview({
 
 
 function DashboardCommentsPanel({
+  post,
+  profile,
   postId,
   postOwnerId,
   comments,
@@ -12650,6 +12712,10 @@ function DashboardCommentsPanel({
   loading,
   draft,
   posting,
+  isLiked,
+  likeCount,
+  commentCount,
+  shareCount,
   onDraftChange,
   onAddComment,
   editingCommentId,
@@ -12664,8 +12730,13 @@ function DashboardCommentsPanel({
   onCancelEditComment,
   onDeleteComment,
   onReportComment,
+  onLike,
+  onShare,
+  onOpenImage,
   onCloseComments,
 }: {
+  post: Post;
+  profile?: ProfilePreview | null;
   postId: string;
   postOwnerId: string;
   comments: DashboardComment[];
@@ -12674,6 +12745,10 @@ function DashboardCommentsPanel({
   loading: boolean;
   draft: string;
   posting: boolean;
+  isLiked: boolean;
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
   onDraftChange: (value: string) => void;
   onAddComment: () => void;
   editingCommentId: string | null;
@@ -12688,6 +12763,9 @@ function DashboardCommentsPanel({
   onCancelEditComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onReportComment: (commentId: string, commentOwnerId: string) => void;
+  onLike: () => void;
+  onShare: () => void;
+  onOpenImage?: (url: string, alt: string) => void;
   onCloseComments: () => void;
 }) {
   const [threadComments, setThreadComments] = useState<DashboardComment[]>(comments);
@@ -12700,6 +12778,20 @@ function DashboardCommentsPanel({
   useEffect(() => {
     setThreadComments(comments);
   }, [comments]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, []);
 
   const topLevelComments = threadComments.filter((comment) => !comment.parent_comment_id);
   const repliesFor = (commentId: string) =>
@@ -12882,95 +12974,191 @@ function DashboardCommentsPanel({
     );
   };
 
-  return (
-    <section style={dashboardCommentsPanelStyle} onClick={(event) => event.stopPropagation()}>
-      <div style={dashboardCommentsHeaderStyle}>
-        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-          <strong style={{ color: "#f8fafc" }}>Comments</strong>
-          <span style={dashboardCommentsCountStyle}>
-            {loading ? "Loading..." : `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}
-          </span>
-        </div>
+  if (typeof document === "undefined") return null;
 
-        <button
-          type="button"
-          onClick={onCloseComments}
-          style={dashboardCommentsCloseButtonStyle}
-          aria-label="Close comments"
-        >
-          Close comments
-        </button>
-      </div>
+  const displayName = profile?.full_name || profile?.username || "Parapost member";
+  const profileHref = `/profile/${post.user_id}`;
+  const currentUserProfile = profilesMap[currentUserId] || null;
+  const { headerActivityText, bodyContent } = splitPostFeelingActivityContent(post.content || "");
 
-      <div style={dashboardCommentComposerStyle}>
-        <textarea
-          value={draft}
-          onChange={(event) => onDraftChange(event.target.value)}
-          placeholder="Write a comment..."
-          rows={2}
-          maxLength={1200}
-          style={dashboardCommentTextareaStyle}
-          onKeyDown={(event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-              event.preventDefault();
-              onAddComment();
-            }
-          }}
-        />
-        <button
-          type="button"
-          onClick={onAddComment}
-          disabled={!draft.trim() || posting}
-          style={{
-            ...dashboardCommentSubmitButtonStyle,
-            opacity: draft.trim() && !posting ? 1 : 0.55,
-            cursor: draft.trim() && !posting ? "pointer" : "not-allowed",
-          }}
-        >
-          {posting ? "Posting..." : "Post"}
-        </button>
-      </div>
+  return createPortal(
+    <div
+      className="parapost-comments-overlay"
+      style={dashboardCommentsOverlayBackdropStyle}
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCloseComments();
+      }}
+    >
+      <section
+        className="parapost-comments-overlay-shell"
+        style={dashboardCommentsOverlayShellStyle}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Comments on ${displayName}'s post`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="parapost-comments-overlay-header" style={dashboardCommentsOverlayHeaderStyle}>
+          <div style={{ minWidth: 0 }}>
+            <strong style={dashboardCommentsOverlayTitleStyle}>{displayName}&apos;s post</strong>
+            <span style={dashboardCommentsOverlaySubtitleStyle}>
+              {loading ? "Loading comments..." : `${threadComments.length} ${threadComments.length === 1 ? "comment" : "comments"}`}
+            </span>
+          </div>
 
-      {loading ? (
-        <div style={dashboardCommentsEmptyStyle}>Loading comments...</div>
-      ) : comments.length === 0 ? (
-        <div style={dashboardCommentsEmptyStyle}>No comments yet. Be the first to reply.</div>
-      ) : (
-        <div style={dashboardCommentsListStyle}>
-          {topLevelComments.map((comment) => {
-            const replies = repliesFor(comment.id);
-            const repliesExpanded = !!expandedThreadsMap[comment.id];
+          <button
+            type="button"
+            onClick={onCloseComments}
+            style={dashboardCommentsOverlayCloseButtonStyle}
+            aria-label="Close comments"
+          >
+            ×
+          </button>
+        </header>
 
-            return (
-              <div key={`thread-${postId}-${comment.id}`} style={{ display: "grid", gap: 8 }}>
-                {renderThreadComment(comment, comment, false)}
-
-                {replies.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setExpandedThreadsMap((current) => ({ ...current, [comment.id]: !current[comment.id] }))}
-                    style={{
-                      justifySelf: "start",
-                      marginLeft: 72,
-                      border: "none",
-                      background: "transparent",
-                      color: "var(--parapost-accent-text, #d8b4fe)",
-                      fontSize: 11.5,
-                      fontWeight: 900,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {repliesExpanded ? "Hide replies" : `View ${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
-                  </button>
-                ) : null}
-
-                {repliesExpanded ? replies.map((reply) => renderThreadComment(reply, comment, true)) : null}
+        <div className="parapost-comments-overlay-scroll" style={dashboardCommentsOverlayScrollStyle}>
+          <article className="parapost-comments-overlay-post" style={dashboardCommentsOverlayPostStyle}>
+            <div className="dashboard-post-header" style={postHeaderStyle}>
+              <div style={postAuthorStyle}>
+                <Avatar profile={profile} size={48} href={profileHref} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={postAuthorNameLineStyle}>
+                    <Link href={profileHref} style={{ ...postAuthorNameStyle, display: "inline" }}>
+                      {displayName}
+                    </Link>
+                    {headerActivityText ? <span style={postAuthorActivityTextStyle}>{headerActivityText}</span> : null}
+                  </div>
+                  <div style={postMetaStyle}>
+                    @{profile?.username || "member"} · {formatRelativeTime(post.created_at)}
+                  </div>
+                </div>
               </div>
-            );
-          })}
+            </div>
+
+            {bodyContent ? (
+              <>
+                <ExpandableFeedText
+                  text={bodyContent}
+                  hasMedia={getPostImageUrls(post).length > 0 || Boolean(getFirstSafeLinkPreview(bodyContent))}
+                  style={postContentStyle}
+                />
+                <LinkPreviewCard text={bodyContent} />
+              </>
+            ) : null}
+
+            <PostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" onOpenImage={onOpenImage} />
+
+            {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
+              <div style={postStatsSummaryStyle}>
+                <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+                <span style={postStatsRightStyle}>
+                  {commentCount > 0 ? `${commentCount} ${commentCount === 1 ? "Comment" : "Comments"}` : ""}
+                  {commentCount > 0 && shareCount > 0 ? " · " : ""}
+                  {shareCount > 0 ? `${shareCount} ${shareCount === 1 ? "Share" : "Shares"}` : ""}
+                </span>
+              </div>
+            ) : null}
+
+            <div className="dashboard-post-actions" style={postActionsStyle}>
+              <ActionButton label="Like" onClick={onLike} active={isLiked}>
+                <HeartIcon filled={isLiked} />
+                <span className="dashboard-action-label">Like</span>
+              </ActionButton>
+              <ActionButton label="Comment" onClick={() => undefined} active>
+                <CommentIcon />
+                <span className="dashboard-action-label">Comment</span>
+              </ActionButton>
+              <ActionButton label="Share" onClick={onShare}>
+                <ShareIcon />
+                <span className="dashboard-action-label">Share</span>
+              </ActionButton>
+            </div>
+          </article>
+
+          <section style={dashboardCommentsConversationStyle}>
+            <div style={dashboardCommentsConversationHeaderStyle}>
+              <strong style={{ color: "#f8fafc" }}>Comments</strong>
+              <span style={dashboardCommentsCountStyle}>
+                {loading ? "Loading..." : `${threadComments.length} total`}
+              </span>
+            </div>
+
+            {loading ? (
+              <div style={dashboardCommentsEmptyStyle}>Loading comments...</div>
+            ) : threadComments.length === 0 ? (
+              <div style={dashboardCommentsEmptyStyle}>No comments yet. Be the first to reply.</div>
+            ) : (
+              <div style={{ ...dashboardCommentsListStyle, maxHeight: "none", overflowY: "visible" }}>
+                {topLevelComments.map((comment) => {
+                  const replies = repliesFor(comment.id);
+                  const repliesExpanded = !!expandedThreadsMap[comment.id];
+
+                  return (
+                    <div key={`thread-${postId}-${comment.id}`} style={{ display: "grid", gap: 8 }}>
+                      {renderThreadComment(comment, comment, false)}
+
+                      {replies.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedThreadsMap((current) => ({ ...current, [comment.id]: !current[comment.id] }))}
+                          style={{
+                            justifySelf: "start",
+                            marginLeft: 54,
+                            minHeight: 34,
+                            border: "none",
+                            background: "transparent",
+                            color: "var(--parapost-accent-text, #d8b4fe)",
+                            fontSize: 12,
+                            fontWeight: 900,
+                            cursor: "pointer",
+                            touchAction: "manipulation",
+                          }}
+                        >
+                          {repliesExpanded ? "Hide replies" : `View ${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+                        </button>
+                      ) : null}
+
+                      {repliesExpanded ? replies.map((reply) => renderThreadComment(reply, comment, true)) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         </div>
-      )}
-    </section>
+
+        <footer className="parapost-comments-overlay-composer" style={dashboardCommentsOverlayComposerStyle}>
+          <Avatar profile={currentUserProfile} size={38} href={currentUserId ? `/profile/${currentUserId}` : undefined} />
+          <textarea
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+            placeholder="Write a comment..."
+            rows={1}
+            maxLength={1200}
+            style={dashboardCommentTextareaStyle}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                onAddComment();
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={onAddComment}
+            disabled={!draft.trim() || posting}
+            style={{
+              ...dashboardCommentSubmitButtonStyle,
+              opacity: draft.trim() && !posting ? 1 : 0.55,
+              cursor: draft.trim() && !posting ? "pointer" : "not-allowed",
+            }}
+          >
+            {posting ? "Posting..." : "Post"}
+          </button>
+        </footer>
+      </section>
+    </div>,
+    document.body
   );
 }
 
@@ -13208,11 +13396,16 @@ function SharedPostCard({
 
       {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
         <div style={postStatsSummaryStyle}>
-          <span>{likeCount} Likes</span>
-          <span>·</span>
-          <span>{commentCount} Comments</span>
-          <span>·</span>
-          <span>{shareCount} Shares</span>
+          <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+          <span style={postStatsRightStyle}>
+            {commentCount > 0 ? (
+              <button type="button" onClick={onToggleComments} style={postStatsLinkButtonStyle}>
+                {commentCount} {commentCount === 1 ? "Comment" : "Comments"}
+              </button>
+            ) : null}
+            {commentCount > 0 && shareCount > 0 ? <span>·</span> : null}
+            {shareCount > 0 ? <span>{shareCount} {shareCount === 1 ? "Share" : "Shares"}</span> : null}
+          </span>
         </div>
       ) : null}
 
@@ -13231,31 +13424,10 @@ function SharedPostCard({
         </ActionButton>
       </div>
 
-      {!commentsOpen && comments.length > 0 ? (
-        <DashboardCommentsPreview
-          postId={originalPost.id}
-          comments={comments}
-          commentCount={commentCount}
-          profilesMap={profilesMap}
-          currentUserId={currentUserId}
-          onToggleComments={onToggleComments}
-          editingCommentId={editingCommentId}
-          editingCommentText={editingCommentText}
-          savingCommentId={savingCommentId}
-          commentLikeCounts={commentLikeCounts}
-          commentUserLikes={commentUserLikes}
-          setEditingCommentText={setEditingCommentText}
-          onToggleCommentLike={onToggleCommentLike}
-          onStartEditComment={onStartEditComment}
-          onSaveEditComment={onSaveEditComment}
-          onCancelEditComment={onCancelEditComment}
-          onDeleteComment={onDeleteComment}
-          onReportComment={onReportComment}
-        />
-      ) : null}
-
       {commentsOpen ? (
         <DashboardCommentsPanel
+          post={originalPost}
+          profile={originalProfile}
           postId={originalPost.id}
           postOwnerId={originalPost.user_id}
           comments={comments}
@@ -13264,6 +13436,10 @@ function SharedPostCard({
           loading={commentsLoading}
           draft={commentDraft}
           posting={postingComment}
+          isLiked={isLiked}
+          likeCount={likeCount}
+          commentCount={commentCount}
+          shareCount={shareCount}
           onDraftChange={onCommentDraftChange}
           onAddComment={onAddComment}
           editingCommentId={editingCommentId}
@@ -13278,6 +13454,9 @@ function SharedPostCard({
           onCancelEditComment={onCancelEditComment}
           onDeleteComment={onDeleteComment}
           onReportComment={onReportComment}
+          onLike={onLikeOriginal}
+          onShare={onShareOriginal}
+          onOpenImage={onOpenImage}
           onCloseComments={onToggleComments}
         />
       ) : null}
@@ -17198,7 +17377,39 @@ const followingButtonStyle: CSSProperties = { ...followButtonStyle, background: 
 const editTextareaStyle: CSSProperties = { width: "100%", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 18, background: "rgba(255,255,255,0.04)", color: "#fff", outline: 0, padding: 14, resize: "vertical" };
 const softButtonStyle: CSSProperties = { border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, background: "rgba(255,255,255,0.06)", color: "#fff", minHeight: 38, padding: "0 16px", fontWeight: 850, cursor: "pointer" };
 const softDangerButtonStyle: CSSProperties = { ...softButtonStyle, color: "#fecaca", border: "1px solid rgba(248,113,113,0.24)" };
-const postStatsSummaryStyle: CSSProperties = { display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 9, alignItems: "center", color: "#d1d5db", fontSize: 13, borderBottom: "1px solid rgba(255,255,255,0.10)", paddingBottom: 11, marginTop: 13 };
+const postStatsSummaryStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+  gap: 12,
+  alignItems: "center",
+  color: "#d1d5db",
+  fontSize: 13,
+  borderBottom: "1px solid rgba(255,255,255,0.10)",
+  paddingBottom: 11,
+  marginTop: 13,
+};
+
+const postStatsRightStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  flexWrap: "wrap",
+  gap: 8,
+  marginLeft: "auto",
+};
+
+const postStatsLinkButtonStyle: CSSProperties = {
+  appearance: "none",
+  WebkitAppearance: "none",
+  border: 0,
+  background: "transparent",
+  color: "inherit",
+  padding: 0,
+  font: "inherit",
+  cursor: "pointer",
+  touchAction: "manipulation",
+};
 const postStatusLinkStyle: CSSProperties = { color: "var(--parapost-accent-readable-text)", fontWeight: 900, textDecoration: "none" };
 const postActionsStyle: CSSProperties = {
   display: "grid",
@@ -17208,6 +17419,116 @@ const postActionsStyle: CSSProperties = {
   paddingTop: 10,
   borderTop: "1px solid rgba(255,255,255,0.08)",
   background: "transparent",
+};
+
+const dashboardCommentsOverlayBackdropStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 2147483000,
+  display: "grid",
+  placeItems: "center",
+  padding: 16,
+  background: "rgba(0,0,0,0.76)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+};
+
+const dashboardCommentsOverlayShellStyle: CSSProperties = {
+  width: "min(760px, calc(100vw - 32px))",
+  height: "min(900px, calc(100dvh - 32px))",
+  maxHeight: "calc(100dvh - 32px)",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr) auto",
+  overflow: "hidden",
+  borderRadius: 22,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "linear-gradient(180deg, rgba(20,22,31,0.99), rgba(8,10,17,0.995))",
+  boxShadow: "0 28px 90px rgba(0,0,0,0.72)",
+  color: "#ffffff",
+};
+
+const dashboardCommentsOverlayHeaderStyle: CSSProperties = {
+  minHeight: 66,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+  padding: "12px 16px",
+  borderBottom: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(12,14,22,0.98)",
+};
+
+const dashboardCommentsOverlayTitleStyle: CSSProperties = {
+  display: "block",
+  color: "#ffffff",
+  fontSize: 17,
+  fontWeight: 950,
+  lineHeight: 1.2,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const dashboardCommentsOverlaySubtitleStyle: CSSProperties = {
+  display: "block",
+  marginTop: 3,
+  color: "#9ca3af",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const dashboardCommentsOverlayCloseButtonStyle: CSSProperties = {
+  width: 42,
+  height: 42,
+  flexShrink: 0,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.07)",
+  color: "#ffffff",
+  display: "grid",
+  placeItems: "center",
+  fontSize: 27,
+  lineHeight: 1,
+  cursor: "pointer",
+  touchAction: "manipulation",
+};
+
+const dashboardCommentsOverlayScrollStyle: CSSProperties = {
+  minHeight: 0,
+  overflowY: "auto",
+  overflowX: "hidden",
+  overscrollBehavior: "contain",
+  WebkitOverflowScrolling: "touch",
+  touchAction: "pan-y",
+  scrollbarGutter: "stable",
+};
+
+const dashboardCommentsOverlayPostStyle: CSSProperties = {
+  padding: "16px 18px 14px",
+  borderBottom: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.018)",
+};
+
+const dashboardCommentsConversationStyle: CSSProperties = {
+  padding: "14px 18px 28px",
+};
+
+const dashboardCommentsConversationHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 4,
+};
+
+const dashboardCommentsOverlayComposerStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "auto minmax(0, 1fr) auto",
+  gap: 10,
+  alignItems: "center",
+  padding: "12px 14px",
+  borderTop: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(10,12,19,0.99)",
 };
 
 const dashboardCommentsPanelStyle: CSSProperties = {
@@ -17311,10 +17632,10 @@ const dashboardCommentRowStyle: CSSProperties = {
 const dashboardCommentBubbleStyle: CSSProperties = {
   flex: 1,
   minWidth: 0,
-  borderRadius: "15px",
-  background: "rgba(255,255,255,0.045)",
-  border: "1px solid rgba(255,255,255,0.06)",
-  padding: "9px 10px",
+  borderRadius: "14px",
+  background: "rgba(255,255,255,0.035)",
+  border: "none",
+  padding: "9px 11px",
 };
 
 const dashboardCommentTopLineStyle: CSSProperties = {
