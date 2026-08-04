@@ -1428,7 +1428,14 @@ export default function ReelsPage() {
       return;
     }
 
-    if (!creatorId || creatorId === currentUserId || followLoadingMap[creatorId]) return;
+    if (
+      !creatorId ||
+      creatorId === currentUserId ||
+      relationshipMap[creatorId] === "friends" ||
+      followLoadingMap[creatorId]
+    ) {
+      return;
+    }
 
     const wasFollowing = !!followingCreatorMap[creatorId];
 
@@ -3142,7 +3149,9 @@ export default function ReelsPage() {
                           )}
                         </Link>
 
-                        {!isOwner && creatorProfileId ? (
+                        {!isOwner &&
+                        creatorProfileId &&
+                        relationship !== "friends" ? (
                           <button
                             type="button"
                             onClick={(event) => {
