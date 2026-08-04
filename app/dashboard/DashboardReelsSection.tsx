@@ -14,6 +14,7 @@ type ReelRow = {
   video_url: string | null;
   poster_url: string | null;
   created_at: string | null;
+  views?: number | null;
 };
 
 type ProfilePreview = {
@@ -71,6 +72,23 @@ function formatCompactTime(value?: string | null) {
 
   const years = Math.floor(days / 365);
   return `${years}y`;
+}
+
+function formatCompactCount(value?: number | string | null) {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : Number.parseInt(String(value || 0).replace(/[^0-9]/g, ""), 10);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) return "0";
+  if (numericValue < 1000) return String(numericValue);
+  if (numericValue < 1000000) {
+    const next = numericValue / 1000;
+    return `${next >= 10 ? next.toFixed(0) : next.toFixed(1)}K`;
+  }
+
+  const next = numericValue / 1000000;
+  return `${next >= 10 ? next.toFixed(0) : next.toFixed(1)}M`;
 }
 
 function isRecentlyOnline(profile?: ProfilePreview | null) {
@@ -219,10 +237,36 @@ export default function DashboardReelsSection() {
       0,
       DASHBOARD_REELS_MAX_ITEMS
     );
-    const profileIds = nextReels.map((reel) => reelOwnerId(reel));
+    const reelIds = nextReels.map((reel) => reel.id).filter(Boolean);
+    let reelsWithViews = nextReels;
+
+    if (reelIds.length > 0) {
+      const { data: viewRows, error: viewError } = await supabase
+        .from("reel_view_totals")
+        .select("reel_id, views")
+        .in("reel_id", reelIds);
+
+      if (viewError) {
+        console.warn("Dashboard Reel views fetch skipped:", viewError.message);
+      } else {
+        const viewMap = new Map(
+          (viewRows || []).map((row) => [
+            String(row.reel_id || ""),
+            Number(row.views || 0),
+          ])
+        );
+
+        reelsWithViews = nextReels.map((reel) => ({
+          ...reel,
+          views: viewMap.get(reel.id) || 0,
+        }));
+      }
+    }
+
+    const profileIds = reelsWithViews.map((reel) => reelOwnerId(reel));
 
     await fetchProfiles([...allowedIds, ...profileIds]);
-    setReels(nextReels);
+    setReels(reelsWithViews);
     setLoading(false);
   }, [fetchFriendIds, fetchProfiles]);
 
@@ -372,7 +416,16 @@ export default function DashboardReelsSection() {
                       {isRecentlyOnline(profile) ? <span style={onlineDotStyle} /> : null}
                     </div>
 
-                    <span style={reelTimeStyle}>{formatCompactTime(reel.created_at)}</span>
+                    <span style={reelAuthorMetaStyle}>
+                      <span style={reelTimeStyle}>{formatCompactTime(reel.created_at)}</span>
+                      <span
+                        style={reelViewBadgeStyle}
+                        aria-label={`${Number(reel.views || 0)} views`}
+                      >
+                        <span aria-hidden="true">▶</span>
+                        {formatCompactCount(reel.views)}
+                      </span>
+                    </span>
                   </div>
 
                   <strong style={reelTitleTextStyle}>{title}</strong>
@@ -723,10 +776,38 @@ const onlineDotStyle: CSSProperties = {
   border: "1.5px solid #05070d",
 };
 
+const reelAuthorMetaStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: 6,
+  minWidth: 0,
+};
+
 const reelTimeStyle: CSSProperties = {
   color: "rgba(255,255,255,0.76)",
   fontSize: 10.5,
   fontWeight: 900,
+};
+
+const reelViewBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
+  minHeight: 22,
+  padding: "0 7px",
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(0,0,0,0.48)",
+  color: "#ffffff",
+  fontSize: 10,
+  fontWeight: 950,
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+  boxShadow: "0 6px 16px rgba(0,0,0,0.30)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
 };
 
 const reelTitleTextStyle: CSSProperties = {

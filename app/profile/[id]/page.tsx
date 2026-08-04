@@ -115,6 +115,7 @@ type Reel = {
   poster_url: string | null;
   user_id: string;
   created_at?: string | null;
+  views?: number | null;
 };
 
 type SharedReel = {
@@ -126,6 +127,7 @@ type SharedReel = {
   user_id: string | null;
   creator_profile_id?: string | null;
   created_at?: string | null;
+  views?: number | null;
 };
 
 type ReelShareProfilePost = {
@@ -1053,6 +1055,23 @@ function formatTimeAgo(dateString: string) {
 }
 
 
+
+function formatCompactCount(value?: number | string | null) {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : Number.parseInt(String(value || 0).replace(/[^0-9]/g, ""), 10);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) return "0";
+  if (numericValue < 1000) return String(numericValue);
+  if (numericValue < 1000000) {
+    const next = numericValue / 1000;
+    return `${next >= 10 ? next.toFixed(0) : next.toFixed(1)}K`;
+  }
+
+  const next = numericValue / 1000000;
+  return `${next >= 10 ? next.toFixed(0) : next.toFixed(1)}M`;
+}
 
 function getProfileLiveTimestamp(stream: {
   status?: string | null;
@@ -3727,7 +3746,34 @@ const closeProfileMobileSearch = useCallback(() => {
     if (reelsResult.error) {
       setReels([]);
     } else {
-      setReels((reelsResult.data as Reel[]) || []);
+      const loadedReels = (reelsResult.data as Reel[]) || [];
+      const reelIds = loadedReels.map((reel) => reel.id).filter(Boolean);
+      let reelsWithViews = loadedReels;
+
+      if (reelIds.length > 0) {
+        const { data: viewRows, error: viewError } = await supabase
+          .from("reel_view_totals")
+          .select("reel_id, views")
+          .in("reel_id", reelIds);
+
+        if (viewError) {
+          console.warn("Profile Reel views fetch skipped:", viewError.message);
+        } else {
+          const viewMap = new Map(
+            (viewRows || []).map((row) => [
+              String(row.reel_id || ""),
+              Number(row.views || 0),
+            ])
+          );
+
+          reelsWithViews = loadedReels.map((reel) => ({
+            ...reel,
+            views: viewMap.get(reel.id) || 0,
+          }));
+        }
+      }
+
+      setReels(reelsWithViews);
     }
 
     if (liveStreamsResult.error) {
@@ -16517,6 +16563,13 @@ return (
 
                             <div style={miniReelOverlayStyle} />
                             <div style={miniReelPlayBadgeStyle}>▶</div>
+                            <div
+                              style={miniReelViewBadgeStyle}
+                              aria-label={`${Number(reel.views || 0)} views`}
+                            >
+                              <span aria-hidden="true">▶</span>
+                              {formatCompactCount(reel.views)}
+                            </div>
 
                             {(reel.title || reel.caption) ? (
                               <div style={miniReelTextOverlayStyle}>
@@ -23441,6 +23494,30 @@ const miniReelPlayBadgeStyle: CSSProperties = {
   fontSize: "13px",
   fontWeight: 900,
   boxShadow: "0 10px 22px rgba(0,0,0,0.34)",
+};
+
+const miniReelViewBadgeStyle: CSSProperties = {
+  position: "absolute",
+  top: "52px",
+  right: "10px",
+  zIndex: 2,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "4px",
+  minHeight: "24px",
+  padding: "0 8px",
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.16)",
+  background: "rgba(0,0,0,0.54)",
+  color: "#ffffff",
+  fontSize: "10.5px",
+  fontWeight: 950,
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+  boxShadow: "0 8px 18px rgba(0,0,0,0.32)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
 };
 
 const miniReelTextOverlayStyle: CSSProperties = {

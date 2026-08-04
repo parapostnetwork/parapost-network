@@ -13,6 +13,7 @@ type Reel = {
   poster_url?: string | null;
   caption: string | null;
   created_at: string | null;
+  views?: number | null;
 };
 
 type ProfileRow = {
@@ -28,6 +29,23 @@ function formatDate(value: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString();
+}
+
+function formatCompactCount(value?: number | string | null) {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : Number.parseInt(String(value || 0).replace(/[^0-9]/g, ""), 10);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) return "0";
+  if (numericValue < 1000) return String(numericValue);
+  if (numericValue < 1000000) {
+    const next = numericValue / 1000;
+    return `${next >= 10 ? next.toFixed(0) : next.toFixed(1)}K`;
+  }
+
+  const next = numericValue / 1000000;
+  return `${next >= 10 ? next.toFixed(0) : next.toFixed(1)}M`;
 }
 
 function isValidUuid(value: string) {
@@ -163,7 +181,34 @@ export default function ProfileReelsGridPage() {
         return;
       }
 
-      setReels((reelsData as Reel[]) || []);
+      const loadedReels = (reelsData as Reel[]) || [];
+      const reelIds = loadedReels.map((reel) => reel.id).filter(Boolean);
+      let reelsWithViews = loadedReels;
+
+      if (reelIds.length > 0) {
+        const { data: viewRows, error: viewError } = await supabase
+          .from("reel_view_totals")
+          .select("reel_id, views")
+          .in("reel_id", reelIds);
+
+        if (viewError) {
+          console.warn("Profile Reel views fetch skipped:", viewError.message);
+        } else {
+          const viewMap = new Map(
+            (viewRows || []).map((row) => [
+              String(row.reel_id || ""),
+              Number(row.views || 0),
+            ])
+          );
+
+          reelsWithViews = loadedReels.map((reel) => ({
+            ...reel,
+            views: viewMap.get(reel.id) || 0,
+          }));
+        }
+      }
+
+      setReels(reelsWithViews);
       setLoading(false);
     }
 
@@ -509,16 +554,40 @@ export default function ProfileReelsGridPage() {
                             </div>
                           ) : null}
 
-                          {reel.created_at ? (
-                            <div
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: "8px",
+                              color: "rgba(255,255,255,0.86)",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <span>{formatDate(reel.created_at)}</span>
+                            <span
+                              aria-label={`${Number(reel.views || 0)} views`}
                               style={{
-                                color: "rgba(255,255,255,0.86)",
-                                fontSize: "12px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                minHeight: "22px",
+                                padding: "0 7px",
+                                borderRadius: "999px",
+                                border: "1px solid rgba(255,255,255,0.14)",
+                                background: "rgba(0,0,0,0.52)",
+                                color: "#ffffff",
+                                fontSize: "10.5px",
+                                fontWeight: 900,
+                                whiteSpace: "nowrap",
+                                backdropFilter: "blur(8px)",
+                                WebkitBackdropFilter: "blur(8px)",
                               }}
                             >
-                              {formatDate(reel.created_at)}
-                            </div>
-                          ) : null}
+                              <span aria-hidden="true">▶</span>
+                              {formatCompactCount(reel.views)}
+                            </span>
+                          </div>
                         </div>
                       </>
                     ) : (

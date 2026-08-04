@@ -28,6 +28,7 @@ type ReelItem = {
   likes: number;
   comments: number;
   shares: number;
+  views: number;
   createdAt?: string;
 };
 
@@ -417,6 +418,7 @@ function buildReelItems(rows: ReelDbRow[], profiles: ProfileRow[]): ReelItem[] {
         likes: 0,
         comments: 0,
         shares: Number(row.shares || 0),
+        views: 0,
         createdAt: row.created_at || undefined,
       };
     });
@@ -548,6 +550,9 @@ export default function ProfileReelsViewerPage() {
     Record<string, "cover" | "contain">
   >({});
   const [relationshipMap, setRelationshipMap] = useState<Record<string, ReelRelationship>>({});
+  const [followingCreatorMap, setFollowingCreatorMap] = useState<Record<string, boolean>>({});
+  const [followerCreatorMap, setFollowerCreatorMap] = useState<Record<string, boolean>>({});
+  const [followLoadingMap, setFollowLoadingMap] = useState<Record<string, boolean>>({});
   const [reelMenu, setReelMenu] = useState<MenuState>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editingReelId, setEditingReelId] = useState<string | null>(null);
@@ -572,6 +577,8 @@ export default function ProfileReelsViewerPage() {
   const playPauseFeedbackNonceRef = useRef(0);
   const initialTargetReelIdRef = useRef("");
   const hasInitialScrolledRef = useRef(false);
+  const reelViewTimerMapRef = useRef<Record<string, number>>({});
+  const recordedReelViewIdsRef = useRef<Set<string>>(new Set());
 
   const detailsReel = useMemo(() => {
     return reels.find((reel) => reel.id === detailsReelId) || null;
@@ -592,6 +599,9 @@ export default function ProfileReelsViewerPage() {
       setCommentLikedMap({});
       setLikedMap({});
       setRelationshipMap({});
+      setFollowingCreatorMap({});
+      setFollowerCreatorMap({});
+      setFollowLoadingMap({});
       setCanViewProfileContent(false);
       setPageErrorMessage("Profile not found.");
       setIsFetchingReels(false);
@@ -624,6 +634,9 @@ export default function ProfileReelsViewerPage() {
       setCommentLikedMap({});
       setLikedMap({});
       setRelationshipMap({});
+      setFollowingCreatorMap({});
+      setFollowerCreatorMap({});
+      setFollowLoadingMap({});
       setCanViewProfileContent(false);
       setPageErrorMessage(
         profileResult.error.message || "Unable to load profile.",
@@ -681,6 +694,9 @@ export default function ProfileReelsViewerPage() {
       setCommentLikedMap({});
       setLikedMap({});
       setRelationshipMap({});
+      setFollowingCreatorMap({});
+      setFollowerCreatorMap({});
+      setFollowLoadingMap({});
       setCanViewProfileContent(false);
       setPageErrorMessage("Profile not found.");
       setIsFetchingReels(false);
@@ -723,6 +739,9 @@ export default function ProfileReelsViewerPage() {
       setShareBoostMap({});
       setActiveReelId("");
       setRelationshipMap({});
+      setFollowingCreatorMap({});
+      setFollowerCreatorMap({});
+      setFollowLoadingMap({});
       setIsFetchingReels(false);
       return;
     }
@@ -802,6 +821,16 @@ export default function ProfileReelsViewerPage() {
     }
 
     setRelationshipMap({ [nextProfileId]: nextRelationship });
+    setFollowingCreatorMap(
+      nextUserId && nextProfileId && nextUserId !== nextProfileId
+        ? { [nextProfileId]: Boolean(followingResult.data?.length) }
+        : {},
+    );
+    setFollowerCreatorMap(
+      nextUserId && nextProfileId && nextUserId !== nextProfileId
+        ? { [nextProfileId]: Boolean(followerResult.data?.length) }
+        : {},
+    );
 
     if (reelsResult.error) {
       console.error("Error loading profile reels:", reelsResult.error.message);
@@ -849,6 +878,7 @@ export default function ProfileReelsViewerPage() {
       const [
         { data: likeRows, error: likesError },
         { data: commentRows, error: commentsError },
+        { data: viewRows, error: viewsError },
       ] = await Promise.all([
         supabase
           .from("reel_likes")
@@ -861,6 +891,10 @@ export default function ProfileReelsViewerPage() {
           )
           .in("reel_id", reelIds)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("reel_view_totals")
+          .select("reel_id, views")
+          .in("reel_id", reelIds),
       ]);
 
       if (!likesError && likeRows) {
@@ -886,6 +920,22 @@ export default function ProfileReelsViewerPage() {
         if (likesError) {
           console.error("Error loading reel likes:", likesError.message);
         }
+      }
+
+      if (!viewsError && viewRows) {
+        const viewCountMap = new Map(
+          (viewRows || []).map((row) => [
+            String(row.reel_id || ""),
+            Number(row.views || 0),
+          ]),
+        );
+
+        mapped = mapped.map((reel) => ({
+          ...reel,
+          views: viewCountMap.get(reel.id) || 0,
+        }));
+      } else if (viewsError) {
+        console.warn("Error loading Profile Reel views:", viewsError.message);
       }
 
       if (!commentsError && commentRows) {
@@ -1196,6 +1246,11 @@ export default function ProfileReelsViewerPage() {
       if (playPauseFeedbackTimeoutRef.current) {
         window.clearTimeout(playPauseFeedbackTimeoutRef.current);
       }
+
+      Object.values(reelViewTimerMapRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+      reelViewTimerMapRef.current = {};
     };
   }, []);
 
@@ -1339,6 +1394,47 @@ export default function ProfileReelsViewerPage() {
         }
       }
     }, 80);
+  };
+
+  const cancelScheduledReelView = (reelId: string) => {
+    const timerId = reelViewTimerMapRef.current[reelId];
+    if (!timerId) return;
+
+    window.clearTimeout(timerId);
+    delete reelViewTimerMapRef.current[reelId];
+  };
+
+  const scheduleReelView = (reel: ReelItem) => {
+    if (
+      !currentUserId ||
+      isReelOwner(reel, currentUserId, effectiveProfileId) ||
+      recordedReelViewIdsRef.current.has(reel.id) ||
+      reelViewTimerMapRef.current[reel.id]
+    ) {
+      return;
+    }
+
+    reelViewTimerMapRef.current[reel.id] = window.setTimeout(async () => {
+      delete reelViewTimerMapRef.current[reel.id];
+      recordedReelViewIdsRef.current.add(reel.id);
+
+      const { data, error } = await supabase.rpc("record_reel_view", {
+        p_reel_id: reel.id,
+      });
+
+      if (error) {
+        recordedReelViewIdsRef.current.delete(reel.id);
+        console.warn("Profile Reel view could not be recorded:", error.message);
+        return;
+      }
+
+      const nextViews = Number(data || 0);
+      setReels((current) =>
+        current.map((item) =>
+          item.id === reel.id ? { ...item, views: nextViews } : item,
+        ),
+      );
+    }, 3000);
   };
 
   const openDetailsForReel = (reelId: string) => {
@@ -1486,6 +1582,63 @@ export default function ProfileReelsViewerPage() {
   const handleDoubleTapLike = async (reelId: string) => {
     if (likedMap[reelId]) return;
     await handleLikeToggle(reelId, true);
+  };
+
+  const handleToggleCreatorFollow = async (reel: ReelItem) => {
+    const creatorId = reel.creator_profile_id || reel.user_id;
+
+    if (!currentUserId) {
+      alert("You must be logged in to follow a Reel creator.");
+      return;
+    }
+
+    if (!creatorId || creatorId === currentUserId || followLoadingMap[creatorId]) {
+      return;
+    }
+
+    const wasFollowing = !!followingCreatorMap[creatorId];
+
+    setFollowLoadingMap((current) => ({ ...current, [creatorId]: true }));
+    setFollowingCreatorMap((current) => ({
+      ...current,
+      [creatorId]: !wasFollowing,
+    }));
+
+    const result = wasFollowing
+      ? await supabase
+          .from("followers")
+          .delete()
+          .eq("follower_id", currentUserId)
+          .eq("following_id", creatorId)
+      : await supabase
+          .from("followers")
+          .insert([{ follower_id: currentUserId, following_id: creatorId }]);
+
+    if (result.error) {
+      setFollowingCreatorMap((current) => ({
+        ...current,
+        [creatorId]: wasFollowing,
+      }));
+      setFollowLoadingMap((current) => ({ ...current, [creatorId]: false }));
+      alert(`${wasFollowing ? "Unfollow" : "Follow"} error: ${result.error.message}`);
+      return;
+    }
+
+    setRelationshipMap((current) => {
+      const existing = current[creatorId] || "profile";
+      if (existing === "friends") return current;
+
+      return {
+        ...current,
+        [creatorId]: wasFollowing
+          ? followerCreatorMap[creatorId]
+            ? "follower"
+            : "profile"
+          : "following",
+      };
+    });
+
+    setFollowLoadingMap((current) => ({ ...current, [creatorId]: false }));
   };
 
   const handleLikeToggle = async (reelId: string, forceLike = false) => {
@@ -2853,6 +3006,8 @@ export default function ProfileReelsViewerPage() {
                           [reel.id]: isLandscape ? "contain" : "cover",
                         }));
                       }}
+                      onPlaying={() => scheduleReelView(reel)}
+                      onPause={() => cancelScheduledReelView(reel.id)}
                       onTimeUpdate={(event) => {
                         const video = event.currentTarget;
                         const percent = video.duration
@@ -3208,6 +3363,32 @@ export default function ProfileReelsViewerPage() {
                     }}
                   >
                     <div
+                      aria-label={`${Number(reel.views || 0)} views`}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        width: "fit-content",
+                        minHeight: "26px",
+                        padding: "0 9px",
+                        borderRadius: "999px",
+                        border: "1px solid rgba(255,255,255,0.16)",
+                        background: "rgba(0,0,0,0.40)",
+                        color: "#ffffff",
+                        fontSize: "12px",
+                        fontWeight: 900,
+                        lineHeight: 1,
+                        textShadow: "0 2px 10px rgba(0,0,0,0.45)",
+                        backdropFilter: "blur(10px)",
+                        WebkitBackdropFilter: "blur(10px)",
+                      }}
+                    >
+                      <span aria-hidden="true">▶</span>
+                      {formatCompactCount(reel.views)}{" "}
+                      {reel.views === 1 ? "view" : "views"}
+                    </div>
+
+                    <div
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -3215,43 +3396,102 @@ export default function ProfileReelsViewerPage() {
                         flexWrap: "wrap",
                       }}
                     >
-                      <Link
-                        href={creatorProfileHref}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                        }}
+                      <div
                         style={{
+                          position: "relative",
                           width: "40px",
                           height: "40px",
-                          borderRadius: "50%",
-                          background: "rgba(255,255,255,0.14)",
-                          border: "1px solid rgba(255,255,255,0.18)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          overflow: "hidden",
-                          fontWeight: 800,
-                          fontSize: "15px",
-                          backdropFilter: "blur(12px)",
-                          color: "#ffffff",
-                          textDecoration: "none",
                           flexShrink: 0,
+                          overflow: "visible",
                         }}
                       >
-                        {reel.creatorAvatarUrl ? (
-                          <img
-                            src={reel.creatorAvatarUrl}
-                            alt={reel.creatorName}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
+                        <Link
+                          href={creatorProfileHref}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "50%",
+                            background: "rgba(255,255,255,0.14)",
+                            border: "1px solid rgba(255,255,255,0.18)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            overflow: "hidden",
+                            fontWeight: 800,
+                            fontSize: "15px",
+                            backdropFilter: "blur(12px)",
+                            color: "#ffffff",
+                            textDecoration: "none",
+                          }}
+                          aria-label={`Open ${reel.creatorName}'s profile`}
+                        >
+                          {reel.creatorAvatarUrl ? (
+                            <img
+                              src={reel.creatorAvatarUrl}
+                              alt={reel.creatorName}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            reel.creatorName.charAt(0)
+                          )}
+                        </Link>
+
+                        {!isOwner && creatorProfileId ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void handleToggleCreatorFollow(reel);
                             }}
-                          />
-                        ) : (
-                          reel.creatorName.charAt(0)
-                        )}
-                      </Link>
+                            disabled={!!followLoadingMap[creatorProfileId]}
+                            aria-label={
+                              followingCreatorMap[creatorProfileId]
+                                ? `Unfollow ${reel.creatorName}`
+                                : `Follow ${reel.creatorName}`
+                            }
+                            title={
+                              followingCreatorMap[creatorProfileId]
+                                ? `Following ${reel.creatorName}`
+                                : `Follow ${reel.creatorName}`
+                            }
+                            style={{
+                              position: "absolute",
+                              right: "-4px",
+                              bottom: "-4px",
+                              width: "20px",
+                              height: "20px",
+                              borderRadius: "50%",
+                              border: "2px solid rgba(6,8,14,0.96)",
+                              background: followingCreatorMap[creatorProfileId]
+                                ? "#22c55e"
+                                : "var(--parapost-accent, #a855f7)",
+                              color: "#ffffff",
+                              display: "grid",
+                              placeItems: "center",
+                              padding: 0,
+                              cursor: followLoadingMap[creatorProfileId]
+                                ? "wait"
+                                : "pointer",
+                              fontSize: "13px",
+                              fontWeight: 950,
+                              lineHeight: 1,
+                              boxShadow: "0 6px 14px rgba(0,0,0,0.38)",
+                              opacity: followLoadingMap[creatorProfileId] ? 0.66 : 1,
+                              WebkitTapHighlightColor: "transparent",
+                            }}
+                          >
+                            {followingCreatorMap[creatorProfileId] ? "✓" : "+"}
+                          </button>
+                        ) : null}
+                      </div>
 
                       <div style={{ minWidth: 0 }}>
                         <div
