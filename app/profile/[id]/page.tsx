@@ -4062,91 +4062,47 @@ useEffect(() => {
     showFriendStatus("Shared post removed.");
   };
 
-  const handleProfilePostImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleProfilePostImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const incomingFiles = Array.from(event.target.files || []);
-    const selectedFiles = incomingFiles.filter(
-      (file) => file.type.startsWith("image/") || file.type.startsWith("video/")
-    );
-
+    const selectedFiles = incomingFiles.filter((file) => file.type.startsWith("image/"));
     const rejectedFiles = incomingFiles.length - selectedFiles.length;
 
     if (selectedFiles.length === 0) {
-      if (rejectedFiles > 0) alert("Please choose photo or video files only.");
+      if (rejectedFiles > 0) {
+        alert("Videos belong in Parapost Reels. Please choose photo files here.");
+      }
       if (profilePostFileInputRef.current) profilePostFileInputRef.current.value = "";
       return;
     }
 
-    const oversizedFile = selectedFiles.find((file) => {
-      const isVideo = file.type.startsWith("video/");
-      const maxMb = isVideo ? MAX_POST_VIDEO_MB : MAX_POST_IMAGE_MB;
-      return file.size > maxMb * 1024 * 1024;
-    });
+    const oversizedFile = selectedFiles.find(
+      (file) => file.size > MAX_POST_IMAGE_MB * 1024 * 1024
+    );
 
     if (oversizedFile) {
-      const isVideo = oversizedFile.type.startsWith("video/");
-      alert(
-        `Please choose ${isVideo ? "videos" : "photos"} under ${
-          isVideo ? MAX_POST_VIDEO_MB : MAX_POST_IMAGE_MB
-        }MB for profile posts.`
-      );
+      alert(`Please choose photos under ${MAX_POST_IMAGE_MB}MB for profile posts.`);
       if (profilePostFileInputRef.current) profilePostFileInputRef.current.value = "";
       return;
-    }
-
-    const selectedVideoFiles = selectedFiles.filter((file) => file.type.startsWith("video/"));
-
-    if (selectedVideoFiles.length > 0) {
-      for (const videoFile of selectedVideoFiles) {
-        const durationSeconds = await getVideoDurationFromFile(videoFile);
-
-        if (durationSeconds > MAX_POST_VIDEO_SECONDS + 0.25) {
-          alert(
-            `Profile post videos can be up to ${MAX_POST_VIDEO_SECONDS} seconds for launch. Please trim this video and try again.`
-          );
-          if (profilePostFileInputRef.current) profilePostFileInputRef.current.value = "";
-          return;
-        }
-      }
     }
 
     setProfilePostImages((prev) => {
-      const existingVideo = prev.some((file) => file.type.startsWith("video/"));
       const remainingSlots = Math.max(MAX_POST_IMAGES - prev.length, 0);
 
       if (remainingSlots <= 0) {
-        alert(`You can add up to ${MAX_POST_IMAGES} photos/videos in one post.`);
+        alert(`You can add up to ${MAX_POST_IMAGES} photos in one post.`);
         return prev;
       }
 
-      let acceptedFiles = selectedFiles.slice(0, remainingSlots);
-      const selectedHasVideo = selectedVideoFiles.length > 0;
-
-      if (existingVideo || selectedHasVideo) {
-        const videoFiles = acceptedFiles.filter((file) => file.type.startsWith("video/"));
-        const imageFiles = acceptedFiles.filter((file) => file.type.startsWith("image/"));
-
-        if (existingVideo) {
-          acceptedFiles = imageFiles;
-        } else if (videoFiles.length > 0) {
-          acceptedFiles = [videoFiles[0], ...imageFiles].slice(0, MAX_POST_IMAGES);
-        }
-
-        if (videoFiles.length > 1 || (existingVideo && videoFiles.length > 0)) {
-          alert(
-            `You can add one video per profile post for launch. You can still add photos with it, up to ${MAX_POST_IMAGES} total media items.`
-          );
-        }
-      }
+      const acceptedFiles = selectedFiles.slice(0, remainingSlots);
 
       if (selectedFiles.length > remainingSlots) {
-        alert(`You can add up to ${MAX_POST_IMAGES} photos/videos in one post.`);
+        alert(`You can add up to ${MAX_POST_IMAGES} photos in one post.`);
       }
 
       if (rejectedFiles > 0) {
-        alert("Some files were skipped because they were not photos or videos.");
+        alert("Videos belong in Parapost Reels. Non-photo files were skipped.");
       }
 
-      if (acceptedFiles.length === 0) return prev;
       return [...prev, ...acceptedFiles];
     });
 
@@ -4170,27 +4126,22 @@ useEffect(() => {
     if (!isOwnProfile || !viewerId) return;
 
     if (!profilePostContent.trim() && profilePostImages.length === 0 && !selectedProfileFeelingActivity) {
-      alert("Please add text, choose photos/videos, or select a Feeling / Activity.");
+      alert("Please add text, choose photos, or select a Feeling / Activity.");
       return;
     }
 
     if (profilePostImages.length > MAX_POST_IMAGES) {
-      alert(`You can add up to ${MAX_POST_IMAGES} photos/videos in one post.`);
+      alert(`You can add up to ${MAX_POST_IMAGES} photos in one post.`);
       return;
     }
 
-    const postVideos = profilePostImages.filter((file) => file.type.startsWith("video/"));
-    if (postVideos.length > 1) {
-      alert("You can add one video per post for launch.");
-      return;
-    }
+    const invalidFiles = profilePostImages.filter(
+      (file) => !file.type.startsWith("image/")
+    );
 
-    for (const videoFile of postVideos) {
-      const durationSeconds = await getVideoDurationFromFile(videoFile);
-      if (durationSeconds > MAX_POST_VIDEO_SECONDS + 0.25) {
-        alert(`Profile post videos can be up to ${MAX_POST_VIDEO_SECONDS} seconds for launch.`);
-        return;
-      }
+    if (invalidFiles.length > 0) {
+      alert("Videos belong in Parapost Reels. Please remove the video and choose photos here.");
+      return;
     }
 
     setProfilePostLoading(true);
@@ -16255,7 +16206,7 @@ return (
                       type="button"
                       onClick={() => profilePostFileInputRef.current?.click()}
                       style={profileDashboardComposerImageButtonStyle}
-                      aria-label="Upload photo or video"
+                      aria-label="Upload photos"
                     >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <path d="M4 17L8.5 12.5L11 15L15.5 10.5L20 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -16267,7 +16218,7 @@ return (
                   <input
                     ref={profilePostFileInputRef}
                     type="file"
-                    accept="image/*,video/*"
+                    accept="image/*"
                     multiple
                     onChange={handleProfilePostImageChange}
                     style={{ display: "none" }}
@@ -16319,7 +16270,7 @@ return (
 
                   <div className="profile-dashboard-composer-actions" style={profileDashboardComposerActionGridStyle}>
                     <ProfileDashboardComposerActionPill
-                      label="Photo / Video"
+                      label="Photos"
                       icon="▣"
                       tone="green"
                       onClick={() => profilePostFileInputRef.current?.click()}
