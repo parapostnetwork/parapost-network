@@ -66,6 +66,17 @@ type ProfileSearchResult = {
   last_seen_at?: string | null;
 };
 
+type ProfileLikeListTarget = {
+  kind: "post" | "comment";
+  id: string;
+  title: string;
+};
+
+type ProfileLikeListPerson = {
+  userId: string;
+  profile: ProfileRow | null;
+};
+
 type PostImage = {
   id: string;
   post_id: string;
@@ -2514,6 +2525,271 @@ function LiveStreamViewCount({
   return <span>{viewCount.toLocaleString()} {label}</span>;
 }
 
+function ProfileLikesModal({
+  target,
+  people,
+  loading,
+  error,
+  onClose,
+}: {
+  target: ProfileLikeListTarget | null;
+  people: ProfileLikeListPerson[];
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (!target || typeof document === "undefined") return;
+
+    setSearchQuery("");
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [target, onClose]);
+
+  if (!target || typeof document === "undefined") return null;
+
+  const cleanQuery = searchQuery.trim().toLowerCase();
+  const visiblePeople = people.filter(({ profile }) => {
+    if (!cleanQuery) return true;
+    const displayName = profile?.full_name || profile?.username || "Parapost member";
+    const username = profile?.username || "";
+    return `${displayName} ${username}`.toLowerCase().includes(cleanQuery);
+  });
+
+  return createPortal(
+    <div
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2147483647,
+        display: "grid",
+        placeItems: "center",
+        padding: "max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))",
+        background: "rgba(2,4,9,0.84)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={target.title}
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          width: "min(100%, 560px)",
+          maxHeight: "min(82dvh, 760px)",
+          overflow: "hidden",
+          display: "grid",
+          gridTemplateRows: "auto auto minmax(0, 1fr)",
+          borderRadius: 26,
+          border: "1px solid var(--parapost-accent-border, rgba(255,255,255,0.14))",
+          background: "linear-gradient(180deg, rgba(20,23,32,0.99), rgba(7,9,14,0.995))",
+          boxShadow: "0 36px 110px rgba(0,0,0,0.68), 0 0 42px var(--parapost-accent-glow, rgba(168,85,247,0.16))",
+          color: "#ffffff",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            padding: "18px 18px 14px",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: "var(--parapost-accent-text, #d8b4fe)", fontSize: 11, fontWeight: 950, letterSpacing: "0.13em", textTransform: "uppercase" }}>
+              Parapost Network
+            </div>
+            <h2 style={{ margin: "4px 0 0", fontSize: 24, lineHeight: 1.05, letterSpacing: "-0.04em" }}>
+              {target.title}
+            </h2>
+            <p style={{ margin: "6px 0 0", color: "#94a3b8", fontSize: 13, fontWeight: 750 }}>
+              {loading ? "Loading members..." : `${people.length} ${people.length === 1 ? "member" : "members"}`}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close likes list"
+            style={{
+              width: 42,
+              height: 42,
+              flexShrink: 0,
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(255,255,255,0.07)",
+              color: "#ffffff",
+              fontSize: 26,
+              lineHeight: 1,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </header>
+
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search people who liked this"
+            aria-label="Search likes"
+            style={{
+              width: "100%",
+              minHeight: 44,
+              boxSizing: "border-box",
+              borderRadius: 15,
+              border: "1px solid rgba(255,255,255,0.11)",
+              background: "rgba(0,0,0,0.30)",
+              color: "#ffffff",
+              padding: "0 14px",
+              outline: "none",
+              fontSize: 14,
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            minHeight: 0,
+            overflowY: "auto",
+            overscrollBehavior: "contain",
+            WebkitOverflowScrolling: "touch",
+            padding: 10,
+          }}
+        >
+          {loading ? (
+            <div style={{ padding: "34px 18px", textAlign: "center", color: "#a1a1aa", fontWeight: 800 }}>
+              Loading likes...
+            </div>
+          ) : error ? (
+            <div style={{ margin: 6, padding: 16, borderRadius: 16, border: "1px solid rgba(248,113,113,0.22)", background: "rgba(127,29,29,0.18)", color: "#fecaca", lineHeight: 1.5 }}>
+              {error}
+            </div>
+          ) : visiblePeople.length === 0 ? (
+            <div style={{ padding: "34px 18px", textAlign: "center", color: "#a1a1aa", fontWeight: 800 }}>
+              {people.length === 0 ? "No likes to show yet." : "No matching members found."}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 6 }}>
+              {visiblePeople.map(({ userId, profile }) => {
+                const displayName = profile?.full_name || profile?.username || "Parapost member";
+                const username = profile?.username ? `@${profile.username.replace(/^@+/, "")}` : "Parapost member";
+
+                return (
+                  <Link
+                    key={`${target.kind}-${target.id}-${userId}`}
+                    href={`/profile/${userId}`}
+                    onClick={onClose}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      minHeight: 64,
+                      padding: "9px 10px",
+                      borderRadius: 17,
+                      color: "#ffffff",
+                      textDecoration: "none",
+                      border: "1px solid transparent",
+                      background: "rgba(255,255,255,0.025)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 46,
+                        height: 46,
+                        flexShrink: 0,
+                        position: "relative",
+                        display: "grid",
+                        placeItems: "center",
+                        overflow: "visible",
+                        borderRadius: 999,
+                        border: "1px solid rgba(255,255,255,0.20)",
+                        background:
+                          "linear-gradient(135deg, var(--parapost-accent-1, #8b5cf6), var(--parapost-accent-2, #ec4899))",
+                        color: "#ffffff",
+                        fontSize: 16,
+                        fontWeight: 950,
+                      }}
+                    >
+                      {profile?.avatar_url ? (
+                        <img
+                          src={profile.avatar_url}
+                          alt=""
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "block",
+                            objectFit: "cover",
+                            borderRadius: 999,
+                          }}
+                        />
+                      ) : (
+                        <span>{(profile?.full_name || profile?.username || "P").charAt(0).toUpperCase()}</span>
+                      )}
+                      {isProfileActuallyOnline(profile) ? (
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            position: "absolute",
+                            right: -1,
+                            bottom: -1,
+                            width: 10,
+                            height: 10,
+                            borderRadius: 999,
+                            background: "#22c55e",
+                            border: "2px solid #090b11",
+                          }}
+                        />
+                      ) : null}
+                    </span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 15 }}>
+                        {displayName}
+                      </strong>
+                      <span style={{ display: "block", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#94a3b8", fontSize: 12.5, fontWeight: 750 }}>
+                        {username}
+                      </span>
+                    </span>
+                    <span aria-hidden="true" style={{ color: "var(--parapost-accent-text, #d8b4fe)", fontSize: 24, fontWeight: 900 }}>
+                      ›
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -2552,6 +2828,10 @@ export default function ProfilePage() {
   const [savingProfileCommentId, setSavingProfileCommentId] = useState<string | null>(null);
   const [profileCommentLikeCounts, setProfileCommentLikeCounts] = useState<CountMap>({});
   const [profileCommentUserLikes, setProfileCommentUserLikes] = useState<ToggleMap>({});
+  const [profileLikeListTarget, setProfileLikeListTarget] = useState<ProfileLikeListTarget | null>(null);
+  const [profileLikeListPeople, setProfileLikeListPeople] = useState<ProfileLikeListPerson[]>([]);
+  const [profileLikeListLoading, setProfileLikeListLoading] = useState(false);
+  const [profileLikeListError, setProfileLikeListError] = useState("");
   const [replyingProfileCommentId, setReplyingProfileCommentId] = useState<string | null>(null);
   const [profileReplyDrafts, setProfileReplyDrafts] = useState<Record<string, string>>({});
   const [postingProfileReplyId, setPostingProfileReplyId] = useState<string | null>(null);
@@ -4378,6 +4658,88 @@ useEffect(() => {
     setLikeCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
   };
 
+  const handleOpenProfileLikeList = useCallback(
+    async (target: ProfileLikeListTarget) => {
+      if (!target.id) return;
+
+      setProfileLikeListTarget(target);
+      setProfileLikeListPeople([]);
+      setProfileLikeListError("");
+      setProfileLikeListLoading(true);
+
+      try {
+        const table = target.kind === "post" ? "likes" : "comment_likes";
+        const idColumn = target.kind === "post" ? "post_id" : "comment_id";
+
+        const { data: likeRows, error: likesError } = await supabase
+          .from(table)
+          .select("user_id")
+          .eq(idColumn, target.id);
+
+        if (likesError) {
+          setProfileLikeListError(`Could not load likes: ${likesError.message}`);
+          return;
+        }
+
+        const userIds = [
+          ...new Set(
+            (likeRows || [])
+              .map((row) => String(row.user_id || ""))
+              .filter(Boolean)
+          ),
+        ];
+
+        if (userIds.length === 0) {
+          setProfileLikeListPeople([]);
+          return;
+        }
+
+        const { data: profileRows, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, bio, avatar_url, is_online, last_seen_at, location")
+          .in("id", userIds);
+
+        if (profileError) {
+          setProfileLikeListError(`Could not load member profiles: ${profileError.message}`);
+          return;
+        }
+
+        const profileMap = new Map(
+          ((profileRows || []) as ProfileRow[]).map((memberProfile) => [
+            memberProfile.id,
+            memberProfile,
+          ])
+        );
+
+        setProfileLikeListPeople(
+          userIds.map((userId) => ({
+            userId,
+            profile:
+              profileMap.get(userId) ||
+              commentProfilesMap[userId] ||
+              (profile?.id === userId ? profile : null),
+          }))
+        );
+      } catch (loadError) {
+        const message =
+          loadError instanceof Error
+            ? loadError.message
+            : "Unknown likes loading error";
+        setProfileLikeListError(`Could not load likes: ${message}`);
+      } finally {
+        setProfileLikeListLoading(false);
+      }
+    },
+    [commentProfilesMap, profile]
+  );
+
+  const closeProfileLikeList = useCallback(() => {
+    setProfileLikeListTarget(null);
+    setProfileLikeListPeople([]);
+    setProfileLikeListError("");
+    setProfileLikeListLoading(false);
+  }, []);
+
   const fetchProfilePostComments = useCallback(
     async (postId: string) => {
       if (!postId) return;
@@ -4966,9 +5328,25 @@ useEffect(() => {
                 ) : null}
 
                 {commentLikeCount > 0 ? (
-                  <span style={{ color: "#ffffff", fontSize: 11, fontWeight: 800 }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleOpenProfileLikeList({
+                        kind: "comment",
+                        id: comment.id,
+                        title: "Comment likes",
+                      })
+                    }
+                    style={{
+                      ...profileCommentEditButtonStyle,
+                      color: "#ffffff",
+                      fontSize: 11,
+                      fontWeight: 800,
+                    }}
+                    aria-label={`View ${commentLikeCount} ${commentLikeCount === 1 ? "person" : "people"} who liked this comment`}
+                  >
                     {commentLikeCount} {commentLikeCount === 1 ? "like" : "likes"}
-                  </span>
+                  </button>
                 ) : null}
 
                 {viewerId ? (
@@ -5175,7 +5553,23 @@ useEffect(() => {
 
               {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
                 <div style={profilePostStatsSummaryStyle}>
-                  <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+                  {likeCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenProfileLikeList({
+                          kind: "post",
+                          id: postId,
+                          title: "Liked by",
+                        })
+                      }
+                      style={profilePostStatsButtonStyle}
+                    >
+                      {likeCount} {likeCount === 1 ? "Like" : "Likes"}
+                    </button>
+                  ) : (
+                    <span />
+                  )}
                   <span style={profilePostStatsRightStyle}>
                     {commentCount > 0 ? `${commentCount} ${commentCount === 1 ? "Comment" : "Comments"}` : ""}
                     {commentCount > 0 && shareCount > 0 ? " · " : ""}
@@ -16995,11 +17389,23 @@ return (
 
                               {originalPostLikeCount > 0 || originalPostCommentCount > 0 || originalPostShareCount > 0 ? (
                                 <div style={profilePostStatsSummaryStyle}>
-                                  <span>
-                                    {originalPostLikeCount > 0
-                                      ? `${originalPostLikeCount} ${originalPostLikeCount === 1 ? "Like" : "Likes"}`
-                                      : ""}
-                                  </span>
+                                  {originalPostLikeCount > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleOpenProfileLikeList({
+                                          kind: "post",
+                                          id: originalPost.id,
+                                          title: "Liked by",
+                                        })
+                                      }
+                                      style={profilePostStatsButtonStyle}
+                                    >
+                                      {originalPostLikeCount} {originalPostLikeCount === 1 ? "Like" : "Likes"}
+                                    </button>
+                                  ) : (
+                                    <span />
+                                  )}
                                   <span style={profilePostStatsRightStyle}>
                                     {originalPostCommentCount > 0 ? (
                                       <button
@@ -17246,7 +17652,23 @@ return (
 
                             {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
                               <div style={profilePostStatsSummaryStyle}>
-                                <span>{likeCount > 0 ? `${likeCount} ${likeCount === 1 ? "Like" : "Likes"}` : ""}</span>
+                                {likeCount > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleOpenProfileLikeList({
+                                        kind: "post",
+                                        id: post.id,
+                                        title: "Liked by",
+                                      })
+                                    }
+                                    style={profilePostStatsButtonStyle}
+                                  >
+                                    {likeCount} {likeCount === 1 ? "Like" : "Likes"}
+                                  </button>
+                                ) : (
+                                  <span />
+                                )}
                                 <span style={profilePostStatsRightStyle}>
                                   {commentCount > 0 ? (
                                     <button
@@ -18033,6 +18455,14 @@ return (
           </div>
         </div>
       ) : null}
+
+      <ProfileLikesModal
+        target={profileLikeListTarget}
+        people={profileLikeListPeople}
+        loading={profileLikeListLoading}
+        error={profileLikeListError}
+        onClose={closeProfileLikeList}
+      />
 
       <ProfilePostImageViewerModal viewer={profilePostImageViewer} onClose={closeProfilePostImageViewer} />
 
