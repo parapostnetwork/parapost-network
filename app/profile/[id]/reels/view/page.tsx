@@ -1592,7 +1592,12 @@ export default function ProfileReelsViewerPage() {
       return;
     }
 
-    if (!creatorId || creatorId === currentUserId || followLoadingMap[creatorId]) {
+    if (
+      !creatorId ||
+      creatorId === currentUserId ||
+      relationshipMap[creatorId] === "friends" ||
+      followLoadingMap[creatorId]
+    ) {
       return;
     }
 
@@ -3443,7 +3448,9 @@ export default function ProfileReelsViewerPage() {
                           )}
                         </Link>
 
-                        {!isOwner && creatorProfileId ? (
+                        {!isOwner &&
+                        creatorProfileId &&
+                        relationship !== "friends" ? (
                           <button
                             type="button"
                             onClick={(event) => {
