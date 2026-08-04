@@ -32,6 +32,9 @@ type FriendRequestRow = {
 };
 
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+const DASHBOARD_REELS_WINDOW_HOURS = 24;
+const DASHBOARD_REELS_MAX_ITEMS = 20;
+const DASHBOARD_REELS_REFRESH_MS = 5 * 60 * 1000;
 
 function getInitial(name?: string | null, username?: string | null) {
   const value = name || username || "P";
@@ -175,13 +178,17 @@ export default function DashboardReelsSection() {
     const safeIds = allowedIds.length ? allowedIds : [EMPTY_UUID];
 
     const safeIdFilter = safeIds.join(",");
+    const freshReelsCutoff = new Date(
+      Date.now() - DASHBOARD_REELS_WINDOW_HOURS * 60 * 60 * 1000
+    ).toISOString();
 
     const { data, error } = await supabase
       .from("reels")
       .select("id, user_id, creator_profile_id, title, caption, video_url, poster_url, created_at")
       .or(`user_id.in.(${safeIdFilter}),creator_profile_id.in.(${safeIdFilter})`)
+      .gte("created_at", freshReelsCutoff)
       .order("created_at", { ascending: false })
-      .limit(40);
+      .limit(100);
 
     if (error) {
       console.error("Dashboard friend Reels fetch error:", error.message);
@@ -208,7 +215,10 @@ export default function DashboardReelsSection() {
       latestReelByCreator.set(ownerId, reel);
     }
 
-    const nextReels = Array.from(latestReelByCreator.values());
+    const nextReels = Array.from(latestReelByCreator.values()).slice(
+      0,
+      DASHBOARD_REELS_MAX_ITEMS
+    );
     const profileIds = nextReels.map((reel) => reelOwnerId(reel));
 
     await fetchProfiles([...allowedIds, ...profileIds]);
@@ -221,8 +231,13 @@ export default function DashboardReelsSection() {
       void fetchDashboardReels();
     }, 0);
 
+    const refreshIntervalId = window.setInterval(() => {
+      void fetchDashboardReels();
+    }, DASHBOARD_REELS_REFRESH_MS);
+
     return () => {
       window.clearTimeout(timeoutId);
+      window.clearInterval(refreshIntervalId);
     };
   }, [fetchDashboardReels]);
 
@@ -260,7 +275,7 @@ export default function DashboardReelsSection() {
         <div style={reelsHeadingWrapStyle}>
           <h2 style={reelsTitleStyle}>Parapost Reels</h2>
           <p style={reelsSubtitleStyle}>
-            Videos live here. Create and share short clips, creator moments, and fresh content across the Parapost Network.
+            Fresh Reels from the last 24 hours. Create and share short clips, creator moments, and new content across the Parapost Network.
           </p>
         </div>
 
@@ -290,7 +305,7 @@ export default function DashboardReelsSection() {
       ) : reels.length === 0 ? (
         <div style={reelsEmptyStyle} className="dashboard-reels-empty">
           <span style={emptyPulseStyle} />
-          <span>{message || "No Reels yet. When you or your friends upload Reels, they will appear here automatically."}</span>
+          <span>{message || "No fresh Reels from the last 24 hours. New Reels from you or your friends will appear here automatically."}</span>
           <Link href="/reels" style={emptyExploreLinkStyle}>
             Open Explore Reels
           </Link>
