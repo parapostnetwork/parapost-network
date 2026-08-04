@@ -260,7 +260,7 @@ export default function DashboardReelsSection() {
         <div style={reelsHeadingWrapStyle}>
           <h2 style={reelsTitleStyle}>Parapost Reels</h2>
           <p style={reelsSubtitleStyle}>
-            Short videos, creator moments, and fresh clips from your Parapost Network.
+            Videos live here. Create and share short clips, creator moments, and fresh content across the Parapost Network.
           </p>
         </div>
 

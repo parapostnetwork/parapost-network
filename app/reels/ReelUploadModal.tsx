@@ -46,7 +46,7 @@ type ProfileRow = {
 type MobileStep = "select" | "preview" | "details";
 
 const REEL_CAPTION_MAX_LENGTH = 4000;
-const MAX_REEL_DURATION_SECONDS = 30;
+const MAX_REEL_DURATION_SECONDS = 60;
 const MAX_REEL_DURATION_TOLERANCE_SECONDS = 0.35;
 const REEL_TOO_LONG_MESSAGE = `This video is longer than ${MAX_REEL_DURATION_SECONDS} seconds. Please choose a shorter video for Parapost Reels.`;
 
@@ -974,7 +974,7 @@ export default function ReelUploadModal({
           }}
         >
           Choose a portrait or landscape video, preview it, then add your title
-          and caption. Max 30 seconds.
+          and caption. Max 60 seconds.
         </div>
 
         <button
@@ -1530,7 +1530,7 @@ export default function ReelUploadModal({
                   }}
                 >
                   Choose a portrait or landscape video, review the preview, add
-                  your title and caption, then publish. Reels are limited to 30
+                  your title and caption, then publish. Reels are limited to 60
                   seconds.
                 </div>
               </div>

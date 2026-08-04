@@ -4242,84 +4242,46 @@ export default function DashboardPage() {
 
   const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const incomingFiles = Array.from(event.target.files || []);
-    const selectedFiles = incomingFiles.filter((file) => Boolean(getDashboardMediaKind(file)));
+    const selectedFiles = incomingFiles.filter(
+      (file) => getDashboardMediaKind(file) === "image"
+    );
 
     const rejectedFiles = incomingFiles.length - selectedFiles.length;
 
     if (selectedFiles.length === 0) {
-      if (rejectedFiles > 0) alert("Please choose photo or video files only.");
+      if (rejectedFiles > 0) {
+        alert("Videos belong in Parapost Reels. Please choose photos for a dashboard post.");
+      }
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
-    const oversizedFile = selectedFiles.find((file) => {
-      const isVideo = isDashboardVideoFile(file);
-      const maxMb = isVideo ? MAX_POST_VIDEO_MB : MAX_POST_IMAGE_MB;
-      return file.size > maxMb * 1024 * 1024;
-    });
+    const oversizedFile = selectedFiles.find(
+      (file) => file.size > MAX_POST_IMAGE_MB * 1024 * 1024
+    );
 
     if (oversizedFile) {
-      const isVideo = isDashboardVideoFile(oversizedFile);
-      alert(
-        `Please choose ${isVideo ? "videos" : "photos"} under ${
-          isVideo ? MAX_POST_VIDEO_MB : MAX_POST_IMAGE_MB
-        }MB for dashboard posts.`
-      );
+      alert(`Please choose photos under ${MAX_POST_IMAGE_MB}MB for dashboard posts.`);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
-    }
-
-    const selectedVideoFiles = selectedFiles.filter((file) => isDashboardVideoFile(file));
-
-    if (selectedVideoFiles.length > 0) {
-      for (const videoFile of selectedVideoFiles) {
-        const durationSeconds = await getVideoDurationFromFile(videoFile);
-
-        if (durationSeconds > MAX_POST_VIDEO_SECONDS + 0.25) {
-          alert(
-            `Dashboard post videos can be up to ${MAX_POST_VIDEO_SECONDS} seconds for launch. Please trim this video and try again.`
-          );
-          if (fileInputRef.current) fileInputRef.current.value = "";
-          return;
-        }
-      }
     }
 
     setPostImages((prev) => {
-      const existingVideo = prev.some((file) => isDashboardVideoFile(file));
       const remainingSlots = Math.max(MAX_POST_IMAGES - prev.length, 0);
 
       if (remainingSlots <= 0) {
-        alert(`You can add up to ${MAX_POST_IMAGES} photos/videos in one post.`);
+        alert(`You can add up to ${MAX_POST_IMAGES} photos in one post.`);
         return prev;
       }
 
-      let acceptedFiles = selectedFiles.slice(0, remainingSlots);
-      const selectedHasVideo = selectedVideoFiles.length > 0;
-
-      if (existingVideo || selectedHasVideo) {
-        const videoFiles = acceptedFiles.filter((file) => isDashboardVideoFile(file));
-        const imageFiles = acceptedFiles.filter((file) => getDashboardMediaKind(file) === "image");
-
-        if (existingVideo) {
-          acceptedFiles = imageFiles;
-        } else if (videoFiles.length > 0) {
-          acceptedFiles = [videoFiles[0], ...imageFiles].slice(0, MAX_POST_IMAGES);
-        }
-
-        if (videoFiles.length > 1 || (existingVideo && videoFiles.length > 0)) {
-          alert(
-            `You can add one video per dashboard post for launch. You can still add photos with it, up to ${MAX_POST_IMAGES} total media items.`
-          );
-        }
-      }
+      const acceptedFiles = selectedFiles.slice(0, remainingSlots);
 
       if (selectedFiles.length > remainingSlots) {
-        alert(`You can add up to ${MAX_POST_IMAGES} photos/videos in one post.`);
+        alert(`You can add up to ${MAX_POST_IMAGES} photos in one post.`);
       }
 
       if (rejectedFiles > 0) {
-        alert("Some files were skipped because they were not photos or videos.");
+        alert("Videos were skipped. Share videos through Parapost Reels.");
       }
 
       if (acceptedFiles.length === 0) return prev;
@@ -4342,27 +4304,22 @@ export default function DashboardPage() {
 
   const handlePost = async () => {
     if (!content.trim() && postImages.length === 0 && !selectedFeelingActivity) {
-      alert("Please add text, choose photos/videos, or select a Feeling / Activity.");
+      alert("Please add text, choose photos, or select a Feeling / Activity.");
       return;
     }
 
     if (postImages.length > MAX_POST_IMAGES) {
-      alert(`You can add up to ${MAX_POST_IMAGES} photos/videos in one post.`);
+      alert(`You can add up to ${MAX_POST_IMAGES} photos in one post.`);
       return;
     }
 
-    const postVideos = postImages.filter((file) => isDashboardVideoFile(file));
-    if (postVideos.length > 1) {
-      alert("You can add one video per dashboard post for launch.");
-      return;
-    }
+    const nonImageFile = postImages.find(
+      (file) => getDashboardMediaKind(file) !== "image"
+    );
 
-    for (const videoFile of postVideos) {
-      const durationSeconds = await getVideoDurationFromFile(videoFile);
-      if (durationSeconds > MAX_POST_VIDEO_SECONDS + 0.25) {
-        alert(`Dashboard post videos can be up to ${MAX_POST_VIDEO_SECONDS} seconds for launch.`);
-        return;
-      }
+    if (nonImageFile) {
+      alert("Videos belong in Parapost Reels. Please remove the video and publish it as a Reel.");
+      return;
     }
 
     setLoading(true);
@@ -12043,7 +12000,7 @@ function ComposerCard({
           maxLength={POST_CHARACTER_LIMIT}
           style={composerInputStyle}
         />
-        <button type="button" onClick={() => fileInputRef.current?.click()} style={composerImageButtonStyle} aria-label="Upload photo or video">
+        <button type="button" onClick={() => fileInputRef.current?.click()} style={composerImageButtonStyle} aria-label="Upload photos">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 17L8.5 12.5L11 15L15.5 10.5L20 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             <rect x="3" y="5" width="18" height="15" rx="3" stroke="currentColor" strokeWidth="2" />
@@ -12051,7 +12008,7 @@ function ComposerCard({
         </button>
       </div>
 
-      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={onImageChange} style={{ display: "none" }} />
+      <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={onImageChange} style={{ display: "none" }} />
 
       {imagePreviewUrls.length > 0 ? (
         <div className="dashboard-composer-media-preview-wrap" style={imagePreviewWrapStyle}>
@@ -12101,9 +12058,9 @@ function ComposerCard({
           </div>
           <div style={imagePreviewMetaRowStyle}>
             <span style={selectedImageNameStyle}>
-              {images.length} file{images.length === 1 ? "" : "s"} selected · up to {MAX_POST_IMAGES} · 1 video max · {MAX_POST_VIDEO_SECONDS}s video limit
+              {images.length} photo{images.length === 1 ? "" : "s"} selected · up to {MAX_POST_IMAGES}
             </span>
-            <button type="button" onClick={() => onRemoveImage()} style={removeImageButtonStyle}>Remove media</button>
+            <button type="button" onClick={() => onRemoveImage()} style={removeImageButtonStyle}>Remove photos</button>
           </div>
         </div>
       ) : null}
@@ -12117,7 +12074,7 @@ function ComposerCard({
       ) : null}
 
       <div className="dashboard-composer-actions" style={composerActionGridStyle}>
-        <ComposerActionPill label="Photo / Video" icon="▣" tone="green" onClick={() => fileInputRef.current?.click()} />
+        <ComposerActionPill label="Photos" icon="▣" tone="green" onClick={() => fileInputRef.current?.click()} />
         <ComposerActionPill label="Parapost Reel" icon="▶" tone="pink" href="/reels?create=1" />
         <ComposerActionPill label="Live Stream" icon="◎" tone="red" href="/live" />
         <ComposerActionPill label="Feeling / Activity" icon="●" tone="gold" active={!!selectedFeelingActivity} onClick={onOpenFeelingActivity} />
