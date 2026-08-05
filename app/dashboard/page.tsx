@@ -228,7 +228,7 @@ const MAX_POST_VIDEO_SECONDS = 60;
 const MAX_POST_IMAGE_MB = 12;
 const MAX_POST_VIDEO_MB = 100;
 const FEED_INITIAL_BATCH_SIZE = 14;
-const FEED_BATCH_INCREMENT = 10;
+const FEED_BATCH_INCREMENT = 8;
 const DASHBOARD_REALTIME_REFRESH_DELAY_MS = 1500;
 const DASHBOARD_BACKGROUND_REFRESH_MS = 120000;
 const DASHBOARD_COMMENT_PREVIEW_LIMIT = 2;
@@ -3778,7 +3778,7 @@ export default function DashboardPage() {
       },
       {
         root: null,
-        rootMargin: "900px 0px 900px 0px",
+        rootMargin: "480px 0px 480px 0px",
         threshold: 0,
       }
     );
@@ -3965,14 +3965,17 @@ export default function DashboardPage() {
   }, [dashboardShowcaseMediaFile]);
 
   useEffect(() => {
-    const handleGlobalClick = () => setOpenPostMenuId(null);
-    window.addEventListener("click", handleGlobalClick);
-    window.addEventListener("scroll", handleGlobalClick);
+    if (!openPostMenuId) return;
+
+    const closeOpenPostMenu = () => setOpenPostMenuId(null);
+    window.addEventListener("click", closeOpenPostMenu);
+    window.addEventListener("scroll", closeOpenPostMenu, { passive: true });
+
     return () => {
-      window.removeEventListener("click", handleGlobalClick);
-      window.removeEventListener("scroll", handleGlobalClick);
+      window.removeEventListener("click", closeOpenPostMenu);
+      window.removeEventListener("scroll", closeOpenPostMenu);
     };
-  }, []);
+  }, [openPostMenuId]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -6205,11 +6208,7 @@ export default function DashboardPage() {
           isolation: isolate;
         }
 
-        .dashboard-card,
-        .dashboard-feed-card,
-        .dashboard-right-card {
-          transform: translateZ(0);
-        }
+        /* Let the browser decide which Dashboard surfaces need compositor layers. */
 
         @media (min-width: 1181px) {
           .dashboard-grid-desktop-safe {
@@ -9285,7 +9284,6 @@ export default function DashboardPage() {
         .dashboard-bottom-nav,
         .bottom-nav,
         nav[aria-label="Mobile navigation"] {
-          transform: translateZ(0);
           padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
         }
 
@@ -9355,7 +9353,6 @@ export default function DashboardPage() {
 
           .dashboard-mobile-header {
             padding-top: max(10px, env(safe-area-inset-top)) !important;
-            transform: translateZ(0);
           }
 
           .dashboard-card,
@@ -10410,7 +10407,6 @@ export default function DashboardPage() {
         .dashboard-composer-media-preview-tile img,
         .dashboard-composer-media-preview-tile video {
           backface-visibility: hidden;
-          transform: translateZ(0);
         }
 
         @media (hover: none), (pointer: coarse) {
@@ -11311,6 +11307,47 @@ export default function DashboardPage() {
             width: min(760px, calc(100vw - 28px)) !important;
             height: calc(100dvh - 28px) !important;
             max-height: calc(100dvh - 28px) !important;
+          }
+        }
+
+        /* === Dashboard mobile scroll performance pass v1 === */
+        @media (max-width: 760px) {
+          .dashboard-feed-card {
+            content-visibility: auto;
+            contain-intrinsic-size: auto 680px;
+          }
+
+          .dashboard-card,
+          .dashboard-feed-card,
+          .dashboard-right-card,
+          .dashboard-post-single-media,
+          .dashboard-post-media-item,
+          .dashboard-composer-media-preview-tile img,
+          .dashboard-composer-media-preview-tile video {
+            transform: none !important;
+            will-change: auto !important;
+          }
+
+          .dashboard-mobile-header,
+          .dashboard-bottom-nav {
+            -webkit-backdrop-filter: none !important;
+            backdrop-filter: none !important;
+          }
+
+          .dashboard-mobile-header {
+            background: linear-gradient(180deg, rgba(5,7,13,0.995), rgba(5,7,13,0.965)) !important;
+          }
+
+          .dashboard-bottom-nav {
+            background: linear-gradient(180deg, rgba(9,11,20,0.992), rgba(5,7,13,0.995)) !important;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.46) !important;
+          }
+
+          .dashboard-post-single-media,
+          .dashboard-post-media-grid,
+          .dashboard-shared-reel-frame,
+          .dashboard-link-preview-card {
+            box-shadow: 0 9px 22px rgba(0,0,0,0.22) !important;
           }
         }
         ` }} />
@@ -18523,7 +18560,7 @@ const modalHeaderStyle: CSSProperties = { display: "flex", justifyContent: "spac
 const modalEyebrowStyle: CSSProperties = { color: "var(--parapost-accent-text)", textTransform: "uppercase", letterSpacing: "0.14em", fontSize: 11, fontWeight: 950, marginBottom: 4 };
 const modalCloseButtonStyle: CSSProperties = { width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 26, cursor: "pointer" };
 
-const mobileHeaderStyle: CSSProperties = { display: "none", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "18px 16px 12px", position: "sticky", top: 0, zIndex: 60, background: "linear-gradient(180deg, rgba(5,7,13,0.985), rgba(5,7,13,0.86))", backdropFilter: "blur(18px)", borderBottom: "1px solid rgba(255,255,255,0.055)" };
+const mobileHeaderStyle: CSSProperties = { display: "none", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "18px 16px 12px", position: "sticky", top: 0, zIndex: 60, background: "linear-gradient(180deg, rgba(5,7,13,0.995), rgba(5,7,13,0.965))", backdropFilter: "none", WebkitBackdropFilter: "none", borderBottom: "1px solid rgba(255,255,255,0.055)" };
 const mobileLogoStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 10, color: "#fff", textDecoration: "none", minWidth: 0, flex: "1 1 auto" };
 const mobileLogoCircleStyle: CSSProperties = { width: 50, height: 50, borderRadius: 999, display: "grid", placeItems: "center", border: "2px solid color-mix(in srgb, var(--parapost-accent-3) 72%, transparent)", background: "var(--parapost-accent-active-bg)", boxShadow: "0 0 22px var(--parapost-accent-strong-glow)", fontWeight: 950 };
 const mobileHeaderActionsStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 };
@@ -18546,9 +18583,10 @@ const mobileBottomNavStyle: CSSProperties = {
   padding: "8px 8px 10px",
   borderRadius: 24,
   border: "1px solid rgba(255,255,255,0.105)",
-  background: "linear-gradient(180deg, rgba(9,11,20,0.965), rgba(5,7,13,0.975))",
-  backdropFilter: "blur(20px)",
-  boxShadow: "0 18px 44px rgba(0,0,0,0.56)",
+  background: "linear-gradient(180deg, rgba(9,11,20,0.992), rgba(5,7,13,0.995))",
+  backdropFilter: "none",
+  WebkitBackdropFilter: "none",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.46)",
 };
 const mobileNavItemStyle: CSSProperties = {
   width: "100%",
