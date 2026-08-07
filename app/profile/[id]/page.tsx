@@ -19,6 +19,7 @@ import MutualFriendsPreviewCard from "@/components/profile/MutualFriendsPreviewC
 import ProfileAboutSection from "@/components/profile/ProfileAboutSection";
 import ProfilePhotosSection from "@/components/profile/ProfilePhotosSection";
 import LiveChatPanel from "@/components/live/LiveChatPanel";
+import ProfileThoughtBubble from "@/components/ProfileThoughtBubble";
 
 type ProfileRow = {
   id: string;
@@ -14042,7 +14043,7 @@ return (
                 ) : null}
 
                 <div className="profile-mobile-header-real">
-                  <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}>
+                  <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}> <ProfileThoughtBubble />
                     {profile?.avatar_url ? (
                       <img
                         src={profile?.avatar_url || ""}
@@ -14221,7 +14222,7 @@ return (
                 </div>
 
                 <div className="profile-hero-content" style={profileHeroContentStyle}>
-                  <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
+                  <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}> <ProfileThoughtBubble />
                     {profile?.avatar_url ? (
                       <img src={profile?.avatar_url || ""} alt="Profile" style={profileAvatarStyle} />
                     ) : (
