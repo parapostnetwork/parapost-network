@@ -13678,6 +13678,89 @@ return (
       }
 
 
+
+      /* =========================================================
+         STAGING: THOUGHT BUBBLE + AVATAR SAFETY PATCH
+         Keeps the avatar perfectly centered/cropped while allowing
+         the thought bubble to sit outside the circle independently.
+         ========================================================= */
+
+      .profile-polish-surface .profile-mobile-avatar-shell-real,
+      .profile-polish-surface .profile-avatar-wrap {
+        position: relative !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
+        isolation: isolate !important;
+      }
+
+      /* Mobile avatar media is pinned inside the gradient ring.
+         This prevents the fallback/image from being pushed or offset
+         by absolutely-positioned siblings such as the thought bubble. */
+      @media (max-width: 720px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-image-real,
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-fallback-real {
+          position: absolute !important;
+          inset: 4px !important;
+          width: calc(100% - 8px) !important;
+          height: calc(100% - 8px) !important;
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+          margin: 0 !important;
+          box-sizing: border-box !important;
+          border-radius: 999px !important;
+          object-fit: cover !important;
+          object-position: center !important;
+          overflow: hidden !important;
+          clip-path: inset(0 round 999px) !important;
+          z-index: 13 !important;
+        }
+
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-fallback-real {
+          display: grid !important;
+          place-items: center !important;
+        }
+      }
+
+      /* Existing legacy avatar rules target direct child DIVs.
+         Explicitly exempt the thought bubble from those avatar-media
+         positioning/border rules. */
+      .profile-polish-surface
+        .profile-avatar-wrap
+        > .profile-thought-bubble,
+      .profile-polish-surface
+        .profile-mobile-avatar-shell-real
+        > .profile-thought-bubble {
+        position: absolute !important;
+        z-index: 40 !important;
+        border-width: 0 !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        flex: none !important;
+      }
+
+      /* Keep the edit button above the avatar itself but below the bubble. */
+      .profile-polish-surface .profile-avatar-edit-button,
+      .profile-polish-surface .profile-mobile-camera-real {
+        z-index: 30 !important;
+      }
+
+      /* Small-screen safety: keep the bubble from changing avatar geometry. */
+      @media (max-width: 420px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-thought-bubble {
+          max-width: 118px !important;
+        }
+      }
+
 `}
 </style>
 
@@ -14043,7 +14126,8 @@ return (
                 ) : null}
 
                 <div className="profile-mobile-header-real">
-                  <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}> <ProfileThoughtBubble />
+                  <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}>
+                    <ProfileThoughtBubble />
                     {profile?.avatar_url ? (
                       <img
                         src={profile?.avatar_url || ""}
@@ -14222,7 +14306,8 @@ return (
                 </div>
 
                 <div className="profile-hero-content" style={profileHeroContentStyle}>
-                  <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}> <ProfileThoughtBubble />
+                  <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
+                    <ProfileThoughtBubble />
                     {profile?.avatar_url ? (
                       <img src={profile?.avatar_url || ""} alt="Profile" style={profileAvatarStyle} />
                     ) : (
