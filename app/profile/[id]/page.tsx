@@ -14010,6 +14010,120 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE STRUCTURAL FIX v11
+         Desktop only.
+
+         The visible desktop bubble is now a sibling overlay inside
+         .profile-hero-content rather than a child of .profile-avatar-wrap.
+
+         This is intentionally structural, not another z-index escalation:
+         - desktop avatar-contained bubble is hidden
+         - tablet/mobile avatar-contained bubble remains unchanged
+         - sibling anchor mirrors the avatar's containing geometry
+         - exact v8/v9 desktop visual position is preserved
+         ========================================================= */
+
+      .profile-desktop-thought-anchor {
+        display: none;
+      }
+
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-hero-shell {
+          position: relative !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-cover-zone {
+          position: relative !important;
+          z-index: 1 !important;
+          overflow: hidden !important;
+        }
+
+        .profile-polish-surface .profile-hero-content {
+          position: relative !important;
+          z-index: 20 !important;
+          overflow: visible !important;
+          isolation: auto !important;
+        }
+
+        /* Do not render the old desktop bubble inside the avatar wrapper. */
+        .profile-polish-surface
+          .profile-avatar-wrap
+          > :global(.profile-thought-bubble) {
+          display: none !important;
+        }
+
+        /*
+         * Mirror the avatar's desktop box:
+         * hero-content has 22px horizontal padding and the avatar width is
+         * clamp(132px, 16vw, 184px). ProfileThoughtBubble can therefore use
+         * its familiar top/right offsets while being completely outside the
+         * avatar wrapper's clipping/stacking context.
+         */
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: block !important;
+          position: absolute !important;
+
+          top: 0 !important;
+          left: 22px !important;
+
+          width: clamp(132px, 16vw, 184px) !important;
+          height: clamp(132px, 16vw, 184px) !important;
+
+          margin: 0 !important;
+          padding: 0 !important;
+
+          z-index: 200 !important;
+          overflow: visible !important;
+          isolation: auto !important;
+
+          pointer-events: none !important;
+        }
+
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          display: flex !important;
+          position: absolute !important;
+
+          /* Same desktop position that was approved in v8/v9. */
+          top: -14px !important;
+          right: -132px !important;
+          left: auto !important;
+
+          width: 160px !important;
+          height: 34px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+
+          margin: 0 !important;
+          padding: 0 11px !important;
+          box-sizing: border-box !important;
+
+          z-index: 201 !important;
+          overflow: visible !important;
+
+          /* Restore normal component rendering; no forced 3-D layer needed. */
+          transform: none !important;
+          filter: none !important;
+          isolation: auto !important;
+
+          pointer-events: auto !important;
+        }
+      }
+
+      /* Explicit safety: new sibling overlay can never appear on tablet/mobile. */
+      @media (max-width: 1100px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: none !important;
+        }
+      }
+
 `}
 </style>
 
@@ -14555,6 +14669,12 @@ return (
                 </div>
 
                 <div className="profile-hero-content" style={profileHeroContentStyle}>
+                  {/* Desktop thought bubble lives outside the avatar wrapper so it cannot be
+                      clipped or painted underneath the cover/banner stacking context. */}
+                  <div className="profile-desktop-thought-anchor" aria-hidden="false">
+                    <ProfileThoughtBubble />
+                  </div>
+
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
                     <ProfileThoughtBubble />
                     {profile?.avatar_url ? (
