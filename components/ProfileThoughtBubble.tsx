@@ -35,7 +35,7 @@ export default function ProfileThoughtBubble({
   const dailyPrompt = useMemo(() => {
     const now = new Date();
 
-    const utcDayNumber = Math.floor(
+    const dayNumber = Math.floor(
       Date.UTC(
         now.getUTCFullYear(),
         now.getUTCMonth(),
@@ -43,7 +43,7 @@ export default function ProfileThoughtBubble({
       ) / 86400000
     );
 
-    return DAILY_PROMPTS[utcDayNumber % DAILY_PROMPTS.length];
+    return DAILY_PROMPTS[dayNumber % DAILY_PROMPTS.length];
   }, []);
 
   const displayText = (text?.trim() || dailyPrompt).slice(0, 60);
@@ -67,14 +67,9 @@ export default function ProfileThoughtBubble({
         .profile-thought-bubble {
           position: absolute;
 
-          /*
-           * IMPORTANT:
-           * Position from the RIGHT edge of the avatar instead of
-           * using a fixed LEFT value. This keeps placement stable
-           * when the avatar size changes between mobile/tablet/desktop.
-           */
-          top: -18px;
-          right: -110px;
+          /* Desktop */
+          top: -14px;
+          right: -104px;
 
           width: 160px;
           height: 34px;
@@ -96,15 +91,9 @@ export default function ProfileThoughtBubble({
             inset 0 1px 0 rgba(255, 255, 255, 0.045);
 
           overflow: visible;
-
           z-index: 50;
-
           cursor: pointer;
 
-          /*
-           * Prevent this element from participating in any avatar
-           * flex/grid sizing inherited from the profile page.
-           */
           flex: none !important;
           min-width: 0 !important;
           min-height: 0 !important;
@@ -145,8 +134,14 @@ export default function ProfileThoughtBubble({
 
           white-space: nowrap;
 
-          animation: profileThoughtScrollLeft 12s linear infinite;
+          animation-name: profileThoughtScrollLeft;
+          animation-duration: 12s;
+          animation-timing-function: linear;
+          animation-iteration-count: infinite;
+
           will-change: transform;
+          backface-visibility: hidden;
+          transform: translate3d(100%, 0, 0);
         }
 
         .profile-thought-tail {
@@ -170,31 +165,27 @@ export default function ProfileThoughtBubble({
 
         @keyframes profileThoughtScrollLeft {
           0% {
-            transform: translateX(100%);
+            transform: translate3d(100%, 0, 0);
           }
 
           12% {
-            transform: translateX(100%);
+            transform: translate3d(100%, 0, 0);
           }
 
           88% {
-            transform: translateX(-100%);
+            transform: translate3d(-100%, 0, 0);
           }
 
           100% {
-            transform: translateX(-100%);
+            transform: translate3d(-100%, 0, 0);
           }
         }
 
-        /*
-         * TABLET
-         * Slightly smaller than desktop, while still remaining
-         * clearly readable and attached to the avatar.
-         */
+        /* Tablet */
         @media (min-width: 700px) and (max-width: 1100px) {
           .profile-thought-bubble {
-            top: -17px;
-            right: -96px;
+            top: -13px;
+            right: -92px;
 
             width: 148px;
             height: 32px;
@@ -206,6 +197,13 @@ export default function ProfileThoughtBubble({
 
           .profile-thought-text {
             font-size: 12px;
+
+            animation-name: profileThoughtScrollLeft !important;
+            animation-duration: 12s !important;
+            animation-timing-function: linear !important;
+            animation-iteration-count: infinite !important;
+
+            transform: translate3d(100%, 0, 0);
           }
 
           .profile-thought-tail {
@@ -217,16 +215,11 @@ export default function ProfileThoughtBubble({
           }
         }
 
-        /*
-         * MOBILE
-         * Designed around the much larger mobile profile avatar.
-         * The bubble stays at the avatar's top-right and does not
-         * push, resize, crop, or distort the avatar itself.
-         */
+        /* Mobile */
         @media (max-width: 699px) {
           .profile-thought-bubble {
-            top: -15px;
-            right: -78px;
+            top: -11px;
+            right: -74px;
 
             width: 132px;
             height: 30px;
@@ -238,6 +231,16 @@ export default function ProfileThoughtBubble({
 
           .profile-thought-text {
             font-size: 11.25px;
+
+            animation-name: profileThoughtScrollLeft !important;
+            animation-duration: 12s !important;
+            animation-timing-function: linear !important;
+            animation-iteration-count: infinite !important;
+            animation-play-state: running !important;
+
+            will-change: transform;
+            backface-visibility: hidden;
+            transform: translate3d(100%, 0, 0);
           }
 
           .profile-thought-tail {
@@ -249,14 +252,11 @@ export default function ProfileThoughtBubble({
           }
         }
 
-        /*
-         * SMALL MOBILE
-         * Keeps the bubble from reaching too far toward the screen edge.
-         */
+        /* Small mobile */
         @media (max-width: 390px) {
           .profile-thought-bubble {
-            top: -14px;
-            right: -68px;
+            top: -10px;
+            right: -66px;
 
             width: 122px;
             height: 29px;
@@ -266,22 +266,27 @@ export default function ProfileThoughtBubble({
 
           .profile-thought-text {
             font-size: 10.75px;
+
+            animation-name: profileThoughtScrollLeft !important;
+            animation-duration: 12s !important;
+            animation-timing-function: linear !important;
+            animation-iteration-count: infinite !important;
+            animation-play-state: running !important;
           }
         }
 
         /*
-         * Motion accessibility.
+         * Reduced-motion support:
+         * keep the feature moving, but slow it down rather than
+         * disabling the marquee completely.
          */
         @media (prefers-reduced-motion: reduce) {
           .profile-thought-text {
-            position: static;
-
-            width: 100%;
-
-            overflow: hidden;
-            text-overflow: ellipsis;
-
-            animation: none;
+            animation-name: profileThoughtScrollLeft !important;
+            animation-duration: 20s !important;
+            animation-timing-function: linear !important;
+            animation-iteration-count: infinite !important;
+            animation-play-state: running !important;
           }
         }
       `}</style>
