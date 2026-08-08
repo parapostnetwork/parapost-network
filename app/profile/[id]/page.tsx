@@ -14260,6 +14260,58 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE TRUE DESKTOP POSITION FIX v17
+         Desktop only.
+
+         IMPORTANT:
+         The real desktop avatar is being forced by later profile CSS
+         to 112px x 112px. Earlier thought-anchor fixes incorrectly
+         assumed the avatar was still clamp(132px, 16vw, 184px).
+
+         This override stops positioning from the anchor's RIGHT edge.
+         Instead, it uses the real 112px avatar geometry directly.
+
+         Mobile relationship:
+         - bubble overlaps avatar's right edge by about 16px
+         - 112px avatar - 16px overlap = bubble starts at 96px
+         - vertical offset remains -18px
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: block !important;
+          position: absolute !important;
+
+          /* Match the actual desktop hero-content left padding. */
+          left: 20px !important;
+          top: 0 !important;
+
+          /* Zero-size coordinate anchor; no fake avatar width involved. */
+          width: 0 !important;
+          height: 0 !important;
+
+          overflow: visible !important;
+          z-index: 200 !important;
+        }
+
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          position: absolute !important;
+
+          /* Real 112px avatar - 16px overlap = 96px. */
+          left: 96px !important;
+          right: auto !important;
+          top: -18px !important;
+
+          width: 160px !important;
+          height: 34px !important;
+
+          z-index: 201 !important;
+        }
+      }
+
 `}
 </style>
 
