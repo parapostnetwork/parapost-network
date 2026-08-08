@@ -14180,6 +14180,27 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE ANCHOR POSITION FIX v14
+         Desktop only.
+
+         v13 changed the child bubble's right offset, but the visible
+         desktop component is controlled more reliably by the sibling
+         anchor itself. Move the entire anchor 40px to the RIGHT.
+         This preserves:
+         - current vertical position
+         - front-layer structural fix
+         - single desktop instance
+         - animation and opacity
+         - all tablet/mobile behavior
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          left: 62px !important;
+        }
+      }
+
 `}
 </style>
 
