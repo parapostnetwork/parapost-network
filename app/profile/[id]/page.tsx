@@ -13763,10 +13763,10 @@ return (
 
 
       /* =========================================================
-         STAGING THOUGHT BUBBLE FIX v6
+         STAGING THOUGHT BUBBLE FIX ADVANCED v7
          Placement strategy:
-         - keep bubble entirely below the cover/banner edge
-         - attach it visually to the avatar's upper-right
+         - keep the bubble visually clear of the cover/banner edge
+         - attach it naturally to the avatar's right side
          - use dedicated desktop/tablet/mobile positions
          ========================================================= */
 
@@ -13822,8 +13822,8 @@ return (
          slightly right of the avatar's upper edge. */
       @media (min-width: 1101px) {
         .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble {
-          top: 4px !important;
-          right: -110px !important;
+          top: 22px !important;
+          right: -120px !important;
 
           width: 160px !important;
           height: 34px !important;
@@ -13842,8 +13842,8 @@ return (
       @media (min-width: 700px) and (max-width: 1100px) {
         .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
         .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
-          top: 2px !important;
-          right: -96px !important;
+          top: 20px !important;
+          right: -104px !important;
 
           width: 148px !important;
           height: 32px !important;
@@ -13863,8 +13863,8 @@ return (
       @media (max-width: 699px) {
         .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
         .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
-          top: -2px !important;
-          right: -98px !important;
+          top: 32px !important;
+          right: -106px !important;
 
           width: 132px !important;
           height: 30px !important;
@@ -13882,8 +13882,8 @@ return (
       @media (max-width: 390px) {
         .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
         .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
-          top: 0 !important;
-          right: -84px !important;
+          top: 30px !important;
+          right: -92px !important;
 
           width: 122px !important;
           height: 29px !important;
