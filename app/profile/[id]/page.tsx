@@ -14406,7 +14406,7 @@ return (
 
 
       /* =========================================================
-         STAGING THOUGHT BUBBLE MOBILE WRAPPER FIX v23
+         STAGING THOUGHT BUBBLE MOBILE WRAPPER FIX v24
          Mobile only.
 
          Root cause:
@@ -14446,7 +14446,7 @@ return (
           box-sizing: border-box !important;
           overflow: visible !important;
 
-          transform: translateX(38px) !important;
+          transform: translateX(20px) !important;
 
           z-index: 99998 !important;
           pointer-events: none !important;
@@ -14458,7 +14458,7 @@ return (
           .profile-hero-content
           .profile-avatar-wrap
           > .profile-avatar-thought-original {
-          transform: translateX(34px) !important;
+          transform: translateX(18px) !important;
         }
       }
 
