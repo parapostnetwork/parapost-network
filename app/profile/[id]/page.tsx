@@ -13680,15 +13680,100 @@ return (
 
 
       /* =========================================================
-         STAGING THOUGHT BUBBLE FIX v4
-         Exact override for legacy avatar direct-child selectors.
-         The profile page previously forced every direct child DIV of
-         .profile-avatar-wrap to position:relative and avatar borders,
-         which overrode ProfileThoughtBubble's absolute positioning.
+         STAGING: THOUGHT BUBBLE + AVATAR SAFETY PATCH
+         Keeps the avatar perfectly centered/cropped while allowing
+         the thought bubble to sit outside the circle independently.
          ========================================================= */
 
-      .profile-polish-surface .profile-hero-shell {
+      .profile-polish-surface .profile-mobile-avatar-shell-real,
+      .profile-polish-surface .profile-avatar-wrap {
         position: relative !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
+        isolation: isolate !important;
+      }
+
+      /* Mobile avatar media is pinned inside the gradient ring.
+         This prevents the fallback/image from being pushed or offset
+         by absolutely-positioned siblings such as the thought bubble. */
+      @media (max-width: 720px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-image-real,
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-fallback-real {
+          position: absolute !important;
+          inset: 4px !important;
+          width: calc(100% - 8px) !important;
+          height: calc(100% - 8px) !important;
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+          margin: 0 !important;
+          box-sizing: border-box !important;
+          border-radius: 999px !important;
+          object-fit: cover !important;
+          object-position: center !important;
+          overflow: hidden !important;
+          clip-path: inset(0 round 999px) !important;
+          z-index: 13 !important;
+        }
+
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-fallback-real {
+          display: grid !important;
+          place-items: center !important;
+        }
+      }
+
+      /* Existing legacy avatar rules target direct child DIVs.
+         Explicitly exempt the thought bubble from those avatar-media
+         positioning/border rules. */
+      .profile-polish-surface
+        .profile-avatar-wrap
+        > .profile-thought-bubble,
+      .profile-polish-surface
+        .profile-mobile-avatar-shell-real
+        > .profile-thought-bubble {
+        position: absolute !important;
+        z-index: 40 !important;
+        border-width: 0 !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        flex: none !important;
+      }
+
+      /* Keep the edit button above the avatar itself but below the bubble. */
+      .profile-polish-surface .profile-avatar-edit-button,
+      .profile-polish-surface .profile-mobile-camera-real {
+        z-index: 30 !important;
+      }
+
+      /* Small-screen safety: keep the bubble from changing avatar geometry. */
+      @media (max-width: 420px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-thought-bubble {
+          max-width: 118px !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE FIX v6
+         Placement strategy:
+         - keep bubble entirely below the cover/banner edge
+         - attach it visually to the avatar's upper-right
+         - use dedicated desktop/tablet/mobile positions
+         ========================================================= */
+
+      .profile-polish-surface .profile-hero-shell,
+      .profile-polish-surface .profile-hero-content,
+      .profile-polish-surface .profile-avatar-wrap,
+      .profile-polish-surface .profile-mobile-avatar-shell-real {
         overflow: visible !important;
       }
 
@@ -13701,98 +13786,93 @@ return (
       .profile-polish-surface .profile-hero-content {
         position: relative !important;
         z-index: 20 !important;
-        overflow: visible !important;
-        isolation: auto !important;
       }
 
       .profile-polish-surface .profile-avatar-wrap,
       .profile-polish-surface .profile-mobile-avatar-shell-real {
         position: relative !important;
         z-index: 30 !important;
-        overflow: visible !important;
-        isolation: auto !important;
       }
 
-      /* CRITICAL: exempt the thought bubble from old avatar-child rules. */
-      .profile-polish-surface
-        .profile-avatar-wrap
-        > .profile-thought-bubble,
-      .profile-polish-surface
-        .profile-mobile-avatar-shell-real
-        > .profile-thought-bubble,
-      .profile-avatar-wrap
-        > .profile-thought-bubble,
-      .profile-mobile-avatar-shell-real
-        > .profile-thought-bubble {
+      .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
+      .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble,
+      .profile-avatar-wrap > .profile-thought-bubble,
+      .profile-mobile-avatar-shell-real > .profile-thought-bubble {
         position: absolute !important;
-        z-index: 9999 !important;
+        z-index: 99999 !important;
 
-        width: 160px !important;
-        height: 34px !important;
-        min-width: 0 !important;
-        min-height: 0 !important;
-        max-width: none !important;
-        max-height: none !important;
+        left: auto !important;
 
-        padding: 0 11px !important;
         margin: 0 !important;
+        box-sizing: border-box !important;
 
         border-width: 0 !important;
         border-style: none !important;
-        border-radius: 12px !important;
 
         overflow: visible !important;
-        box-sizing: border-box !important;
 
         flex: none !important;
+
         transform: none !important;
+        filter: none !important;
       }
 
-      /* Desktop */
+      /* Desktop:
+         place the whole bubble clear of the banner,
+         slightly right of the avatar's upper edge. */
       @media (min-width: 1101px) {
-        .profile-polish-surface
-          .profile-avatar-wrap
-          > .profile-thought-bubble {
-          top: -14px !important;
-          right: -102px !important;
-          left: auto !important;
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble {
+          top: 4px !important;
+          right: -110px !important;
+
+          width: 160px !important;
+          height: 34px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+
+          padding: 0 11px !important;
+          border-radius: 12px !important;
         }
       }
 
       /* Tablet */
       @media (min-width: 700px) and (max-width: 1100px) {
-        .profile-polish-surface
-          .profile-avatar-wrap
-          > .profile-thought-bubble,
-        .profile-polish-surface
-          .profile-mobile-avatar-shell-real
-          > .profile-thought-bubble {
-          top: -16px !important;
-          right: -92px !important;
-          left: auto !important;
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
+        .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
+          top: 2px !important;
+          right: -96px !important;
 
           width: 148px !important;
           height: 32px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
 
           padding: 0 10px !important;
           border-radius: 11px !important;
         }
       }
 
-      /* Mobile: intentionally farther RIGHT and slightly UP. */
+      /* Mobile:
+         fully visible, shifted right, and clear of the cover edge. */
       @media (max-width: 699px) {
-        .profile-polish-surface
-          .profile-avatar-wrap
-          > .profile-thought-bubble,
-        .profile-polish-surface
-          .profile-mobile-avatar-shell-real
-          > .profile-thought-bubble {
-          top: -24px !important;
-          right: -94px !important;
-          left: auto !important;
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
+        .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
+          top: -2px !important;
+          right: -98px !important;
 
           width: 132px !important;
           height: 30px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
 
           padding: 0 9px !important;
           border-radius: 11px !important;
@@ -13800,14 +13880,10 @@ return (
       }
 
       @media (max-width: 390px) {
-        .profile-polish-surface
-          .profile-avatar-wrap
-          > .profile-thought-bubble,
-        .profile-polish-surface
-          .profile-mobile-avatar-shell-real
-          > .profile-thought-bubble {
-          top: -22px !important;
-          right: -82px !important;
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
+        .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
+          top: 0 !important;
+          right: -84px !important;
 
           width: 122px !important;
           height: 29px !important;
@@ -13816,11 +13892,11 @@ return (
         }
       }
 
-      /* Keep real avatar media below bubble and the edit button above avatar. */
       .profile-polish-surface .profile-avatar-wrap > img,
       .profile-polish-surface .profile-avatar-wrap > div:not(.profile-thought-bubble),
       .profile-polish-surface .profile-mobile-avatar-image-real,
       .profile-polish-surface .profile-mobile-avatar-fallback-real {
+        position: relative !important;
         z-index: 13 !important;
       }
 
