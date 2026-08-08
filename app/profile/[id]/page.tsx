@@ -14201,6 +14201,45 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE DESKTOP=MOBILE POSITION v15
+         Desktop only.
+
+         Match the SAME relationship used on mobile:
+         - anchor begins exactly where the avatar begins
+         - bubble top = -18px (same as mobile)
+         - bubble body overlaps the avatar's right edge by ~16px,
+           exactly matching the mobile right/width relationship
+         - keep the desktop 160px bubble width
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          top: 0 !important;
+
+          /* Match the ACTUAL hero/avatar left padding from the page CSS. */
+          left: clamp(18px, 2.1vw, 28px) !important;
+
+          /* Match the desktop avatar box exactly. */
+          width: clamp(132px, 16vw, 184px) !important;
+          height: clamp(132px, 16vw, 184px) !important;
+        }
+
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          top: -18px !important;
+
+          /*
+           * Mobile uses width 132 / right -116:
+           * 132 - 116 = 16px overlap onto avatar.
+           * Desktop width is 160, so 160 - 144 = same 16px overlap.
+           */
+          right: -144px !important;
+          left: auto !important;
+        }
+      }
+
 `}
 </style>
 
