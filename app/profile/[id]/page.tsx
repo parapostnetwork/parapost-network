@@ -13908,7 +13908,7 @@ return (
 
 
       /* =========================================================
-         STAGING THOUGHT BUBBLE LAYER FIX v9
+         STAGING THOUGHT BUBBLE LAYER FIX v10
          Desktop only:
          - preserve the v8 position exactly
          - remove trapping stacking contexts
@@ -13941,6 +13941,72 @@ return (
         .profile-polish-surface .profile-cover-zone {
           position: relative !important;
           z-index: 1 !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE TRUE FRONT-LAYER FIX v10
+         Desktop only.
+
+         ProfileThoughtBubble is a separate styled-jsx component.
+         :global() is intentional here so the parent profile page can
+         target the child component's root element without styled-jsx
+         scope attributes blocking the selector.
+
+         Position is intentionally unchanged from v8/v9.
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-hero-shell {
+          position: relative !important;
+          overflow: visible !important;
+          isolation: auto !important;
+        }
+
+        .profile-polish-surface .profile-cover-zone {
+          position: relative !important;
+          z-index: 0 !important;
+          overflow: hidden !important;
+          isolation: auto !important;
+        }
+
+        .profile-polish-surface .profile-cover-zone::after {
+          z-index: 1 !important;
+          pointer-events: none !important;
+        }
+
+        .profile-polish-surface .profile-hero-content {
+          position: relative !important;
+          z-index: 500 !important;
+          overflow: visible !important;
+          isolation: auto !important;
+        }
+
+        .profile-polish-surface .profile-avatar-wrap {
+          position: relative !important;
+          z-index: 600 !important;
+          overflow: visible !important;
+          isolation: auto !important;
+        }
+
+        .profile-polish-surface
+          .profile-avatar-wrap
+          > :global(.profile-thought-bubble) {
+          position: absolute !important;
+          top: -14px !important;
+          right: -132px !important;
+          left: auto !important;
+
+          z-index: 2147483000 !important;
+          isolation: isolate !important;
+
+          overflow: visible !important;
+          opacity: 1 !important;
+
+          /* Force its own compositor layer above the cover paint layer. */
+          transform: translate3d(0, 0, 1px) !important;
+          backface-visibility: hidden !important;
+          will-change: transform !important;
         }
       }
 
