@@ -14356,6 +14356,54 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE MOBILE REAL-SHELL FIX v20
+         Mobile only.
+
+         The visible mobile bubble is the FIRST ProfileThoughtBubble
+         rendered directly inside .profile-mobile-avatar-shell-real.
+         v19 targeted the wrapped desktop/main-avatar instance, so the
+         visible mobile bubble did not move.
+
+         Move the REAL mobile-shell bubble ~30 CSS px farther right.
+         Keep its vertical position exactly unchanged.
+         Desktop v18 remains untouched.
+         ========================================================= */
+      @media (max-width: 699px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > :global(.profile-thought-bubble) {
+          position: absolute !important;
+          top: -18px !important;
+          right: -146px !important;
+          left: auto !important;
+
+          width: 132px !important;
+          height: 30px !important;
+
+          margin: 0 !important;
+          padding: 0 9px !important;
+          border-radius: 11px !important;
+
+          z-index: 99999 !important;
+          overflow: visible !important;
+        }
+      }
+
+      @media (max-width: 390px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > :global(.profile-thought-bubble) {
+          top: -17px !important;
+          right: -128px !important;
+
+          width: 122px !important;
+          height: 29px !important;
+          padding: 0 8px !important;
+        }
+      }
+
 `}
 </style>
 
