@@ -14404,6 +14404,64 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE MOBILE WRAPPER FIX v23
+         Mobile only.
+
+         Root cause:
+         .profile-avatar-thought-original was set to display: contents.
+         That wrapper therefore had no box of its own, so trying to
+         reposition the child ProfileThoughtBubble from this page was
+         unreliable across the styled-jsx component boundary.
+
+         Fix:
+         turn the existing page-owned wrapper into a transparent,
+         absolute avatar-sized positioning layer on mobile, then move
+         THAT layer horizontally. The child bubble keeps its own shape,
+         animation, opacity and vertical position.
+
+         Desktop v18 is untouched.
+         ========================================================= */
+      @media (max-width: 699px) {
+        .profile-polish-surface.profile-mobile-first-polish
+          .profile-hero-content
+          .profile-avatar-wrap
+          > .profile-avatar-thought-original {
+          display: block !important;
+          position: absolute !important;
+
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+
+          margin: 0 !important;
+          padding: 0 !important;
+
+          border: 0 !important;
+          border-radius: 0 !important;
+          background: transparent !important;
+          box-shadow: none !important;
+
+          box-sizing: border-box !important;
+          overflow: visible !important;
+
+          transform: translateX(38px) !important;
+
+          z-index: 99998 !important;
+          pointer-events: none !important;
+        }
+      }
+
+      @media (max-width: 390px) {
+        .profile-polish-surface.profile-mobile-first-polish
+          .profile-hero-content
+          .profile-avatar-wrap
+          > .profile-avatar-thought-original {
+          transform: translateX(34px) !important;
+        }
+      }
+
 `}
 </style>
 
