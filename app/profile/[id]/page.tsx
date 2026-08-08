@@ -14299,6 +14299,63 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE MOBILE RESTORE v19
+         Mobile only.
+
+         v12 wrapped the original avatar thought bubble in
+         .profile-avatar-thought-original so desktop could hide it.
+         That changed the DOM relationship: the bubble was no longer a
+         DIRECT child of .profile-avatar-wrap, which meant the older
+         mobile positioning selectors stopped matching.
+
+         This restores those mobile rules against the NEW wrapper.
+         Desktop v18 is intentionally untouched.
+         ========================================================= */
+
+      @media (max-width: 699px) {
+        .profile-polish-surface
+          .profile-avatar-thought-original
+          > :global(.profile-thought-bubble) {
+          position: absolute !important;
+
+          /* Restore the mobile position used before the wrapper change. */
+          top: -18px !important;
+          right: -116px !important;
+          left: auto !important;
+
+          width: 132px !important;
+          height: 30px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+
+          margin: 0 !important;
+          padding: 0 9px !important;
+          border-radius: 11px !important;
+
+          z-index: 99999 !important;
+          overflow: visible !important;
+        }
+      }
+
+      @media (max-width: 390px) {
+        .profile-polish-surface
+          .profile-avatar-thought-original
+          > :global(.profile-thought-bubble) {
+          top: -17px !important;
+          right: -102px !important;
+
+          width: 122px !important;
+          height: 29px !important;
+
+          padding: 0 8px !important;
+        }
+      }
+
 `}
 </style>
 
