@@ -14453,6 +14453,51 @@ return (
   }
 `}</style>
 
+<style jsx global>{`
+  /*
+   * STAGING THOUGHT BUBBLE TRUE MOBILE TARGET FIX v22
+   *
+   * ANALYSIS:
+   * - .profile-mobile-header-real is hidden by later mobile CSS.
+   * - the visible mobile avatar comes from .profile-hero-content.
+   * - v12 wrapped its bubble in .profile-avatar-thought-original.
+   * - previous fixes were targeting the hidden mobile-header bubble.
+   *
+   * This rule targets the bubble that is ACTUALLY visible on mobile.
+   * Desktop v18 positioning is completely untouched.
+   */
+  @media (max-width: 699px) {
+    .profile-polish-surface.profile-mobile-first-polish
+      .profile-hero-content
+      .profile-avatar-wrap
+      > .profile-avatar-thought-original
+      > .profile-thought-bubble {
+      position: absolute !important;
+
+      /* Keep the approved vertical position; move only horizontally. */
+      top: -18px !important;
+      right: -116px !important;
+      left: auto !important;
+
+      margin: 0 !important;
+      z-index: 99999 !important;
+      overflow: visible !important;
+    }
+  }
+
+  @media (max-width: 390px) {
+    .profile-polish-surface.profile-mobile-first-polish
+      .profile-hero-content
+      .profile-avatar-wrap
+      > .profile-avatar-thought-original
+      > .profile-thought-bubble {
+      top: -17px !important;
+      right: -102px !important;
+      left: auto !important;
+    }
+  }
+`}</style>
+
     {/* Mobile Top Bar */}
     <div className="xl:hidden" style={mobileTopBarStyle}>
       <button
