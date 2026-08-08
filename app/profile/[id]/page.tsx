@@ -13763,7 +13763,7 @@ return (
 
 
       /* =========================================================
-         STAGING THOUGHT BUBBLE FIX ADVANCED v8
+         STAGING THOUGHT BUBBLE FIX ADVANCED v9
          Placement strategy:
          - keep the bubble visually clear of the cover/banner edge
          - attach it naturally to the avatar's right side
@@ -13904,6 +13904,44 @@ return (
       .profile-polish-surface .profile-mobile-camera-real {
         position: absolute !important;
         z-index: 40 !important;
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE LAYER FIX v9
+         Desktop only:
+         - preserve the v8 position exactly
+         - remove trapping stacking contexts
+         - keep the avatar/bubble above the cover/banner
+         - do not alter mobile/tablet positioning or scrolling
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-hero-content {
+          position: relative !important;
+          z-index: 100 !important;
+          isolation: auto !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-avatar-wrap {
+          position: relative !important;
+          z-index: 110 !important;
+          isolation: auto !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble {
+          top: -14px !important;
+          right: -132px !important;
+          z-index: 1000 !important;
+          isolation: auto !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-cover-zone {
+          position: relative !important;
+          z-index: 1 !important;
+        }
       }
 
 `}
