@@ -14156,6 +14156,30 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE POSITION FIX v13
+         Desktop only.
+
+         Keep the approved mobile-like vertical height, but place the
+         rectangular bubble completely OUTSIDE the avatar circle.
+
+         Geometry:
+         - desktop bubble width = 160px
+         - right = -168px means its left edge begins 8px beyond the
+           right edge of the avatar-sized anchor
+         - no stacking, animation, mobile, or tablet changes
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          top: -14px !important;
+          right: -168px !important;
+          left: auto !important;
+        }
+      }
+
 `}
 </style>
 
