@@ -14262,34 +14262,24 @@ return (
 
 
       /* =========================================================
-         STAGING THOUGHT BUBBLE TRUE DESKTOP POSITION FIX v17
+         STAGING THOUGHT BUBBLE RECOVERY + DESKTOP NUDGE v18
          Desktop only.
 
-         IMPORTANT:
-         The real desktop avatar is being forced by later profile CSS
-         to 112px x 112px. Earlier thought-anchor fixes incorrectly
-         assumed the avatar was still clamp(132px, 16vw, 184px).
+         Built from v16 (the last good layout), not v17.
+         v17 incorrectly collapsed the desktop anchor to 0x0 and changed
+         the child to a left-based coordinate, which pulled the bubble
+         dramatically toward the left side of the page.
 
-         This override stops positioning from the anchor's RIGHT edge.
-         Instead, it uses the real 112px avatar geometry directly.
-
-         Mobile relationship:
-         - bubble overlaps avatar's right edge by about 16px
-         - 112px avatar - 16px overlap = bubble starts at 96px
-         - vertical offset remains -18px
+         v18 restores the proven v16 geometry and moves the ENTIRE
+         desktop anchor 20px to the right.
          ========================================================= */
       @media (min-width: 1101px) {
         .profile-polish-surface .profile-desktop-thought-anchor {
-          display: block !important;
-          position: absolute !important;
-
-          /* Match the actual desktop hero-content left padding. */
-          left: 20px !important;
           top: 0 !important;
+          left: calc(clamp(18px, 2.1vw, 28px) + 20px) !important;
 
-          /* Zero-size coordinate anchor; no fake avatar width involved. */
-          width: 0 !important;
-          height: 0 !important;
+          width: clamp(132px, 16vw, 184px) !important;
+          height: clamp(132px, 16vw, 184px) !important;
 
           overflow: visible !important;
           z-index: 200 !important;
@@ -14298,12 +14288,9 @@ return (
         .profile-polish-surface
           .profile-desktop-thought-anchor
           > :global(.profile-thought-bubble) {
-          position: absolute !important;
-
-          /* Real 112px avatar - 16px overlap = 96px. */
-          left: 96px !important;
-          right: auto !important;
           top: -18px !important;
+          right: -156px !important;
+          left: auto !important;
 
           width: 160px !important;
           height: 34px !important;
