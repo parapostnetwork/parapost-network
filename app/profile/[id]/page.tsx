@@ -13763,7 +13763,7 @@ return (
 
 
       /* =========================================================
-         STAGING THOUGHT BUBBLE FIX ADVANCED v7
+         STAGING THOUGHT BUBBLE FIX ADVANCED v8
          Placement strategy:
          - keep the bubble visually clear of the cover/banner edge
          - attach it naturally to the avatar's right side
@@ -13822,8 +13822,8 @@ return (
          slightly right of the avatar's upper edge. */
       @media (min-width: 1101px) {
         .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble {
-          top: 22px !important;
-          right: -120px !important;
+          top: -14px !important;
+          right: -132px !important;
 
           width: 160px !important;
           height: 34px !important;
@@ -13842,8 +13842,8 @@ return (
       @media (min-width: 700px) and (max-width: 1100px) {
         .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
         .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
-          top: 20px !important;
-          right: -104px !important;
+          top: -16px !important;
+          right: -118px !important;
 
           width: 148px !important;
           height: 32px !important;
@@ -13863,8 +13863,8 @@ return (
       @media (max-width: 699px) {
         .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
         .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
-          top: 32px !important;
-          right: -106px !important;
+          top: -18px !important;
+          right: -116px !important;
 
           width: 132px !important;
           height: 30px !important;
@@ -13882,8 +13882,8 @@ return (
       @media (max-width: 390px) {
         .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
         .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
-          top: 30px !important;
-          right: -92px !important;
+          top: -17px !important;
+          right: -102px !important;
 
           width: 122px !important;
           height: 29px !important;
