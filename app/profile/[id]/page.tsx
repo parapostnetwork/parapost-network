@@ -14240,6 +14240,26 @@ return (
         }
       }
 
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE FINAL SPACING FIX v16
+         Desktop only.
+
+         v15 matched the mobile relationship, but visually the desktop
+         bubble still sits a little too close to the avatar edge.
+         Add a small extra 12px horizontal gap only.
+         Vertical position and every other behavior stay unchanged.
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          top: -18px !important;
+          right: -156px !important;
+          left: auto !important;
+        }
+      }
+
 `}
 </style>
 
