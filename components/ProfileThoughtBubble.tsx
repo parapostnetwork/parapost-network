@@ -69,7 +69,7 @@ export default function ProfileThoughtBubble({
 
           /* Desktop */
           top: -14px;
-          right: -104px;
+          right: -102px;
 
           width: 160px;
           height: 34px;
@@ -88,10 +88,16 @@ export default function ProfileThoughtBubble({
 
           box-shadow:
             0 5px 14px rgba(0, 0, 0, 0.34),
-            inset 0 1px 0 rgba(255, 255, 255, 0.045);
+            inset 0 1px 0 rgba(255, 255, 255, 0.035);
 
           overflow: visible;
-          z-index: 50;
+
+          /*
+           * Higher stacking level so the bubble stays visually
+           * above the cover/banner layer.
+           */
+          z-index: 9999 !important;
+
           cursor: pointer;
 
           flex: none !important;
@@ -99,6 +105,9 @@ export default function ProfileThoughtBubble({
           min-height: 0 !important;
           max-width: none !important;
           max-height: none !important;
+
+          isolation: isolate;
+          transform: translateZ(0);
         }
 
         .profile-thought-window {
@@ -113,6 +122,8 @@ export default function ProfileThoughtBubble({
           white-space: nowrap;
 
           border-radius: inherit;
+
+          z-index: 2;
         }
 
         .profile-thought-text {
@@ -126,7 +137,10 @@ export default function ProfileThoughtBubble({
           height: 100%;
           min-width: max-content;
 
-          color: rgba(255, 255, 255, 0.72);
+          /*
+           * Softer, more transparent wording.
+           */
+          color: rgba(255, 255, 255, 0.52);
 
           font-size: 12.5px;
           font-weight: 600;
@@ -138,6 +152,7 @@ export default function ProfileThoughtBubble({
           animation-duration: 12s;
           animation-timing-function: linear;
           animation-iteration-count: infinite;
+          animation-play-state: running;
 
           will-change: transform;
           backface-visibility: hidden;
@@ -158,8 +173,9 @@ export default function ProfileThoughtBubble({
 
           transform: rotate(7deg);
 
-          filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.18));
+          filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.16));
 
+          z-index: 1;
           pointer-events: none;
         }
 
@@ -181,11 +197,14 @@ export default function ProfileThoughtBubble({
           }
         }
 
-        /* Tablet */
+        /*
+         * TABLET
+         * Slightly tighter than desktop.
+         */
         @media (min-width: 700px) and (max-width: 1100px) {
           .profile-thought-bubble {
-            top: -13px;
-            right: -92px;
+            top: -15px;
+            right: -88px;
 
             width: 148px;
             height: 32px;
@@ -193,15 +212,19 @@ export default function ProfileThoughtBubble({
             padding: 0 10px;
 
             border-radius: 11px;
+
+            z-index: 9999 !important;
           }
 
           .profile-thought-text {
             font-size: 12px;
+            color: rgba(255, 255, 255, 0.52);
 
             animation-name: profileThoughtScrollLeft !important;
             animation-duration: 12s !important;
             animation-timing-function: linear !important;
             animation-iteration-count: infinite !important;
+            animation-play-state: running !important;
 
             transform: translate3d(100%, 0, 0);
           }
@@ -215,11 +238,15 @@ export default function ProfileThoughtBubble({
           }
         }
 
-        /* Mobile */
+        /*
+         * MOBILE
+         * Move the bubble UP and RIGHT so it sits naturally
+         * at the avatar's top-right instead of over the circle.
+         */
         @media (max-width: 699px) {
           .profile-thought-bubble {
-            top: -11px;
-            right: -74px;
+            top: -18px;
+            right: -84px;
 
             width: 132px;
             height: 30px;
@@ -227,10 +254,13 @@ export default function ProfileThoughtBubble({
             padding: 0 9px;
 
             border-radius: 11px;
+
+            z-index: 9999 !important;
           }
 
           .profile-thought-text {
             font-size: 11.25px;
+            color: rgba(255, 255, 255, 0.52);
 
             animation-name: profileThoughtScrollLeft !important;
             animation-duration: 12s !important;
@@ -252,11 +282,13 @@ export default function ProfileThoughtBubble({
           }
         }
 
-        /* Small mobile */
+        /*
+         * SMALL MOBILE
+         */
         @media (max-width: 390px) {
           .profile-thought-bubble {
-            top: -10px;
-            right: -66px;
+            top: -17px;
+            right: -74px;
 
             width: 122px;
             height: 29px;
@@ -266,19 +298,12 @@ export default function ProfileThoughtBubble({
 
           .profile-thought-text {
             font-size: 10.75px;
-
-            animation-name: profileThoughtScrollLeft !important;
-            animation-duration: 12s !important;
-            animation-timing-function: linear !important;
-            animation-iteration-count: infinite !important;
-            animation-play-state: running !important;
           }
         }
 
         /*
-         * Reduced-motion support:
-         * keep the feature moving, but slow it down rather than
-         * disabling the marquee completely.
+         * Reduced motion:
+         * keep scrolling, but slow it instead of stopping it.
          */
         @media (prefers-reduced-motion: reduce) {
           .profile-thought-text {
