@@ -14012,7 +14012,7 @@ return (
 
 
       /* =========================================================
-         STAGING THOUGHT BUBBLE STRUCTURAL FIX v11
+         STAGING THOUGHT BUBBLE STRUCTURAL FIX v12
          Desktop only.
 
          The visible desktop bubble is now a sibling overlay inside
@@ -14119,6 +14119,38 @@ return (
 
       /* Explicit safety: new sibling overlay can never appear on tablet/mobile. */
       @media (max-width: 1100px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: none !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE SINGLE-INSTANCE FIX v12
+         Desktop: show ONLY the new hero-level bubble.
+         Tablet/mobile: show ONLY the original avatar bubble.
+         No position, animation, or stacking changes.
+         ========================================================= */
+
+      .profile-avatar-thought-original {
+        display: contents;
+      }
+
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-avatar-thought-original {
+          display: none !important;
+        }
+
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: block !important;
+        }
+      }
+
+      @media (max-width: 1100px) {
+        .profile-polish-surface .profile-avatar-thought-original {
+          display: contents !important;
+        }
+
         .profile-polish-surface .profile-desktop-thought-anchor {
           display: none !important;
         }
@@ -14676,7 +14708,9 @@ return (
                   </div>
 
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
-                    <ProfileThoughtBubble />
+                    <div className="profile-avatar-thought-original">
+                      <ProfileThoughtBubble />
+                    </div>
                     {profile?.avatar_url ? (
                       <img src={profile?.avatar_url || ""} alt="Profile" style={profileAvatarStyle} />
                     ) : (
