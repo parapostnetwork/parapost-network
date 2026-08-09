@@ -1,4 +1,5 @@
 "use client";
+// PROFILE THOUGHT BUBBLE v34 - true edge-to-edge continuous thought scroll; no visible reset/jump.
 // PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
 
 import { useEffect, useMemo, useState } from "react";
@@ -279,7 +280,7 @@ export default function ProfileThoughtBubble({
         .profile-thought-text {
           position: absolute;
           top: 0;
-          left: 0;
+          left: 100%;
           display: inline-flex;
           align-items: center;
           height: 100%;
@@ -292,7 +293,7 @@ export default function ProfileThoughtBubble({
           animation: profileThoughtScrollLeft 12s linear infinite;
           will-change: transform;
           backface-visibility: hidden;
-          transform: translate3d(100%, 0, 0);
+          transform: translate3d(0, 0, 0);
         }
 
         .profile-thought-tail {
@@ -310,8 +311,21 @@ export default function ProfileThoughtBubble({
         }
 
         @keyframes profileThoughtScrollLeft {
-          0%, 12% { transform: translate3d(100%, 0, 0); }
-          88%, 100% { transform: translate3d(-100%, 0, 0); }
+          /*
+           * v34 TRUE CONTINUOUS SCROLL
+           * Start with the whole thought just outside the right edge, then
+           * finish with the whole thought just outside the left edge.
+           * Both endpoints are invisible, so the infinite-animation reset
+           * cannot flash/reappear part-way through the bubble. No dwell.
+           */
+          0% {
+            left: 100%;
+            transform: translate3d(0, 0, 0);
+          }
+          100% {
+            left: 0%;
+            transform: translate3d(-100%, 0, 0);
+          }
         }
 
         /* New Thought overlay */
@@ -545,7 +559,7 @@ export default function ProfileThoughtBubble({
             font-size: 12px;
             color: rgba(255, 255, 255, 0.52);
             animation: profileThoughtScrollLeft 12s linear infinite !important;
-            transform: translate3d(100%, 0, 0);
+            transform: translate3d(0, 0, 0);
           }
 
           .profile-thought-tail {
@@ -572,7 +586,7 @@ export default function ProfileThoughtBubble({
             font-size: 11.25px;
             color: rgba(255, 255, 255, 0.52);
             animation: profileThoughtScrollLeft 12s linear infinite !important;
-            transform: translate3d(100%, 0, 0);
+            transform: translate3d(0, 0, 0);
           }
 
           .profile-thought-tail {
