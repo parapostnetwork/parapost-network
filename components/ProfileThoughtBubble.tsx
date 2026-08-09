@@ -1,5 +1,5 @@
 "use client";
-// PROFILE THOUGHT BUBBLE v37 - measured pixel ticker: one thought moves continuously right-to-left and resets only while fully offscreen.
+// PROFILE THOUGHT BUBBLE v38 - dual-lane measured ticker: alternate copies move continuously; resets happen only far offscreen.
 // PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -50,6 +50,7 @@ export default function ProfileThoughtBubble({
   const [mounted, setMounted] = useState(false);
   const thoughtWindowRef = useRef<HTMLSpanElement | null>(null);
   const thoughtTextRef = useRef<HTMLSpanElement | null>(null);
+  const thoughtTextRefB = useRef<HTMLSpanElement | null>(null);
 
   const dailyPrompt = useMemo(() => {
     const now = new Date();
@@ -70,18 +71,38 @@ export default function ProfileThoughtBubble({
 
   useEffect(() => {
     const windowElement = thoughtWindowRef.current;
-    const textElement = thoughtTextRef.current;
-    if (!windowElement || !textElement) return;
+    const textElementA = thoughtTextRef.current;
+    const textElementB = thoughtTextRefB.current;
+    if (!windowElement || !textElementA || !textElementB) return;
 
     let frameId = 0;
     let lastTime = performance.now();
     let viewportWidth = windowElement.clientWidth;
-    let textWidth = textElement.scrollWidth;
-    let x = viewportWidth;
+    let textWidth = Math.max(textElementA.scrollWidth, textElementB.scrollWidth);
     const speedPixelsPerSecond = 24;
 
+    /*
+     * v38 DUAL-LANE CONTINUOUS MOTION
+     *
+     * v37 used one DOM node and teleported that same node from fully offscreen
+     * left back to fully offscreen right. Even though the teleport happened
+     * outside the clip window, the restarted entrance could still look like the
+     * sentence suddenly appeared again.
+     *
+     * v38 uses TWO independently positioned copies. They are separated by
+     * exactly viewportWidth + textWidth. Therefore copy B reaches the right edge
+     * at the exact moment copy A fully clears the left edge. Each copy is only
+     * recycled after it is completely offscreen, while the other copy continues
+     * moving. No visible element ever jumps from left to right.
+     */
+    const getLaneDistance = () => viewportWidth + textWidth;
+    let laneDistance = getLaneDistance();
+    let xA = viewportWidth + 1;
+    let xB = xA + laneDistance;
+
     const paint = () => {
-      textElement.style.transform = `translate3d(${x}px, 0, 0)`;
+      textElementA.style.transform = `translate3d(${xA}px, 0, 0)`;
+      textElementB.style.transform = `translate3d(${xB}px, 0, 0)`;
     };
 
     paint();
@@ -89,17 +110,13 @@ export default function ProfileThoughtBubble({
     const animate = (now: number) => {
       const deltaSeconds = Math.min((now - lastTime) / 1000, 0.05);
       lastTime = now;
-      x -= speedPixelsPerSecond * deltaSeconds;
+      const travel = speedPixelsPerSecond * deltaSeconds;
+      xA -= travel;
+      xB -= travel;
 
-      /*
-       * Reset ONLY after every pixel of the thought has cleared the left edge.
-       * The reset destination is exactly the right edge, where the text is also
-       * fully invisible. Therefore no fragment can flash or jump into view.
-       */
-      if (x <= -textWidth) {
-        const overshoot = -textWidth - x;
-        x = viewportWidth - overshoot;
-      }
+      const recycleDistance = laneDistance * 2;
+      if (xA <= -textWidth) xA += recycleDistance;
+      if (xB <= -textWidth) xB += recycleDistance;
 
       paint();
       frameId = requestAnimationFrame(animate);
@@ -111,13 +128,17 @@ export default function ProfileThoughtBubble({
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(() => {
             viewportWidth = windowElement.clientWidth;
-            textWidth = textElement.scrollWidth;
-            if (x > viewportWidth || x < -textWidth) x = viewportWidth;
+            textWidth = Math.max(textElementA.scrollWidth, textElementB.scrollWidth);
+            laneDistance = getLaneDistance();
+            xA = viewportWidth + 1;
+            xB = xA + laneDistance;
+            paint();
           })
         : null;
 
     resizeObserver?.observe(windowElement);
-    resizeObserver?.observe(textElement);
+    resizeObserver?.observe(textElementA);
+    resizeObserver?.observe(textElementB);
 
     return () => {
       cancelAnimationFrame(frameId);
@@ -286,6 +307,9 @@ export default function ProfileThoughtBubble({
           <span ref={thoughtTextRef} className="profile-thought-text" aria-hidden="true">
             {displayText}
           </span>
+          <span ref={thoughtTextRefB} className="profile-thought-text" aria-hidden="true">
+            {displayText}
+          </span>
         </span>
         <span className="profile-thought-tail" aria-hidden="true" />
       </button>
@@ -373,7 +397,7 @@ export default function ProfileThoughtBubble({
           pointer-events: none;
         }
 
-        /* v37 scrolling is driven by requestAnimationFrame using measured pixel widths. */
+        /* v38 scrolling is driven by two measured requestAnimationFrame lanes; each lane only recycles fully offscreen. */
 
         /* New Thought overlay */
         .thought-composer-backdrop {
