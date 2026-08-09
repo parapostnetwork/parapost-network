@@ -1,5 +1,5 @@
 "use client";
-// PROFILE THOUGHT BUBBLE v34 - true edge-to-edge continuous thought scroll; no visible reset/jump.
+// PROFILE THOUGHT BUBBLE v35 - seamless duplicated ticker track; no restart gap or visible reset.
 // PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
 
 import { useEffect, useMemo, useState } from "react";
@@ -223,7 +223,10 @@ export default function ProfileThoughtBubble({
         }}
       >
         <span className="profile-thought-window">
-          <span className="profile-thought-text">{displayText}</span>
+          <span className="profile-thought-track" aria-hidden="true">
+            <span className="profile-thought-text">{displayText}</span>
+            <span className="profile-thought-text">{displayText}</span>
+          </span>
         </span>
         <span className="profile-thought-tail" aria-hidden="true" />
       </button>
@@ -277,23 +280,36 @@ export default function ProfileThoughtBubble({
           z-index: 2;
         }
 
-        .profile-thought-text {
+        .profile-thought-track {
           position: absolute;
           top: 0;
-          left: 100%;
+          left: 0;
           display: inline-flex;
           align-items: center;
+          width: max-content;
+          height: 100%;
+          white-space: nowrap;
+          animation: profileThoughtTickerLoop 12s linear infinite;
+          will-change: transform;
+          backface-visibility: hidden;
+          transform: translate3d(0, 0, 0);
+        }
+
+        .profile-thought-text {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          flex: 0 0 auto;
           height: 100%;
           min-width: max-content;
+          padding-right: 28px;
           color: rgba(255, 255, 255, 0.52);
           font-size: 12.5px;
           font-weight: 600;
           line-height: 1;
           white-space: nowrap;
-          animation: profileThoughtScrollLeft 12s linear infinite;
-          will-change: transform;
-          backface-visibility: hidden;
-          transform: translate3d(0, 0, 0);
+          animation: none !important;
+          transform: none !important;
         }
 
         .profile-thought-tail {
@@ -310,22 +326,16 @@ export default function ProfileThoughtBubble({
           pointer-events: none;
         }
 
-        @keyframes profileThoughtScrollLeft {
+        @keyframes profileThoughtTickerLoop {
           /*
-           * v34 TRUE CONTINUOUS SCROLL
-           * Start with the whole thought just outside the right edge, then
-           * finish with the whole thought just outside the left edge.
-           * Both endpoints are invisible, so the infinite-animation reset
-           * cannot flash/reappear part-way through the bubble. No dwell.
+           * v35 SEAMLESS TICKER
+           * Two identical thought copies live on one moving track. Moving the
+           * track by exactly half its width lands copy #2 in the exact same
+           * visual position as copy #1, so the infinite reset is invisible.
+           * There is always another copy following behind the first.
            */
-          0% {
-            left: 100%;
-            transform: translate3d(0, 0, 0);
-          }
-          100% {
-            left: 0%;
-            transform: translate3d(-100%, 0, 0);
-          }
+          from { transform: translate3d(0, 0, 0); }
+          to { transform: translate3d(-50%, 0, 0); }
         }
 
         /* New Thought overlay */
@@ -555,11 +565,13 @@ export default function ProfileThoughtBubble({
             z-index: 9999 !important;
           }
 
+          .profile-thought-track {
+            animation-duration: 12s;
+          }
+
           .profile-thought-text {
             font-size: 12px;
             color: rgba(255, 255, 255, 0.52);
-            animation: profileThoughtScrollLeft 12s linear infinite !important;
-            transform: translate3d(0, 0, 0);
           }
 
           .profile-thought-tail {
@@ -582,11 +594,13 @@ export default function ProfileThoughtBubble({
             z-index: 9999 !important;
           }
 
+          .profile-thought-track {
+            animation-duration: 12s;
+          }
+
           .profile-thought-text {
             font-size: 11.25px;
             color: rgba(255, 255, 255, 0.52);
-            animation: profileThoughtScrollLeft 12s linear infinite !important;
-            transform: translate3d(0, 0, 0);
           }
 
           .profile-thought-tail {
@@ -679,8 +693,8 @@ export default function ProfileThoughtBubble({
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .profile-thought-text {
-            animation: profileThoughtScrollLeft 20s linear infinite !important;
+          .profile-thought-track {
+            animation-duration: 20s;
           }
         }
       `}</style>
