@@ -1,6 +1,8 @@
 "use client";
+// PROFILE THOUGHT BUBBLE v28 - portal-safe mobile composer, real save callback, tools removed.
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 const DAILY_PROMPTS = [
   "What’s your day look like?",
@@ -42,6 +44,8 @@ export default function ProfileThoughtBubble({
   const [draft, setDraft] = useState("");
   const [audience, setAudience] = useState<"friends" | "everyone">("friends");
   const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState("");
+  const [mounted, setMounted] = useState(false);
 
   const dailyPrompt = useMemo(() => {
     const now = new Date();
@@ -52,6 +56,12 @@ export default function ProfileThoughtBubble({
   }, []);
 
   const displayText = (text?.trim() || dailyPrompt).slice(0, 60);
+
+  // v28: render the composer through document.body so mobile transforms,
+  // avatar wrappers and stacking contexts can never trap the fixed overlay.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!composerOpen) return;
@@ -74,17 +84,25 @@ export default function ProfileThoughtBubble({
     const clean = draft.trim().slice(0, 60);
     if (!clean || sharing) return;
 
+    setShareError("");
+
     try {
       setSharing(true);
-      if (onShare) {
-        await onShare(clean, audience);
-      } else {
-        // UI-ready fallback. Connect this callback to the existing Parapost
-        // thought/note persistence action when the backend endpoint is ready.
-        console.info("Parapost thought:", { text: clean, audience });
+
+      if (!onShare) {
+        throw new Error("Thought saving is not connected on this profile yet.");
       }
+
+      await onShare(clean, audience);
       setDraft("");
       setComposerOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Your thought could not be saved. Please try again.";
+      console.error("Profile thought save failed:", error);
+      setShareError(message);
     } finally {
       setSharing(false);
     }
@@ -97,7 +115,10 @@ export default function ProfileThoughtBubble({
         className="profile-thought-bubble"
         aria-label={isOwnProfile ? "Create or edit thought" : `Thought: ${displayText}`}
         onClick={() => {
-          if (isOwnProfile) setComposerOpen(true);
+          if (!isOwnProfile) return;
+          setDraft((text?.trim() || "").slice(0, 60));
+          setShareError("");
+          setComposerOpen(true);
         }}
       >
         <span className="profile-thought-window">
@@ -106,7 +127,8 @@ export default function ProfileThoughtBubble({
         <span className="profile-thought-tail" aria-hidden="true" />
       </button>
 
-      {composerOpen && (
+      {mounted && composerOpen && createPortal(
+        (
         <div
           className="thought-composer-backdrop"
           role="presentation"
@@ -165,14 +187,11 @@ export default function ProfileThoughtBubble({
                 </div>
 
                 <div className="thought-count">{draft.length}/60</div>
-              </div>
-
-              <div className="thought-tools" aria-label="Thought options">
-                <button type="button" aria-label="Add music" title="Music">♫</button>
-                <button type="button" aria-label="Add GIF" title="GIF">
-                  <span className="gif-label">GIF</span>
-                </button>
-                <button type="button" aria-label="Add emoji" title="Emoji">☺</button>
+                {shareError ? (
+                  <div className="thought-share-error" role="alert">
+                    {shareError}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -200,6 +219,8 @@ export default function ProfileThoughtBubble({
             </footer>
           </section>
         </div>
+        ),
+        document.body
       )}
 
       <style jsx>{`
@@ -333,7 +354,6 @@ export default function ProfileThoughtBubble({
 
         .thought-close,
         .thought-top-share,
-        .thought-tools button,
         .thought-audience,
         .thought-main-share {
           font: inherit;
@@ -456,35 +476,14 @@ export default function ProfileThoughtBubble({
           font-size: 18px;
         }
 
-        .thought-tools {
-          display: flex;
-          gap: 14px;
-          margin-top: 24px;
-        }
-
-        .thought-tools button {
-          width: 54px;
-          height: 54px;
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          color: #fff;
-          background: rgba(255, 255, 255, 0.075);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          font-size: 27px;
-        }
-
-        .thought-tools button:hover {
-          background: rgba(155, 81, 255, 0.16);
-          border-color: rgba(168, 92, 255, 0.45);
-        }
-
-        .gif-label {
-          padding: 3px 4px;
-          border: 2px solid currentColor;
-          border-radius: 5px;
-          font-size: 11px;
-          font-weight: 900;
+        .thought-share-error {
+          width: min(360px, 78vw);
+          margin-top: 16px;
+          color: #fca5a5;
+          font-size: 13px;
+          font-weight: 650;
+          line-height: 1.35;
+          text-align: center;
         }
 
         .thought-composer-footer {

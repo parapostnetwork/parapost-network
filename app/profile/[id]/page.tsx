@@ -2,6 +2,7 @@
 // PROFILE SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or deletes from Profile.
 
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
+// PROFILE THOUGHT PERSISTENCE v28 - Supabase-backed profile thoughts + portal composer wiring.
 
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -52,6 +53,13 @@ type ProfileRow = {
   phone?: string | null;
   interests?: unknown;
   profile_links?: unknown;
+};
+
+type ProfileThoughtRow = {
+  user_id: string;
+  text: string;
+  audience: "friends" | "everyone";
+  updated_at: string;
 };
 
 type ProfileSearchResult = {
@@ -2528,6 +2536,7 @@ export default function ProfilePage() {
   const [viewerEmail, setViewerEmail] = useState("");
   const [viewerAvatarUrl, setViewerAvatarUrl] = useState("");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [profileThought, setProfileThought] = useState<ProfileThoughtRow | null>(null);
   const [profilePostContent, setProfilePostContent] = useState("");
   const [profilePostImages, setProfilePostImages] = useState<File[]>([]);
   const [profilePostImagePreviewUrls, setProfilePostImagePreviewUrls] = useState<string[]>([]);
@@ -2666,6 +2675,42 @@ export default function ProfilePage() {
   });
 
   const isOwnProfile = !!viewerId && viewerId === profileId;
+
+  const handleShareProfileThought = async (
+    thoughtText: string,
+    audience: "friends" | "everyone"
+  ) => {
+    const clean = thoughtText.trim().slice(0, 60);
+
+    if (!clean) {
+      throw new Error("Enter a thought before sharing.");
+    }
+
+    if (!viewerId || viewerId !== profileId) {
+      throw new Error("You can only update the thought on your own profile.");
+    }
+
+    const nextThought = {
+      user_id: viewerId,
+      text: clean,
+      audience,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("profile_thoughts")
+      .upsert(nextThought, { onConflict: "user_id" })
+      .select("user_id, text, audience, updated_at")
+      .single();
+
+    if (error) {
+      console.error("Profile thought save error:", error);
+      throw new Error(error.message || "Your thought could not be saved.");
+    }
+
+    setProfileThought((data as ProfileThoughtRow | null) || nextThought);
+  };
+
   const profileIsPrivate = Boolean(profile?.is_private);
   const canViewPrivateProfileContent = !profileIsPrivate || isOwnProfile || friendStatus === "friends";
   const isProfileContentLocked = Boolean(profile && profileIsPrivate && !canViewPrivateProfileContent);
@@ -3129,6 +3174,7 @@ const closeProfileMobileSearch = useCallback(() => {
 
     setLoading(true);
     setErrorMessage("");
+    setProfileThought(null);
     setProfileBadgesLoading(true);
     setProfileAchievementsLoading(true);
     const profileBadgesPromise = loadEarnedProfileBadges(profileId);
@@ -3336,6 +3382,7 @@ const closeProfileMobileSearch = useCallback(() => {
     if (profileResult.error) {
       setErrorMessage(profileResult.error.message || "Unable to load profile.");
       setProfile(null);
+      setProfileThought(null);
       setPosts([]);
       setSharedPostPosts([]);
       setSharedReelPosts([]);
@@ -3348,6 +3395,20 @@ const closeProfileMobileSearch = useCallback(() => {
       setProfileAchievementActivity([]);
       setLoading(false);
       return;
+    }
+
+    const { data: profileThoughtData, error: profileThoughtError } = await supabase
+      .from("profile_thoughts")
+      .select("user_id, text, audience, updated_at")
+      .eq("user_id", profileId)
+      .maybeSingle();
+
+    if (profileThoughtError) {
+      // A missing migration/RLS issue should never break the rest of Profile.
+      console.warn("Profile thought could not load:", profileThoughtError.message);
+      setProfileThought(null);
+    } else {
+      setProfileThought((profileThoughtData as ProfileThoughtRow | null) || null);
     }
 
     setProfile((profileResult.data as ProfileRow | null) || null);
@@ -14079,11 +14140,7 @@ return (
           overflow: visible !important;
           isolation: auto !important;
 
-          /* v28 DESKTOP INTERACTION FIX:
-           * The anchor itself must participate in hit-testing. Keeping this
-           * at none made the visible desktop thought unreliable to click.
-           */
-          pointer-events: auto !important;
+          pointer-events: none !important;
         }
 
         .profile-polish-surface
@@ -14488,28 +14545,6 @@ return (
 
 `}
 </style>
-
-<style jsx global>{`
-  /* =========================================================
-   * STAGING THOUGHT BUBBLE DESKTOP CLICK FIX v28
-   * Desktop only. Position is intentionally untouched.
-   * This is the final interaction authority for the hero-level
-   * desktop thought instance. Mobile/tablet rules remain unchanged.
-   * ========================================================= */
-  @media (min-width: 1101px) {
-    .profile-polish-surface .profile-desktop-thought-anchor {
-      pointer-events: auto !important;
-      overflow: visible !important;
-    }
-
-    .profile-polish-surface
-      .profile-desktop-thought-anchor
-      > .profile-thought-bubble {
-      pointer-events: auto !important;
-      cursor: pointer !important;
-    }
-  }
-`}</style>
 
 <style jsx global>{`
   /*
@@ -14965,7 +15000,12 @@ return (
 
                 <div className="profile-mobile-header-real">
                   <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}>
-                    <ProfileThoughtBubble />
+                    <ProfileThoughtBubble
+                      text={profileThought?.text || undefined}
+                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                      isOwnProfile={isOwnProfile}
+                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                    />
                     {profile?.avatar_url ? (
                       <img
                         src={profile?.avatar_url || ""}
@@ -15147,12 +15187,22 @@ return (
                   {/* Desktop thought bubble lives outside the avatar wrapper so it cannot be
                       clipped or painted underneath the cover/banner stacking context. */}
                   <div className="profile-desktop-thought-anchor" aria-hidden="false">
-                    <ProfileThoughtBubble />
+                    <ProfileThoughtBubble
+                      text={profileThought?.text || undefined}
+                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                      isOwnProfile={isOwnProfile}
+                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                    />
                   </div>
 
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
                     <div className="profile-avatar-thought-original">
-                      <ProfileThoughtBubble />
+                      <ProfileThoughtBubble
+                      text={profileThought?.text || undefined}
+                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                      isOwnProfile={isOwnProfile}
+                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                    />
                     </div>
                     {profile?.avatar_url ? (
                       <img src={profile?.avatar_url || ""} alt="Profile" style={profileAvatarStyle} />
