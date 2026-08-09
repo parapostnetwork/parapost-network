@@ -1,5 +1,5 @@
 "use client";
-// STAGING THOUGHT BUBBLE DESKTOP TRUE FRONT + CLICK FIX v29
+// STAGING THOUGHT BUBBLE DESKTOP DIRECT HIT TARGET FIX v30
 // PROFILE SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or deletes from Profile.
 
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
@@ -14607,6 +14607,46 @@ return (
   }
 `}</style>
 
+<style jsx global>{`
+  /* =========================================================
+   * STAGING THOUGHT BUBBLE DESKTOP DIRECT HIT TARGET FIX v30
+   *
+   * The visible desktop bubble can sit outside the anchor's normal box.
+   * This transparent page-owned button is placed exactly over that visible
+   * bubble and forwards the click programmatically to ProfileThoughtBubble.
+   * It changes interaction only — not the approved desktop coordinates.
+   * ========================================================= */
+  @media (min-width: 1101px) {
+    .profile-polish-surface .profile-desktop-thought-hit-target {
+      display: block !important;
+      position: absolute !important;
+      top: -18px !important;
+      right: -156px !important;
+      left: auto !important;
+      width: 160px !important;
+      height: 34px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 12px !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      opacity: 1 !important;
+      z-index: 2147483646 !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      touch-action: manipulation !important;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .profile-desktop-thought-hit-target {
+      display: none !important;
+      pointer-events: none !important;
+    }
+  }
+`}</style>
+
 
 <style jsx global>{`
   /*
@@ -15255,6 +15295,22 @@ return (
                       isOwnProfile={isOwnProfile}
                       onShare={isOwnProfile ? handleShareProfileThought : undefined}
                     />
+                    {isOwnProfile ? (
+                      <button
+                        type="button"
+                        className="profile-desktop-thought-hit-target"
+                        aria-label="Create or edit thought"
+                        title="Create or edit thought"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          const thoughtButton = event.currentTarget.parentElement?.querySelector(
+                            ".profile-thought-bubble"
+                          ) as HTMLButtonElement | null;
+                          thoughtButton?.click();
+                        }}
+                      />
+                    ) : null}
                   </div>
 
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>

@@ -1,5 +1,5 @@
 "use client";
-// PROFILE THOUGHT BUBBLE v29 - desktop inline composer restore, mobile/tablet portal, real save callback, tools removed.
+// PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -46,7 +46,6 @@ export default function ProfileThoughtBubble({
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState("");
   const [mounted, setMounted] = useState(false);
-  const [useComposerPortal, setUseComposerPortal] = useState(false);
 
   const dailyPrompt = useMemo(() => {
     const now = new Date();
@@ -58,22 +57,11 @@ export default function ProfileThoughtBubble({
 
   const displayText = (text?.trim() || dailyPrompt).slice(0, 60);
 
-  // v29: desktop uses the proven inline composer path. Mobile/tablet still
-  // portal through document.body so avatar transforms and clipping cannot trap it.
+  // v30: always portal the composer through document.body. The visible thought
+  // bubble may live inside deeply nested/stacked profile layout containers, but
+  // the composer itself must always escape those stacking and clipping contexts.
   useEffect(() => {
     setMounted(true);
-
-    const media = window.matchMedia("(max-width: 1100px)");
-    const syncPortalMode = () => setUseComposerPortal(media.matches);
-    syncPortalMode();
-
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", syncPortalMode);
-      return () => media.removeEventListener("change", syncPortalMode);
-    }
-
-    media.addListener(syncPortalMode);
-    return () => media.removeListener(syncPortalMode);
   }, []);
 
   useEffect(() => {
@@ -239,11 +227,7 @@ export default function ProfileThoughtBubble({
         <span className="profile-thought-tail" aria-hidden="true" />
       </button>
 
-      {composerOpen
-        ? useComposerPortal && mounted
-          ? createPortal(composerNode, document.body)
-          : composerNode
-        : null}
+      {mounted && composerOpen ? createPortal(composerNode, document.body) : null}
 
       <style jsx global>{`
         .profile-thought-bubble {
