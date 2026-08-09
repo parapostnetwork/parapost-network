@@ -1,4 +1,5 @@
 "use client";
+// STAGING THOUGHT BUBBLE DESKTOP TRUE FRONT + CLICK FIX v29
 // PROFILE SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or deletes from Profile.
 
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
@@ -14545,6 +14546,67 @@ return (
 
 `}
 </style>
+
+<style jsx global>{`
+  /* =========================================================
+   * STAGING THOUGHT BUBBLE DESKTOP TRUE FRONT + CLICK FIX v29
+   *
+   * Desktop only. Keep the approved v18/v28 coordinates exactly
+   * where they are. This changes stacking + hit testing only.
+   *
+   * Root causes fixed:
+   * - the desktop anchor was still pointer-events:none in the
+   *   persistence-enabled page file
+   * - the cover/banner could remain a competing paint/hit layer
+   *
+   * Mobile/tablet positioning is intentionally untouched.
+   * ========================================================= */
+  @media (min-width: 1101px) {
+    .profile-polish-surface .profile-hero-shell {
+      position: relative !important;
+      overflow: visible !important;
+      isolation: isolate !important;
+    }
+
+    .profile-polish-surface .profile-cover-zone {
+      position: relative !important;
+      z-index: 0 !important;
+      overflow: hidden !important;
+      isolation: auto !important;
+      pointer-events: none !important;
+    }
+
+    .profile-polish-surface .profile-cover-zone::after,
+    .profile-polish-surface .profile-cover-zone > * {
+      pointer-events: none !important;
+    }
+
+    .profile-polish-surface .profile-hero-content {
+      position: relative !important;
+      z-index: 1000 !important;
+      overflow: visible !important;
+      isolation: auto !important;
+    }
+
+    .profile-polish-surface .profile-desktop-thought-anchor {
+      display: block !important;
+      z-index: 2147482000 !important;
+      overflow: visible !important;
+      isolation: isolate !important;
+      pointer-events: auto !important;
+    }
+
+    .profile-polish-surface
+      .profile-desktop-thought-anchor
+      > .profile-thought-bubble {
+      z-index: 2147482001 !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      opacity: 1 !important;
+    }
+  }
+`}</style>
+
 
 <style jsx global>{`
   /*
