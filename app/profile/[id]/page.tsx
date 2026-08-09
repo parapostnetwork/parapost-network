@@ -14449,7 +14449,27 @@ return (
           transform: translateX(6px) !important;
 
           z-index: 99998 !important;
-          pointer-events: none !important;
+
+          /*
+           * INTERACTION FIX v27:
+           * v26 had pointer-events:none here, which positioned the
+           * mobile bubble correctly but prevented taps/clicks from
+           * reaching ProfileThoughtBubble.
+           */
+          pointer-events: auto !important;
+        }
+      }
+
+
+      /* STAGING THOUGHT BUBBLE MOBILE INTERACTION FIX v27 */
+      @media (max-width: 699px) {
+        .profile-polish-surface.profile-mobile-first-polish
+          .profile-hero-content
+          .profile-avatar-wrap
+          > .profile-avatar-thought-original
+          > :global(.profile-thought-bubble) {
+          pointer-events: auto !important;
+          cursor: pointer !important;
         }
       }
 
