@@ -1,9 +1,11 @@
 "use client";
-// PROFILE THOUGHT BUBBLE v35 - seamless duplicated ticker track; no restart gap or visible reset.
+// PROFILE THOUGHT BUBBLE v36 - true continuous ticker using enough repeated segments to cover the viewport during loop reset.
 // PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+
+const THOUGHT_TICKER_COPY_COUNT = 12;
 
 const DAILY_PROMPTS = [
   "What’s your day look like?",
@@ -224,8 +226,11 @@ export default function ProfileThoughtBubble({
       >
         <span className="profile-thought-window">
           <span className="profile-thought-track" aria-hidden="true">
-            <span className="profile-thought-text">{displayText}</span>
-            <span className="profile-thought-text">{displayText}</span>
+            {Array.from({ length: THOUGHT_TICKER_COPY_COUNT }).map((_, index) => (
+              <span className="profile-thought-text" key={`thought-ticker-${index}`}>
+                {displayText}
+              </span>
+            ))}
           </span>
         </span>
         <span className="profile-thought-tail" aria-hidden="true" />
@@ -328,14 +333,21 @@ export default function ProfileThoughtBubble({
 
         @keyframes profileThoughtTickerLoop {
           /*
-           * v35 SEAMLESS TICKER
-           * Two identical thought copies live on one moving track. Moving the
-           * track by exactly half its width lands copy #2 in the exact same
-           * visual position as copy #1, so the infinite reset is invisible.
-           * There is always another copy following behind the first.
+           * v36 TRUE CONTINUOUS TICKER
+           *
+           * v35 used only two copies. That is NOT enough when one thought
+           * segment is narrower than the visible bubble: near the end of the
+           * cycle the viewport can see past copy #2 into empty track space,
+           * then the animation reset visibly brings text back.
+           *
+           * v36 repeats the exact same segment 12 times. The track moves by
+           * exactly ONE of those 12 equal segments (1/12 = 8.3333333333%).
+           * At the reset, every visible pixel has the same repeated content in
+           * the same relative position, including short thoughts, so there is
+           * no blank tail and no visible jump/reappearance.
            */
           from { transform: translate3d(0, 0, 0); }
-          to { transform: translate3d(-50%, 0, 0); }
+          to { transform: translate3d(-8.3333333333%, 0, 0); }
         }
 
         /* New Thought overlay */
