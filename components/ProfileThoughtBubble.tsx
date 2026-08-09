@@ -1,5 +1,5 @@
 "use client";
-// PROFILE THOUGHT BUBBLE v28 - portal-safe mobile composer, real save callback, tools removed.
+// PROFILE THOUGHT BUBBLE v29 - desktop inline composer restore, mobile/tablet portal, real save callback, tools removed.
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -46,6 +46,7 @@ export default function ProfileThoughtBubble({
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [useComposerPortal, setUseComposerPortal] = useState(false);
 
   const dailyPrompt = useMemo(() => {
     const now = new Date();
@@ -57,10 +58,22 @@ export default function ProfileThoughtBubble({
 
   const displayText = (text?.trim() || dailyPrompt).slice(0, 60);
 
-  // v28: render the composer through document.body so mobile transforms,
-  // avatar wrappers and stacking contexts can never trap the fixed overlay.
+  // v29: desktop uses the proven inline composer path. Mobile/tablet still
+  // portal through document.body so avatar transforms and clipping cannot trap it.
   useEffect(() => {
     setMounted(true);
+
+    const media = window.matchMedia("(max-width: 1100px)");
+    const syncPortalMode = () => setUseComposerPortal(media.matches);
+    syncPortalMode();
+
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", syncPortalMode);
+      return () => media.removeEventListener("change", syncPortalMode);
+    }
+
+    media.addListener(syncPortalMode);
+    return () => media.removeListener(syncPortalMode);
   }, []);
 
   useEffect(() => {
@@ -108,17 +121,116 @@ export default function ProfileThoughtBubble({
     }
   };
 
+  const openComposer = () => {
+    if (!isOwnProfile) return;
+    setDraft((text?.trim() || "").slice(0, 60));
+    setShareError("");
+    setComposerOpen(true);
+  };
+
+  const composerNode = composerOpen ? (
+    <div
+      className="thought-composer-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setComposerOpen(false);
+      }}
+    >
+      <section
+        className="thought-composer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="thought-composer-title"
+      >
+        <header className="thought-composer-header">
+          <button
+            type="button"
+            className="thought-close"
+            aria-label="Close"
+            onClick={() => setComposerOpen(false)}
+          >
+            ×
+          </button>
+
+          <h2 id="thought-composer-title">New Thought</h2>
+
+          <button
+            type="button"
+            className="thought-top-share"
+            disabled={!draft.trim() || sharing}
+            onClick={submitThought}
+          >
+            {sharing ? "Sharing…" : "Share"}
+          </button>
+        </header>
+
+        <div className="thought-composer-body">
+          <div className="thought-identity">
+            <div className="thought-input-wrap">
+              <textarea
+                autoFocus
+                maxLength={60}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value.slice(0, 60))}
+                placeholder="What’s on your mind?"
+                aria-label="Your thought"
+              />
+              <span className="composer-tail" aria-hidden="true" />
+            </div>
+
+            <div className="thought-avatar" aria-hidden="true">
+              {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>YOU</span>}
+            </div>
+
+            <div className="thought-count">{draft.length}/60</div>
+            {shareError ? (
+              <div className="thought-share-error" role="alert">
+                {shareError}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <footer className="thought-composer-footer">
+          <button
+            type="button"
+            className="thought-audience"
+            onClick={() =>
+              setAudience((current) => (current === "friends" ? "everyone" : "friends"))
+            }
+          >
+            <span aria-hidden="true">{audience === "friends" ? "♟" : "◎"}</span>
+            {audience === "friends" ? "Share with friends" : "Share with everyone"}
+            <span aria-hidden="true">›</span>
+          </button>
+
+          <button
+            type="button"
+            className="thought-main-share"
+            disabled={!draft.trim() || sharing}
+            onClick={submitThought}
+          >
+            {sharing ? "Sharing…" : "Share"}
+          </button>
+        </footer>
+      </section>
+    </div>
+  ) : null;
+
   return (
     <>
       <button
         type="button"
         className="profile-thought-bubble"
         aria-label={isOwnProfile ? "Create or edit thought" : `Thought: ${displayText}`}
-        onClick={() => {
-          if (!isOwnProfile) return;
-          setDraft((text?.trim() || "").slice(0, 60));
-          setShareError("");
-          setComposerOpen(true);
+        aria-expanded={isOwnProfile ? composerOpen : undefined}
+        onPointerUp={(event) => {
+          event.stopPropagation();
+          openComposer();
+        }}
+        onClick={(event) => {
+          event.stopPropagation();
+          openComposer();
         }}
       >
         <span className="profile-thought-window">
@@ -127,103 +239,13 @@ export default function ProfileThoughtBubble({
         <span className="profile-thought-tail" aria-hidden="true" />
       </button>
 
-      {mounted && composerOpen && createPortal(
-        (
-        <div
-          className="thought-composer-backdrop"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setComposerOpen(false);
-          }}
-        >
-          <section
-            className="thought-composer"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="thought-composer-title"
-          >
-            <header className="thought-composer-header">
-              <button
-                type="button"
-                className="thought-close"
-                aria-label="Close"
-                onClick={() => setComposerOpen(false)}
-              >
-                ×
-              </button>
+      {composerOpen
+        ? useComposerPortal && mounted
+          ? createPortal(composerNode, document.body)
+          : composerNode
+        : null}
 
-              <h2 id="thought-composer-title">New Thought</h2>
-
-              <button
-                type="button"
-                className="thought-top-share"
-                disabled={!draft.trim() || sharing}
-                onClick={submitThought}
-              >
-                {sharing ? "Sharing…" : "Share"}
-              </button>
-            </header>
-
-            <div className="thought-composer-body">
-              <div className="thought-identity">
-                <div className="thought-input-wrap">
-                  <textarea
-                    autoFocus
-                    maxLength={60}
-                    value={draft}
-                    onChange={(event) => setDraft(event.target.value.slice(0, 60))}
-                    placeholder="What’s on your mind?"
-                    aria-label="Your thought"
-                  />
-                  <span className="composer-tail" aria-hidden="true" />
-                </div>
-
-                <div className="thought-avatar" aria-hidden="true">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" />
-                  ) : (
-                    <span>YOU</span>
-                  )}
-                </div>
-
-                <div className="thought-count">{draft.length}/60</div>
-                {shareError ? (
-                  <div className="thought-share-error" role="alert">
-                    {shareError}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <footer className="thought-composer-footer">
-              <button
-                type="button"
-                className="thought-audience"
-                onClick={() =>
-                  setAudience((current) => (current === "friends" ? "everyone" : "friends"))
-                }
-              >
-                <span aria-hidden="true">{audience === "friends" ? "♟" : "◎"}</span>
-                {audience === "friends" ? "Share with friends" : "Share with everyone"}
-                <span aria-hidden="true">›</span>
-              </button>
-
-              <button
-                type="button"
-                className="thought-main-share"
-                disabled={!draft.trim() || sharing}
-                onClick={submitThought}
-              >
-                {sharing ? "Sharing…" : "Share"}
-              </button>
-            </footer>
-          </section>
-        </div>
-        ),
-        document.body
-      )}
-
-      <style jsx>{`
+      <style jsx global>{`
         .profile-thought-bubble {
           position: absolute;
 
@@ -246,6 +268,8 @@ export default function ProfileThoughtBubble({
           overflow: visible;
           z-index: 9999 !important;
           cursor: pointer;
+          pointer-events: auto !important;
+          touch-action: manipulation;
           flex: none !important;
           min-width: 0 !important;
           min-height: 0 !important;
@@ -317,6 +341,8 @@ export default function ProfileThoughtBubble({
           display: grid;
           place-items: center;
           padding: 24px;
+          pointer-events: auto;
+          isolation: isolate;
         }
 
         .thought-composer {
