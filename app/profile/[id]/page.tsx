@@ -1,4 +1,6 @@
 "use client";
+// STAGING THOUGHT BUBBLE PROFILE POSTS FEED v36
+// Adds the current permitted profile thought to the Profile > Posts timeline while preserving Friends/Everyone RLS visibility.
 // STAGING THOUGHT BUBBLE FRIEND READ-ONLY VIEWER v35
 // Explicitly wires permitted visitor/friend bubble clicks into the page-owned read-only viewer on every rendered bubble.
 // Allowed visitors can open a saved thought read-only; only the profile owner can edit/share. Unauthorized Friends-only thoughts are not rendered.
@@ -185,7 +187,8 @@ type ProfileFeedItem =
   | (SharedProfilePost & { feedKind: "shared_post" })
   | (ReelShareProfilePost & { feedKind: "reel_share" })
   | (ProfileLiveStream & { feedKind: "live_stream" })
-  | (ProfileAchievementActivity & { feedKind: "achievement" });
+  | (ProfileAchievementActivity & { feedKind: "achievement" })
+  | (ProfileThoughtRow & { id: string; created_at: string; feedKind: "thought" });
 
 type CountMap = Record<string, number>;
 type ToggleMap = Record<string, boolean>;
@@ -3187,6 +3190,16 @@ const handleProfileLogout = async () => {
 
 const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
   return [
+    ...(profileThought?.text
+      ? [
+          {
+            ...profileThought,
+            id: `profile-thought-${profileThought.user_id}`,
+            created_at: profileThought.updated_at,
+            feedKind: "thought" as const,
+          },
+        ]
+      : []),
     ...profileAchievementActivity.map((activity) => ({
       ...activity,
       feedKind: "achievement" as const,
@@ -3210,7 +3223,7 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
       new Date(b.created_at).getTime() -
       new Date(a.created_at).getTime()
   );
-}, [posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileLiveStreams]);
+}, [profileThought, posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileLiveStreams]);
 
 const showFriendStatus = useCallback((message: string) => {
   setFriendStatusMessage(message);
@@ -18616,6 +18629,91 @@ return (
 
                                 <span style={profileAchievementUnlockedPillStyle}>Unlocked</span>
                               </button>
+                            </article>
+                          );
+                        }
+
+                        if (item.feedKind === "thought") {
+                          const canOpenThought = !isOwnProfile && Boolean(profileThought?.text);
+
+                          return (
+                            <article
+                              key={item.id}
+                              className="profile-feed-card profile-thought-feed-card dashboard-card dashboard-feed-card"
+                              style={{
+                                ...postCardStyle,
+                                position: "relative",
+                                cursor: canOpenThought ? "pointer" : "default",
+                              }}
+                              role={canOpenThought ? "button" : undefined}
+                              tabIndex={canOpenThought ? 0 : undefined}
+                              onClick={() => {
+                                if (canOpenThought) openReadOnlyProfileThought();
+                              }}
+                              onKeyDown={(event) => {
+                                if (!canOpenThought) return;
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  openReadOnlyProfileThought();
+                                }
+                              }}
+                              onMouseEnter={(event) => {
+                                event.currentTarget.style.transform = "translateY(-1px)";
+                                event.currentTarget.style.borderColor = "var(--parapost-accent-active-border)";
+                                event.currentTarget.style.boxShadow = "0 16px 34px rgba(0,0,0,0.24)";
+                              }}
+                              onMouseLeave={(event) => {
+                                event.currentTarget.style.transform = "translateY(0)";
+                                event.currentTarget.style.borderColor = "rgba(255,255,255,0.095)";
+                                event.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.20)";
+                              }}
+                            >
+                              <header style={postHeaderStyle}>
+                                <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
+                                  {profile?.avatar_url ? (
+                                    <span style={postAuthorAvatarImageClipStyle}>
+                                      <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                    </span>
+                                  ) : (
+                                    <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
+                                  )}
+                                  {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                </div>
+
+                                <div style={postAuthorTextStyle}>
+                                  <strong style={postAuthorNameStyle}>
+                                    {profileDisplayName || "Parapost Member"}
+                                  </strong>
+                                  <span style={postMetaStyle}>
+                                    @{profileDisplayUsername || "new-member"} shared a thought · {formatTimeAgo(item.updated_at)}
+                                  </span>
+                                </div>
+
+                                <span
+                                  style={{
+                                    flexShrink: 0,
+                                    padding: "6px 10px",
+                                    borderRadius: 999,
+                                    border: "1px solid rgba(255,255,255,0.12)",
+                                    background: "rgba(255,255,255,0.06)",
+                                    color: "rgba(255,255,255,0.72)",
+                                    fontSize: 11,
+                                    fontWeight: 750,
+                                  }}
+                                >
+                                  {item.audience === "friends" ? "Friends" : "Everyone"}
+                                </span>
+                              </header>
+
+                              <div style={{ ...postContentStyle, whiteSpace: "pre-wrap" }}>
+                                {item.text}
+                              </div>
+
+                              {canOpenThought ? (
+                                <div style={{ marginTop: 12, color: "rgba(255,255,255,0.52)", fontSize: 12, fontWeight: 650 }}>
+                                  Open thought
+                                </div>
+                              ) : null}
                             </article>
                           );
                         }
