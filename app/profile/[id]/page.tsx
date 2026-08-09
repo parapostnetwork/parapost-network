@@ -1,6 +1,7 @@
 "use client";
-// STAGING THOUGHT BUBBLE RESPONSIVE DESKTOP HIT-TARGET FIX v32
-// Keeps v31 page-owned composer; fixes the uncovered 721px-1100px desktop/tablet layout band.
+// STAGING THOUGHT BUBBLE OWNER-SESSION + DOCUMENT-CAPTURE FIX v33
+// Desktop/tablet: recovers the authenticated owner directly from Supabase and captures clicks at document level.
+// This removes reliance on nested stacking contexts, transparent hit-targets, or a possibly stale viewerId state.
 // PROFILE SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or deletes from Profile.
 
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
@@ -2683,7 +2684,13 @@ export default function ProfilePage() {
     maxHeight: 340,
   });
 
-  const isOwnProfile = !!viewerId && viewerId === profileId;
+  const normalizedViewerId = String(viewerId || "").trim().toLowerCase();
+  const normalizedProfileId = String(profileId || "").trim().toLowerCase();
+  const isOwnProfile = Boolean(
+    normalizedViewerId &&
+    normalizedProfileId &&
+    normalizedViewerId === normalizedProfileId
+  );
 
   const handleShareProfileThought = async (
     thoughtText: string,
@@ -2695,7 +2702,11 @@ export default function ProfilePage() {
       throw new Error("Enter a thought before sharing.");
     }
 
-    if (!viewerId || viewerId !== profileId) {
+    if (
+      !normalizedViewerId ||
+      !normalizedProfileId ||
+      normalizedViewerId !== normalizedProfileId
+    ) {
       throw new Error("You can only update the thought on your own profile.");
     }
 
@@ -2720,12 +2731,63 @@ export default function ProfilePage() {
     setProfileThought((data as ProfileThoughtRow | null) || nextThought);
   };
 
-  const openDesktopThoughtComposer = () => {
-    if (!isOwnProfile) return;
+  const openDesktopThoughtComposer = useCallback(async () => {
+    let activeOwnerId = String(viewerId || "").trim();
+
+    /*
+     * v33 OWNER-SESSION RECOVERY
+     * Do not trust viewerId alone for this interaction. On Vercel preview/staging
+     * origins the page can render before the local viewer state reflects the
+     * authenticated Supabase user. Read the current auth user again at click time.
+     */
+    if (
+      !activeOwnerId ||
+      activeOwnerId.toLowerCase() !== normalizedProfileId
+    ) {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          console.warn("Profile thought auth refresh failed:", authError.message);
+        }
+
+        const authUserId = String(user?.id || "").trim();
+        if (
+          authUserId &&
+          normalizedProfileId &&
+          authUserId.toLowerCase() === normalizedProfileId
+        ) {
+          activeOwnerId = authUserId;
+          if (authUserId !== viewerId) {
+            setViewerId(authUserId);
+            setViewerEmail(user?.email || "");
+          }
+        }
+      } catch (error) {
+        console.warn("Profile thought auth refresh threw:", error);
+      }
+    }
+
+    if (
+      !activeOwnerId ||
+      !normalizedProfileId ||
+      activeOwnerId.toLowerCase() !== normalizedProfileId
+    ) {
+      if (typeof window !== "undefined") {
+        window.alert(
+          "This profile is not currently recognized as your signed-in profile on this staging site. Sign in on this exact staging URL, open My Profile, and then try the thought bubble again."
+        );
+      }
+      return;
+    }
+
     setDesktopThoughtDraft((profileThought?.text || "").slice(0, 60));
     setDesktopThoughtError("");
     setDesktopThoughtComposerOpen(true);
-  };
+  }, [normalizedProfileId, profileThought?.text, viewerId]);
 
   const submitDesktopProfileThought = async () => {
     const clean = desktopThoughtDraft.trim().slice(0, 60);
@@ -2763,6 +2825,72 @@ export default function ProfilePage() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [desktopThoughtComposerOpen]);
+
+  /*
+   * v33 DOCUMENT-CAPTURE THOUGHT OPENER
+   *
+   * The visible bubble can extend outside its positioned parent and can be
+   * visually covered by another paint/hit-test layer. Capturing pointerdown at
+   * document level means the page can recognize a click by the bubble's actual
+   * on-screen rectangle even when the nested button never receives the event.
+   *
+   * Mobile <= 720px keeps the existing ProfileThoughtBubble interaction.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const handleThoughtPointerDownCapture = (event: PointerEvent) => {
+      if (desktopThoughtComposerOpen) return;
+      if (window.innerWidth <= 720) return;
+
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+
+      const visibleThoughtBubbles = Array.from(
+        document.querySelectorAll<HTMLElement>(".profile-thought-bubble")
+      ).filter((element) => {
+        const computed = window.getComputedStyle(element);
+        if (
+          computed.display === "none" ||
+          computed.visibility === "hidden" ||
+          Number.parseFloat(computed.opacity || "1") <= 0
+        ) {
+          return false;
+        }
+
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return false;
+
+        return (
+          clientX >= rect.left &&
+          clientX <= rect.right &&
+          clientY >= rect.top &&
+          clientY <= rect.bottom
+        );
+      });
+
+      if (visibleThoughtBubbles.length === 0) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      void openDesktopThoughtComposer();
+    };
+
+    document.addEventListener(
+      "pointerdown",
+      handleThoughtPointerDownCapture,
+      true
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handleThoughtPointerDownCapture,
+        true
+      );
+    };
+  }, [desktopThoughtComposerOpen, openDesktopThoughtComposer]);
 
   const profileIsPrivate = Boolean(profile?.is_private);
   const canViewPrivateProfileContent = !profileIsPrivate || isOwnProfile || friendStatus === "friends";
@@ -6876,7 +7004,7 @@ return (
      animation: "profileFadeIn 220ms ease-out",
    }}
   >
-    {isClientMounted && desktopThoughtComposerOpen
+    {desktopThoughtComposerOpen && typeof document !== "undefined"
       ? createPortal(
           <div
             role="presentation"
@@ -14941,7 +15069,17 @@ return (
 
 <style jsx global>{`
   /* =========================================================
-   * STAGING THOUGHT BUBBLE RESPONSIVE DESKTOP HIT-TARGET FIX v32
+   * STAGING THOUGHT BUBBLE OWNER-SESSION + DOCUMENT-CAPTURE FIX v33
+   *
+   * Interaction is now recovered at document capture phase and ownership is
+   * rechecked directly against Supabase auth at click time.
+   * Existing visual coordinates remain unchanged.
+   * ========================================================= */
+`}</style>
+
+<style jsx global>{`
+  /* =========================================================
+   * STAGING THOUGHT BUBBLE RESPONSIVE DESKTOP HIT-TARGET FIX v32 (retained in v33)
    *
    * Root cause found after tracing the real responsive layout:
    * - the profile uses the full hero layout from 721px upward
