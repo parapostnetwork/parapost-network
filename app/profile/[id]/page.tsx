@@ -1,4 +1,6 @@
 "use client";
+// STAGING THOUGHT BUBBLE FRIEND READ-ONLY VIEWER v34
+// Allowed visitors can open a saved thought read-only; only the profile owner can edit/share. Unauthorized Friends-only thoughts are not rendered.
 // STAGING THOUGHT BUBBLE OWNER-SESSION + DOCUMENT-CAPTURE FIX v33
 // Desktop/tablet: recovers the authenticated owner directly from Supabase and captures clicks at document level.
 // This removes reliance on nested stacking contexts, transparent hit-targets, or a possibly stale viewerId state.
@@ -2543,6 +2545,7 @@ export default function ProfilePage() {
   // v31 desktop thought composer: page-owned state so desktop no longer relies on
   // a programmatic click into a nested ProfileThoughtBubble instance.
   const [desktopThoughtComposerOpen, setDesktopThoughtComposerOpen] = useState(false);
+  const [profileThoughtViewerOpen, setProfileThoughtViewerOpen] = useState(false);
   const [desktopThoughtDraft, setDesktopThoughtDraft] = useState("");
   const [desktopThoughtAudience, setDesktopThoughtAudience] = useState<"friends" | "everyone">("friends");
   const [desktopThoughtSharing, setDesktopThoughtSharing] = useState(false);
@@ -2692,6 +2695,11 @@ export default function ProfilePage() {
     normalizedViewerId === normalizedProfileId
   );
 
+  const openReadOnlyProfileThought = useCallback(() => {
+    if (isOwnProfile || !profileThought?.text) return;
+    setProfileThoughtViewerOpen(true);
+  }, [isOwnProfile, profileThought?.text]);
+
   const handleShareProfileThought = async (
     thoughtText: string,
     audience: "friends" | "everyone"
@@ -2784,10 +2792,12 @@ export default function ProfilePage() {
       return;
     }
 
+    setProfileThoughtViewerOpen(false);
     setDesktopThoughtDraft((profileThought?.text || "").slice(0, 60));
+    setDesktopThoughtAudience(profileThought?.audience || "friends");
     setDesktopThoughtError("");
     setDesktopThoughtComposerOpen(true);
-  }, [normalizedProfileId, profileThought?.text, viewerId]);
+  }, [normalizedProfileId, profileThought?.audience, profileThought?.text, viewerId]);
 
   const submitDesktopProfileThought = async () => {
     const clean = desktopThoughtDraft.trim().slice(0, 60);
@@ -2826,8 +2836,25 @@ export default function ProfilePage() {
     };
   }, [desktopThoughtComposerOpen]);
 
+  useEffect(() => {
+    if (!profileThoughtViewerOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileThoughtViewerOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [profileThoughtViewerOpen]);
+
   /*
-   * v33 DOCUMENT-CAPTURE THOUGHT OPENER
+   * v34 DOCUMENT-CAPTURE THOUGHT OPENER
    *
    * The visible bubble can extend outside its positioned parent and can be
    * visually covered by another paint/hit-test layer. Capturing pointerdown at
@@ -2840,8 +2867,11 @@ export default function ProfilePage() {
     if (typeof document === "undefined") return;
 
     const handleThoughtPointerDownCapture = (event: PointerEvent) => {
-      if (desktopThoughtComposerOpen) return;
-      if (window.innerWidth <= 720) return;
+      if (desktopThoughtComposerOpen || profileThoughtViewerOpen) return;
+
+      // Keep the owner's existing mobile editor. Visitors use this capture on
+      // every viewport so the read-only viewer works on desktop/tablet/mobile.
+      if (isOwnProfile && window.innerWidth <= 720) return;
 
       const clientX = event.clientX;
       const clientY = event.clientY;
@@ -2870,11 +2900,16 @@ export default function ProfilePage() {
       });
 
       if (visibleThoughtBubbles.length === 0) return;
+      if (!isOwnProfile && !profileThought?.text) return;
 
       event.preventDefault();
       event.stopPropagation();
 
-      void openDesktopThoughtComposer();
+      if (isOwnProfile) {
+        void openDesktopThoughtComposer();
+      } else {
+        openReadOnlyProfileThought();
+      }
     };
 
     document.addEventListener(
@@ -2890,7 +2925,14 @@ export default function ProfilePage() {
         true
       );
     };
-  }, [desktopThoughtComposerOpen, openDesktopThoughtComposer]);
+  }, [
+    desktopThoughtComposerOpen,
+    profileThoughtViewerOpen,
+    isOwnProfile,
+    profileThought?.text,
+    openDesktopThoughtComposer,
+    openReadOnlyProfileThought,
+  ]);
 
   const profileIsPrivate = Boolean(profile?.is_private);
   const canViewPrivateProfileContent = !profileIsPrivate || isOwnProfile || friendStatus === "friends";
@@ -7004,6 +7046,188 @@ return (
      animation: "profileFadeIn 220ms ease-out",
    }}
   >
+    {profileThoughtViewerOpen &&
+    !isOwnProfile &&
+    profileThought?.text &&
+    typeof document !== "undefined"
+      ? createPortal(
+          <div
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setProfileThoughtViewerOpen(false);
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 2147483647,
+              display: "grid",
+              placeItems: "center",
+              padding: 24,
+              background: "rgba(3, 5, 10, 0.82)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              pointerEvents: "auto",
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="profile-thought-viewer-title"
+              style={{
+                width: "min(520px, calc(100vw - 48px))",
+                minHeight: 430,
+                maxHeight: "calc(100dvh - 48px)",
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                color: "#fff",
+                background: "radial-gradient(circle at 50% 25%, rgba(125,55,255,0.12), transparent 34%), #090c12",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 26,
+                boxShadow: "0 30px 90px rgba(0,0,0,0.60)",
+              }}
+            >
+              <header
+                style={{
+                  height: 76,
+                  minHeight: 76,
+                  display: "grid",
+                  gridTemplateColumns: "70px 1fr 70px",
+                  alignItems: "center",
+                  padding: "0 18px",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Close thought"
+                  onClick={() => setProfileThoughtViewerOpen(false)}
+                  style={{
+                    justifySelf: "start",
+                    width: 44,
+                    height: 44,
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    color: "#fff",
+                    fontSize: 44,
+                    fontWeight: 200,
+                    lineHeight: "38px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ×
+                </button>
+                <h2
+                  id="profile-thought-viewer-title"
+                  style={{ margin: 0, textAlign: "center", fontSize: 23, lineHeight: 1, fontWeight: 750 }}
+                >
+                  Thought
+                </h2>
+                <span aria-hidden="true" />
+              </header>
+
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "48px 28px 34px",
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    width: "min(360px, 78vw)",
+                    minHeight: 96,
+                    display: "grid",
+                    placeItems: "center",
+                    padding: "22px 24px",
+                    boxSizing: "border-box",
+                    borderRadius: 28,
+                    background: "#414247",
+                    boxShadow: "0 12px 30px rgba(0,0,0,0.28)",
+                    color: "#fff",
+                    fontSize: 20,
+                    fontWeight: 650,
+                    lineHeight: 1.35,
+                    textAlign: "center",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {profileThought.text}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      left: "46%",
+                      bottom: -14,
+                      width: 0,
+                      height: 0,
+                      borderTop: "20px solid #414247",
+                      borderRight: "18px solid transparent",
+                      transform: "rotate(8deg)",
+                    }}
+                  />
+                </div>
+
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "relative",
+                    zIndex: 2,
+                    width: 118,
+                    height: 118,
+                    marginTop: 10,
+                    overflow: "hidden",
+                    display: "grid",
+                    placeItems: "center",
+                    borderRadius: "50%",
+                    background: "#252a34",
+                    border: "3px solid rgba(167,94,255,0.72)",
+                    boxShadow: "0 0 28px rgba(121,66,255,0.22)",
+                  }}
+                >
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <span style={{ color: "rgba(255,255,255,.65)", fontSize: 24, fontWeight: 800 }}>
+                      {profileDisplayInitial}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 18, color: "rgba(255,255,255,0.92)", fontSize: 16, fontWeight: 700, textAlign: "center" }}>
+                  {profileDisplayName || "Profile Thought"}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 9,
+                    padding: "7px 12px",
+                    borderRadius: 999,
+                    background: "rgba(168,85,247,0.14)",
+                    border: "1px solid rgba(168,85,247,0.28)",
+                    color: "rgba(255,255,255,0.78)",
+                    fontSize: 13,
+                    fontWeight: 650,
+                  }}
+                >
+                  {profileThought.audience === "friends" ? "Shared with friends" : "Shared with everyone"}
+                </div>
+
+                <div style={{ marginTop: 16, color: "rgba(255,255,255,0.48)", fontSize: 12, textAlign: "center" }}>
+                  Read only
+                </div>
+              </div>
+            </section>
+          </div>,
+          document.body
+        )
+      : null}
+
     {desktopThoughtComposerOpen && typeof document !== "undefined"
       ? createPortal(
           <div
@@ -15621,12 +15845,14 @@ return (
 
                 <div className="profile-mobile-header-real">
                   <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}>
-                    <ProfileThoughtBubble
-                      text={profileThought?.text || undefined}
-                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                      isOwnProfile={isOwnProfile}
-                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                    />
+                    {isOwnProfile || profileThought?.text ? (
+                      <ProfileThoughtBubble
+                        text={profileThought?.text || undefined}
+                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                        isOwnProfile={isOwnProfile}
+                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                      />
+                    ) : null}
                     {profile?.avatar_url ? (
                       <img
                         src={profile?.avatar_url || ""}
@@ -15808,12 +16034,14 @@ return (
                   {/* Desktop thought bubble lives outside the avatar wrapper so it cannot be
                       clipped or painted underneath the cover/banner stacking context. */}
                   <div className="profile-desktop-thought-anchor" aria-hidden="false">
-                    <ProfileThoughtBubble
-                      text={profileThought?.text || undefined}
-                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                      isOwnProfile={isOwnProfile}
-                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                    />
+                    {isOwnProfile || profileThought?.text ? (
+                      <ProfileThoughtBubble
+                        text={profileThought?.text || undefined}
+                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                        isOwnProfile={isOwnProfile}
+                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                      />
+                    ) : null}
                     {isOwnProfile ? (
                       <button
                         type="button"
@@ -15831,12 +16059,14 @@ return (
 
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
                     <div className="profile-avatar-thought-original">
-                      <ProfileThoughtBubble
-                        text={profileThought?.text || undefined}
-                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                        isOwnProfile={isOwnProfile}
-                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                      />
+                      {isOwnProfile || profileThought?.text ? (
+                        <ProfileThoughtBubble
+                          text={profileThought?.text || undefined}
+                          avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                          isOwnProfile={isOwnProfile}
+                          onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                        />
+                      ) : null}
                       {isOwnProfile ? (
                         <button
                           type="button"
