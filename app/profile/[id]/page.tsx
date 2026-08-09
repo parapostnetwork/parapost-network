@@ -1,5 +1,5 @@
 "use client";
-// STAGING THOUGHT BUBBLE DESKTOP DIRECT HIT TARGET FIX v30
+// STAGING THOUGHT BUBBLE DESKTOP PAGE-OWNED COMPOSER FIX v31
 // PROFILE SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or deletes from Profile.
 
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
@@ -2538,6 +2538,13 @@ export default function ProfilePage() {
   const [viewerAvatarUrl, setViewerAvatarUrl] = useState("");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [profileThought, setProfileThought] = useState<ProfileThoughtRow | null>(null);
+  // v31 desktop thought composer: page-owned state so desktop no longer relies on
+  // a programmatic click into a nested ProfileThoughtBubble instance.
+  const [desktopThoughtComposerOpen, setDesktopThoughtComposerOpen] = useState(false);
+  const [desktopThoughtDraft, setDesktopThoughtDraft] = useState("");
+  const [desktopThoughtAudience, setDesktopThoughtAudience] = useState<"friends" | "everyone">("friends");
+  const [desktopThoughtSharing, setDesktopThoughtSharing] = useState(false);
+  const [desktopThoughtError, setDesktopThoughtError] = useState("");
   const [profilePostContent, setProfilePostContent] = useState("");
   const [profilePostImages, setProfilePostImages] = useState<File[]>([]);
   const [profilePostImagePreviewUrls, setProfilePostImagePreviewUrls] = useState<string[]>([]);
@@ -2711,6 +2718,50 @@ export default function ProfilePage() {
 
     setProfileThought((data as ProfileThoughtRow | null) || nextThought);
   };
+
+  const openDesktopThoughtComposer = () => {
+    if (!isOwnProfile) return;
+    setDesktopThoughtDraft((profileThought?.text || "").slice(0, 60));
+    setDesktopThoughtError("");
+    setDesktopThoughtComposerOpen(true);
+  };
+
+  const submitDesktopProfileThought = async () => {
+    const clean = desktopThoughtDraft.trim().slice(0, 60);
+    if (!clean || desktopThoughtSharing) return;
+
+    setDesktopThoughtError("");
+    try {
+      setDesktopThoughtSharing(true);
+      await handleShareProfileThought(clean, desktopThoughtAudience);
+      setDesktopThoughtComposerOpen(false);
+    } catch (error) {
+      setDesktopThoughtError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Your thought could not be saved. Please try again."
+      );
+    } finally {
+      setDesktopThoughtSharing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!desktopThoughtComposerOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDesktopThoughtComposerOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [desktopThoughtComposerOpen]);
 
   const profileIsPrivate = Boolean(profile?.is_private);
   const canViewPrivateProfileContent = !profileIsPrivate || isOwnProfile || friendStatus === "friends";
@@ -6824,6 +6875,286 @@ return (
      animation: "profileFadeIn 220ms ease-out",
    }}
   >
+    {isClientMounted && desktopThoughtComposerOpen
+      ? createPortal(
+          <div
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setDesktopThoughtComposerOpen(false);
+              }
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 2147483647,
+              display: "grid",
+              placeItems: "center",
+              padding: 24,
+              background: "rgba(3, 5, 10, 0.82)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              pointerEvents: "auto",
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="desktop-thought-composer-title"
+              style={{
+                width: "min(620px, calc(100vw - 48px))",
+                minHeight: 640,
+                maxHeight: "calc(100dvh - 48px)",
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                color: "#fff",
+                background: "radial-gradient(circle at 50% 25%, rgba(125,55,255,0.12), transparent 34%), #090c12",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 26,
+                boxShadow: "0 30px 90px rgba(0,0,0,0.60)",
+              }}
+            >
+              <header
+                style={{
+                  height: 82,
+                  minHeight: 82,
+                  display: "grid",
+                  gridTemplateColumns: "90px 1fr 90px",
+                  alignItems: "center",
+                  padding: "0 22px",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setDesktopThoughtComposerOpen(false)}
+                  style={{
+                    justifySelf: "start",
+                    width: 46,
+                    height: 46,
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    color: "#fff",
+                    fontSize: 48,
+                    fontWeight: 200,
+                    lineHeight: "40px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ×
+                </button>
+
+                <h2
+                  id="desktop-thought-composer-title"
+                  style={{
+                    margin: 0,
+                    textAlign: "center",
+                    fontSize: 25,
+                    lineHeight: 1,
+                    fontWeight: 750,
+                  }}
+                >
+                  New Thought
+                </h2>
+
+                <button
+                  type="button"
+                  disabled={!desktopThoughtDraft.trim() || desktopThoughtSharing}
+                  onClick={submitDesktopProfileThought}
+                  style={{
+                    justifySelf: "end",
+                    border: 0,
+                    background: "transparent",
+                    color: "#a873ff",
+                    fontSize: 16,
+                    fontWeight: 700,
+                    cursor: desktopThoughtDraft.trim() && !desktopThoughtSharing ? "pointer" : "default",
+                    opacity: desktopThoughtDraft.trim() && !desktopThoughtSharing ? 1 : 0.35,
+                  }}
+                >
+                  {desktopThoughtSharing ? "Sharing…" : "Share"}
+                </button>
+              </header>
+
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  padding: "90px 30px 36px",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "min(330px, 74vw)",
+                      minHeight: 92,
+                      marginBottom: 10,
+                      borderRadius: 28,
+                      background: "#414247",
+                      boxShadow: "0 12px 30px rgba(0,0,0,0.28)",
+                    }}
+                  >
+                    <textarea
+                      autoFocus
+                      maxLength={60}
+                      value={desktopThoughtDraft}
+                      onChange={(event) => setDesktopThoughtDraft(event.target.value.slice(0, 60))}
+                      placeholder="What’s on your mind?"
+                      aria-label="Your thought"
+                      style={{
+                        width: "100%",
+                        height: 92,
+                        resize: "none",
+                        boxSizing: "border-box",
+                        padding: "28px 26px 18px",
+                        border: 0,
+                        outline: 0,
+                        borderRadius: 28,
+                        background: "transparent",
+                        color: "#fff",
+                        font: "inherit",
+                        fontSize: 22,
+                        lineHeight: 1.25,
+                        textAlign: "center",
+                        overflow: "hidden",
+                      }}
+                    />
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        left: "46%",
+                        bottom: -14,
+                        width: 0,
+                        height: 0,
+                        borderTop: "20px solid #414247",
+                        borderRight: "18px solid transparent",
+                        transform: "rotate(8deg)",
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      position: "relative",
+                      zIndex: 2,
+                      width: 142,
+                      height: 142,
+                      overflow: "hidden",
+                      display: "grid",
+                      placeItems: "center",
+                      borderRadius: "50%",
+                      background: "#252a34",
+                      border: "3px solid rgba(167,94,255,0.72)",
+                      boxShadow: "0 0 28px rgba(121,66,255,0.22)",
+                    }}
+                  >
+                    {profile?.avatar_url || viewerAvatarUrl ? (
+                      <img
+                        src={profile?.avatar_url || viewerAvatarUrl || ""}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <span style={{ color: "rgba(255,255,255,.55)", fontSize: 17, fontWeight: 800 }}>YOU</span>
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: 20, color: "rgba(255,255,255,0.82)", fontSize: 18 }}>
+                    {desktopThoughtDraft.length}/60
+                  </div>
+
+                  {desktopThoughtError ? (
+                    <div
+                      role="alert"
+                      style={{
+                        width: "min(360px, 78vw)",
+                        marginTop: 16,
+                        color: "#fca5a5",
+                        fontSize: 13,
+                        fontWeight: 650,
+                        lineHeight: 1.35,
+                        textAlign: "center",
+                      }}
+                    >
+                      {desktopThoughtError}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <footer
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 18,
+                  padding: "22px 28px",
+                  borderTop: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDesktopThoughtAudience((current) =>
+                      current === "friends" ? "everyone" : "friends"
+                    )
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 9,
+                    minWidth: 0,
+                    border: 0,
+                    background: "transparent",
+                    color: "rgba(255,255,255,0.9)",
+                    fontSize: 15,
+                    fontWeight: 650,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span aria-hidden="true">{desktopThoughtAudience === "friends" ? "♟" : "◎"}</span>
+                  {desktopThoughtAudience === "friends" ? "Share with friends" : "Share with everyone"}
+                  <span aria-hidden="true">›</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!desktopThoughtDraft.trim() || desktopThoughtSharing}
+                  onClick={submitDesktopProfileThought}
+                  style={{
+                    flex: "none",
+                    minWidth: 108,
+                    height: 48,
+                    padding: "0 22px",
+                    border: 0,
+                    borderRadius: 24,
+                    color: "#fff",
+                    background: "linear-gradient(135deg, #743cff, #9d4dff)",
+                    boxShadow: "0 8px 24px rgba(117,61,255,0.28)",
+                    fontSize: 16,
+                    fontWeight: 800,
+                    cursor: desktopThoughtDraft.trim() && !desktopThoughtSharing ? "pointer" : "default",
+                    opacity: desktopThoughtDraft.trim() && !desktopThoughtSharing ? 1 : 0.35,
+                  }}
+                >
+                  {desktopThoughtSharing ? "Sharing…" : "Share"}
+                </button>
+              </footer>
+            </section>
+          </div>,
+          document.body
+        )
+      : null}
+
     <style>{`
 
       html,
@@ -15304,10 +15635,7 @@ return (
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
-                          const thoughtButton = event.currentTarget.parentElement?.querySelector(
-                            ".profile-thought-bubble"
-                          ) as HTMLButtonElement | null;
-                          thoughtButton?.click();
+                          openDesktopThoughtComposer();
                         }}
                       />
                     ) : null}
