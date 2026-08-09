@@ -1,5 +1,6 @@
 "use client";
-// STAGING THOUGHT BUBBLE DESKTOP PAGE-OWNED COMPOSER FIX v31
+// STAGING THOUGHT BUBBLE RESPONSIVE DESKTOP HIT-TARGET FIX v32
+// Keeps v31 page-owned composer; fixes the uncovered 721px-1100px desktop/tablet layout band.
 // PROFILE SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or deletes from Profile.
 
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
@@ -14940,6 +14941,55 @@ return (
 
 <style jsx global>{`
   /* =========================================================
+   * STAGING THOUGHT BUBBLE RESPONSIVE DESKTOP HIT-TARGET FIX v32
+   *
+   * Root cause found after tracing the real responsive layout:
+   * - the profile uses the full hero layout from 721px upward
+   * - the earlier page-owned desktop hit target existed only at 1101px+
+   * - 721px-1100px therefore showed the avatar-contained thought bubble
+   *   but never reached the v31 page-owned composer opener
+   *
+   * Cover the visible medium-width bubble with a page-owned button and
+   * open the same v31 composer directly. Mobile <=720px is untouched.
+   * ========================================================= */
+  .profile-medium-thought-hit-target {
+    display: none !important;
+  }
+
+  @media (min-width: 721px) and (max-width: 1100px) {
+    .profile-polish-surface .profile-avatar-wrap {
+      overflow: visible !important;
+    }
+
+    .profile-polish-surface .profile-avatar-thought-original {
+      pointer-events: auto !important;
+    }
+
+    .profile-polish-surface .profile-medium-thought-hit-target {
+      display: block !important;
+      position: absolute !important;
+      top: -15px !important;
+      right: -88px !important;
+      left: auto !important;
+      width: 148px !important;
+      height: 32px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 11px !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      opacity: 1 !important;
+      z-index: 2147483646 !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      touch-action: manipulation !important;
+    }
+  }
+`}</style>
+
+<style jsx global>{`
+  /* =========================================================
    * STAGING THOUGHT BUBBLE DESKTOP DIRECT HIT TARGET FIX v30
    *
    * The visible desktop bubble can sit outside the anchor's normal box.
@@ -15644,11 +15694,24 @@ return (
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
                     <div className="profile-avatar-thought-original">
                       <ProfileThoughtBubble
-                      text={profileThought?.text || undefined}
-                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                      isOwnProfile={isOwnProfile}
-                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                    />
+                        text={profileThought?.text || undefined}
+                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                        isOwnProfile={isOwnProfile}
+                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                      />
+                      {isOwnProfile ? (
+                        <button
+                          type="button"
+                          className="profile-medium-thought-hit-target"
+                          aria-label="Create or edit thought"
+                          title="Create or edit thought"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            openDesktopThoughtComposer();
+                          }}
+                        />
+                      ) : null}
                     </div>
                     {profile?.avatar_url ? (
                       <img src={profile?.avatar_url || ""} alt="Profile" style={profileAvatarStyle} />
