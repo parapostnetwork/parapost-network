@@ -1,11 +1,10 @@
 "use client";
-// PROFILE THOUGHT BUBBLE v36 - true continuous ticker using enough repeated segments to cover the viewport during loop reset.
+// PROFILE THOUGHT BUBBLE v37 - measured pixel ticker: one thought moves continuously right-to-left and resets only while fully offscreen.
 // PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const THOUGHT_TICKER_COPY_COUNT = 12;
 
 const DAILY_PROMPTS = [
   "What’s your day look like?",
@@ -49,6 +48,8 @@ export default function ProfileThoughtBubble({
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState("");
   const [mounted, setMounted] = useState(false);
+  const thoughtWindowRef = useRef<HTMLSpanElement | null>(null);
+  const thoughtTextRef = useRef<HTMLSpanElement | null>(null);
 
   const dailyPrompt = useMemo(() => {
     const now = new Date();
@@ -66,6 +67,63 @@ export default function ProfileThoughtBubble({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const windowElement = thoughtWindowRef.current;
+    const textElement = thoughtTextRef.current;
+    if (!windowElement || !textElement) return;
+
+    let frameId = 0;
+    let lastTime = performance.now();
+    let viewportWidth = windowElement.clientWidth;
+    let textWidth = textElement.scrollWidth;
+    let x = viewportWidth;
+    const speedPixelsPerSecond = 24;
+
+    const paint = () => {
+      textElement.style.transform = `translate3d(${x}px, 0, 0)`;
+    };
+
+    paint();
+
+    const animate = (now: number) => {
+      const deltaSeconds = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      x -= speedPixelsPerSecond * deltaSeconds;
+
+      /*
+       * Reset ONLY after every pixel of the thought has cleared the left edge.
+       * The reset destination is exactly the right edge, where the text is also
+       * fully invisible. Therefore no fragment can flash or jump into view.
+       */
+      if (x <= -textWidth) {
+        const overshoot = -textWidth - x;
+        x = viewportWidth - overshoot;
+      }
+
+      paint();
+      frameId = requestAnimationFrame(animate);
+    };
+
+    frameId = requestAnimationFrame(animate);
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            viewportWidth = windowElement.clientWidth;
+            textWidth = textElement.scrollWidth;
+            if (x > viewportWidth || x < -textWidth) x = viewportWidth;
+          })
+        : null;
+
+    resizeObserver?.observe(windowElement);
+    resizeObserver?.observe(textElement);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+    };
+  }, [displayText]);
 
   useEffect(() => {
     if (!composerOpen) return;
@@ -224,13 +282,9 @@ export default function ProfileThoughtBubble({
           openComposer();
         }}
       >
-        <span className="profile-thought-window">
-          <span className="profile-thought-track" aria-hidden="true">
-            {Array.from({ length: THOUGHT_TICKER_COPY_COUNT }).map((_, index) => (
-              <span className="profile-thought-text" key={`thought-ticker-${index}`}>
-                {displayText}
-              </span>
-            ))}
+        <span ref={thoughtWindowRef} className="profile-thought-window">
+          <span ref={thoughtTextRef} className="profile-thought-text" aria-hidden="true">
+            {displayText}
           </span>
         </span>
         <span className="profile-thought-tail" aria-hidden="true" />
@@ -285,36 +339,24 @@ export default function ProfileThoughtBubble({
           z-index: 2;
         }
 
-        .profile-thought-track {
+        .profile-thought-text {
           position: absolute;
           top: 0;
           left: 0;
           display: inline-flex;
           align-items: center;
-          width: max-content;
-          height: 100%;
-          white-space: nowrap;
-          animation: profileThoughtTickerLoop 12s linear infinite;
-          will-change: transform;
-          backface-visibility: hidden;
-          transform: translate3d(0, 0, 0);
-        }
-
-        .profile-thought-text {
-          position: relative;
-          display: inline-flex;
-          align-items: center;
-          flex: 0 0 auto;
           height: 100%;
           min-width: max-content;
-          padding-right: 28px;
+          padding: 0;
           color: rgba(255, 255, 255, 0.52);
           font-size: 12.5px;
           font-weight: 600;
           line-height: 1;
           white-space: nowrap;
           animation: none !important;
-          transform: none !important;
+          will-change: transform;
+          backface-visibility: hidden;
+          transform: translate3d(0, 0, 0);
         }
 
         .profile-thought-tail {
@@ -331,24 +373,7 @@ export default function ProfileThoughtBubble({
           pointer-events: none;
         }
 
-        @keyframes profileThoughtTickerLoop {
-          /*
-           * v36 TRUE CONTINUOUS TICKER
-           *
-           * v35 used only two copies. That is NOT enough when one thought
-           * segment is narrower than the visible bubble: near the end of the
-           * cycle the viewport can see past copy #2 into empty track space,
-           * then the animation reset visibly brings text back.
-           *
-           * v36 repeats the exact same segment 12 times. The track moves by
-           * exactly ONE of those 12 equal segments (1/12 = 8.3333333333%).
-           * At the reset, every visible pixel has the same repeated content in
-           * the same relative position, including short thoughts, so there is
-           * no blank tail and no visible jump/reappearance.
-           */
-          from { transform: translate3d(0, 0, 0); }
-          to { transform: translate3d(-8.3333333333%, 0, 0); }
-        }
+        /* v37 scrolling is driven by requestAnimationFrame using measured pixel widths. */
 
         /* New Thought overlay */
         .thought-composer-backdrop {
@@ -577,9 +602,6 @@ export default function ProfileThoughtBubble({
             z-index: 9999 !important;
           }
 
-          .profile-thought-track {
-            animation-duration: 12s;
-          }
 
           .profile-thought-text {
             font-size: 12px;
@@ -606,9 +628,6 @@ export default function ProfileThoughtBubble({
             z-index: 9999 !important;
           }
 
-          .profile-thought-track {
-            animation-duration: 12s;
-          }
 
           .profile-thought-text {
             font-size: 11.25px;
@@ -704,11 +723,6 @@ export default function ProfileThoughtBubble({
           }
         }
 
-        @media (prefers-reduced-motion: reduce) {
-          .profile-thought-track {
-            animation-duration: 20s;
-          }
-        }
       `}</style>
     </>
   );
