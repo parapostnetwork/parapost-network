@@ -1,9 +1,10 @@
 "use client";
+// PROFILE THOUGHT BUBBLE v40 - v39 read-only + automatic daily prompt refresh while the page remains open.
 // PROFILE THOUGHT BUBBLE v39 - v38 continuous ticker + read-only visitor/friend open callback.
 // Non-owners can open a permitted thought read-only; only owners can open the editor/save controls.
 // PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 
@@ -30,6 +31,15 @@ const DAILY_PROMPTS = [
   "What do you want to share today?",
 ];
 
+function getDailyProfileThoughtPrompt() {
+  const now = new Date();
+  const dayNumber = Math.floor(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000
+  );
+
+  return DAILY_PROMPTS[dayNumber % DAILY_PROMPTS.length];
+}
+
 type ProfileThoughtBubbleProps = {
   text?: string;
   avatarUrl?: string | null;
@@ -55,12 +65,41 @@ export default function ProfileThoughtBubble({
   const thoughtTextRef = useRef<HTMLSpanElement | null>(null);
   const thoughtTextRefB = useRef<HTMLSpanElement | null>(null);
 
-  const dailyPrompt = useMemo(() => {
-    const now = new Date();
-    const dayNumber = Math.floor(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000
-    );
-    return DAILY_PROMPTS[dayNumber % DAILY_PROMPTS.length];
+  const [dailyPrompt, setDailyPrompt] = useState(() =>
+    getDailyProfileThoughtPrompt()
+  );
+
+  /*
+   * v40 DAILY PROMPT REFRESH
+   * Keep the built-in prompt synchronized with the UTC calendar day even when a
+   * profile page stays open across midnight. This matters when a 24-hour custom
+   * thought expires without a page reload: the current day's built-in prompt
+   * reappears instead of the prompt cached when the component first mounted.
+   */
+  useEffect(() => {
+    let refreshTimer: number | null = null;
+
+    const scheduleNextUtcDay = () => {
+      const now = new Date();
+      const nextUtcMidnight = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1
+      );
+      const delay = Math.max(1000, nextUtcMidnight - Date.now() + 100);
+
+      refreshTimer = window.setTimeout(() => {
+        setDailyPrompt(getDailyProfileThoughtPrompt());
+        scheduleNextUtcDay();
+      }, delay);
+    };
+
+    setDailyPrompt(getDailyProfileThoughtPrompt());
+    scheduleNextUtcDay();
+
+    return () => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+    };
   }, []);
 
   const displayText = (text?.trim() || dailyPrompt).slice(0, 60);

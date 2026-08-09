@@ -1,4 +1,6 @@
 "use client";
+// STAGING THOUGHT BUBBLE 24-HOUR EXPIRY v37
+// Any user-created thought expires 24 hours after its latest share/update, disappearing from the bubble and Profile Posts.
 // STAGING THOUGHT BUBBLE PROFILE POSTS FEED v36
 // Adds the current permitted profile thought to the Profile > Posts timeline while preserving Friends/Everyone RLS visibility.
 // STAGING THOUGHT BUBBLE FRIEND READ-ONLY VIEWER v35
@@ -69,6 +71,17 @@ type ProfileThoughtRow = {
   audience: "friends" | "everyone";
   updated_at: string;
 };
+
+const PROFILE_THOUGHT_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
+function isProfileThoughtWithinLifetime(thought: ProfileThoughtRow | null | undefined) {
+  if (!thought?.text || !thought.updated_at) return false;
+
+  const updatedAtMs = new Date(thought.updated_at).getTime();
+  if (!Number.isFinite(updatedAtMs)) return false;
+
+  return Date.now() - updatedAtMs < PROFILE_THOUGHT_LIFETIME_MS;
+}
 
 type ProfileSearchResult = {
   id: string;
@@ -2699,6 +2712,42 @@ export default function ProfilePage() {
     normalizedViewerId === normalizedProfileId
   );
 
+  /*
+   * v37 24-HOUR THOUGHT EXPIRY
+   * A custom thought is temporary. The latest share/update restarts its 24-hour
+   * lifetime. When that time ends, remove it from local Profile state so it
+   * disappears from the thought bubble and Profile Posts immediately, even if
+   * the page has stayed open the entire time.
+   */
+  useEffect(() => {
+    if (!profileThought?.updated_at) return;
+
+    const updatedAtMs = new Date(profileThought.updated_at).getTime();
+    if (!Number.isFinite(updatedAtMs)) {
+      setProfileThought(null);
+      setProfileThoughtViewerOpen(false);
+      return;
+    }
+
+    const remainingMs =
+      updatedAtMs + PROFILE_THOUGHT_LIFETIME_MS - Date.now();
+
+    if (remainingMs <= 0) {
+      setProfileThought(null);
+      setProfileThoughtViewerOpen(false);
+      return;
+    }
+
+    const expiryTimer = window.setTimeout(() => {
+      setProfileThought(null);
+      setProfileThoughtViewerOpen(false);
+    }, remainingMs + 50);
+
+    return () => {
+      window.clearTimeout(expiryTimer);
+    };
+  }, [profileThought?.updated_at]);
+
   const openReadOnlyProfileThought = useCallback(() => {
     if (isOwnProfile || !profileThought?.text) return;
     setProfileThoughtViewerOpen(true);
@@ -3634,10 +3683,15 @@ const closeProfileMobileSearch = useCallback(() => {
       return;
     }
 
+    const profileThoughtCutoffIso = new Date(
+      Date.now() - PROFILE_THOUGHT_LIFETIME_MS
+    ).toISOString();
+
     const { data: profileThoughtData, error: profileThoughtError } = await supabase
       .from("profile_thoughts")
       .select("user_id, text, audience, updated_at")
       .eq("user_id", profileId)
+      .gt("updated_at", profileThoughtCutoffIso)
       .maybeSingle();
 
     if (profileThoughtError) {
@@ -3645,7 +3699,10 @@ const closeProfileMobileSearch = useCallback(() => {
       console.warn("Profile thought could not load:", profileThoughtError.message);
       setProfileThought(null);
     } else {
-      setProfileThought((profileThoughtData as ProfileThoughtRow | null) || null);
+      const loadedThought = (profileThoughtData as ProfileThoughtRow | null) || null;
+      setProfileThought(
+        isProfileThoughtWithinLifetime(loadedThought) ? loadedThought : null
+      );
     }
 
     setProfile((profileResult.data as ProfileRow | null) || null);
