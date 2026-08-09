@@ -1,5 +1,6 @@
 "use client";
-// STAGING THOUGHT BUBBLE FRIEND READ-ONLY VIEWER v34
+// STAGING THOUGHT BUBBLE FRIEND READ-ONLY VIEWER v35
+// Explicitly wires permitted visitor/friend bubble clicks into the page-owned read-only viewer on every rendered bubble.
 // Allowed visitors can open a saved thought read-only; only the profile owner can edit/share. Unauthorized Friends-only thoughts are not rendered.
 // STAGING THOUGHT BUBBLE OWNER-SESSION + DOCUMENT-CAPTURE FIX v33
 // Desktop/tablet: recovers the authenticated owner directly from Supabase and captures clicks at document level.
@@ -15851,6 +15852,7 @@ return (
                         avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
                         isOwnProfile={isOwnProfile}
                         onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                        onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
                       />
                     ) : null}
                     {profile?.avatar_url ? (
@@ -16040,6 +16042,7 @@ return (
                         avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
                         isOwnProfile={isOwnProfile}
                         onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                        onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
                       />
                     ) : null}
                     {isOwnProfile ? (
@@ -16065,6 +16068,7 @@ return (
                           avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
                           isOwnProfile={isOwnProfile}
                           onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                          onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
                         />
                       ) : null}
                       {isOwnProfile ? (

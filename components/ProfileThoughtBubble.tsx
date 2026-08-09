@@ -1,5 +1,6 @@
 "use client";
-// PROFILE THOUGHT BUBBLE v38 - dual-lane measured ticker: alternate copies move continuously; resets happen only far offscreen.
+// PROFILE THOUGHT BUBBLE v39 - v38 continuous ticker + read-only visitor/friend open callback.
+// Non-owners can open a permitted thought read-only; only owners can open the editor/save controls.
 // PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -34,6 +35,7 @@ type ProfileThoughtBubbleProps = {
   avatarUrl?: string | null;
   isOwnProfile?: boolean;
   onShare?: (text: string, audience: "friends" | "everyone") => void | Promise<void>;
+  onOpenReadOnly?: () => void;
 };
 
 export default function ProfileThoughtBubble({
@@ -41,6 +43,7 @@ export default function ProfileThoughtBubble({
   avatarUrl,
   isOwnProfile = true,
   onShare,
+  onOpenReadOnly,
 }: ProfileThoughtBubbleProps) {
   const [composerOpen, setComposerOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -192,7 +195,11 @@ export default function ProfileThoughtBubble({
   };
 
   const openComposer = () => {
-    if (!isOwnProfile) return;
+    if (!isOwnProfile) {
+      if (text?.trim() && onOpenReadOnly) onOpenReadOnly();
+      return;
+    }
+
     setDraft((text?.trim() || "").slice(0, 60));
     setShareError("");
     setComposerOpen(true);
@@ -292,7 +299,7 @@ export default function ProfileThoughtBubble({
       <button
         type="button"
         className="profile-thought-bubble"
-        aria-label={isOwnProfile ? "Create or edit thought" : `Thought: ${displayText}`}
+        aria-label={isOwnProfile ? "Create or edit thought" : `Open thought: ${displayText}`}
         aria-expanded={isOwnProfile ? composerOpen : undefined}
         onPointerUp={(event) => {
           event.stopPropagation();
