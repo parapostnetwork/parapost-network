@@ -14079,7 +14079,11 @@ return (
           overflow: visible !important;
           isolation: auto !important;
 
-          pointer-events: none !important;
+          /* v28 DESKTOP INTERACTION FIX:
+           * The anchor itself must participate in hit-testing. Keeping this
+           * at none made the visible desktop thought unreliable to click.
+           */
+          pointer-events: auto !important;
         }
 
         .profile-polish-surface
@@ -14484,6 +14488,28 @@ return (
 
 `}
 </style>
+
+<style jsx global>{`
+  /* =========================================================
+   * STAGING THOUGHT BUBBLE DESKTOP CLICK FIX v28
+   * Desktop only. Position is intentionally untouched.
+   * This is the final interaction authority for the hero-level
+   * desktop thought instance. Mobile/tablet rules remain unchanged.
+   * ========================================================= */
+  @media (min-width: 1101px) {
+    .profile-polish-surface .profile-desktop-thought-anchor {
+      pointer-events: auto !important;
+      overflow: visible !important;
+    }
+
+    .profile-polish-surface
+      .profile-desktop-thought-anchor
+      > .profile-thought-bubble {
+      pointer-events: auto !important;
+      cursor: pointer !important;
+    }
+  }
+`}</style>
 
 <style jsx global>{`
   /*
