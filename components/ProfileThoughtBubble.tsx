@@ -1,5 +1,5 @@
 "use client";
-// PROFILE THOUGHT BUBBLE v40 - v39 read-only + automatic daily prompt refresh while the page remains open.
+// PROFILE THOUGHT BUBBLE v41 - v40 read-only/daily refresh + ticker viewport edge clipping fix.
 // PROFILE THOUGHT BUBBLE v39 - v38 continuous ticker + read-only visitor/friend open callback.
 // Non-owners can open a permitted thought read-only; only owners can open the editor/save controls.
 // PROFILE THOUGHT BUBBLE v30 - universal body portal, desktop hit-target compatible, real save callback, tools removed.
@@ -374,7 +374,7 @@ export default function ProfileThoughtBubble({
           height: 34px;
           display: flex;
           align-items: center;
-          padding: 0 11px;
+          padding: 0 3px; /* v41: widen ticker viewport so text clips near the bubble edge */
           box-sizing: border-box;
           border: 0;
           border-radius: 12px;
@@ -667,7 +667,7 @@ export default function ProfileThoughtBubble({
             right: -88px;
             width: 148px;
             height: 32px;
-            padding: 0 10px;
+            padding: 0 3px; /* v41: keep tablet clipping aligned with visible bubble edge */
             border-radius: 11px;
             z-index: 9999 !important;
           }
@@ -693,7 +693,7 @@ export default function ProfileThoughtBubble({
             right: -84px;
             width: 132px;
             height: 30px;
-            padding: 0 9px;
+            padding: 0 3px; /* v41: keep mobile clipping aligned with visible bubble edge */
             border-radius: 11px;
             z-index: 9999 !important;
           }
@@ -776,7 +776,7 @@ export default function ProfileThoughtBubble({
             right: -74px;
             width: 122px;
             height: 29px;
-            padding: 0 8px;
+            padding: 0 3px; /* v41: keep small-mobile clipping aligned with visible bubble edge */
           }
 
           .profile-thought-text {
