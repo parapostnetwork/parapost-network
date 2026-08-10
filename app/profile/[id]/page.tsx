@@ -1,7 +1,18 @@
 "use client";
+// STAGING THOUGHT BUBBLE 24-HOUR EXPIRY v37
+// Any user-created thought expires 24 hours after its latest share/update, disappearing from the bubble and Profile Posts.
+// STAGING THOUGHT BUBBLE PROFILE POSTS FEED v36
+// Adds the current permitted profile thought to the Profile > Posts timeline while preserving Friends/Everyone RLS visibility.
+// STAGING THOUGHT BUBBLE FRIEND READ-ONLY VIEWER v35
+// Explicitly wires permitted visitor/friend bubble clicks into the page-owned read-only viewer on every rendered bubble.
+// Allowed visitors can open a saved thought read-only; only the profile owner can edit/share. Unauthorized Friends-only thoughts are not rendered.
+// STAGING THOUGHT BUBBLE OWNER-SESSION + DOCUMENT-CAPTURE FIX v33
+// Desktop/tablet: recovers the authenticated owner directly from Supabase and captures clicks at document level.
+// This removes reliance on nested stacking contexts, transparent hit-targets, or a possibly stale viewerId state.
 // PROFILE SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or deletes from Profile.
 
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
+// PROFILE THOUGHT PERSISTENCE v28 - Supabase-backed profile thoughts + portal composer wiring.
 
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -19,6 +30,7 @@ import MutualFriendsPreviewCard from "@/components/profile/MutualFriendsPreviewC
 import ProfileAboutSection from "@/components/profile/ProfileAboutSection";
 import ProfilePhotosSection from "@/components/profile/ProfilePhotosSection";
 import LiveChatPanel from "@/components/live/LiveChatPanel";
+import ProfileThoughtBubble from "@/components/ProfileThoughtBubble";
 
 type ProfileRow = {
   id: string;
@@ -52,6 +64,24 @@ type ProfileRow = {
   interests?: unknown;
   profile_links?: unknown;
 };
+
+type ProfileThoughtRow = {
+  user_id: string;
+  text: string;
+  audience: "friends" | "everyone";
+  updated_at: string;
+};
+
+const PROFILE_THOUGHT_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
+function isProfileThoughtWithinLifetime(thought: ProfileThoughtRow | null | undefined) {
+  if (!thought?.text || !thought.updated_at) return false;
+
+  const updatedAtMs = new Date(thought.updated_at).getTime();
+  if (!Number.isFinite(updatedAtMs)) return false;
+
+  return Date.now() - updatedAtMs < PROFILE_THOUGHT_LIFETIME_MS;
+}
 
 type ProfileSearchResult = {
   id: string;
@@ -183,7 +213,8 @@ type ProfileFeedItem =
   | (SharedProfilePost & { feedKind: "shared_post" })
   | (ReelShareProfilePost & { feedKind: "reel_share" })
   | (ProfileLiveStream & { feedKind: "live_stream" })
-  | (ProfileAchievementActivity & { feedKind: "achievement" });
+  | (ProfileAchievementActivity & { feedKind: "achievement" })
+  | (ProfileThoughtRow & { id: string; created_at: string; feedKind: "thought" });
 
 type CountMap = Record<string, number>;
 type ToggleMap = Record<string, boolean>;
@@ -2822,6 +2853,15 @@ export default function ProfilePage() {
   const [viewerEmail, setViewerEmail] = useState("");
   const [viewerAvatarUrl, setViewerAvatarUrl] = useState("");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [profileThought, setProfileThought] = useState<ProfileThoughtRow | null>(null);
+  // v31 desktop thought composer: page-owned state so desktop no longer relies on
+  // a programmatic click into a nested ProfileThoughtBubble instance.
+  const [desktopThoughtComposerOpen, setDesktopThoughtComposerOpen] = useState(false);
+  const [profileThoughtViewerOpen, setProfileThoughtViewerOpen] = useState(false);
+  const [desktopThoughtDraft, setDesktopThoughtDraft] = useState("");
+  const [desktopThoughtAudience, setDesktopThoughtAudience] = useState<"friends" | "everyone">("friends");
+  const [desktopThoughtSharing, setDesktopThoughtSharing] = useState(false);
+  const [desktopThoughtError, setDesktopThoughtError] = useState("");
   const [profilePostContent, setProfilePostContent] = useState("");
   const [profilePostImages, setProfilePostImages] = useState<File[]>([]);
   const [profilePostImagePreviewUrls, setProfilePostImagePreviewUrls] = useState<string[]>([]);
@@ -2963,7 +3003,289 @@ export default function ProfilePage() {
     maxHeight: 340,
   });
 
-  const isOwnProfile = !!viewerId && viewerId === profileId;
+  const normalizedViewerId = String(viewerId || "").trim().toLowerCase();
+  const normalizedProfileId = String(profileId || "").trim().toLowerCase();
+  const isOwnProfile = Boolean(
+    normalizedViewerId &&
+    normalizedProfileId &&
+    normalizedViewerId === normalizedProfileId
+  );
+
+  /*
+   * v37 24-HOUR THOUGHT EXPIRY
+   * A custom thought is temporary. The latest share/update restarts its 24-hour
+   * lifetime. When that time ends, remove it from local Profile state so it
+   * disappears from the thought bubble and Profile Posts immediately, even if
+   * the page has stayed open the entire time.
+   */
+  useEffect(() => {
+    if (!profileThought?.updated_at) return;
+
+    const updatedAtMs = new Date(profileThought.updated_at).getTime();
+    if (!Number.isFinite(updatedAtMs)) {
+      setProfileThought(null);
+      setProfileThoughtViewerOpen(false);
+      return;
+    }
+
+    const remainingMs =
+      updatedAtMs + PROFILE_THOUGHT_LIFETIME_MS - Date.now();
+
+    if (remainingMs <= 0) {
+      setProfileThought(null);
+      setProfileThoughtViewerOpen(false);
+      return;
+    }
+
+    const expiryTimer = window.setTimeout(() => {
+      setProfileThought(null);
+      setProfileThoughtViewerOpen(false);
+    }, remainingMs + 50);
+
+    return () => {
+      window.clearTimeout(expiryTimer);
+    };
+  }, [profileThought?.updated_at]);
+
+  const openReadOnlyProfileThought = useCallback(() => {
+    if (isOwnProfile || !profileThought?.text) return;
+    setProfileThoughtViewerOpen(true);
+  }, [isOwnProfile, profileThought?.text]);
+
+  const handleShareProfileThought = async (
+    thoughtText: string,
+    audience: "friends" | "everyone"
+  ) => {
+    const clean = thoughtText.trim().slice(0, 60);
+
+    if (!clean) {
+      throw new Error("Enter a thought before sharing.");
+    }
+
+    if (
+      !normalizedViewerId ||
+      !normalizedProfileId ||
+      normalizedViewerId !== normalizedProfileId
+    ) {
+      throw new Error("You can only update the thought on your own profile.");
+    }
+
+    const nextThought = {
+      user_id: viewerId,
+      text: clean,
+      audience,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("profile_thoughts")
+      .upsert(nextThought, { onConflict: "user_id" })
+      .select("user_id, text, audience, updated_at")
+      .single();
+
+    if (error) {
+      console.error("Profile thought save error:", error);
+      throw new Error(error.message || "Your thought could not be saved.");
+    }
+
+    setProfileThought((data as ProfileThoughtRow | null) || nextThought);
+  };
+
+  const openDesktopThoughtComposer = useCallback(async () => {
+    let activeOwnerId = String(viewerId || "").trim();
+
+    /*
+     * v33 OWNER-SESSION RECOVERY
+     * Do not trust viewerId alone for this interaction. On Vercel preview/staging
+     * origins the page can render before the local viewer state reflects the
+     * authenticated Supabase user. Read the current auth user again at click time.
+     */
+    if (
+      !activeOwnerId ||
+      activeOwnerId.toLowerCase() !== normalizedProfileId
+    ) {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          console.warn("Profile thought auth refresh failed:", authError.message);
+        }
+
+        const authUserId = String(user?.id || "").trim();
+        if (
+          authUserId &&
+          normalizedProfileId &&
+          authUserId.toLowerCase() === normalizedProfileId
+        ) {
+          activeOwnerId = authUserId;
+          if (authUserId !== viewerId) {
+            setViewerId(authUserId);
+            setViewerEmail(user?.email || "");
+          }
+        }
+      } catch (error) {
+        console.warn("Profile thought auth refresh threw:", error);
+      }
+    }
+
+    if (
+      !activeOwnerId ||
+      !normalizedProfileId ||
+      activeOwnerId.toLowerCase() !== normalizedProfileId
+    ) {
+      if (typeof window !== "undefined") {
+        window.alert(
+          "This profile is not currently recognized as your signed-in profile on this staging site. Sign in on this exact staging URL, open My Profile, and then try the thought bubble again."
+        );
+      }
+      return;
+    }
+
+    setProfileThoughtViewerOpen(false);
+    setDesktopThoughtDraft((profileThought?.text || "").slice(0, 60));
+    setDesktopThoughtAudience(profileThought?.audience || "friends");
+    setDesktopThoughtError("");
+    setDesktopThoughtComposerOpen(true);
+  }, [normalizedProfileId, profileThought?.audience, profileThought?.text, viewerId]);
+
+  const submitDesktopProfileThought = async () => {
+    const clean = desktopThoughtDraft.trim().slice(0, 60);
+    if (!clean || desktopThoughtSharing) return;
+
+    setDesktopThoughtError("");
+    try {
+      setDesktopThoughtSharing(true);
+      await handleShareProfileThought(clean, desktopThoughtAudience);
+      setDesktopThoughtComposerOpen(false);
+    } catch (error) {
+      setDesktopThoughtError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Your thought could not be saved. Please try again."
+      );
+    } finally {
+      setDesktopThoughtSharing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!desktopThoughtComposerOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDesktopThoughtComposerOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [desktopThoughtComposerOpen]);
+
+  useEffect(() => {
+    if (!profileThoughtViewerOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileThoughtViewerOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [profileThoughtViewerOpen]);
+
+  /*
+   * v34 DOCUMENT-CAPTURE THOUGHT OPENER
+   *
+   * The visible bubble can extend outside its positioned parent and can be
+   * visually covered by another paint/hit-test layer. Capturing pointerdown at
+   * document level means the page can recognize a click by the bubble's actual
+   * on-screen rectangle even when the nested button never receives the event.
+   *
+   * Mobile <= 720px keeps the existing ProfileThoughtBubble interaction.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const handleThoughtPointerDownCapture = (event: PointerEvent) => {
+      if (desktopThoughtComposerOpen || profileThoughtViewerOpen) return;
+
+      // Keep the owner's existing mobile editor. Visitors use this capture on
+      // every viewport so the read-only viewer works on desktop/tablet/mobile.
+      if (isOwnProfile && window.innerWidth <= 720) return;
+
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+
+      const visibleThoughtBubbles = Array.from(
+        document.querySelectorAll<HTMLElement>(".profile-thought-bubble")
+      ).filter((element) => {
+        const computed = window.getComputedStyle(element);
+        if (
+          computed.display === "none" ||
+          computed.visibility === "hidden" ||
+          Number.parseFloat(computed.opacity || "1") <= 0
+        ) {
+          return false;
+        }
+
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return false;
+
+        return (
+          clientX >= rect.left &&
+          clientX <= rect.right &&
+          clientY >= rect.top &&
+          clientY <= rect.bottom
+        );
+      });
+
+      if (visibleThoughtBubbles.length === 0) return;
+      if (!isOwnProfile && !profileThought?.text) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (isOwnProfile) {
+        void openDesktopThoughtComposer();
+      } else {
+        openReadOnlyProfileThought();
+      }
+    };
+
+    document.addEventListener(
+      "pointerdown",
+      handleThoughtPointerDownCapture,
+      true
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handleThoughtPointerDownCapture,
+        true
+      );
+    };
+  }, [
+    desktopThoughtComposerOpen,
+    profileThoughtViewerOpen,
+    isOwnProfile,
+    profileThought?.text,
+    openDesktopThoughtComposer,
+    openReadOnlyProfileThought,
+  ]);
+
   const profileIsPrivate = Boolean(profile?.is_private);
   const canViewPrivateProfileContent = !profileIsPrivate || isOwnProfile || friendStatus === "friends";
   const isProfileContentLocked = Boolean(profile && profileIsPrivate && !canViewPrivateProfileContent);
@@ -3230,6 +3552,16 @@ const handleProfileLogout = async () => {
 
 const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
   return [
+    ...(profileThought?.text
+      ? [
+          {
+            ...profileThought,
+            id: `profile-thought-${profileThought.user_id}`,
+            created_at: profileThought.updated_at,
+            feedKind: "thought" as const,
+          },
+        ]
+      : []),
     ...profileAchievementActivity.map((activity) => ({
       ...activity,
       feedKind: "achievement" as const,
@@ -3253,7 +3585,7 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
       new Date(b.created_at).getTime() -
       new Date(a.created_at).getTime()
   );
-}, [posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileLiveStreams]);
+}, [profileThought, posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileLiveStreams]);
 
 const showFriendStatus = useCallback((message: string) => {
   setFriendStatusMessage(message);
@@ -3441,6 +3773,7 @@ const closeProfileMobileSearch = useCallback(() => {
 
     setLoading(true);
     setErrorMessage("");
+    setProfileThought(null);
     setProfileBadgesLoading(true);
     setProfileAchievementsLoading(true);
     const profileBadgesPromise = loadEarnedProfileBadges(profileId);
@@ -3648,6 +3981,7 @@ const closeProfileMobileSearch = useCallback(() => {
     if (profileResult.error) {
       setErrorMessage(profileResult.error.message || "Unable to load profile.");
       setProfile(null);
+      setProfileThought(null);
       setPosts([]);
       setSharedPostPosts([]);
       setSharedReelPosts([]);
@@ -3660,6 +3994,28 @@ const closeProfileMobileSearch = useCallback(() => {
       setProfileAchievementActivity([]);
       setLoading(false);
       return;
+    }
+
+    const profileThoughtCutoffIso = new Date(
+      Date.now() - PROFILE_THOUGHT_LIFETIME_MS
+    ).toISOString();
+
+    const { data: profileThoughtData, error: profileThoughtError } = await supabase
+      .from("profile_thoughts")
+      .select("user_id, text, audience, updated_at")
+      .eq("user_id", profileId)
+      .gt("updated_at", profileThoughtCutoffIso)
+      .maybeSingle();
+
+    if (profileThoughtError) {
+      // A missing migration/RLS issue should never break the rest of Profile.
+      console.warn("Profile thought could not load:", profileThoughtError.message);
+      setProfileThought(null);
+    } else {
+      const loadedThought = (profileThoughtData as ProfileThoughtRow | null) || null;
+      setProfileThought(
+        isProfileThoughtWithinLifetime(loadedThought) ? loadedThought : null
+      );
     }
 
     setProfile((profileResult.data as ProfileRow | null) || null);
@@ -7338,6 +7694,468 @@ return (
      animation: "profileFadeIn 220ms ease-out",
    }}
   >
+    {profileThoughtViewerOpen &&
+    !isOwnProfile &&
+    profileThought?.text &&
+    typeof document !== "undefined"
+      ? createPortal(
+          <div
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setProfileThoughtViewerOpen(false);
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 2147483647,
+              display: "grid",
+              placeItems: "center",
+              padding: 24,
+              background: "rgba(3, 5, 10, 0.82)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              pointerEvents: "auto",
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="profile-thought-viewer-title"
+              style={{
+                width: "min(520px, calc(100vw - 48px))",
+                minHeight: 430,
+                maxHeight: "calc(100dvh - 48px)",
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                color: "#fff",
+                background: "radial-gradient(circle at 50% 25%, rgba(125,55,255,0.12), transparent 34%), #090c12",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 26,
+                boxShadow: "0 30px 90px rgba(0,0,0,0.60)",
+              }}
+            >
+              <header
+                style={{
+                  height: 76,
+                  minHeight: 76,
+                  display: "grid",
+                  gridTemplateColumns: "70px 1fr 70px",
+                  alignItems: "center",
+                  padding: "0 18px",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Close thought"
+                  onClick={() => setProfileThoughtViewerOpen(false)}
+                  style={{
+                    justifySelf: "start",
+                    width: 44,
+                    height: 44,
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    color: "#fff",
+                    fontSize: 44,
+                    fontWeight: 200,
+                    lineHeight: "38px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ×
+                </button>
+                <h2
+                  id="profile-thought-viewer-title"
+                  style={{ margin: 0, textAlign: "center", fontSize: 23, lineHeight: 1, fontWeight: 750 }}
+                >
+                  Thought
+                </h2>
+                <span aria-hidden="true" />
+              </header>
+
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "48px 28px 34px",
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    width: "min(360px, 78vw)",
+                    minHeight: 96,
+                    display: "grid",
+                    placeItems: "center",
+                    padding: "22px 24px",
+                    boxSizing: "border-box",
+                    borderRadius: 28,
+                    background: "#414247",
+                    boxShadow: "0 12px 30px rgba(0,0,0,0.28)",
+                    color: "#fff",
+                    fontSize: 20,
+                    fontWeight: 650,
+                    lineHeight: 1.35,
+                    textAlign: "center",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {profileThought.text}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      left: "46%",
+                      bottom: -14,
+                      width: 0,
+                      height: 0,
+                      borderTop: "20px solid #414247",
+                      borderRight: "18px solid transparent",
+                      transform: "rotate(8deg)",
+                    }}
+                  />
+                </div>
+
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "relative",
+                    zIndex: 2,
+                    width: 118,
+                    height: 118,
+                    marginTop: 10,
+                    overflow: "hidden",
+                    display: "grid",
+                    placeItems: "center",
+                    borderRadius: "50%",
+                    background: "#252a34",
+                    border: "3px solid rgba(167,94,255,0.72)",
+                    boxShadow: "0 0 28px rgba(121,66,255,0.22)",
+                  }}
+                >
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <span style={{ color: "rgba(255,255,255,.65)", fontSize: 24, fontWeight: 800 }}>
+                      {profileDisplayInitial}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 18, color: "rgba(255,255,255,0.92)", fontSize: 16, fontWeight: 700, textAlign: "center" }}>
+                  {profileDisplayName || "Profile Thought"}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 9,
+                    padding: "7px 12px",
+                    borderRadius: 999,
+                    background: "rgba(168,85,247,0.14)",
+                    border: "1px solid rgba(168,85,247,0.28)",
+                    color: "rgba(255,255,255,0.78)",
+                    fontSize: 13,
+                    fontWeight: 650,
+                  }}
+                >
+                  {profileThought.audience === "friends" ? "Shared with friends" : "Shared with everyone"}
+                </div>
+
+                <div style={{ marginTop: 16, color: "rgba(255,255,255,0.48)", fontSize: 12, textAlign: "center" }}>
+                  Read only
+                </div>
+              </div>
+            </section>
+          </div>,
+          document.body
+        )
+      : null}
+
+    {desktopThoughtComposerOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setDesktopThoughtComposerOpen(false);
+              }
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 2147483647,
+              display: "grid",
+              placeItems: "center",
+              padding: 24,
+              background: "rgba(3, 5, 10, 0.82)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              pointerEvents: "auto",
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="desktop-thought-composer-title"
+              style={{
+                width: "min(620px, calc(100vw - 48px))",
+                minHeight: 640,
+                maxHeight: "calc(100dvh - 48px)",
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                color: "#fff",
+                background: "radial-gradient(circle at 50% 25%, rgba(125,55,255,0.12), transparent 34%), #090c12",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 26,
+                boxShadow: "0 30px 90px rgba(0,0,0,0.60)",
+              }}
+            >
+              <header
+                style={{
+                  height: 82,
+                  minHeight: 82,
+                  display: "grid",
+                  gridTemplateColumns: "90px 1fr 90px",
+                  alignItems: "center",
+                  padding: "0 22px",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setDesktopThoughtComposerOpen(false)}
+                  style={{
+                    justifySelf: "start",
+                    width: 46,
+                    height: 46,
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    color: "#fff",
+                    fontSize: 48,
+                    fontWeight: 200,
+                    lineHeight: "40px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ×
+                </button>
+
+                <h2
+                  id="desktop-thought-composer-title"
+                  style={{
+                    margin: 0,
+                    textAlign: "center",
+                    fontSize: 25,
+                    lineHeight: 1,
+                    fontWeight: 750,
+                  }}
+                >
+                  New Thought
+                </h2>
+
+                <button
+                  type="button"
+                  disabled={!desktopThoughtDraft.trim() || desktopThoughtSharing}
+                  onClick={submitDesktopProfileThought}
+                  style={{
+                    justifySelf: "end",
+                    border: 0,
+                    background: "transparent",
+                    color: "#a873ff",
+                    fontSize: 16,
+                    fontWeight: 700,
+                    cursor: desktopThoughtDraft.trim() && !desktopThoughtSharing ? "pointer" : "default",
+                    opacity: desktopThoughtDraft.trim() && !desktopThoughtSharing ? 1 : 0.35,
+                  }}
+                >
+                  {desktopThoughtSharing ? "Sharing…" : "Share"}
+                </button>
+              </header>
+
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  padding: "90px 30px 36px",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "min(330px, 74vw)",
+                      minHeight: 92,
+                      marginBottom: 10,
+                      borderRadius: 28,
+                      background: "#414247",
+                      boxShadow: "0 12px 30px rgba(0,0,0,0.28)",
+                    }}
+                  >
+                    <textarea
+                      autoFocus
+                      maxLength={60}
+                      value={desktopThoughtDraft}
+                      onChange={(event) => setDesktopThoughtDraft(event.target.value.slice(0, 60))}
+                      placeholder="What’s on your mind?"
+                      aria-label="Your thought"
+                      style={{
+                        width: "100%",
+                        height: 92,
+                        resize: "none",
+                        boxSizing: "border-box",
+                        padding: "28px 26px 18px",
+                        border: 0,
+                        outline: 0,
+                        borderRadius: 28,
+                        background: "transparent",
+                        color: "#fff",
+                        font: "inherit",
+                        fontSize: 22,
+                        lineHeight: 1.25,
+                        textAlign: "center",
+                        overflow: "hidden",
+                      }}
+                    />
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        left: "46%",
+                        bottom: -14,
+                        width: 0,
+                        height: 0,
+                        borderTop: "20px solid #414247",
+                        borderRight: "18px solid transparent",
+                        transform: "rotate(8deg)",
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      position: "relative",
+                      zIndex: 2,
+                      width: 142,
+                      height: 142,
+                      overflow: "hidden",
+                      display: "grid",
+                      placeItems: "center",
+                      borderRadius: "50%",
+                      background: "#252a34",
+                      border: "3px solid rgba(167,94,255,0.72)",
+                      boxShadow: "0 0 28px rgba(121,66,255,0.22)",
+                    }}
+                  >
+                    {profile?.avatar_url || viewerAvatarUrl ? (
+                      <img
+                        src={profile?.avatar_url || viewerAvatarUrl || ""}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <span style={{ color: "rgba(255,255,255,.55)", fontSize: 17, fontWeight: 800 }}>YOU</span>
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: 20, color: "rgba(255,255,255,0.82)", fontSize: 18 }}>
+                    {desktopThoughtDraft.length}/60
+                  </div>
+
+                  {desktopThoughtError ? (
+                    <div
+                      role="alert"
+                      style={{
+                        width: "min(360px, 78vw)",
+                        marginTop: 16,
+                        color: "#fca5a5",
+                        fontSize: 13,
+                        fontWeight: 650,
+                        lineHeight: 1.35,
+                        textAlign: "center",
+                      }}
+                    >
+                      {desktopThoughtError}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <footer
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 18,
+                  padding: "22px 28px",
+                  borderTop: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDesktopThoughtAudience((current) =>
+                      current === "friends" ? "everyone" : "friends"
+                    )
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 9,
+                    minWidth: 0,
+                    border: 0,
+                    background: "transparent",
+                    color: "rgba(255,255,255,0.9)",
+                    fontSize: 15,
+                    fontWeight: 650,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span aria-hidden="true">{desktopThoughtAudience === "friends" ? "♟" : "◎"}</span>
+                  {desktopThoughtAudience === "friends" ? "Share with friends" : "Share with everyone"}
+                  <span aria-hidden="true">›</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!desktopThoughtDraft.trim() || desktopThoughtSharing}
+                  onClick={submitDesktopProfileThought}
+                  style={{
+                    flex: "none",
+                    minWidth: 108,
+                    height: 48,
+                    padding: "0 22px",
+                    border: 0,
+                    borderRadius: 24,
+                    color: "#fff",
+                    background: "linear-gradient(135deg, #743cff, #9d4dff)",
+                    boxShadow: "0 8px 24px rgba(117,61,255,0.28)",
+                    fontSize: 16,
+                    fontWeight: 800,
+                    cursor: desktopThoughtDraft.trim() && !desktopThoughtSharing ? "pointer" : "default",
+                    opacity: desktopThoughtDraft.trim() && !desktopThoughtSharing ? 1 : 0.35,
+                  }}
+                >
+                  {desktopThoughtSharing ? "Sharing…" : "Share"}
+                </button>
+              </footer>
+            </section>
+          </div>,
+          document.body
+        )
+      : null}
+
     <style>{`
 
       html,
@@ -14254,8 +15072,1063 @@ return (
       }
 
 
+
+      /* =========================================================
+         STAGING: THOUGHT BUBBLE + AVATAR SAFETY PATCH
+         Keeps the avatar perfectly centered/cropped while allowing
+         the thought bubble to sit outside the circle independently.
+         ========================================================= */
+
+      .profile-polish-surface .profile-mobile-avatar-shell-real,
+      .profile-polish-surface .profile-avatar-wrap {
+        position: relative !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
+        isolation: isolate !important;
+      }
+
+      /* Mobile avatar media is pinned inside the gradient ring.
+         This prevents the fallback/image from being pushed or offset
+         by absolutely-positioned siblings such as the thought bubble. */
+      @media (max-width: 720px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-image-real,
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-fallback-real {
+          position: absolute !important;
+          inset: 4px !important;
+          width: calc(100% - 8px) !important;
+          height: calc(100% - 8px) !important;
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+          margin: 0 !important;
+          box-sizing: border-box !important;
+          border-radius: 999px !important;
+          object-fit: cover !important;
+          object-position: center !important;
+          overflow: hidden !important;
+          clip-path: inset(0 round 999px) !important;
+          z-index: 13 !important;
+        }
+
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-mobile-avatar-fallback-real {
+          display: grid !important;
+          place-items: center !important;
+        }
+      }
+
+      /* Existing legacy avatar rules target direct child DIVs.
+         Explicitly exempt the thought bubble from those avatar-media
+         positioning/border rules. */
+      .profile-polish-surface
+        .profile-avatar-wrap
+        > .profile-thought-bubble,
+      .profile-polish-surface
+        .profile-mobile-avatar-shell-real
+        > .profile-thought-bubble {
+        position: absolute !important;
+        z-index: 40 !important;
+        border-width: 0 !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        flex: none !important;
+      }
+
+      /* Keep the edit button above the avatar itself but below the bubble. */
+      .profile-polish-surface .profile-avatar-edit-button,
+      .profile-polish-surface .profile-mobile-camera-real {
+        z-index: 30 !important;
+      }
+
+      /* Small-screen safety: keep the bubble from changing avatar geometry. */
+      @media (max-width: 420px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > .profile-thought-bubble {
+          max-width: 118px !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE FIX ADVANCED v9
+         Placement strategy:
+         - keep the bubble visually clear of the cover/banner edge
+         - attach it naturally to the avatar's right side
+         - use dedicated desktop/tablet/mobile positions
+         ========================================================= */
+
+      .profile-polish-surface .profile-hero-shell,
+      .profile-polish-surface .profile-hero-content,
+      .profile-polish-surface .profile-avatar-wrap,
+      .profile-polish-surface .profile-mobile-avatar-shell-real {
+        overflow: visible !important;
+      }
+
+      .profile-polish-surface .profile-cover-zone {
+        position: relative !important;
+        z-index: 1 !important;
+        overflow: hidden !important;
+      }
+
+      .profile-polish-surface .profile-hero-content {
+        position: relative !important;
+        z-index: 20 !important;
+      }
+
+      .profile-polish-surface .profile-avatar-wrap,
+      .profile-polish-surface .profile-mobile-avatar-shell-real {
+        position: relative !important;
+        z-index: 30 !important;
+      }
+
+      .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
+      .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble,
+      .profile-avatar-wrap > .profile-thought-bubble,
+      .profile-mobile-avatar-shell-real > .profile-thought-bubble {
+        position: absolute !important;
+        z-index: 99999 !important;
+
+        left: auto !important;
+
+        margin: 0 !important;
+        box-sizing: border-box !important;
+
+        border-width: 0 !important;
+        border-style: none !important;
+
+        overflow: visible !important;
+
+        flex: none !important;
+
+        transform: none !important;
+        filter: none !important;
+      }
+
+      /* Desktop:
+         place the whole bubble clear of the banner,
+         slightly right of the avatar's upper edge. */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble {
+          top: -14px !important;
+          right: -132px !important;
+
+          width: 160px !important;
+          height: 34px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+
+          padding: 0 11px !important;
+          border-radius: 12px !important;
+        }
+      }
+
+      /* Tablet */
+      @media (min-width: 700px) and (max-width: 1100px) {
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
+        .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
+          top: -16px !important;
+          right: -118px !important;
+
+          width: 148px !important;
+          height: 32px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+
+          padding: 0 10px !important;
+          border-radius: 11px !important;
+        }
+      }
+
+      /* Mobile:
+         fully visible, shifted right, and clear of the cover edge. */
+      @media (max-width: 699px) {
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
+        .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
+          top: -18px !important;
+          right: -116px !important;
+
+          width: 132px !important;
+          height: 30px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+
+          padding: 0 9px !important;
+          border-radius: 11px !important;
+        }
+      }
+
+      @media (max-width: 390px) {
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble,
+        .profile-polish-surface .profile-mobile-avatar-shell-real > .profile-thought-bubble {
+          top: -17px !important;
+          right: -102px !important;
+
+          width: 122px !important;
+          height: 29px !important;
+
+          padding: 0 8px !important;
+        }
+      }
+
+      .profile-polish-surface .profile-avatar-wrap > img,
+      .profile-polish-surface .profile-avatar-wrap > div:not(.profile-thought-bubble),
+      .profile-polish-surface .profile-mobile-avatar-image-real,
+      .profile-polish-surface .profile-mobile-avatar-fallback-real {
+        position: relative !important;
+        z-index: 13 !important;
+      }
+
+      .profile-polish-surface .profile-avatar-edit-button,
+      .profile-polish-surface .profile-mobile-camera-real {
+        position: absolute !important;
+        z-index: 40 !important;
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE LAYER FIX v10
+         Desktop only:
+         - preserve the v8 position exactly
+         - remove trapping stacking contexts
+         - keep the avatar/bubble above the cover/banner
+         - do not alter mobile/tablet positioning or scrolling
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-hero-content {
+          position: relative !important;
+          z-index: 100 !important;
+          isolation: auto !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-avatar-wrap {
+          position: relative !important;
+          z-index: 110 !important;
+          isolation: auto !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-avatar-wrap > .profile-thought-bubble {
+          top: -14px !important;
+          right: -132px !important;
+          z-index: 1000 !important;
+          isolation: auto !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-cover-zone {
+          position: relative !important;
+          z-index: 1 !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE TRUE FRONT-LAYER FIX v10
+         Desktop only.
+
+         ProfileThoughtBubble is a separate styled-jsx component.
+         :global() is intentional here so the parent profile page can
+         target the child component's root element without styled-jsx
+         scope attributes blocking the selector.
+
+         Position is intentionally unchanged from v8/v9.
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-hero-shell {
+          position: relative !important;
+          overflow: visible !important;
+          isolation: auto !important;
+        }
+
+        .profile-polish-surface .profile-cover-zone {
+          position: relative !important;
+          z-index: 0 !important;
+          overflow: hidden !important;
+          isolation: auto !important;
+        }
+
+        .profile-polish-surface .profile-cover-zone::after {
+          z-index: 1 !important;
+          pointer-events: none !important;
+        }
+
+        .profile-polish-surface .profile-hero-content {
+          position: relative !important;
+          z-index: 500 !important;
+          overflow: visible !important;
+          isolation: auto !important;
+        }
+
+        .profile-polish-surface .profile-avatar-wrap {
+          position: relative !important;
+          z-index: 600 !important;
+          overflow: visible !important;
+          isolation: auto !important;
+        }
+
+        .profile-polish-surface
+          .profile-avatar-wrap
+          > :global(.profile-thought-bubble) {
+          position: absolute !important;
+          top: -14px !important;
+          right: -132px !important;
+          left: auto !important;
+
+          z-index: 2147483000 !important;
+          isolation: isolate !important;
+
+          overflow: visible !important;
+          opacity: 1 !important;
+
+          /* Force its own compositor layer above the cover paint layer. */
+          transform: translate3d(0, 0, 1px) !important;
+          backface-visibility: hidden !important;
+          will-change: transform !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE STRUCTURAL FIX v12
+         Desktop only.
+
+         The visible desktop bubble is now a sibling overlay inside
+         .profile-hero-content rather than a child of .profile-avatar-wrap.
+
+         This is intentionally structural, not another z-index escalation:
+         - desktop avatar-contained bubble is hidden
+         - tablet/mobile avatar-contained bubble remains unchanged
+         - sibling anchor mirrors the avatar's containing geometry
+         - exact v8/v9 desktop visual position is preserved
+         ========================================================= */
+
+      .profile-desktop-thought-anchor {
+        display: none;
+      }
+
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-hero-shell {
+          position: relative !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-cover-zone {
+          position: relative !important;
+          z-index: 1 !important;
+          overflow: hidden !important;
+        }
+
+        .profile-polish-surface .profile-hero-content {
+          position: relative !important;
+          z-index: 20 !important;
+          overflow: visible !important;
+          isolation: auto !important;
+        }
+
+        /* Do not render the old desktop bubble inside the avatar wrapper. */
+        .profile-polish-surface
+          .profile-avatar-wrap
+          > :global(.profile-thought-bubble) {
+          display: none !important;
+        }
+
+        /*
+         * Mirror the avatar's desktop box:
+         * hero-content has 22px horizontal padding and the avatar width is
+         * clamp(132px, 16vw, 184px). ProfileThoughtBubble can therefore use
+         * its familiar top/right offsets while being completely outside the
+         * avatar wrapper's clipping/stacking context.
+         */
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: block !important;
+          position: absolute !important;
+
+          top: 0 !important;
+          left: 22px !important;
+
+          width: clamp(132px, 16vw, 184px) !important;
+          height: clamp(132px, 16vw, 184px) !important;
+
+          margin: 0 !important;
+          padding: 0 !important;
+
+          z-index: 200 !important;
+          overflow: visible !important;
+          isolation: auto !important;
+
+          pointer-events: none !important;
+        }
+
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          display: flex !important;
+          position: absolute !important;
+
+          /* Same desktop position that was approved in v8/v9. */
+          top: -14px !important;
+          right: -132px !important;
+          left: auto !important;
+
+          width: 160px !important;
+          height: 34px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+
+          margin: 0 !important;
+          padding: 0 11px !important;
+          box-sizing: border-box !important;
+
+          z-index: 201 !important;
+          overflow: visible !important;
+
+          /* Restore normal component rendering; no forced 3-D layer needed. */
+          transform: none !important;
+          filter: none !important;
+          isolation: auto !important;
+
+          pointer-events: auto !important;
+        }
+      }
+
+      /* Explicit safety: new sibling overlay can never appear on tablet/mobile. */
+      @media (max-width: 1100px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: none !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE SINGLE-INSTANCE FIX v12
+         Desktop: show ONLY the new hero-level bubble.
+         Tablet/mobile: show ONLY the original avatar bubble.
+         No position, animation, or stacking changes.
+         ========================================================= */
+
+      .profile-avatar-thought-original {
+        display: contents;
+      }
+
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-avatar-thought-original {
+          display: none !important;
+        }
+
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: block !important;
+        }
+      }
+
+      @media (max-width: 1100px) {
+        .profile-polish-surface .profile-avatar-thought-original {
+          display: contents !important;
+        }
+
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          display: none !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE POSITION FIX v13
+         Desktop only.
+
+         Keep the approved mobile-like vertical height, but place the
+         rectangular bubble completely OUTSIDE the avatar circle.
+
+         Geometry:
+         - desktop bubble width = 160px
+         - right = -168px means its left edge begins 8px beyond the
+           right edge of the avatar-sized anchor
+         - no stacking, animation, mobile, or tablet changes
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          top: -14px !important;
+          right: -168px !important;
+          left: auto !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE ANCHOR POSITION FIX v14
+         Desktop only.
+
+         v13 changed the child bubble's right offset, but the visible
+         desktop component is controlled more reliably by the sibling
+         anchor itself. Move the entire anchor 40px to the RIGHT.
+         This preserves:
+         - current vertical position
+         - front-layer structural fix
+         - single desktop instance
+         - animation and opacity
+         - all tablet/mobile behavior
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          left: 62px !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE DESKTOP=MOBILE POSITION v15
+         Desktop only.
+
+         Match the SAME relationship used on mobile:
+         - anchor begins exactly where the avatar begins
+         - bubble top = -18px (same as mobile)
+         - bubble body overlaps the avatar's right edge by ~16px,
+           exactly matching the mobile right/width relationship
+         - keep the desktop 160px bubble width
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          top: 0 !important;
+
+          /* Match the ACTUAL hero/avatar left padding from the page CSS. */
+          left: clamp(18px, 2.1vw, 28px) !important;
+
+          /* Match the desktop avatar box exactly. */
+          width: clamp(132px, 16vw, 184px) !important;
+          height: clamp(132px, 16vw, 184px) !important;
+        }
+
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          top: -18px !important;
+
+          /*
+           * Mobile uses width 132 / right -116:
+           * 132 - 116 = 16px overlap onto avatar.
+           * Desktop width is 160, so 160 - 144 = same 16px overlap.
+           */
+          right: -144px !important;
+          left: auto !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE FINAL SPACING FIX v16
+         Desktop only.
+
+         v15 matched the mobile relationship, but visually the desktop
+         bubble still sits a little too close to the avatar edge.
+         Add a small extra 12px horizontal gap only.
+         Vertical position and every other behavior stay unchanged.
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          top: -18px !important;
+          right: -156px !important;
+          left: auto !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE RECOVERY + DESKTOP NUDGE v18
+         Desktop only.
+
+         Built from v16 (the last good layout), not v17.
+         v17 incorrectly collapsed the desktop anchor to 0x0 and changed
+         the child to a left-based coordinate, which pulled the bubble
+         dramatically toward the left side of the page.
+
+         v18 restores the proven v16 geometry and moves the ENTIRE
+         desktop anchor 20px to the right.
+         ========================================================= */
+      @media (min-width: 1101px) {
+        .profile-polish-surface .profile-desktop-thought-anchor {
+          top: 0 !important;
+          left: calc(clamp(18px, 2.1vw, 28px) + 20px) !important;
+
+          width: clamp(132px, 16vw, 184px) !important;
+          height: clamp(132px, 16vw, 184px) !important;
+
+          overflow: visible !important;
+          z-index: 200 !important;
+        }
+
+        .profile-polish-surface
+          .profile-desktop-thought-anchor
+          > :global(.profile-thought-bubble) {
+          top: -18px !important;
+          right: -156px !important;
+          left: auto !important;
+
+          width: 160px !important;
+          height: 34px !important;
+
+          z-index: 201 !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE MOBILE RESTORE v19
+         Mobile only.
+
+         v12 wrapped the original avatar thought bubble in
+         .profile-avatar-thought-original so desktop could hide it.
+         That changed the DOM relationship: the bubble was no longer a
+         DIRECT child of .profile-avatar-wrap, which meant the older
+         mobile positioning selectors stopped matching.
+
+         This restores those mobile rules against the NEW wrapper.
+         Desktop v18 is intentionally untouched.
+         ========================================================= */
+
+      @media (max-width: 699px) {
+        .profile-polish-surface
+          .profile-avatar-thought-original
+          > :global(.profile-thought-bubble) {
+          position: absolute !important;
+
+          /* Restore the mobile position used before the wrapper change. */
+          top: -18px !important;
+          right: -116px !important;
+          left: auto !important;
+
+          width: 132px !important;
+          height: 30px !important;
+
+          min-width: 0 !important;
+          min-height: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+
+          margin: 0 !important;
+          padding: 0 9px !important;
+          border-radius: 11px !important;
+
+          z-index: 99999 !important;
+          overflow: visible !important;
+        }
+      }
+
+      @media (max-width: 390px) {
+        .profile-polish-surface
+          .profile-avatar-thought-original
+          > :global(.profile-thought-bubble) {
+          top: -17px !important;
+          right: -102px !important;
+
+          width: 122px !important;
+          height: 29px !important;
+
+          padding: 0 8px !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE MOBILE REAL-SHELL FIX v20
+         Mobile only.
+
+         The visible mobile bubble is the FIRST ProfileThoughtBubble
+         rendered directly inside .profile-mobile-avatar-shell-real.
+         v19 targeted the wrapped desktop/main-avatar instance, so the
+         visible mobile bubble did not move.
+
+         Move the REAL mobile-shell bubble ~30 CSS px farther right.
+         Keep its vertical position exactly unchanged.
+         Desktop v18 remains untouched.
+         ========================================================= */
+      @media (max-width: 699px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > :global(.profile-thought-bubble) {
+          position: absolute !important;
+          top: -18px !important;
+          right: -146px !important;
+          left: auto !important;
+
+          width: 132px !important;
+          height: 30px !important;
+
+          margin: 0 !important;
+          padding: 0 9px !important;
+          border-radius: 11px !important;
+
+          z-index: 99999 !important;
+          overflow: visible !important;
+        }
+      }
+
+      @media (max-width: 390px) {
+        .profile-polish-surface
+          .profile-mobile-avatar-shell-real
+          > :global(.profile-thought-bubble) {
+          top: -17px !important;
+          right: -128px !important;
+
+          width: 122px !important;
+          height: 29px !important;
+          padding: 0 8px !important;
+        }
+      }
+
+
+      /* =========================================================
+         STAGING THOUGHT BUBBLE MOBILE WRAPPER FIX v26
+         Mobile only.
+
+         Root cause:
+         .profile-avatar-thought-original was set to display: contents.
+         That wrapper therefore had no box of its own, so trying to
+         reposition the child ProfileThoughtBubble from this page was
+         unreliable across the styled-jsx component boundary.
+
+         Fix:
+         turn the existing page-owned wrapper into a transparent,
+         absolute avatar-sized positioning layer on mobile, then move
+         THAT layer horizontally. The child bubble keeps its own shape,
+         animation, opacity and vertical position.
+
+         Desktop v18 is untouched.
+         ========================================================= */
+      @media (max-width: 699px) {
+        .profile-polish-surface.profile-mobile-first-polish
+          .profile-hero-content
+          .profile-avatar-wrap
+          > .profile-avatar-thought-original {
+          display: block !important;
+          position: absolute !important;
+
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+
+          margin: 0 !important;
+          padding: 0 !important;
+
+          border: 0 !important;
+          border-radius: 0 !important;
+          background: transparent !important;
+          box-shadow: none !important;
+
+          box-sizing: border-box !important;
+          overflow: visible !important;
+
+          transform: translateX(6px) !important;
+
+          z-index: 99998 !important;
+
+          /*
+           * INTERACTION FIX v27:
+           * v26 had pointer-events:none here, which positioned the
+           * mobile bubble correctly but prevented taps/clicks from
+           * reaching ProfileThoughtBubble.
+           */
+          pointer-events: auto !important;
+        }
+      }
+
+
+      /* STAGING THOUGHT BUBBLE MOBILE INTERACTION FIX v27 */
+      @media (max-width: 699px) {
+        .profile-polish-surface.profile-mobile-first-polish
+          .profile-hero-content
+          .profile-avatar-wrap
+          > .profile-avatar-thought-original
+          > :global(.profile-thought-bubble) {
+          pointer-events: auto !important;
+          cursor: pointer !important;
+        }
+      }
+
+      @media (max-width: 390px) {
+        .profile-polish-surface.profile-mobile-first-polish
+          .profile-hero-content
+          .profile-avatar-wrap
+          > .profile-avatar-thought-original {
+          transform: translateX(5px) !important;
+        }
+      }
+
 `}
 </style>
+
+<style jsx global>{`
+  /* =========================================================
+   * STAGING THOUGHT BUBBLE DESKTOP TRUE FRONT + CLICK FIX v29
+   *
+   * Desktop only. Keep the approved v18/v28 coordinates exactly
+   * where they are. This changes stacking + hit testing only.
+   *
+   * Root causes fixed:
+   * - the desktop anchor was still pointer-events:none in the
+   *   persistence-enabled page file
+   * - the cover/banner could remain a competing paint/hit layer
+   *
+   * Mobile/tablet positioning is intentionally untouched.
+   * ========================================================= */
+  @media (min-width: 1101px) {
+    .profile-polish-surface .profile-hero-shell {
+      position: relative !important;
+      overflow: visible !important;
+      isolation: isolate !important;
+    }
+
+    .profile-polish-surface .profile-cover-zone {
+      position: relative !important;
+      z-index: 0 !important;
+      overflow: hidden !important;
+      isolation: auto !important;
+      pointer-events: none !important;
+    }
+
+    .profile-polish-surface .profile-cover-zone::after,
+    .profile-polish-surface .profile-cover-zone > * {
+      pointer-events: none !important;
+    }
+
+    .profile-polish-surface .profile-hero-content {
+      position: relative !important;
+      z-index: 1000 !important;
+      overflow: visible !important;
+      isolation: auto !important;
+    }
+
+    .profile-polish-surface .profile-desktop-thought-anchor {
+      display: block !important;
+      z-index: 2147482000 !important;
+      overflow: visible !important;
+      isolation: isolate !important;
+      pointer-events: auto !important;
+    }
+
+    .profile-polish-surface
+      .profile-desktop-thought-anchor
+      > .profile-thought-bubble {
+      z-index: 2147482001 !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      opacity: 1 !important;
+    }
+  }
+`}</style>
+
+<style jsx global>{`
+  /* =========================================================
+   * STAGING THOUGHT BUBBLE OWNER-SESSION + DOCUMENT-CAPTURE FIX v33
+   *
+   * Interaction is now recovered at document capture phase and ownership is
+   * rechecked directly against Supabase auth at click time.
+   * Existing visual coordinates remain unchanged.
+   * ========================================================= */
+`}</style>
+
+<style jsx global>{`
+  /* =========================================================
+   * STAGING THOUGHT BUBBLE RESPONSIVE DESKTOP HIT-TARGET FIX v32 (retained in v33)
+   *
+   * Root cause found after tracing the real responsive layout:
+   * - the profile uses the full hero layout from 721px upward
+   * - the earlier page-owned desktop hit target existed only at 1101px+
+   * - 721px-1100px therefore showed the avatar-contained thought bubble
+   *   but never reached the v31 page-owned composer opener
+   *
+   * Cover the visible medium-width bubble with a page-owned button and
+   * open the same v31 composer directly. Mobile <=720px is untouched.
+   * ========================================================= */
+  .profile-medium-thought-hit-target {
+    display: none !important;
+  }
+
+  @media (min-width: 721px) and (max-width: 1100px) {
+    .profile-polish-surface .profile-avatar-wrap {
+      overflow: visible !important;
+    }
+
+    .profile-polish-surface .profile-avatar-thought-original {
+      pointer-events: auto !important;
+    }
+
+    .profile-polish-surface .profile-medium-thought-hit-target {
+      display: block !important;
+      position: absolute !important;
+      top: -15px !important;
+      right: -88px !important;
+      left: auto !important;
+      width: 148px !important;
+      height: 32px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 11px !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      opacity: 1 !important;
+      z-index: 2147483646 !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      touch-action: manipulation !important;
+    }
+  }
+`}</style>
+
+<style jsx global>{`
+  /* =========================================================
+   * STAGING THOUGHT BUBBLE DESKTOP DIRECT HIT TARGET FIX v30
+   *
+   * The visible desktop bubble can sit outside the anchor's normal box.
+   * This transparent page-owned button is placed exactly over that visible
+   * bubble and forwards the click programmatically to ProfileThoughtBubble.
+   * It changes interaction only — not the approved desktop coordinates.
+   * ========================================================= */
+  @media (min-width: 1101px) {
+    .profile-polish-surface .profile-desktop-thought-hit-target {
+      display: block !important;
+      position: absolute !important;
+      top: -18px !important;
+      right: -156px !important;
+      left: auto !important;
+      width: 160px !important;
+      height: 34px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 12px !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      opacity: 1 !important;
+      z-index: 2147483646 !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      touch-action: manipulation !important;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .profile-desktop-thought-hit-target {
+      display: none !important;
+      pointer-events: none !important;
+    }
+  }
+`}</style>
+
+
+<style jsx global>{`
+  /*
+   * STAGING THOUGHT BUBBLE MOBILE GLOBAL FIX v21
+   *
+   * IMPORTANT:
+   * ProfileThoughtBubble is rendered by a separate component.
+   * This MUST be global CSS; page-scoped styled-jsx selectors cannot
+   * reliably match the child component's .profile-thought-bubble root.
+   *
+   * Desktop v18 is untouched.
+   */
+  @media (max-width: 699px) {
+    .profile-polish-surface
+      .profile-mobile-avatar-shell-real
+      > .profile-thought-bubble {
+      top: -18px !important;
+      right: -146px !important;
+      left: auto !important;
+
+      width: 132px !important;
+      height: 30px !important;
+
+      margin: 0 !important;
+      padding: 0 9px !important;
+      border-radius: 11px !important;
+
+      position: absolute !important;
+      z-index: 99999 !important;
+      overflow: visible !important;
+    }
+  }
+
+  @media (max-width: 390px) {
+    .profile-polish-surface
+      .profile-mobile-avatar-shell-real
+      > .profile-thought-bubble {
+      top: -17px !important;
+      right: -128px !important;
+
+      width: 122px !important;
+      height: 29px !important;
+      padding: 0 8px !important;
+    }
+  }
+`}</style>
+
+<style jsx global>{`
+  /*
+   * STAGING THOUGHT BUBBLE TRUE MOBILE TARGET FIX v22
+   *
+   * ANALYSIS:
+   * - .profile-mobile-header-real is hidden by later mobile CSS.
+   * - the visible mobile avatar comes from .profile-hero-content.
+   * - v12 wrapped its bubble in .profile-avatar-thought-original.
+   * - previous fixes were targeting the hidden mobile-header bubble.
+   *
+   * This rule targets the bubble that is ACTUALLY visible on mobile.
+   * Desktop v18 positioning is completely untouched.
+   */
+  @media (max-width: 699px) {
+    .profile-polish-surface.profile-mobile-first-polish
+      .profile-hero-content
+      .profile-avatar-wrap
+      > .profile-avatar-thought-original
+      > .profile-thought-bubble {
+      position: absolute !important;
+
+      /* Keep the approved vertical position; move only horizontally. */
+      top: -18px !important;
+      right: -116px !important;
+      left: auto !important;
+
+      margin: 0 !important;
+      z-index: 99999 !important;
+      overflow: visible !important;
+    }
+  }
+
+  @media (max-width: 390px) {
+    .profile-polish-surface.profile-mobile-first-polish
+      .profile-hero-content
+      .profile-avatar-wrap
+      > .profile-avatar-thought-original
+      > .profile-thought-bubble {
+      top: -17px !important;
+      right: -102px !important;
+      left: auto !important;
+    }
+  }
+`}</style>
 
     {/* Mobile Top Bar */}
     <div className="xl:hidden" style={mobileTopBarStyle}>
@@ -14620,6 +16493,15 @@ return (
 
                 <div className="profile-mobile-header-real">
                   <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}>
+                    {isOwnProfile || profileThought?.text ? (
+                      <ProfileThoughtBubble
+                        text={profileThought?.text || undefined}
+                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                        isOwnProfile={isOwnProfile}
+                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                        onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
+                      />
+                    ) : null}
                     {profile?.avatar_url ? (
                       <img
                         src={profile?.avatar_url || ""}
@@ -14798,7 +16680,58 @@ return (
                 </div>
 
                 <div className="profile-hero-content" style={profileHeroContentStyle}>
+                  {/* Desktop thought bubble lives outside the avatar wrapper so it cannot be
+                      clipped or painted underneath the cover/banner stacking context. */}
+                  <div className="profile-desktop-thought-anchor" aria-hidden="false">
+                    {isOwnProfile || profileThought?.text ? (
+                      <ProfileThoughtBubble
+                        text={profileThought?.text || undefined}
+                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                        isOwnProfile={isOwnProfile}
+                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                        onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
+                      />
+                    ) : null}
+                    {isOwnProfile ? (
+                      <button
+                        type="button"
+                        className="profile-desktop-thought-hit-target"
+                        aria-label="Create or edit thought"
+                        title="Create or edit thought"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          openDesktopThoughtComposer();
+                        }}
+                      />
+                    ) : null}
+                  </div>
+
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
+                    <div className="profile-avatar-thought-original">
+                      {isOwnProfile || profileThought?.text ? (
+                        <ProfileThoughtBubble
+                          text={profileThought?.text || undefined}
+                          avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                          isOwnProfile={isOwnProfile}
+                          onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                          onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
+                        />
+                      ) : null}
+                      {isOwnProfile ? (
+                        <button
+                          type="button"
+                          className="profile-medium-thought-hit-target"
+                          aria-label="Create or edit thought"
+                          title="Create or edit thought"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            openDesktopThoughtComposer();
+                          }}
+                        />
+                      ) : null}
+                    </div>
                     {profile?.avatar_url ? (
                       <img src={profile?.avatar_url || ""} alt="Profile" style={profileAvatarStyle} />
                     ) : (
@@ -17337,6 +19270,91 @@ return (
 
                                 <span style={profileAchievementUnlockedPillStyle}>Unlocked</span>
                               </button>
+                            </article>
+                          );
+                        }
+
+                        if (item.feedKind === "thought") {
+                          const canOpenThought = !isOwnProfile && Boolean(profileThought?.text);
+
+                          return (
+                            <article
+                              key={item.id}
+                              className="profile-feed-card profile-thought-feed-card dashboard-card dashboard-feed-card"
+                              style={{
+                                ...postCardStyle,
+                                position: "relative",
+                                cursor: canOpenThought ? "pointer" : "default",
+                              }}
+                              role={canOpenThought ? "button" : undefined}
+                              tabIndex={canOpenThought ? 0 : undefined}
+                              onClick={() => {
+                                if (canOpenThought) openReadOnlyProfileThought();
+                              }}
+                              onKeyDown={(event) => {
+                                if (!canOpenThought) return;
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  openReadOnlyProfileThought();
+                                }
+                              }}
+                              onMouseEnter={(event) => {
+                                event.currentTarget.style.transform = "translateY(-1px)";
+                                event.currentTarget.style.borderColor = "var(--parapost-accent-active-border)";
+                                event.currentTarget.style.boxShadow = "0 16px 34px rgba(0,0,0,0.24)";
+                              }}
+                              onMouseLeave={(event) => {
+                                event.currentTarget.style.transform = "translateY(0)";
+                                event.currentTarget.style.borderColor = "rgba(255,255,255,0.095)";
+                                event.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.20)";
+                              }}
+                            >
+                              <header style={postHeaderStyle}>
+                                <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
+                                  {profile?.avatar_url ? (
+                                    <span style={postAuthorAvatarImageClipStyle}>
+                                      <img className="profile-feed-avatar-image" src={profile?.avatar_url || ""} alt="" style={postAuthorAvatarImageStyle} />
+                                    </span>
+                                  ) : (
+                                    <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
+                                  )}
+                                  {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
+                                </div>
+
+                                <div style={postAuthorTextStyle}>
+                                  <strong style={postAuthorNameStyle}>
+                                    {profileDisplayName || "Parapost Member"}
+                                  </strong>
+                                  <span style={postMetaStyle}>
+                                    @{profileDisplayUsername || "new-member"} shared a thought · {formatTimeAgo(item.updated_at)}
+                                  </span>
+                                </div>
+
+                                <span
+                                  style={{
+                                    flexShrink: 0,
+                                    padding: "6px 10px",
+                                    borderRadius: 999,
+                                    border: "1px solid rgba(255,255,255,0.12)",
+                                    background: "rgba(255,255,255,0.06)",
+                                    color: "rgba(255,255,255,0.72)",
+                                    fontSize: 11,
+                                    fontWeight: 750,
+                                  }}
+                                >
+                                  {item.audience === "friends" ? "Friends" : "Everyone"}
+                                </span>
+                              </header>
+
+                              <div style={{ ...postContentStyle, whiteSpace: "pre-wrap" }}>
+                                {item.text}
+                              </div>
+
+                              {canOpenThought ? (
+                                <div style={{ marginTop: 12, color: "rgba(255,255,255,0.52)", fontSize: 12, fontWeight: 650 }}>
+                                  Open thought
+                                </div>
+                              ) : null}
                             </article>
                           );
                         }
