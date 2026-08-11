@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BackToPrevious from "@/components/BackToPrevious";
+import PushNotificationSettings from "@/components/pwa/PushNotificationSettings";
 
 type NotificationCategory =
   | "friend_requests"
@@ -651,6 +652,7 @@ export default function NotificationSettingsPage() {
               ) : null}
             </section>
 
+            <PushNotificationSettings currentUserId={currentUserId} />
             <section className="rounded-[28px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-5 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:p-6">
               <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-purple-200">
                 Notification Types
