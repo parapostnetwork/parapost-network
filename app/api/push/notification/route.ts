@@ -4,6 +4,9 @@ import webpush from "web-push";
 
 export const runtime = "nodejs";
 
+// PARAPOST STAGING WEB PUSH NOTIFICATION ROUTE - ADVANCED v2
+// Keeps internal Parachat grouping values out of Android push notification bodies.
+
 type NotificationRecord = {
   id?: string | null;
   user_id?: string | null;
@@ -29,14 +32,16 @@ type PushSubscriptionRow = {
 };
 
 function getNotificationBody(record: NotificationRecord) {
-  const message = record.message?.trim();
-  if (message) return message;
-
   const type = (record.type || "").toLowerCase();
 
+  // Handle Parachat before reading record.message because Parachat can store
+  // internal grouping values such as "parachat_group_count:1" in that field.
   if (type === "parachat_message") {
     return "You have a new Parachat message.";
   }
+
+  const message = record.message?.trim();
+  if (message) return message;
 
   if (type.includes("friend_request")) {
     return "You have a new friend request.";
@@ -174,7 +179,10 @@ export async function POST(req: Request) {
 
           sent += 1;
         } catch (error) {
-          const pushError = error as { statusCode?: number; message?: string };
+          const pushError = error as {
+            statusCode?: number;
+            message?: string;
+          };
 
           if (pushError.statusCode === 404 || pushError.statusCode === 410) {
             const { error: deleteError } = await supabase
