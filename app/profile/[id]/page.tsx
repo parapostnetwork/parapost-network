@@ -1123,11 +1123,13 @@ function getProfileLiveTimestamp(stream: {
   }
 
   if (stream.status === "ended") {
+    // A replay belongs to the date the broadcast began, not the date it was ended or later updated.
+    // This keeps older replays from being re-dated or moved in the profile feed by later maintenance.
     return (
-      stream.ended_at ||
       stream.started_at ||
-      stream.created_at ||
       stream.scheduled_at ||
+      stream.created_at ||
+      stream.ended_at ||
       new Date().toISOString()
     );
   }
@@ -18784,7 +18786,7 @@ return (
                           const scheduleLabel = isLive
                             ? "Live Now"
                             : isReplay
-                              ? `Replay from ${formatProfileLiveDate(item.ended_at || item.started_at || item.updated_at || item.created_at)}`
+                              ? `Replay from ${formatProfileLiveDate(getProfileLiveTimestamp(item))}`
                               : `Scheduled ${formatProfileLiveDate(item.scheduled_at)}`;
 
                           return (
