@@ -139,6 +139,10 @@ export default function GlobalGhostHuntPage() {
             flex-direction: column !important;
           }
 
+          .ggh-section-card[style*="grid-template-columns"] {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
           .ggh-action-row {
             display: grid !important;
             grid-template-columns: minmax(0, 1fr) !important;
@@ -178,6 +182,13 @@ export default function GlobalGhostHuntPage() {
           <div style={heroGlowStyle} aria-hidden="true" />
           <div style={heroGlowSecondaryStyle} aria-hidden="true" />
           <div style={heroGridOverlayStyle} aria-hidden="true" />
+          <div style={hauntedHallwayStyle} aria-hidden="true">
+            <div style={hallwayCeilingStyle} />
+            <div style={hallwayLeftStyle} />
+            <div style={hallwayRightStyle} />
+            <div style={hallwayDoorGlowStyle} />
+            <div style={hallwayFogStyle} />
+          </div>
 
           <div style={heroContentStyle}>
             <div style={topRowStyle} className="ggh-top-row">
@@ -360,6 +371,21 @@ export default function GlobalGhostHuntPage() {
               <span style={gatewayActionLabelStyle}>JOIN</span>
               <strong>Take Part</strong>
             </a>
+          </div>
+        </section>
+
+        <section style={eventVisualBandStyle} className="ggh-section-card">
+          <div style={eventVisualOverlayStyle} aria-hidden="true" />
+          <div style={eventVisualContentStyle}>
+            <div>
+              <div style={sectionEyebrowStyle}>ELEVEN DAYS • ONE WORLDWIDE HUNT</div>
+              <h2 style={eventVisualTitleStyle}>Paranormal teams. Historic locations. One global signal.</h2>
+            </div>
+            <div style={eventVisualMetaStyle}>
+              <span>SEPT 24</span>
+              <strong>→</strong>
+              <span>OCT 4</span>
+            </div>
           </div>
         </section>
 
@@ -555,6 +581,23 @@ export default function GlobalGhostHuntPage() {
               text="Official 2026 investigation dates and start times will appear here as they are confirmed."
             />
           )}
+        </section>
+
+        <section style={discoveryBandStyle} className="ggh-section-card">
+          <div style={discoveryBandLeftStyle}>
+            <div style={sectionEyebrowStyle}>MEET THE HUNT</div>
+            <h2 style={discoveryBandTitleStyle}>Every team brings a story. Every location carries a history.</h2>
+          </div>
+          <div style={discoveryBandRightStyle}>
+            <div style={discoveryStatStyle}>
+              <span style={gatewayActionLabelStyle}>TEAMS</span>
+              <strong>{teams.length || "Coming soon"}</strong>
+            </div>
+            <div style={discoveryStatStyle}>
+              <span style={gatewayActionLabelStyle}>LOCATIONS</span>
+              <strong>{locations.length || "Coming soon"}</strong>
+            </div>
+          </div>
         </section>
 
         <section
@@ -826,6 +869,26 @@ export default function GlobalGhostHuntPage() {
               Registration information for upcoming Global Ghost Hunt events
               will be announced here as details become available.
             </div>
+          </div>
+        </section>
+
+        <section style={poweredSectionStyle} className="ggh-section-card">
+          <div style={poweredSectionGlowStyle} aria-hidden="true" />
+          <div style={poweredSectionContentStyle}>
+            <div style={futureBadgeStyle}>POWERED BY PARAPOST NETWORK</div>
+            <h2 style={poweredSectionTitleStyle}>The digital home of Global Ghost Hunt.</h2>
+            <p style={futureTextStyle}>
+              Parapost Network brings the worldwide hunt together with one place
+              to discover teams, follow locations, watch investigations, return
+              for replays, and stay connected to the paranormal community.
+            </p>
+            <Link
+              href="/dashboard"
+              style={primaryButtonStyle}
+              className="ggh-primary-link"
+            >
+              Enter Parapost Network
+            </Link>
           </div>
         </section>
 
@@ -1442,6 +1505,215 @@ const broadcastFooterStyle: CSSProperties = {
 
 const broadcastFooterDividerStyle: CSSProperties = {
   color: "#7c3aed",
+};
+
+const hauntedHallwayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  overflow: "hidden",
+  opacity: 0.54,
+  pointerEvents: "none",
+};
+
+const hallwayCeilingStyle: CSSProperties = {
+  position: "absolute",
+  left: "18%",
+  right: "18%",
+  top: "7%",
+  height: "45%",
+  clipPath: "polygon(18% 0, 82% 0, 100% 100%, 0 100%)",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.005))",
+  borderBottom: "1px solid rgba(255,255,255,0.045)",
+};
+
+const hallwayLeftStyle: CSSProperties = {
+  position: "absolute",
+  left: "-2%",
+  top: "15%",
+  bottom: "-12%",
+  width: "47%",
+  clipPath: "polygon(0 0, 100% 22%, 72% 100%, 0 100%)",
+  background:
+    "linear-gradient(95deg, rgba(2,5,9,0.88), rgba(12,30,30,0.34), transparent)",
+  borderRight: "1px solid rgba(94,234,212,0.055)",
+};
+
+const hallwayRightStyle: CSSProperties = {
+  position: "absolute",
+  right: "-2%",
+  top: "15%",
+  bottom: "-12%",
+  width: "47%",
+  clipPath: "polygon(0 22%, 100% 0, 100% 100%, 28% 100%)",
+  background:
+    "linear-gradient(265deg, rgba(2,5,9,0.9), rgba(23,19,44,0.38), transparent)",
+  borderLeft: "1px solid rgba(167,139,250,0.06)",
+};
+
+const hallwayDoorGlowStyle: CSSProperties = {
+  position: "absolute",
+  width: 86,
+  height: 160,
+  left: "50%",
+  top: "27%",
+  transform: "translateX(-50%)",
+  borderRadius: "34px 34px 12px 12px",
+  background:
+    "linear-gradient(180deg, rgba(110,231,183,0.13), rgba(110,231,183,0.02))",
+  border: "1px solid rgba(110,231,183,0.13)",
+  boxShadow:
+    "0 0 80px rgba(52,211,153,0.14), inset 0 0 30px rgba(255,255,255,0.025)",
+};
+
+const hallwayFogStyle: CSSProperties = {
+  position: "absolute",
+  left: "20%",
+  right: "20%",
+  bottom: "-22%",
+  height: "58%",
+  borderRadius: "50%",
+  background:
+    "radial-gradient(ellipse, rgba(148,163,184,0.12), rgba(79,70,229,0.045) 42%, transparent 72%)",
+  filter: "blur(20px)",
+};
+
+const eventVisualBandStyle: CSSProperties = {
+  position: "relative",
+  overflow: "hidden",
+  minHeight: 180,
+  borderRadius: 26,
+  border: "1px solid rgba(94,234,212,0.11)",
+  background:
+    "linear-gradient(120deg, rgba(5,18,19,0.98), rgba(8,10,22,0.97) 52%, rgba(14,10,28,0.97))",
+  padding: 24,
+  boxShadow: "0 20px 70px rgba(0,0,0,0.34)",
+};
+
+const eventVisualOverlayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  pointerEvents: "none",
+  background:
+    "linear-gradient(115deg, transparent 0 38%, rgba(94,234,212,0.035) 38% 39%, transparent 39% 58%, rgba(167,139,250,0.035) 58% 59%, transparent 59%), radial-gradient(circle at 80% 30%, rgba(52,211,153,0.09), transparent 26%)",
+};
+
+const eventVisualContentStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 24,
+  minHeight: 132,
+};
+
+const eventVisualTitleStyle: CSSProperties = {
+  maxWidth: 730,
+  margin: "10px 0 0",
+  color: "#fff",
+  fontSize: "clamp(1.9rem, 4.5vw, 3.25rem)",
+  lineHeight: 1,
+  letterSpacing: "-0.055em",
+};
+
+const eventVisualMetaStyle: CSSProperties = {
+  minWidth: 190,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 12,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.075)",
+  background: "rgba(255,255,255,0.03)",
+  padding: "15px 16px",
+  color: "#d1fae5",
+  fontSize: 12,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const discoveryBandStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.25fr) minmax(260px, 0.75fr)",
+  gap: 22,
+  alignItems: "center",
+  borderRadius: 26,
+  border: "1px solid rgba(255,255,255,0.075)",
+  background:
+    "linear-gradient(145deg, rgba(7,10,22,0.97), rgba(8,19,20,0.96))",
+  padding: 24,
+  boxShadow: "0 20px 70px rgba(0,0,0,0.32)",
+};
+
+const discoveryBandLeftStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const discoveryBandTitleStyle: CSSProperties = {
+  margin: "9px 0 0",
+  color: "#fff",
+  fontSize: "clamp(1.8rem, 4.5vw, 3.1rem)",
+  lineHeight: 1,
+  letterSpacing: "-0.052em",
+};
+
+const discoveryBandRightStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const discoveryStatStyle: CSSProperties = {
+  minHeight: 112,
+  display: "grid",
+  alignContent: "center",
+  gap: 7,
+  borderRadius: 18,
+  border: "1px solid rgba(94,234,212,0.09)",
+  background: "rgba(255,255,255,0.025)",
+  padding: 16,
+  color: "#fff",
+  fontSize: 17,
+};
+
+const poweredSectionStyle: CSSProperties = {
+  position: "relative",
+  overflow: "hidden",
+  minHeight: 310,
+  borderRadius: 28,
+  border: "1px solid rgba(216,180,254,0.14)",
+  background:
+    "linear-gradient(145deg, rgba(10,9,24,0.98), rgba(6,15,18,0.97))",
+  padding: 26,
+  boxShadow: "0 24px 80px rgba(0,0,0,0.38)",
+};
+
+const poweredSectionGlowStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  pointerEvents: "none",
+  background:
+    "radial-gradient(circle at 78% 20%, rgba(124,58,237,0.16), transparent 30%), radial-gradient(circle at 15% 90%, rgba(52,211,153,0.11), transparent 28%)",
+};
+
+const poweredSectionContentStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  maxWidth: 760,
+  minHeight: 258,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  justifyContent: "center",
+};
+
+const poweredSectionTitleStyle: CSSProperties = {
+  margin: "14px 0 0",
+  color: "#fff",
+  fontSize: "clamp(2.2rem, 5.5vw, 4rem)",
+  lineHeight: 0.98,
+  letterSpacing: "-0.06em",
 };
 
 const eventBadgeStyle: CSSProperties = {
