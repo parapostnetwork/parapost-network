@@ -286,9 +286,9 @@ export default function GlobalGhostHuntPage() {
           </p>
 
           <p style={sectionTextStyle}>
-            For 2026, viewers can follow Global Ghost Hunt through the
-            Parapost Community Timeline and participating teams’ YouTube Live
-            broadcasts, bringing the worldwide event together in one place.
+            For 2026, Parapost will support the event through the Parapost
+            Community Timeline and YouTube Live links while the full Hub is
+            built, tested, and expanded.
           </p>
 
           <div style={eventInfoGridStyle} className="ggh-event-info-grid">
@@ -306,10 +306,10 @@ export default function GlobalGhostHuntPage() {
           </h2>
 
           <p style={sectionTextStyle}>
-            The Hub is designed as one dedicated destination for viewers to
-            discover investigations, follow teams and locations, watch
-            broadcasts, return for replays, see event news, and experience the
-            Global Ghost Hunt community through Parapost.
+            The Hub is being structured as one dedicated destination for
+            viewers to discover investigations, follow teams and locations,
+            watch broadcasts, return for replays, see event news, and eventually
+            experience the full Global Ghost Hunt through Parapost.
           </p>
 
           <div style={featureGridStyle} className="ggh-feature-grid">
@@ -384,7 +384,7 @@ export default function GlobalGhostHuntPage() {
           ) : (
             <EmptyState
               title="The investigation schedule is being prepared."
-              text="Confirmed teams, locations, dates, and start times will appear here as the 2026 schedule is announced."
+              text="Teams, locations, dates, and start times can be added here as the 2026 schedule is finalized."
             />
           )}
         </section>
@@ -419,7 +419,7 @@ export default function GlobalGhostHuntPage() {
           ) : (
             <EmptyState
               title="Full schedule coming soon."
-              text="Official 2026 investigation dates and start times will appear here as they are confirmed."
+              text="This section is ready for the official 2026 investigation schedule once team dates and times are confirmed."
             />
           )}
         </section>
@@ -449,8 +449,8 @@ export default function GlobalGhostHuntPage() {
               ) : (
                 <EmptyState
                   compact
-                  title="Participating teams coming soon."
-                  text="Meet the paranormal teams taking part in Global Ghost Hunt and learn more about where they are from."
+                  title="Team profiles are ready to be added."
+                  text="Each participating team can have its own card with country, region, logo, and description."
                 />
               )}
             </div>
@@ -467,8 +467,8 @@ export default function GlobalGhostHuntPage() {
               ) : (
                 <EmptyState
                   compact
-                  title="Investigation locations coming soon."
-                  text="Explore the haunted and historic locations taking part in Global Ghost Hunt as they are announced."
+                  title="Location profiles are ready to be added."
+                  text="Haunted and historic locations can be displayed with their city, region, country, image, and story."
                 />
               )}
             </div>
@@ -521,8 +521,8 @@ export default function GlobalGhostHuntPage() {
             </div>
           ) : (
             <EmptyState
-              title="Official news coming soon."
-              text="Global Ghost Hunt announcements, schedule updates, team news, and event stories will appear here."
+              title="News center ready."
+              text="Official Global Ghost Hunt announcements and updates can be published here as the event develops."
             />
           )}
         </section>
@@ -547,8 +547,8 @@ export default function GlobalGhostHuntPage() {
             </div>
           ) : (
             <EmptyState
-              title="Sponsors & partners coming soon."
-              text="Organizations supporting Global Ghost Hunt will be featured here as partnerships are announced."
+              title="Sponsor area ready."
+              text="Sponsor logos, names, and website links can be added here without connecting the Hub to the live site."
             />
           )}
         </section>
@@ -564,14 +564,14 @@ export default function GlobalGhostHuntPage() {
             <div style={futureBadgeStyle}>TEAM REGISTRATION</div>
             <h2 style={futureTitleStyle}>Take part in Global Ghost Hunt.</h2>
             <p style={futureTextStyle}>
-              Team registration will bring investigation details, locations,
-              scheduling, and event information together in one organized
-              place.
+              The Hub is being prepared to support team registration,
+              investigation details, locations, scheduling, and event
+              information in one organized place.
             </p>
 
             <div style={registrationNoticeStyle}>
-              Registration information for upcoming Global Ghost Hunt events
-              will be announced here as details become available.
+              Registration tools are not connected yet. This area is a safe
+              local placeholder for the future registration experience.
             </div>
           </div>
         </section>
