@@ -121,6 +121,10 @@ export default function GlobalGhostHuntPage() {
         }
 
         @media (max-width: 900px) {
+          .ggh-section-card {
+            min-width: 0;
+          }
+
           .ggh-hero-grid,
           .ggh-two-column-grid {
             grid-template-columns: minmax(0, 1fr) !important;
@@ -260,7 +264,7 @@ export default function GlobalGhostHuntPage() {
                 <div style={heroStatsStyle} className="ggh-stat-grid">
                   <div style={heroStatStyle}>
                     <span style={heroStatLabelStyle}>EVENT</span>
-                    <strong style={heroStatValueStyle}>11 Days</strong>
+                    <strong style={heroStatValueStyle}>10 Days</strong>
                   </div>
                   <div style={heroStatStyle}>
                     <span style={heroStatLabelStyle}>REACH</span>
@@ -360,7 +364,7 @@ export default function GlobalGhostHuntPage() {
             <div style={sectionEyebrowStyle}>GLOBAL GHOST HUNT 2026</div>
             <strong style={gatewayTitleStyle}>September 24 — October 4, 2026</strong>
             <span style={gatewayTextStyle}>
-              Eleven days of paranormal investigations from teams around the world.
+              Ten days of paranormal investigations from teams around the world.
             </span>
           </div>
 
@@ -388,7 +392,7 @@ export default function GlobalGhostHuntPage() {
           <div style={eventVisualOverlayStyle} aria-hidden="true" />
           <div style={eventVisualContentStyle}>
             <div>
-              <div style={sectionEyebrowStyle}>ELEVEN DAYS • ONE WORLDWIDE HUNT</div>
+              <div style={sectionEyebrowStyle}>TEN DAYS • ONE WORLDWIDE HUNT</div>
               <h2 style={eventVisualTitleStyle}>Paranormal teams. Historic locations. One global signal.</h2>
             </div>
             <div style={eventVisualMetaStyle}>
@@ -500,31 +504,106 @@ export default function GlobalGhostHuntPage() {
 
         <section
           id="live-now"
-          style={sectionCardStyle}
+          style={broadcastSectionStyle}
           className="ggh-section-card"
         >
           <SectionHeading
-            eyebrow="WATCH"
+            eyebrow="GLOBAL BROADCAST"
             title="Live Now"
-            description="Global Ghost Hunt investigations that are currently broadcasting will appear here."
+            description="When the hunt goes live, this becomes the main broadcast stage for investigations happening around the world."
             badge={`${liveInvestigations.length} live`}
           />
 
           {liveInvestigations.length > 0 ? (
-            <div style={contentGridStyle} className="ggh-three-column-grid">
-              {liveInvestigations.map((investigation) => (
+            <div style={broadcastLiveGridStyle} className="ggh-two-column-grid">
+              <div style={broadcastLeadColumnStyle}>
                 <InvestigationCard
-                  key={investigation.id}
-                  investigation={investigation}
+                  investigation={liveInvestigations[0]}
                   tone="live"
                 />
-              ))}
+              </div>
+
+              <div style={broadcastQueueStyle}>
+                <div style={broadcastQueueHeadingStyle}>LIVE AROUND THE WORLD</div>
+                {liveInvestigations.slice(1, 5).map((investigation) => (
+                  <InvestigationCard
+                    key={investigation.id}
+                    investigation={investigation}
+                    tone="live"
+                  />
+                ))}
+              </div>
             </div>
           ) : (
-            <EmptyState
-              title="No investigations are live right now."
-              text="When a Global Ghost Hunt investigation is broadcasting, its live card will appear here."
-            />
+            <div style={broadcastStandbyStyle} className="ggh-two-column-grid">
+              <div style={broadcastStageStyle}>
+                <div style={broadcastStageTopStyle}>
+                  <span style={broadcastStandbyBadgeStyle}>
+                    <span style={broadcastStandbyDotStyle} />
+                    BROADCAST STANDBY
+                  </span>
+                  <span style={broadcastNetworkStyle}>GLOBAL GHOST HUNT LIVE</span>
+                </div>
+
+                <div style={broadcastStageCenterStyle} className="ggh-two-column-grid">
+                  <div style={broadcastSignalStyle} aria-hidden="true">
+                    <div style={broadcastSignalRingLargeStyle}>
+                      <div style={broadcastSignalRingMediumStyle}>
+                        <div style={broadcastSignalCoreStyle}>GGH</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={broadcastStageCopyStyle}>
+                    <div style={gatewayActionLabelStyle}>THE WORLDWIDE HUNT</div>
+                    <h3 style={broadcastStageTitleStyle}>
+                      The live stage is ready for the next investigation.
+                    </h3>
+                    <p style={broadcastStageTextStyle}>
+                      When a participating team begins broadcasting, viewers
+                      will be able to enter the investigation directly from
+                      this featured stage.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={broadcastTickerStyle}>
+                  <span>LIVE INVESTIGATIONS</span>
+                  <span style={broadcastTickerDividerStyle}>•</span>
+                  <span>WORLDWIDE TEAMS</span>
+                  <span style={broadcastTickerDividerStyle}>•</span>
+                  <span>HAUNTED LOCATIONS</span>
+                  <span style={broadcastTickerDividerStyle}>•</span>
+                  <span>GLOBAL GHOST HUNT</span>
+                </div>
+              </div>
+
+              <aside style={broadcastSidebarStyle}>
+                <div style={broadcastSidebarHeaderStyle}>
+                  <span style={gatewayActionLabelStyle}>LIVE STATUS</span>
+                  <strong style={broadcastSidebarTitleStyle}>No hunt is live right now</strong>
+                </div>
+
+                <div style={broadcastStatusListStyle}>
+                  <BroadcastStatusItem
+                    label="Live stage"
+                    value="Standing by"
+                  />
+                  <BroadcastStatusItem
+                    label="Broadcasts"
+                    value="Appear automatically"
+                  />
+                  <BroadcastStatusItem
+                    label="Replays"
+                    value="Saved after the hunt"
+                  />
+                </div>
+
+                <a href="#upcoming" style={secondaryButtonStyle} className="ggh-secondary-link">
+                  See What&apos;s Next
+                </a>
+              </aside>
+            </div>
           )}
         </section>
 
@@ -534,41 +613,80 @@ export default function GlobalGhostHuntPage() {
           className="ggh-section-card"
         >
           <SectionHeading
-            eyebrow="NEXT"
+            eyebrow="UP NEXT"
             title="Upcoming Investigations"
-            description="The next scheduled Global Ghost Hunt investigations will be listed here."
+            description="A broadcast-style look at the next Global Ghost Hunt investigations preparing to go live."
             badge={`${upcomingInvestigations.length} scheduled`}
           />
 
           {upcomingInvestigations.length > 0 ? (
-            <div style={contentGridStyle} className="ggh-three-column-grid">
-              {upcomingInvestigations.slice(0, 6).map((investigation) => (
-                <InvestigationCard
-                  key={investigation.id}
-                  investigation={investigation}
-                  tone="upcoming"
-                />
+            <div style={upcomingBroadcastGridStyle} className="ggh-three-column-grid">
+              {upcomingInvestigations.slice(0, 6).map((investigation, index) => (
+                <div key={investigation.id} style={upcomingSlotStyle}>
+                  <div style={upcomingSlotNumberStyle}>
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
+                  <InvestigationCard
+                    investigation={investigation}
+                    tone="upcoming"
+                  />
+                </div>
               ))}
             </div>
           ) : (
-            <EmptyState
-              title="The investigation schedule is being prepared."
-              text="Confirmed teams, locations, dates, and start times will appear here as the 2026 schedule is announced."
-            />
+            <div style={upcomingPreviewGridStyle} className="ggh-three-column-grid">
+              <UpcomingPreview
+                number="01"
+                label="NEXT INVESTIGATION"
+                title="Team announcement"
+                text="The next participating paranormal team will appear here with its confirmed broadcast time."
+              />
+              <UpcomingPreview
+                number="02"
+                label="LOCATION"
+                title="Haunted location reveal"
+                text="Viewers will be able to see where the team is investigating before the broadcast begins."
+              />
+              <UpcomingPreview
+                number="03"
+                label="COUNTDOWN"
+                title="Live time & timezone"
+                text="Each investigation will show the event time clearly so viewers around the world can plan ahead."
+              />
+            </div>
           )}
         </section>
 
         <section
           id="schedule"
-          style={sectionCardStyle}
+          style={scheduleSectionStyle}
           className="ggh-section-card"
         >
           <SectionHeading
-            eyebrow="PLAN"
+            eyebrow="WORLDWIDE SCHEDULE"
             title="Event Schedule"
-            description="A single worldwide schedule for the full Global Ghost Hunt event."
+            description="One organized timeline for every confirmed Global Ghost Hunt investigation."
             badge={`${investigations.length} investigations`}
           />
+
+          <div style={scheduleDayRailStyle} aria-label="Global Ghost Hunt event dates">
+            {["SEP 24", "SEP 25", "SEP 26", "SEP 27", "SEP 28", "SEP 29", "SEP 30", "OCT 1", "OCT 2", "OCT 3", "OCT 4"].map(
+              (day, index) => (
+                <div
+                  key={day}
+                  style={{
+                    ...scheduleDayStyle,
+                    ...(index === 0 ? scheduleDayActiveStyle : {}),
+                  }}
+                >
+                  <span style={scheduleDayNumberStyle}>
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <strong>{day}</strong>
+                </div>
+              ),
+            )}
+          </div>
 
           {investigations.length > 0 ? (
             <div style={scheduleListStyle}>
@@ -586,10 +704,34 @@ export default function GlobalGhostHuntPage() {
                 ))}
             </div>
           ) : (
-            <EmptyState
-              title="Full schedule coming soon."
-              text="Official 2026 investigation dates and start times will appear here as they are confirmed."
-            />
+            <div style={scheduleStandbyStyle} className="ggh-two-column-grid">
+              <div style={scheduleTimelineStyle} aria-hidden="true">
+                <div style={scheduleTimelineLineStyle} />
+                <div style={{ ...scheduleTimelineNodeStyle, top: "15%" }} />
+                <div style={{ ...scheduleTimelineNodeStyle, top: "50%" }} />
+                <div style={{ ...scheduleTimelineNodeStyle, top: "84%" }} />
+              </div>
+
+              <div style={scheduleStandbyCopyStyle}>
+                <div style={gatewayActionLabelStyle}>SCHEDULE PREVIEW</div>
+                <h3 style={scheduleStandbyTitleStyle}>
+                  Ten days. One worldwide timeline.
+                </h3>
+                <p style={scheduleStandbyTextStyle}>
+                  Confirmed investigations will be organized here by date,
+                  start time, team, location, and broadcast status. The day rail
+                  above gives viewers a quick way to understand the full event
+                  window at a glance.
+                </p>
+
+                <div style={schedulePreviewRowsStyle} className="ggh-stat-grid">
+                  <SchedulePreviewRow label="TEAM" value="Participating team" />
+                  <SchedulePreviewRow label="LOCATION" value="Investigation location" />
+                  <SchedulePreviewRow label="TIME" value="Local & event time" />
+                  <SchedulePreviewRow label="STATUS" value="Upcoming • Live • Replay" />
+                </div>
+              </div>
+            </div>
           )}
         </section>
 
@@ -1063,6 +1205,65 @@ function EmptyState({
       <div style={emptyOrbStyle}>GGH</div>
       <strong style={emptyTitleStyle}>{title}</strong>
       <span style={emptyTextStyle}>{text}</span>
+    </div>
+  );
+}
+
+function BroadcastStatusItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={broadcastStatusItemStyle}>
+      <span style={broadcastStatusItemLabelStyle}>{label}</span>
+      <strong style={broadcastStatusItemValueStyle}>{value}</strong>
+    </div>
+  );
+}
+
+function UpcomingPreview({
+  number,
+  label,
+  title,
+  text,
+}: {
+  number: string;
+  label: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <article style={upcomingPreviewCardStyle}>
+      <div style={upcomingPreviewTopStyle}>
+        <span style={upcomingPreviewNumberStyle}>{number}</span>
+        <span style={gatewayActionLabelStyle}>{label}</span>
+      </div>
+
+      <div style={upcomingPreviewVisualStyle} aria-hidden="true">
+        <div style={upcomingPreviewSweepStyle} />
+        <div style={upcomingPreviewCoreStyle}>GGH</div>
+      </div>
+
+      <h3 style={upcomingPreviewTitleStyle}>{title}</h3>
+      <p style={cardTextStyle}>{text}</p>
+    </article>
+  );
+}
+
+function SchedulePreviewRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={schedulePreviewRowStyle}>
+      <span style={schedulePreviewLabelStyle}>{label}</span>
+      <strong style={schedulePreviewValueStyle}>{value}</strong>
     </div>
   );
 }
@@ -2405,6 +2606,476 @@ const supportIconStyle: CSSProperties = {
   fontSize: 9.5,
   fontWeight: 950,
   letterSpacing: "0.1em",
+};
+
+const broadcastSectionStyle: CSSProperties = {
+  borderRadius: 28,
+  border: "1px solid rgba(52,211,153,0.13)",
+  background:
+    "radial-gradient(circle at 88% 10%, rgba(52,211,153,0.08), transparent 30%), linear-gradient(145deg, rgba(5,12,16,0.98), rgba(8,10,22,0.97))",
+  boxShadow: "0 26px 90px rgba(0,0,0,0.4)",
+  padding: 24,
+};
+
+const broadcastLiveGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.35fr) minmax(300px, 0.65fr)",
+  gap: 14,
+  marginTop: 22,
+};
+
+const broadcastLeadColumnStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const broadcastQueueStyle: CSSProperties = {
+  display: "grid",
+  gap: 10,
+};
+
+const broadcastQueueHeadingStyle: CSSProperties = {
+  color: "#6ee7b7",
+  fontSize: 10,
+  fontWeight: 950,
+  letterSpacing: "0.11em",
+};
+
+const broadcastStandbyStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.55fr) minmax(280px, 0.45fr)",
+  gap: 14,
+  marginTop: 22,
+};
+
+const broadcastStageStyle: CSSProperties = {
+  minHeight: 430,
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  borderRadius: 22,
+  border: "1px solid rgba(255,255,255,0.075)",
+  background:
+    "radial-gradient(circle at 50% 42%, rgba(52,211,153,0.10), transparent 28%), radial-gradient(circle at 70% 20%, rgba(124,58,237,0.08), transparent 24%), linear-gradient(155deg, #04090c, #080a16 60%, #080612)",
+};
+
+const broadcastStageTopStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "16px 18px",
+  borderBottom: "1px solid rgba(255,255,255,0.055)",
+};
+
+const broadcastStandbyBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  color: "#d1fae5",
+  fontSize: 9.5,
+  fontWeight: 950,
+  letterSpacing: "0.1em",
+};
+
+const broadcastStandbyDotStyle: CSSProperties = {
+  width: 7,
+  height: 7,
+  borderRadius: "50%",
+  background: "#34d399",
+  boxShadow: "0 0 0 4px rgba(52,211,153,0.08), 0 0 16px rgba(52,211,153,0.55)",
+};
+
+const broadcastNetworkStyle: CSSProperties = {
+  color: "#64748b",
+  fontSize: 9.5,
+  fontWeight: 900,
+  letterSpacing: "0.09em",
+};
+
+const broadcastStageCenterStyle: CSSProperties = {
+  flex: 1,
+  minHeight: 320,
+  display: "grid",
+  gridTemplateColumns: "minmax(220px, 0.7fr) minmax(0, 1.3fr)",
+  gap: 20,
+  alignItems: "center",
+  padding: 22,
+};
+
+const broadcastSignalStyle: CSSProperties = {
+  minHeight: 240,
+  display: "grid",
+  placeItems: "center",
+  position: "relative",
+};
+
+const broadcastSignalRingLargeStyle: CSSProperties = {
+  width: 200,
+  height: 200,
+  borderRadius: "50%",
+  border: "1px solid rgba(110,231,183,0.14)",
+  display: "grid",
+  placeItems: "center",
+  boxShadow: "0 0 55px rgba(52,211,153,0.055)",
+};
+
+const broadcastSignalRingMediumStyle: CSSProperties = {
+  width: 134,
+  height: 134,
+  borderRadius: "50%",
+  border: "1px solid rgba(110,231,183,0.19)",
+  display: "grid",
+  placeItems: "center",
+};
+
+const broadcastSignalCoreStyle: CSSProperties = {
+  width: 72,
+  height: 72,
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  color: "#fff",
+  background: "linear-gradient(135deg, rgba(52,211,153,0.3), rgba(124,58,237,0.25))",
+  border: "1px solid rgba(255,255,255,0.1)",
+  boxShadow: "0 0 34px rgba(52,211,153,0.12)",
+  fontSize: 13,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const broadcastStageCopyStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const broadcastStageTitleStyle: CSSProperties = {
+  maxWidth: 550,
+  margin: "10px 0 0",
+  color: "#fff",
+  fontSize: "clamp(2rem, 4.8vw, 3.4rem)",
+  lineHeight: 0.98,
+  letterSpacing: "-0.055em",
+};
+
+const broadcastStageTextStyle: CSSProperties = {
+  maxWidth: 560,
+  margin: "14px 0 0",
+  color: "#9ca9ba",
+  fontSize: 14,
+  lineHeight: 1.65,
+};
+
+const broadcastTickerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexWrap: "wrap",
+  gap: 8,
+  minHeight: 42,
+  padding: "10px 14px",
+  borderTop: "1px solid rgba(255,255,255,0.055)",
+  color: "#94a3b8",
+  background: "rgba(255,255,255,0.018)",
+  fontSize: 9.5,
+  fontWeight: 900,
+  letterSpacing: "0.08em",
+};
+
+const broadcastTickerDividerStyle: CSSProperties = {
+  color: "#34d399",
+};
+
+const broadcastSidebarStyle: CSSProperties = {
+  minHeight: 430,
+  display: "flex",
+  flexDirection: "column",
+  borderRadius: 22,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background: "rgba(255,255,255,0.025)",
+  padding: 18,
+};
+
+const broadcastSidebarHeaderStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  paddingBottom: 16,
+  borderBottom: "1px solid rgba(255,255,255,0.06)",
+};
+
+const broadcastSidebarTitleStyle: CSSProperties = {
+  color: "#fff",
+  fontSize: 21,
+  lineHeight: 1.1,
+  letterSpacing: "-0.035em",
+};
+
+const broadcastStatusListStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  marginTop: 16,
+  marginBottom: 18,
+};
+
+const broadcastStatusItemStyle: CSSProperties = {
+  display: "grid",
+  gap: 4,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.055)",
+  background: "rgba(255,255,255,0.02)",
+  padding: 12,
+};
+
+const broadcastStatusItemLabelStyle: CSSProperties = {
+  color: "#64748b",
+  fontSize: 9.5,
+  fontWeight: 900,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+};
+
+const broadcastStatusItemValueStyle: CSSProperties = {
+  color: "#dbe5ef",
+  fontSize: 12.5,
+};
+
+const upcomingBroadcastGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 13,
+  marginTop: 22,
+};
+
+const upcomingSlotStyle: CSSProperties = {
+  position: "relative",
+};
+
+const upcomingSlotNumberStyle: CSSProperties = {
+  position: "absolute",
+  zIndex: 3,
+  top: 10,
+  left: 10,
+  minWidth: 32,
+  minHeight: 26,
+  display: "grid",
+  placeItems: "center",
+  borderRadius: 999,
+  color: "#d1fae5",
+  background: "rgba(3,10,10,0.82)",
+  border: "1px solid rgba(110,231,183,0.15)",
+  fontSize: 9,
+  fontWeight: 950,
+};
+
+const upcomingPreviewGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 13,
+  marginTop: 22,
+};
+
+const upcomingPreviewCardStyle: CSSProperties = {
+  minHeight: 330,
+  overflow: "hidden",
+  borderRadius: 20,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background:
+    "linear-gradient(155deg, rgba(255,255,255,0.035), rgba(255,255,255,0.018))",
+  padding: 17,
+};
+
+const upcomingPreviewTopStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const upcomingPreviewNumberStyle: CSSProperties = {
+  color: "#475569",
+  fontSize: 11,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const upcomingPreviewVisualStyle: CSSProperties = {
+  position: "relative",
+  height: 138,
+  overflow: "hidden",
+  display: "grid",
+  placeItems: "center",
+  marginTop: 15,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.055)",
+  background:
+    "radial-gradient(circle at center, rgba(52,211,153,0.11), transparent 34%), linear-gradient(145deg, #05090d, #090714)",
+};
+
+const upcomingPreviewSweepStyle: CSSProperties = {
+  position: "absolute",
+  width: 108,
+  height: 108,
+  borderRadius: "50%",
+  border: "1px solid rgba(110,231,183,0.13)",
+  boxShadow: "0 0 34px rgba(52,211,153,0.05)",
+};
+
+const upcomingPreviewCoreStyle: CSSProperties = {
+  width: 48,
+  height: 48,
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  color: "#d1fae5",
+  background: "rgba(52,211,153,0.07)",
+  border: "1px solid rgba(110,231,183,0.14)",
+  fontSize: 9,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const upcomingPreviewTitleStyle: CSSProperties = {
+  margin: "15px 0 0",
+  color: "#fff",
+  fontSize: 19,
+  lineHeight: 1.12,
+  letterSpacing: "-0.035em",
+};
+
+const scheduleSectionStyle: CSSProperties = {
+  borderRadius: 26,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background:
+    "radial-gradient(circle at 10% 0%, rgba(52,211,153,0.055), transparent 26%), rgba(8,10,22,0.95)",
+  boxShadow: "0 20px 70px rgba(0,0,0,0.34)",
+  padding: 24,
+};
+
+const scheduleDayRailStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(11, minmax(82px, 1fr))",
+  gap: 7,
+  marginTop: 22,
+  overflowX: "auto",
+  paddingBottom: 4,
+};
+
+const scheduleDayStyle: CSSProperties = {
+  minWidth: 82,
+  minHeight: 64,
+  display: "grid",
+  alignContent: "center",
+  gap: 3,
+  borderRadius: 13,
+  border: "1px solid rgba(255,255,255,0.055)",
+  background: "rgba(255,255,255,0.02)",
+  padding: "10px 11px",
+  color: "#cbd5e1",
+  fontSize: 10.5,
+};
+
+const scheduleDayActiveStyle: CSSProperties = {
+  color: "#d1fae5",
+  background: "rgba(52,211,153,0.07)",
+  border: "1px solid rgba(110,231,183,0.17)",
+};
+
+const scheduleDayNumberStyle: CSSProperties = {
+  color: "#64748b",
+  fontSize: 8.5,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const scheduleStandbyStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "90px minmax(0, 1fr)",
+  gap: 18,
+  minHeight: 300,
+  marginTop: 18,
+  borderRadius: 20,
+  border: "1px dashed rgba(110,231,183,0.12)",
+  background: "rgba(255,255,255,0.018)",
+  padding: 22,
+};
+
+const scheduleTimelineStyle: CSSProperties = {
+  position: "relative",
+  minHeight: 250,
+};
+
+const scheduleTimelineLineStyle: CSSProperties = {
+  position: "absolute",
+  top: 12,
+  bottom: 12,
+  left: "50%",
+  width: 1,
+  transform: "translateX(-50%)",
+  background:
+    "linear-gradient(to bottom, rgba(52,211,153,0.08), rgba(52,211,153,0.38), rgba(124,58,237,0.18))",
+};
+
+const scheduleTimelineNodeStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  width: 12,
+  height: 12,
+  transform: "translate(-50%, -50%)",
+  borderRadius: "50%",
+  background: "#071111",
+  border: "2px solid rgba(110,231,183,0.55)",
+  boxShadow: "0 0 14px rgba(52,211,153,0.16)",
+};
+
+const scheduleStandbyCopyStyle: CSSProperties = {
+  alignSelf: "center",
+  minWidth: 0,
+};
+
+const scheduleStandbyTitleStyle: CSSProperties = {
+  maxWidth: 680,
+  margin: "10px 0 0",
+  color: "#fff",
+  fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
+  lineHeight: 1,
+  letterSpacing: "-0.05em",
+};
+
+const scheduleStandbyTextStyle: CSSProperties = {
+  maxWidth: 720,
+  margin: "12px 0 0",
+  color: "#94a3b8",
+  fontSize: 13.5,
+  lineHeight: 1.65,
+};
+
+const schedulePreviewRowsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 8,
+  marginTop: 18,
+};
+
+const schedulePreviewRowStyle: CSSProperties = {
+  minHeight: 72,
+  display: "grid",
+  alignContent: "center",
+  gap: 5,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.055)",
+  background: "rgba(255,255,255,0.018)",
+  padding: 11,
+};
+
+const schedulePreviewLabelStyle: CSSProperties = {
+  color: "#6ee7b7",
+  fontSize: 8.5,
+  fontWeight: 950,
+  letterSpacing: "0.1em",
+};
+
+const schedulePreviewValueStyle: CSSProperties = {
+  color: "#dbe5ef",
+  fontSize: 11.5,
+  lineHeight: 1.3,
 };
 
 const previewStackStyle: CSSProperties = {
