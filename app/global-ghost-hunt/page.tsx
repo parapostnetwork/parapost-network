@@ -1043,42 +1043,88 @@ export default function GlobalGhostHuntPage() {
 
         <section
           id="support-hunt"
-          style={supportSectionStyle}
+          style={supportCenterStyle}
           className="ggh-section-card"
         >
-          <div style={sectionEyebrowStyle}>SUPPORT GLOBAL GHOST HUNT</div>
-          <h2 style={sectionTitleStyle}>Help the worldwide hunt grow.</h2>
-          <p style={sectionTextStyle}>
-            Global Ghost Hunt is strengthened by sponsors, advertising
-            partners, donations, merchandise supporters, and paranormal
-            organizations that help the event reach more people around the world.
-          </p>
+          <div style={supportCenterHeaderStyle} className="ggh-section-heading-row">
+            <div>
+              <div style={sectionEyebrowStyle}>SUPPORT GLOBAL GHOST HUNT</div>
+              <h2 style={sectionTitleStyle}>Help the worldwide hunt grow.</h2>
+              <p style={sectionTextStyle}>
+                Global Ghost Hunt is strengthened by sponsors, advertising
+                partners, donations, merchandise supporters, and paranormal
+                organizations that help the event reach more people around the world.
+              </p>
+            </div>
 
-          <div style={supportGridStyle} className="ggh-three-column-grid">
-            <div style={supportCardStyle}>
-              <div style={supportIconStyle}>MEDIA</div>
-              <h3 style={participationTitleStyle}>Media & Advertising</h3>
+            <div style={supportCenterBadgeStyle}>COMMUNITY POWERED</div>
+          </div>
+
+          <div style={supportFeatureGridStyle} className="ggh-three-column-grid">
+            <SupportFeature
+              eyebrow="MEDIA & ADVERTISING"
+              title="Put your brand in front of the paranormal community."
+              text="Advertising and promotional opportunities can place businesses, events, creators, and organizations alongside Global Ghost Hunt coverage."
+              items={[
+                "Event advertising",
+                "Brand placement",
+                "Media promotion",
+                "Paranormal audience reach",
+              ]}
+              accent="MEDIA"
+            />
+
+            <SupportFeature
+              eyebrow="DONATIONS"
+              title="Support the event behind the scenes."
+              text="Donations can help support organization, promotion, technology, event materials, and the continued growth of Global Ghost Hunt."
+              items={[
+                "Event operations",
+                "Technology",
+                "Promotion",
+                "Future growth",
+              ]}
+              accent="GIVE"
+            />
+
+            <SupportFeature
+              eyebrow="OFFICIAL MERCH"
+              title="Represent the worldwide hunt."
+              text="Official Global Ghost Hunt merchandise gives teams, viewers, and supporters another way to celebrate and support the event."
+              items={[
+                "Event apparel",
+                "Collectibles",
+                "Supporter items",
+                "Future 2027 designs",
+              ]}
+              accent="MERCH"
+            />
+          </div>
+
+          <div style={mediaArchivePanelStyle} className="ggh-two-column-grid">
+            <div style={mediaArchiveCopyStyle}>
+              <div style={sectionEyebrowStyle}>MEDIA ARCHIVE</div>
+              <h3 style={mediaArchiveTitleStyle}>Previous hunts deserve a permanent home.</h3>
               <p style={cardTextStyle}>
-                Promotional opportunities can connect paranormal businesses and
-                organizations with viewers following the worldwide event.
+                The current Global Ghost Hunt website features previous
+                investigation videos and promotional media. The Hub can preserve
+                that history in a cleaner archive with replays, highlights,
+                trailers, team features, and event media.
               </p>
             </div>
-            <div style={supportCardStyle}>
-              <div style={supportIconStyle}>GIVE</div>
-              <h3 style={participationTitleStyle}>Donations</h3>
-              <p style={cardTextStyle}>
-                Support helps with event promotion, organization, technology,
-                and the continued growth of Global Ghost Hunt.
-              </p>
+
+            <div style={mediaArchiveGridStyle} className="ggh-three-column-grid">
+              <MediaArchiveItem number="01" label="PAST HUNTS" value="Previous investigations" />
+              <MediaArchiveItem number="02" label="HIGHLIGHTS" value="Memorable event moments" />
+              <MediaArchiveItem number="03" label="PROMOTION" value="Trailers & event media" />
             </div>
-            <div style={supportCardStyle}>
-              <div style={supportIconStyle}>MERCH</div>
-              <h3 style={participationTitleStyle}>Official Merchandise</h3>
-              <p style={cardTextStyle}>
-                Global Ghost Hunt merchandise gives the community another way
-                to represent and support the event.
-              </p>
-            </div>
+          </div>
+
+          <div style={supportFooterStyle}>
+            <span style={supportFooterLeadStyle}>GLOBAL GHOST HUNT SUPPORT</span>
+            <span style={supportFooterTextStyle}>
+              Sponsor, advertising, donation, and merchandise links can be connected here later when the 2027 experience is finalized.
+            </span>
           </div>
         </section>
 
@@ -1277,6 +1323,61 @@ function EmptyState({
       <div style={emptyOrbStyle}>GGH</div>
       <strong style={emptyTitleStyle}>{title}</strong>
       <span style={emptyTextStyle}>{text}</span>
+    </div>
+  );
+}
+
+function SupportFeature({
+  eyebrow,
+  title,
+  text,
+  items,
+  accent,
+}: {
+  eyebrow: string;
+  title: string;
+  text: string;
+  items: string[];
+  accent: string;
+}) {
+  return (
+    <article style={supportFeatureStyle}>
+      <div style={supportFeatureVisualStyle} aria-hidden="true">
+        <div style={supportFeatureRingLargeStyle} />
+        <div style={supportFeatureRingSmallStyle} />
+        <div style={supportFeatureCoreStyle}>{accent}</div>
+      </div>
+
+      <div style={gatewayActionLabelStyle}>{eyebrow}</div>
+      <h3 style={supportFeatureTitleStyle}>{title}</h3>
+      <p style={cardTextStyle}>{text}</p>
+
+      <div style={supportFeatureListStyle}>
+        {items.map((item) => (
+          <div key={item} style={supportFeatureListItemStyle}>
+            <span style={supportFeatureBulletStyle} />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function MediaArchiveItem({
+  number,
+  label,
+  value,
+}: {
+  number: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={mediaArchiveItemStyle}>
+      <span style={mediaArchiveNumberStyle}>{number}</span>
+      <span style={gatewayActionLabelStyle}>{label}</span>
+      <strong style={mediaArchiveValueStyle}>{value}</strong>
     </div>
   );
 }
@@ -2699,40 +2800,209 @@ const legacyAwardTitleStyle: CSSProperties = {
   fontSize: 15,
 };
 
-const supportSectionStyle: CSSProperties = {
-  borderRadius: 26,
-  border: "1px solid rgba(255,255,255,0.08)",
+const supportCenterStyle: CSSProperties = {
+  borderRadius: 28,
+  border: "1px solid rgba(94,234,212,0.11)",
   background:
-    "radial-gradient(circle at 8% 10%, rgba(52,211,153,0.07), transparent 25%), rgba(8,10,22,0.95)",
-  boxShadow: "0 20px 70px rgba(0,0,0,0.34)",
+    "radial-gradient(circle at 10% 0%, rgba(52,211,153,0.07), transparent 25%), radial-gradient(circle at 92% 15%, rgba(124,58,237,0.07), transparent 26%), rgba(8,10,22,0.96)",
+  boxShadow: "0 24px 80px rgba(0,0,0,0.38)",
   padding: 24,
 };
 
-const supportGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 13,
-  marginTop: 22,
+const supportCenterHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 20,
 };
 
-const supportCardStyle: CSSProperties = {
-  minHeight: 210,
-  borderRadius: 20,
-  border: "1px solid rgba(255,255,255,0.07)",
-  background: "rgba(255,255,255,0.028)",
-  padding: 18,
-};
-
-const supportIconStyle: CSSProperties = {
+const supportCenterBadgeStyle: CSSProperties = {
+  flex: "0 0 auto",
   display: "inline-flex",
-  padding: "6px 9px",
+  alignItems: "center",
+  minHeight: 34,
+  padding: "7px 11px",
   borderRadius: 999,
   color: "#a7f3d0",
-  background: "rgba(52,211,153,0.08)",
   border: "1px solid rgba(110,231,183,0.14)",
+  background: "rgba(52,211,153,0.055)",
   fontSize: 9.5,
   fontWeight: 950,
   letterSpacing: "0.1em",
+};
+
+const supportFeatureGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 13,
+  marginTop: 24,
+};
+
+const supportFeatureStyle: CSSProperties = {
+  minHeight: 420,
+  overflow: "hidden",
+  borderRadius: 21,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background:
+    "linear-gradient(155deg, rgba(255,255,255,0.04), rgba(255,255,255,0.017))",
+  padding: 18,
+};
+
+const supportFeatureVisualStyle: CSSProperties = {
+  position: "relative",
+  height: 145,
+  display: "grid",
+  placeItems: "center",
+  marginBottom: 16,
+  overflow: "hidden",
+  borderRadius: 17,
+  border: "1px solid rgba(255,255,255,0.055)",
+  background:
+    "radial-gradient(circle at center, rgba(52,211,153,0.10), transparent 34%), linear-gradient(145deg, #05090d, #0b0815)",
+};
+
+const supportFeatureRingLargeStyle: CSSProperties = {
+  position: "absolute",
+  width: 112,
+  height: 112,
+  borderRadius: "50%",
+  border: "1px solid rgba(110,231,183,0.12)",
+};
+
+const supportFeatureRingSmallStyle: CSSProperties = {
+  position: "absolute",
+  width: 76,
+  height: 76,
+  borderRadius: "50%",
+  border: "1px solid rgba(167,139,250,0.12)",
+};
+
+const supportFeatureCoreStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  minWidth: 58,
+  minHeight: 44,
+  display: "grid",
+  placeItems: "center",
+  padding: "0 10px",
+  borderRadius: 999,
+  color: "#d1fae5",
+  background: "rgba(52,211,153,0.07)",
+  border: "1px solid rgba(110,231,183,0.13)",
+  fontSize: 9.5,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const supportFeatureTitleStyle: CSSProperties = {
+  margin: "10px 0 0",
+  color: "#fff",
+  fontSize: 21,
+  lineHeight: 1.08,
+  letterSpacing: "-0.04em",
+};
+
+const supportFeatureListStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  marginTop: 16,
+  paddingTop: 14,
+  borderTop: "1px solid rgba(255,255,255,0.055)",
+};
+
+const supportFeatureListItemStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  color: "#b9c5d3",
+  fontSize: 11.5,
+};
+
+const supportFeatureBulletStyle: CSSProperties = {
+  width: 7,
+  height: 7,
+  flex: "0 0 auto",
+  borderRadius: "50%",
+  background: "#34d399",
+  boxShadow: "0 0 10px rgba(52,211,153,0.18)",
+};
+
+const mediaArchivePanelStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 0.72fr) minmax(0, 1.28fr)",
+  gap: 18,
+  marginTop: 18,
+  borderRadius: 21,
+  border: "1px solid rgba(255,255,255,0.065)",
+  background:
+    "linear-gradient(145deg, rgba(5,18,19,0.52), rgba(255,255,255,0.018))",
+  padding: 18,
+};
+
+const mediaArchiveCopyStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const mediaArchiveTitleStyle: CSSProperties = {
+  margin: "9px 0 0",
+  color: "#fff",
+  fontSize: 22,
+  lineHeight: 1.08,
+  letterSpacing: "-0.04em",
+};
+
+const mediaArchiveGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 8,
+};
+
+const mediaArchiveItemStyle: CSSProperties = {
+  minHeight: 132,
+  display: "grid",
+  alignContent: "center",
+  gap: 6,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.055)",
+  background: "rgba(255,255,255,0.02)",
+  padding: 13,
+};
+
+const mediaArchiveNumberStyle: CSSProperties = {
+  color: "#475569",
+  fontSize: 10,
+  fontWeight: 950,
+  letterSpacing: "0.09em",
+};
+
+const mediaArchiveValueStyle: CSSProperties = {
+  color: "#dbe5ef",
+  fontSize: 12.5,
+  lineHeight: 1.35,
+};
+
+const supportFooterStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 14,
+  flexWrap: "wrap",
+  marginTop: 18,
+  paddingTop: 16,
+  borderTop: "1px solid rgba(255,255,255,0.055)",
+};
+
+const supportFooterLeadStyle: CSSProperties = {
+  color: "#6ee7b7",
+  fontSize: 9.5,
+  fontWeight: 950,
+  letterSpacing: "0.1em",
+};
+
+const supportFooterTextStyle: CSSProperties = {
+  color: "#7f8da1",
+  fontSize: 11.5,
+  lineHeight: 1.5,
 };
 
 const broadcastSectionStyle: CSSProperties = {
