@@ -1084,23 +1084,95 @@ export default function GlobalGhostHuntPage() {
 
         <section
           id="register"
-          style={registrationCardStyle}
+          style={registrationCenterStyle}
           className="ggh-section-card"
         >
           <div style={registrationGlowStyle} aria-hidden="true" />
 
           <div style={registrationContentStyle}>
-            <div style={futureBadgeStyle}>GLOBAL GHOST HUNT REGISTRATION</div>
-            <h2 style={futureTitleStyle}>Ready to join the worldwide hunt?</h2>
-            <p style={futureTextStyle}>
-              Registration will bring participating teams, locations,
-              volunteers, investigation details, scheduling, and event
-              information together in one organized place.
-            </p>
+            <div style={registrationTopStyle} className="ggh-section-heading-row">
+              <div>
+                <div style={futureBadgeStyle}>GLOBAL GHOST HUNT PARTICIPATION CENTER</div>
+                <h2 style={futureTitleStyle}>Choose how you want to take part.</h2>
+                <p style={futureTextStyle}>
+                  The Hub will bring team registration, location participation,
+                  volunteer opportunities, investigation details, and event
+                  information together in one organized place.
+                </p>
+              </div>
+
+              <div style={registrationStatusStyle}>
+                <span style={registrationStatusDotStyle} />
+                <span>2027 participation experience in development</span>
+              </div>
+            </div>
+
+            <div style={registrationOptionGridStyle} className="ggh-three-column-grid">
+              <RegistrationOption
+                number="01"
+                eyebrow="PARANORMAL TEAMS"
+                title="Register Your Team"
+                text="Submit your team, investigation location, preferred date, broadcast details, and event contact information."
+                items={[
+                  "Team profile",
+                  "Investigation details",
+                  "Schedule placement",
+                  "Live / replay listing",
+                ]}
+              />
+
+              <RegistrationOption
+                number="02"
+                eyebrow="HAUNTED LOCATIONS"
+                title="Register a Location"
+                text="Historic and reportedly haunted locations can join the event by hosting a participating paranormal team."
+                items={[
+                  "Location profile",
+                  "History & story",
+                  "Team coordination",
+                  "Event promotion",
+                ]}
+              />
+
+              <RegistrationOption
+                number="03"
+                eyebrow="EVENT SUPPORT"
+                title="Volunteer"
+                text="Help Global Ghost Hunt with coordination, promotion, team support, location support, and community outreach."
+                items={[
+                  "Event support",
+                  "Team assistance",
+                  "Promotion",
+                  "Community involvement",
+                ]}
+              />
+            </div>
+
+            <div style={includedPanelStyle} className="ggh-two-column-grid">
+              <div style={includedLeadStyle}>
+                <div style={sectionEyebrowStyle}>WHAT PARTICIPANTS CAN EXPECT</div>
+                <h3 style={includedTitleStyle}>One organized Global Ghost Hunt experience.</h3>
+                <p style={cardTextStyle}>
+                  The finished participation system will be designed around the
+                  information teams and locations already provide today, but in
+                  a cleaner experience directly inside the Hub.
+                </p>
+              </div>
+
+              <div style={includedGridStyle} className="ggh-three-column-grid">
+                <IncludedItem label="PROFILE" value="Team or location presence inside the Hub" />
+                <IncludedItem label="SCHEDULE" value="Confirmed date and broadcast time" />
+                <IncludedItem label="DISCOVERY" value="Featured in teams, locations, and event pages" />
+                <IncludedItem label="BROADCAST" value="Live and replay placement when available" />
+                <IncludedItem label="UPDATES" value="Event announcements and schedule information" />
+                <IncludedItem label="COMMUNITY" value="Part of the worldwide Global Ghost Hunt network" />
+              </div>
+            </div>
 
             <div style={registrationNoticeStyle}>
-              Registration information for upcoming Global Ghost Hunt events
-              will be announced here as details become available.
+              Participation forms are not open inside the Hub yet. Official
+              registration details will be announced here when the next event
+              registration period begins.
             </div>
           </div>
         </section>
@@ -1205,6 +1277,61 @@ function EmptyState({
       <div style={emptyOrbStyle}>GGH</div>
       <strong style={emptyTitleStyle}>{title}</strong>
       <span style={emptyTextStyle}>{text}</span>
+    </div>
+  );
+}
+
+function RegistrationOption({
+  number,
+  eyebrow,
+  title,
+  text,
+  items,
+}: {
+  number: string;
+  eyebrow: string;
+  title: string;
+  text: string;
+  items: string[];
+}) {
+  return (
+    <article style={registrationOptionStyle}>
+      <div style={registrationOptionTopStyle}>
+        <span style={registrationOptionNumberStyle}>{number}</span>
+        <span style={gatewayActionLabelStyle}>{eyebrow}</span>
+      </div>
+
+      <div style={registrationOptionVisualStyle} aria-hidden="true">
+        <div style={registrationOptionRingStyle} />
+        <div style={registrationOptionCoreStyle}>{number}</div>
+      </div>
+
+      <h3 style={registrationOptionTitleStyle}>{title}</h3>
+      <p style={cardTextStyle}>{text}</p>
+
+      <div style={registrationOptionListStyle}>
+        {items.map((item) => (
+          <div key={item} style={registrationOptionListItemStyle}>
+            <span style={registrationCheckStyle}>✓</span>
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function IncludedItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={includedItemStyle}>
+      <span style={includedItemLabelStyle}>{label}</span>
+      <strong style={includedItemValueStyle}>{value}</strong>
     </div>
   );
 }
@@ -3722,15 +3849,203 @@ const sponsorImageStyle: CSSProperties = {
   padding: 8,
 };
 
-const registrationCardStyle: CSSProperties = {
+const registrationCenterStyle: CSSProperties = {
   position: "relative",
   overflow: "hidden",
-  borderRadius: 26,
-  border: "1px solid rgba(216,180,254,0.16)",
+  borderRadius: 28,
+  border: "1px solid rgba(94,234,212,0.13)",
   background:
-    "linear-gradient(145deg, rgba(24,18,46,0.96), rgba(8,10,22,0.95))",
-  boxShadow: "0 24px 80px rgba(0,0,0,0.36)",
+    "radial-gradient(circle at 88% 8%, rgba(52,211,153,0.08), transparent 28%), linear-gradient(145deg, rgba(7,15,18,0.98), rgba(11,9,24,0.97))",
+  boxShadow: "0 26px 90px rgba(0,0,0,0.4)",
   padding: 24,
+};
+
+const registrationTopStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 20,
+};
+
+const registrationStatusStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  minHeight: 34,
+  padding: "7px 11px",
+  borderRadius: 999,
+  border: "1px solid rgba(110,231,183,0.14)",
+  background: "rgba(52,211,153,0.055)",
+  color: "#a7f3d0",
+  fontSize: 10,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
+const registrationStatusDotStyle: CSSProperties = {
+  width: 7,
+  height: 7,
+  borderRadius: "50%",
+  background: "#34d399",
+  boxShadow: "0 0 14px rgba(52,211,153,0.45)",
+};
+
+const registrationOptionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 13,
+  marginTop: 24,
+};
+
+const registrationOptionStyle: CSSProperties = {
+  minHeight: 410,
+  overflow: "hidden",
+  borderRadius: 21,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background:
+    "linear-gradient(155deg, rgba(255,255,255,0.04), rgba(255,255,255,0.018))",
+  padding: 18,
+};
+
+const registrationOptionTopStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const registrationOptionNumberStyle: CSSProperties = {
+  color: "#475569",
+  fontSize: 11,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const registrationOptionVisualStyle: CSSProperties = {
+  position: "relative",
+  height: 128,
+  display: "grid",
+  placeItems: "center",
+  marginTop: 16,
+  overflow: "hidden",
+  borderRadius: 17,
+  border: "1px solid rgba(255,255,255,0.055)",
+  background:
+    "radial-gradient(circle at center, rgba(52,211,153,0.11), transparent 35%), linear-gradient(145deg, #05090d, #0b0815)",
+};
+
+const registrationOptionRingStyle: CSSProperties = {
+  position: "absolute",
+  width: 96,
+  height: 96,
+  borderRadius: "50%",
+  border: "1px solid rgba(110,231,183,0.13)",
+};
+
+const registrationOptionCoreStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  width: 52,
+  height: 52,
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  color: "#d1fae5",
+  background: "rgba(52,211,153,0.07)",
+  border: "1px solid rgba(110,231,183,0.15)",
+  fontSize: 11,
+  fontWeight: 950,
+};
+
+const registrationOptionTitleStyle: CSSProperties = {
+  margin: "16px 0 0",
+  color: "#fff",
+  fontSize: 21,
+  lineHeight: 1.08,
+  letterSpacing: "-0.04em",
+};
+
+const registrationOptionListStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  marginTop: 16,
+  paddingTop: 14,
+  borderTop: "1px solid rgba(255,255,255,0.055)",
+};
+
+const registrationOptionListItemStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  color: "#b9c5d3",
+  fontSize: 11.5,
+};
+
+const registrationCheckStyle: CSSProperties = {
+  width: 20,
+  height: 20,
+  flex: "0 0 auto",
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  color: "#a7f3d0",
+  background: "rgba(52,211,153,0.07)",
+  border: "1px solid rgba(110,231,183,0.12)",
+  fontSize: 10,
+  fontWeight: 950,
+};
+
+const includedPanelStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 0.72fr) minmax(0, 1.28fr)",
+  gap: 18,
+  marginTop: 18,
+  borderRadius: 21,
+  border: "1px solid rgba(255,255,255,0.065)",
+  background: "rgba(255,255,255,0.022)",
+  padding: 18,
+};
+
+const includedLeadStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const includedTitleStyle: CSSProperties = {
+  margin: "9px 0 0",
+  color: "#fff",
+  fontSize: 22,
+  lineHeight: 1.08,
+  letterSpacing: "-0.04em",
+};
+
+const includedGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 8,
+};
+
+const includedItemStyle: CSSProperties = {
+  minHeight: 98,
+  display: "grid",
+  alignContent: "center",
+  gap: 6,
+  borderRadius: 15,
+  border: "1px solid rgba(255,255,255,0.055)",
+  background: "rgba(255,255,255,0.02)",
+  padding: 12,
+};
+
+const includedItemLabelStyle: CSSProperties = {
+  color: "#6ee7b7",
+  fontSize: 8.5,
+  fontWeight: 950,
+  letterSpacing: "0.1em",
+};
+
+const includedItemValueStyle: CSSProperties = {
+  color: "#dbe5ef",
+  fontSize: 11.5,
+  lineHeight: 1.35,
 };
 
 const registrationGlowStyle: CSSProperties = {
