@@ -110,6 +110,16 @@ export default function GlobalGhostHuntPage() {
           transform: translateY(-1px);
         }
 
+        @media (max-width: 1080px) {
+          .ggh-legacy-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .ggh-legacy-visual {
+            grid-template-columns: 96px minmax(0, 1fr) !important;
+          }
+        }
+
         @media (max-width: 900px) {
           .ggh-hero-grid,
           .ggh-two-column-grid {
@@ -623,11 +633,19 @@ export default function GlobalGhostHuntPage() {
                   ))}
                 </div>
               ) : (
-                <EmptyState
-                  compact
-                  title="Participating teams coming soon."
-                  text="Meet the paranormal teams taking part in Global Ghost Hunt and learn more about where they are from."
-                />
+                <div style={previewStackStyle}>
+                  <SpotlightPreview
+                    eyebrow="TEAM SPOTLIGHT"
+                    title="Participating teams will take center stage."
+                    text="Each team profile will feature its name, home region, logo, investigation details, and Global Ghost Hunt story."
+                    variant="team"
+                  />
+                  <EmptyState
+                    compact
+                    title="Participating teams coming soon."
+                    text="Official team profiles will appear here as the 2026 lineup is announced."
+                  />
+                </div>
               )}
             </div>
 
@@ -641,11 +659,19 @@ export default function GlobalGhostHuntPage() {
                   ))}
                 </div>
               ) : (
-                <EmptyState
-                  compact
-                  title="Investigation locations coming soon."
-                  text="Explore the haunted and historic locations taking part in Global Ghost Hunt as they are announced."
-                />
+                <div style={previewStackStyle}>
+                  <SpotlightPreview
+                    eyebrow="LOCATION SPOTLIGHT"
+                    title="Every location carries its own history."
+                    text="Location profiles will showcase where teams are investigating, the story of the site, and the investigation scheduled there."
+                    variant="location"
+                  />
+                  <EmptyState
+                    compact
+                    title="Investigation locations coming soon."
+                    text="Official haunted and historic locations will appear here as they are announced."
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -708,23 +734,42 @@ export default function GlobalGhostHuntPage() {
         </section>
 
         <section id="legacy" style={legacySectionStyle} className="ggh-section-card">
+          <div style={legacyAtmosphereStyle} aria-hidden="true" />
           <div style={legacyMarkStyle}>IN LOVING MEMORY</div>
-          <div style={legacyGridStyle} className="ggh-two-column-grid">
-            <div>
-              <div style={sectionEyebrowStyle}>OUR LEGACY</div>
-              <h2 style={legacyTitleStyle}>Remembering those who helped shape the hunt.</h2>
+
+          <div
+            style={legacyGridStyle}
+            className="ggh-two-column-grid ggh-legacy-grid"
+          >
+            <div style={legacyVisualColumnStyle} className="ggh-legacy-visual">
+              <div style={legacyMemorialSealStyle}>
+                <span style={legacyMemorialSmallStyle}>GLOBAL GHOST HUNT</span>
+                <strong style={legacyMemorialMainStyle}>LEGACY</strong>
+                <span style={legacyMemorialSmallStyle}>REMEMBER • HONOUR • INSPIRE</span>
+              </div>
+
+              <div>
+                <div style={sectionEyebrowStyle}>OUR LEGACY</div>
+                <h2 style={legacyTitleStyle}>Remembering those who helped shape the hunt.</h2>
+              </div>
             </div>
-            <div>
+
+            <div style={legacyCopyColumnStyle}>
               <p style={sectionTextStyle}>
                 The Global Ghost Hunt community remembers the people whose
                 passion, friendship, and contribution helped make the event
                 what it is today. Their impact remains part of every hunt.
               </p>
+
               <div style={legacyAwardStyle}>
                 <span style={gatewayActionLabelStyle}>RAYMOND NEWSOME LEGACY AWARD</span>
                 <strong style={legacyAwardTitleStyle}>
                   Honouring dedication to the paranormal community.
                 </strong>
+                <span style={legacyAwardTextStyle}>
+                  The Hub will give this award and the people behind the history
+                  of Global Ghost Hunt a permanent place to be remembered.
+                </span>
               </div>
             </div>
           </div>
@@ -758,6 +803,39 @@ export default function GlobalGhostHuntPage() {
               text="Completed broadcasts can be placed here so viewers can return to investigations at any time."
             />
           )}
+        </section>
+
+        <section style={archiveSectionStyle} className="ggh-section-card">
+          <div style={archiveHeaderStyle}>
+            <div>
+              <div style={sectionEyebrowStyle}>FROM THE ARCHIVE</div>
+              <h2 style={sectionTitleStyle}>Previous Global Ghost Hunt investigations.</h2>
+              <p style={sectionTextStyle}>
+                The Hub will preserve past broadcasts, memorable investigations,
+                team stories, and highlights so the history of Global Ghost Hunt
+                remains easy to revisit.
+              </p>
+            </div>
+            <div style={archiveBadgeStyle}>PAST HUNTS</div>
+          </div>
+
+          <div style={archiveGridStyle} className="ggh-three-column-grid">
+            <ArchivePreview
+              label="WATCH AGAIN"
+              title="Previous Investigations"
+              text="Past Global Ghost Hunt broadcasts collected in one archive."
+            />
+            <ArchivePreview
+              label="REMEMBER"
+              title="Event Highlights"
+              text="Memorable moments and stories from earlier worldwide hunts."
+            />
+            <ArchivePreview
+              label="DISCOVER"
+              title="Teams Through the Years"
+              text="A growing record of the paranormal teams that have taken part."
+            />
+          </div>
         </section>
 
         <section id="news" style={sectionCardStyle} className="ggh-section-card">
@@ -801,10 +879,23 @@ export default function GlobalGhostHuntPage() {
               ))}
             </div>
           ) : (
-            <EmptyState
-              title="Sponsors & partners coming soon."
-              text="Organizations supporting Global Ghost Hunt will be featured here as partnerships are announced."
-            />
+            <div style={sponsorShowcaseStyle}>
+              <div style={sponsorShowcaseLeadStyle}>
+                <div style={sectionEyebrowStyle}>CURRENT EVENT SUPPORT</div>
+                <h3 style={sponsorShowcaseTitleStyle}>Organizations helping power the hunt.</h3>
+                <p style={cardTextStyle}>
+                  Sponsor logos and official links will be added as the Hub is
+                  prepared for the event. The current Global Ghost Hunt website
+                  features these supporting brands.
+                </p>
+              </div>
+
+              <div style={sponsorPreviewGridStyle} className="ggh-three-column-grid">
+                <SponsorPreview name="Deluxe Supplements" label="EVENT SPONSOR" />
+                <SponsorPreview name="Health Empowers You" label="EVENT SPONSOR" />
+                <SponsorPreview name="Parapost Network" label="PLATFORM PARTNER" />
+              </div>
+            </div>
           )}
         </section>
 
@@ -973,6 +1064,91 @@ function EmptyState({
       <strong style={emptyTitleStyle}>{title}</strong>
       <span style={emptyTextStyle}>{text}</span>
     </div>
+  );
+}
+
+function SpotlightPreview({
+  eyebrow,
+  title,
+  text,
+  variant,
+}: {
+  eyebrow: string;
+  title: string;
+  text: string;
+  variant: "team" | "location";
+}) {
+  return (
+    <div style={spotlightPreviewStyle}>
+      <div
+        style={{
+          ...spotlightVisualStyle,
+          ...(variant === "location"
+            ? spotlightLocationVisualStyle
+            : spotlightTeamVisualStyle),
+        }}
+        aria-hidden="true"
+      >
+        <div style={spotlightOrbLargeStyle} />
+        <div style={spotlightOrbSmallStyle} />
+        <div style={spotlightMonogramStyle}>
+          {variant === "team" ? "TEAM" : "LOC"}
+        </div>
+      </div>
+
+      <div style={spotlightBodyStyle}>
+        <div style={gatewayActionLabelStyle}>{eyebrow}</div>
+        <strong style={spotlightTitleStyle}>{title}</strong>
+        <span style={spotlightTextStyle}>{text}</span>
+      </div>
+    </div>
+  );
+}
+
+function ArchivePreview({
+  label,
+  title,
+  text,
+}: {
+  label: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <article style={archiveCardStyle}>
+      <div style={archiveMediaStyle} aria-hidden="true">
+        <div style={archiveMediaRingStyle} />
+        <div style={archiveMediaPlayStyle}>GGH</div>
+      </div>
+      <div style={archiveCardBodyStyle}>
+        <span style={gatewayActionLabelStyle}>{label}</span>
+        <h3 style={participationTitleStyle}>{title}</h3>
+        <p style={cardTextStyle}>{text}</p>
+      </div>
+    </article>
+  );
+}
+
+function SponsorPreview({
+  name,
+  label,
+}: {
+  name: string;
+  label: string;
+}) {
+  return (
+    <article style={sponsorPreviewCardStyle}>
+      <div style={sponsorPreviewLogoStyle}>
+        {name
+          .split(" ")
+          .slice(0, 2)
+          .map((word) => word.charAt(0))
+          .join("")
+          .toUpperCase()}
+      </div>
+      <span style={gatewayActionLabelStyle}>{label}</span>
+      <strong style={sponsorPreviewNameStyle}>{name}</strong>
+    </article>
   );
 }
 
@@ -2166,17 +2342,20 @@ const legacyMarkStyle: CSSProperties = {
 
 const legacyGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.2fr)",
-  gap: 26,
+  gridTemplateColumns: "minmax(0, 1.05fr) minmax(320px, 0.95fr)",
+  gap: 32,
   marginTop: 18,
+  alignItems: "start",
 };
 
 const legacyTitleStyle: CSSProperties = {
   margin: "9px 0 0",
+  maxWidth: 430,
   color: "#fff",
-  fontSize: "clamp(2rem, 5vw, 3.4rem)",
+  fontSize: "clamp(1.9rem, 4vw, 3rem)",
   lineHeight: 0.98,
-  letterSpacing: "-0.055em",
+  letterSpacing: "-0.05em",
+  overflowWrap: "break-word",
 };
 
 const legacyAwardStyle: CSSProperties = {
@@ -2226,6 +2405,301 @@ const supportIconStyle: CSSProperties = {
   fontSize: 9.5,
   fontWeight: 950,
   letterSpacing: "0.1em",
+};
+
+const previewStackStyle: CSSProperties = {
+  display: "grid",
+  gap: 10,
+  marginTop: 12,
+};
+
+const spotlightPreviewStyle: CSSProperties = {
+  overflow: "hidden",
+  display: "grid",
+  gridTemplateColumns: "150px minmax(0, 1fr)",
+  minHeight: 168,
+  borderRadius: 19,
+  border: "1px solid rgba(94,234,212,0.1)",
+  background:
+    "linear-gradient(145deg, rgba(255,255,255,0.038), rgba(255,255,255,0.018))",
+};
+
+const spotlightVisualStyle: CSSProperties = {
+  position: "relative",
+  overflow: "hidden",
+  minHeight: 168,
+  display: "grid",
+  placeItems: "center",
+  borderRight: "1px solid rgba(255,255,255,0.06)",
+};
+
+const spotlightTeamVisualStyle: CSSProperties = {
+  background:
+    "radial-gradient(circle at 50% 35%, rgba(52,211,153,0.16), transparent 34%), linear-gradient(145deg, #071012, #070914)",
+};
+
+const spotlightLocationVisualStyle: CSSProperties = {
+  background:
+    "radial-gradient(circle at 50% 35%, rgba(167,139,250,0.18), transparent 34%), linear-gradient(145deg, #0c0916, #060a12)",
+};
+
+const spotlightOrbLargeStyle: CSSProperties = {
+  position: "absolute",
+  width: 104,
+  height: 104,
+  borderRadius: "50%",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const spotlightOrbSmallStyle: CSSProperties = {
+  position: "absolute",
+  width: 68,
+  height: 68,
+  borderRadius: "50%",
+  border: "1px solid rgba(255,255,255,0.1)",
+};
+
+const spotlightMonogramStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  width: 54,
+  height: 54,
+  borderRadius: 16,
+  display: "grid",
+  placeItems: "center",
+  color: "#fff",
+  background: "rgba(255,255,255,0.055)",
+  border: "1px solid rgba(255,255,255,0.09)",
+  fontSize: 10.5,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const spotlightBodyStyle: CSSProperties = {
+  display: "grid",
+  alignContent: "center",
+  gap: 8,
+  padding: 18,
+};
+
+const spotlightTitleStyle: CSSProperties = {
+  color: "#fff",
+  fontSize: 17,
+  lineHeight: 1.15,
+};
+
+const spotlightTextStyle: CSSProperties = {
+  color: "#94a3b8",
+  fontSize: 12.5,
+  lineHeight: 1.55,
+};
+
+const archiveSectionStyle: CSSProperties = {
+  borderRadius: 26,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background:
+    "radial-gradient(circle at 82% 6%, rgba(124,58,237,0.09), transparent 28%), rgba(8,10,22,0.95)",
+  boxShadow: "0 20px 70px rgba(0,0,0,0.34)",
+  padding: 24,
+};
+
+const archiveHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 18,
+};
+
+const archiveBadgeStyle: CSSProperties = {
+  flex: "0 0 auto",
+  display: "inline-flex",
+  minHeight: 34,
+  alignItems: "center",
+  padding: "7px 11px",
+  borderRadius: 999,
+  color: "#ddd6fe",
+  background: "rgba(124,58,237,0.08)",
+  border: "1px solid rgba(167,139,250,0.15)",
+  fontSize: 10,
+  fontWeight: 950,
+  letterSpacing: "0.09em",
+};
+
+const archiveGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 13,
+  marginTop: 22,
+};
+
+const archiveCardStyle: CSSProperties = {
+  overflow: "hidden",
+  borderRadius: 20,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background: "rgba(255,255,255,0.027)",
+};
+
+const archiveMediaStyle: CSSProperties = {
+  position: "relative",
+  aspectRatio: "16 / 9",
+  overflow: "hidden",
+  display: "grid",
+  placeItems: "center",
+  background:
+    "radial-gradient(circle at 50% 38%, rgba(52,211,153,0.11), transparent 34%), linear-gradient(145deg, #05080d, #0b0916)",
+};
+
+const archiveMediaRingStyle: CSSProperties = {
+  position: "absolute",
+  width: 114,
+  height: 114,
+  borderRadius: "50%",
+  border: "1px solid rgba(110,231,183,0.14)",
+  boxShadow: "0 0 36px rgba(52,211,153,0.06)",
+};
+
+const archiveMediaPlayStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  width: 58,
+  height: 58,
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  color: "#d1fae5",
+  background: "rgba(52,211,153,0.08)",
+  border: "1px solid rgba(110,231,183,0.18)",
+  fontSize: 10,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+};
+
+const archiveCardBodyStyle: CSSProperties = {
+  padding: 17,
+};
+
+const sponsorShowcaseStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 0.7fr) minmax(0, 1.3fr)",
+  gap: 18,
+  marginTop: 22,
+  alignItems: "stretch",
+};
+
+const sponsorShowcaseLeadStyle: CSSProperties = {
+  borderRadius: 20,
+  border: "1px solid rgba(94,234,212,0.09)",
+  background:
+    "linear-gradient(145deg, rgba(5,18,19,0.72), rgba(255,255,255,0.018))",
+  padding: 20,
+};
+
+const sponsorShowcaseTitleStyle: CSSProperties = {
+  display: "block",
+  marginTop: 9,
+  color: "#fff",
+  fontSize: 22,
+  lineHeight: 1.08,
+  letterSpacing: "-0.035em",
+};
+
+const sponsorPreviewGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const sponsorPreviewCardStyle: CSSProperties = {
+  minHeight: 190,
+  borderRadius: 20,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background: "rgba(255,255,255,0.028)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 9,
+  padding: 16,
+  textAlign: "center",
+};
+
+const sponsorPreviewLogoStyle: CSSProperties = {
+  width: 68,
+  height: 68,
+  borderRadius: 18,
+  display: "grid",
+  placeItems: "center",
+  color: "#fff",
+  background:
+    "linear-gradient(135deg, rgba(52,211,153,0.13), rgba(124,58,237,0.12))",
+  border: "1px solid rgba(255,255,255,0.09)",
+  fontSize: 18,
+  fontWeight: 950,
+  letterSpacing: "-0.03em",
+};
+
+const sponsorPreviewNameStyle: CSSProperties = {
+  color: "#fff",
+  fontSize: 14,
+  lineHeight: 1.2,
+};
+
+const legacyAtmosphereStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  pointerEvents: "none",
+  background:
+    "radial-gradient(circle at 15% 50%, rgba(148,163,184,0.06), transparent 25%), radial-gradient(circle at 78% 20%, rgba(124,58,237,0.06), transparent 28%)",
+};
+
+const legacyVisualColumnStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  minWidth: 0,
+  display: "grid",
+  gridTemplateColumns: "112px minmax(0, 1fr)",
+  gap: 18,
+  alignItems: "center",
+};
+
+const legacyMemorialSealStyle: CSSProperties = {
+  width: 112,
+  height: 112,
+  borderRadius: "50%",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  textAlign: "center",
+  background:
+    "radial-gradient(circle, rgba(255,255,255,0.055), rgba(255,255,255,0.015))",
+  border: "1px solid rgba(255,255,255,0.1)",
+  boxShadow: "inset 0 0 30px rgba(255,255,255,0.02)",
+};
+
+const legacyMemorialSmallStyle: CSSProperties = {
+  color: "#94a3b8",
+  fontSize: 7.5,
+  fontWeight: 900,
+  letterSpacing: "0.1em",
+};
+
+const legacyMemorialMainStyle: CSSProperties = {
+  color: "#fff",
+  fontSize: 19,
+  letterSpacing: "0.06em",
+};
+
+const legacyCopyColumnStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+};
+
+const legacyAwardTextStyle: CSSProperties = {
+  color: "#94a3b8",
+  fontSize: 12.5,
+  lineHeight: 1.55,
 };
 
 const contentGridStyle: CSSProperties = {
