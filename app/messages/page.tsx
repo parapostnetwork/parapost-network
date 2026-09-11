@@ -2574,7 +2574,7 @@ function MessagesPage() {
           }
 
           .parachat-mobile-chat-open .parachat-panel > header {
-            padding-top: calc(14px + env(safe-area-inset-top, 0px));
+            padding-top: calc(14px + env(safe-area-inset-top, 0px)) !important;
           }
 
           .parachat-page-root {
