@@ -141,7 +141,7 @@ const topBarStyle: CSSProperties = {
   left: 0,
   right: 0,
   zIndex: 60,
-  padding: "16px 22px 0",
+  padding: "calc(16px + env(safe-area-inset-top, 0px)) 22px 0",
   background: "transparent",
   backdropFilter: "none",
   pointerEvents: "none",
