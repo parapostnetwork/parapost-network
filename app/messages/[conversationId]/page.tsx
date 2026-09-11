@@ -707,7 +707,7 @@ const chatHeaderStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "14px",
-  padding: "14px 18px",
+  padding: "calc(14px + env(safe-area-inset-top)) 18px 14px",
   borderBottom: "1px solid rgba(255,255,255,0.10)",
   background:
     "linear-gradient(135deg, rgba(17,24,39,0.96), rgba(88,28,135,0.30), rgba(8,12,18,0.96))",
