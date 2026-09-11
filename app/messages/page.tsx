@@ -2565,12 +2565,16 @@ function MessagesPage() {
         }
 
         @media (max-width: 980px) {
-          body:has(.parachat-page-root:not(.parachat-mobile-chat-open)) {
+          body:has(.parachat-page-root) {
             padding-top: 0;
           }
 
           .parachat-inbox-header {
             padding-top: env(safe-area-inset-top, 0px);
+          }
+
+          .parachat-mobile-chat-open .parachat-panel > header {
+            padding-top: calc(14px + env(safe-area-inset-top, 0px));
           }
 
           .parachat-page-root {
