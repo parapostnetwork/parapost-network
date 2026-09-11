@@ -15852,7 +15852,7 @@ return (
            * mobile bubble correctly but prevented taps/clicks from
            * reaching ProfileThoughtBubble.
            */
-          pointer-events: auto !important;
+          pointer-events: none !important;
         }
       }
 
