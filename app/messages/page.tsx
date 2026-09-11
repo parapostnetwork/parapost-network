@@ -2565,6 +2565,14 @@ function MessagesPage() {
         }
 
         @media (max-width: 980px) {
+          body:has(.parachat-page-root:not(.parachat-mobile-chat-open)) {
+            padding-top: 0;
+          }
+
+          .parachat-inbox-header {
+            padding-top: env(safe-area-inset-top, 0px);
+          }
+
           .parachat-page-root {
             min-height: 100svh !important;
             min-height: 100dvh !important;
@@ -2856,7 +2864,7 @@ function MessagesPage() {
         style={shellStyle}
       >
         <aside className="parachat-inbox" style={inboxStyle}>
-          <div style={inboxHeaderStyle}>
+          <div className="parachat-inbox-header" style={inboxHeaderStyle}>
             <Link href="/dashboard" style={backLinkStyle}>
               ← Feed
             </Link>
