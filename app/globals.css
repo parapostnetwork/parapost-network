@@ -628,3 +628,12 @@ main {
   }
 }
 
+
+/* === IOS SAFE AREA / DYNAMIC ISLAND FIX === */
+@supports (padding-top: env(safe-area-inset-top)) {
+  @media (max-width: 760px) {
+    body {
+      padding-top: env(safe-area-inset-top);
+    }
+  }
+}
