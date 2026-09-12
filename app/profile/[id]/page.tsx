@@ -13442,6 +13442,13 @@ return (
           margin-bottom: 0 !important;
         }
 
+        /* The profile toolbar owns the top safe area; do not also pad the body. */
+        @media (max-width: 760px) {
+          body:has(.profile-mobile-scroll-root) {
+            padding-top: 0 !important;
+          }
+        }
+
         @media (max-width: 720px) {
           html:has(.profile-mobile-scroll-root),
           body:has(.profile-mobile-scroll-root) {
@@ -26018,13 +26025,13 @@ const profileMobileSearchCloseStyle: CSSProperties = {
 
 const mobileTopBarStyle: CSSProperties = {
   position: "sticky",
-  top: "env(safe-area-inset-top, 0px)",
+  top: 0,
   zIndex: 60,
   minHeight: "72px",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "12px 16px",
+  padding: "calc(12px + env(safe-area-inset-top, 0px)) 16px 12px",
   background:
     "linear-gradient(180deg, rgba(5,7,12,0.96) 0%, rgba(5,7,12,0.80) 100%)",
   borderBottom: "1px solid rgba(255,255,255,0.08)",
