@@ -13455,7 +13455,7 @@ return (
             height: auto !important;
             min-height: 100dvh !important;
             overflow-y: visible !important;
-            overflow-x: hidden !important;
+            overflow-x: clip !important;
             padding-bottom: 0 !important;
           }
 
