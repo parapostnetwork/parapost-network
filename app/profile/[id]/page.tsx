@@ -26018,7 +26018,7 @@ const profileMobileSearchCloseStyle: CSSProperties = {
 
 const mobileTopBarStyle: CSSProperties = {
   position: "sticky",
-  top: 0,
+  top: "env(safe-area-inset-top, 0px)",
   zIndex: 60,
   minHeight: "72px",
   display: "flex",
