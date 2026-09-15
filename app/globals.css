@@ -637,3 +637,25 @@ main {
     }
   }
 }
+
+/* Parapost: iPad dashboard status-bar spacing */
+@media (min-width: 761px) and (max-width: 1180px) {
+  html body .dashboard-shell-pad {
+    padding-top: calc(14px + env(safe-area-inset-top, 0px)) !important;
+  }
+  html body .dashboard-mobile-header {
+    top: env(safe-area-inset-top, 0px) !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  html body .dashboard-shell-pad {
+    padding-top: calc(18px + env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 930px) and (orientation: landscape) and (max-height: 540px) {
+  html body .dashboard-shell-pad {
+    padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+  }
+}
