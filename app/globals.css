@@ -644,7 +644,8 @@ main {
     padding-top: calc(14px + env(safe-area-inset-top, 0px)) !important;
   }
   html body .dashboard-mobile-header {
-    top: env(safe-area-inset-top, 0px) !important;
+    /* The shell supplies the safe area; avoid a second sticky offset. */
+    top: 0 !important;
   }
 }
 
