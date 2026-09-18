@@ -2088,6 +2088,7 @@ function ProfilePostImageGrid({
   alt: string;
   onOpenImage?: (url: string, alt: string) => void;
 }) {
+  const [showAllImages, setShowAllImages] = useState(false);
   const safeUrls = imageUrls.filter(Boolean).slice(0, MAX_POST_IMAGES);
   if (safeUrls.length === 0) return null;
 
@@ -2143,7 +2144,7 @@ function ProfilePostImageGrid({
     return renderMedia(safeUrls[0], 0, true);
   }
 
-  const visibleUrls = safeUrls.slice(0, 4);
+  const visibleUrls = showAllImages ? safeUrls : safeUrls.slice(0, 4);
   const extraCount = safeUrls.length - visibleUrls.length;
 
   return (
@@ -2162,7 +2163,16 @@ function ProfilePostImageGrid({
           >
             {renderMedia(url, index)}
             {isVideoMediaUrl(url) ? <div style={profilePostVideoBadgeStyle}>Video</div> : null}
-            {showOverlay ? <div style={profilePostImageGridOverlayStyle}>+{extraCount}</div> : null}
+            {showOverlay ? (
+              <button
+                type="button"
+                aria-label={`Show all ${safeUrls.length} attachments`}
+                onClick={() => setShowAllImages(true)}
+                style={{ ...profilePostImageGridOverlayStyle, width: "100%", border: 0, padding: 0, cursor: "pointer" }}
+              >
+                +{extraCount}
+              </button>
+            ) : null}
           </div>
         );
       })}
@@ -27686,5 +27696,4 @@ const profileAchievementViewerSmallIconShellStyle: CSSProperties = {
   flexShrink: 0,
   padding: "4px",
 };
-
 

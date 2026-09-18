@@ -1399,6 +1399,7 @@ function PostImageGrid({
   alt: string;
   onOpenImage?: (url: string, alt: string) => void;
 }) {
+  const [showAllImages, setShowAllImages] = useState(false);
   const safeUrls = imageUrls.filter(Boolean).slice(0, MAX_POST_IMAGES);
   if (safeUrls.length === 0) return null;
 
@@ -1492,7 +1493,7 @@ function PostImageGrid({
     );
   }
 
-  const visibleUrls = safeUrls.slice(0, 4);
+  const visibleUrls = showAllImages ? safeUrls : safeUrls.slice(0, 4);
   const extraCount = safeUrls.length - visibleUrls.length;
 
   return (
@@ -1512,7 +1513,16 @@ function PostImageGrid({
           >
             {renderMedia(url, index)}
             {isVideoMediaUrl(url) ? <div style={postVideoBadgeStyle}>Video</div> : null}
-            {showOverlay ? <div style={postImageGridOverlayStyle}>+{extraCount}</div> : null}
+            {showOverlay ? (
+              <button
+                type="button"
+                aria-label={`Show all ${safeUrls.length} attachments`}
+                onClick={() => setShowAllImages(true)}
+                style={{ ...postImageGridOverlayStyle, width: "100%", border: 0, padding: 0, cursor: "pointer" }}
+              >
+                +{extraCount}
+              </button>
+            ) : null}
           </div>
         );
       })}
@@ -8268,32 +8278,20 @@ export default function DashboardPage() {
           }
 
           .dashboard-post-media-grid {
-            display: flex !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
-            scroll-snap-type: x mandatory !important;
-            -webkit-overflow-scrolling: touch !important;
-            gap: 9px !important;
-            padding: 9px !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            grid-auto-rows: clamp(120px, 34vw, 230px) !important;
+            gap: 6px !important;
+            padding: 0 !important;
             border-radius: 19px !important;
-            scrollbar-width: none !important;
-          }
-
-          .dashboard-post-media-grid::-webkit-scrollbar {
-            display: none !important;
           }
 
           .dashboard-post-media-tile {
-            flex: 0 0 100% !important;
             width: 100% !important;
-            min-height: 270px !important;
-            height: min(72vw, 360px) !important;
-            border-radius: 16px !important;
-            scroll-snap-align: center !important;
-          }
-
-          .dashboard-post-media-grid .dashboard-post-media-tile {
-            grid-row: auto !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            height: 100% !important;
+            border-radius: 0 !important;
           }
 
           .dashboard-post-actions {
@@ -10254,31 +10252,6 @@ export default function DashboardPage() {
 
           .dashboard-composer-media-preview-grid-single .dashboard-composer-media-preview-tile {
             height: min(68vw, 330px) !important;
-          }
-
-          .dashboard-post-media-grid {
-            display: flex !important;
-            grid-template-columns: none !important;
-            max-width: 100% !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
-            scroll-snap-type: x mandatory !important;
-            -webkit-overflow-scrolling: touch !important;
-            scrollbar-width: none !important;
-            gap: 8px !important;
-            padding: 8px !important;
-          }
-
-          .dashboard-post-media-grid::-webkit-scrollbar {
-            display: none !important;
-          }
-
-          .dashboard-post-media-tile {
-            flex: 0 0 100% !important;
-            width: 100% !important;
-            min-height: 260px !important;
-            height: min(70vw, 360px) !important;
-            scroll-snap-align: center !important;
           }
 
           .dashboard-post-single-media {
