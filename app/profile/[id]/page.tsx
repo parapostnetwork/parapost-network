@@ -16,6 +16,7 @@
 
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } from "@/components/PostMediaViewer";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -1846,239 +1847,6 @@ function getPostImageUrls(post?: Pick<Post, "image_url" | "images"> | null) {
 }
 
 
-type ProfilePostImageViewer = {
-  url: string;
-  alt: string;
-};
-
-function ProfilePostImageViewerModal({
-  viewer,
-  onClose,
-}: {
-  viewer: ProfilePostImageViewer | null;
-  onClose: () => void;
-}) {
-  const [visualViewportBox, setVisualViewportBox] = useState(() => ({
-    top: 0,
-    left: 0,
-    offsetTop: 0,
-    offsetLeft: 0,
-    width: 0,
-    height: 0,
-  }));
-  const [isTabletViewer, setIsTabletViewer] = useState(() =>
-    typeof window !== "undefined" &&
-    window.matchMedia("(min-width: 768px) and (max-width: 1180px)").matches
-  );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const tabletQuery = window.matchMedia("(min-width: 768px) and (max-width: 1180px)");
-    const updateTabletViewer = () => setIsTabletViewer(tabletQuery.matches);
-
-    updateTabletViewer();
-    tabletQuery.addEventListener?.("change", updateTabletViewer);
-
-    return () => tabletQuery.removeEventListener?.("change", updateTabletViewer);
-  }, []);
-
-  useEffect(() => {
-    if (!viewer || typeof window === "undefined") return;
-
-    const updateVisualViewportBox = () => {
-      const viewport = window.visualViewport;
-      setVisualViewportBox({
-        // Document coordinates are retained for the existing desktop/mobile
-        // implementation. Tablet uses only the visual viewport offsets below.
-        top: window.scrollY + (viewport?.offsetTop || 0),
-        left: window.scrollX + (viewport?.offsetLeft || 0),
-        offsetTop: viewport?.offsetTop || 0,
-        offsetLeft: viewport?.offsetLeft || 0,
-        width: viewport?.width || window.innerWidth,
-        height: viewport?.height || window.innerHeight,
-      });
-    };
-
-    updateVisualViewportBox();
-    window.addEventListener("resize", updateVisualViewportBox);
-    window.addEventListener("orientationchange", updateVisualViewportBox);
-    window.visualViewport?.addEventListener("resize", updateVisualViewportBox);
-    window.visualViewport?.addEventListener("scroll", updateVisualViewportBox);
-
-    return () => {
-      window.removeEventListener("resize", updateVisualViewportBox);
-      window.removeEventListener("orientationchange", updateVisualViewportBox);
-      window.visualViewport?.removeEventListener("resize", updateVisualViewportBox);
-      window.visualViewport?.removeEventListener("scroll", updateVisualViewportBox);
-    };
-  }, [viewer]);
-
-  useEffect(() => {
-    if (!viewer || typeof window === "undefined") return;
-
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    const bodyStyle = document.body.style;
-    const htmlStyle = document.documentElement.style;
-    const previousBodyOverflow = bodyStyle.overflow;
-    const previousBodyOverscrollBehavior = bodyStyle.overscrollBehavior;
-    const previousHtmlOverflow = htmlStyle.overflow;
-    const previousHtmlOverscrollBehavior = htmlStyle.overscrollBehavior;
-
-    // iPad Safari shifts fixed elements to the layout viewport when html/body
-    // overflow is changed. Keep the tablet document in place and let the
-    // full-screen overlay block touch gestures instead. Desktop/mobile retain
-    // their existing scroll lock behavior.
-    if (!isTabletViewer) {
-      bodyStyle.overflow = "hidden";
-      htmlStyle.overflow = "hidden";
-    }
-    bodyStyle.overscrollBehavior = "none";
-    htmlStyle.overscrollBehavior = "none";
-
-    // iPad Safari does not consistently honor touch-action on a fixed portal.
-    // Block document touch movement with a non-passive listener while leaving
-    // body/html positioning untouched, so the page does not jump or freeze.
-    const preventTabletTouchMove = (event: TouchEvent) => {
-      if (isTabletViewer) event.preventDefault();
-    };
-
-    if (isTabletViewer) {
-      document.addEventListener("touchmove", preventTabletTouchMove, { passive: false });
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      bodyStyle.overflow = previousBodyOverflow;
-      bodyStyle.overscrollBehavior = previousBodyOverscrollBehavior;
-      htmlStyle.overflow = previousHtmlOverflow;
-      htmlStyle.overscrollBehavior = previousHtmlOverscrollBehavior;
-      document.removeEventListener("touchmove", preventTabletTouchMove);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [viewer, onClose, isTabletViewer]);
-
-  if (!viewer || typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Post image viewer"
-      onClick={onClose}
-      style={{
-        // Tablet-only correction: keep the portal attached to the visible
-        // browser viewport. Do not add scrollY/visualViewport offsets here;
-        // those offsets move the lightbox into document space and reveal the
-        // original post underneath on iPad Safari.
-        position: isTabletViewer ? "fixed" : "absolute",
-        // On iPad, fixed positioning is relative to the layout viewport while
-        // Safari's toolbar changes the visual viewport. Use visualViewport
-        // offsets only (never scrollY) so the viewer remains over the tapped
-        // post without drifting sideways or upward.
-        top: isTabletViewer ? visualViewportBox.offsetTop : visualViewportBox.top,
-        left: isTabletViewer ? visualViewportBox.offsetLeft : visualViewportBox.left,
-        width: isTabletViewer
-          ? visualViewportBox.width || "100vw"
-          : visualViewportBox.width || "100vw",
-        height: isTabletViewer
-          ? visualViewportBox.height || "100dvh"
-          : visualViewportBox.height || "100dvh",
-        minHeight: isTabletViewer
-          ? visualViewportBox.height || "100dvh"
-          : visualViewportBox.height || "100dvh",
-        zIndex: 2147483647,
-        overflow: "hidden",
-        isolation: "isolate",
-        display: "grid",
-        placeItems: "center",
-        padding: isTabletViewer
-          ? "72px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))"
-          : "72px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
-        background: isTabletViewer ? "#03050a" : "rgba(3,5,10,0.96)",
-        backdropFilter: isTabletViewer ? "none" : "blur(16px)",
-        WebkitBackdropFilter: isTabletViewer ? "none" : "blur(16px)",
-        touchAction: isTabletViewer ? "none" : "auto",
-      }}
-    >
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onClose();
-        }}
-        aria-label="Close image viewer"
-        style={{
-          position: "absolute",
-          top: isTabletViewer ? "max(18px, env(safe-area-inset-top))" : "max(16px, env(safe-area-inset-top))",
-          right: "max(16px, env(safe-area-inset-right))",
-          width: 48,
-          height: 48,
-          borderRadius: 999,
-          border: "1px solid rgba(255,255,255,0.24)",
-          background: "rgba(8,10,16,0.94)",
-          color: "#ffffff",
-          display: "grid",
-          placeItems: "center",
-          fontSize: 30,
-          lineHeight: 1,
-          fontWeight: 800,
-          cursor: "pointer",
-          boxShadow: "0 18px 44px rgba(0,0,0,0.52)",
-          zIndex: 20,
-          touchAction: "manipulation",
-        }}
-      >
-        ×
-      </button>
-
-      <div
-        onClick={(event) => event.stopPropagation()}
-        style={{
-          width: "100%",
-          height: "100%",
-          minHeight: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <img
-          src={viewer.url}
-          alt={viewer.alt}
-          style={{
-            maxWidth: isTabletViewer
-              ? visualViewportBox.width
-                ? Math.max(240, visualViewportBox.width - 32)
-                : "calc(100vw - 32px)"
-              : "min(96vw, 1320px)",
-            maxHeight: isTabletViewer
-              ? visualViewportBox.height
-                ? Math.max(240, visualViewportBox.height - 104)
-                : "calc(100dvh - 104px)"
-              : visualViewportBox.height
-                ? Math.max(240, visualViewportBox.height - 104)
-                : "calc(100dvh - 104px)",
-            width: "auto",
-            height: "auto",
-            objectFit: "contain",
-            display: "block",
-            borderRadius: 18,
-            border: "1px solid rgba(255,255,255,0.16)",
-            background: "#05070d",
-            boxShadow: "0 30px 90px rgba(0,0,0,0.62)",
-          }}
-        />
-      </div>
-    </div>,
-    document.body
-  );
-}
-
 function ProfilePostImageGrid({
   imageUrls,
   alt,
@@ -2086,9 +1854,8 @@ function ProfilePostImageGrid({
 }: {
   imageUrls: string[];
   alt: string;
-  onOpenImage?: (url: string, alt: string) => void;
+  onOpenImage?: OpenPostMediaViewer;
 }) {
-  const [showAllImages, setShowAllImages] = useState(false);
   const safeUrls = imageUrls.filter(Boolean).slice(0, MAX_POST_IMAGES);
   if (safeUrls.length === 0) return null;
 
@@ -2099,7 +1866,16 @@ function ProfilePostImageGrid({
       return (
         <video
           src={url}
-          controls
+          controls={single || !onOpenImage}
+          role={!single && onOpenImage ? "button" : undefined}
+          tabIndex={!single && onOpenImage ? 0 : undefined}
+          onClick={!single && onOpenImage ? () => onOpenImage(url, alt, safeUrls, index) : undefined}
+          onKeyDown={!single && onOpenImage ? (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onOpenImage(url, alt, safeUrls, index);
+            }
+          } : undefined}
           playsInline
           preload="metadata"
           onLoadedMetadata={primeVideoPreview}
@@ -2121,13 +1897,13 @@ function ProfilePostImageGrid({
         className={single ? "profile-post-image" : "profile-post-media-item"}
         role={onOpenImage ? "button" : undefined}
         tabIndex={onOpenImage ? 0 : undefined}
-        onClick={onOpenImage ? () => onOpenImage(url, imageAlt) : undefined}
+        onClick={onOpenImage ? () => onOpenImage(url, alt, safeUrls, index) : undefined}
         onKeyDown={
           onOpenImage
             ? (event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  onOpenImage(url, imageAlt);
+                  onOpenImage(url, alt, safeUrls, index);
                 }
               }
             : undefined
@@ -2144,7 +1920,7 @@ function ProfilePostImageGrid({
     return renderMedia(safeUrls[0], 0, true);
   }
 
-  const visibleUrls = showAllImages ? safeUrls : safeUrls.slice(0, 4);
+  const visibleUrls = safeUrls.slice(0, 4);
   const extraCount = safeUrls.length - visibleUrls.length;
 
   return (
@@ -2166,8 +1942,8 @@ function ProfilePostImageGrid({
             {showOverlay ? (
               <button
                 type="button"
-                aria-label={`Show all ${safeUrls.length} attachments`}
-                onClick={() => setShowAllImages(true)}
+                aria-label={`Open gallery with all ${safeUrls.length} attachments`}
+                onClick={() => onOpenImage?.(url, alt, safeUrls, index)}
                 style={{ ...profilePostImageGridOverlayStyle, width: "100%", border: 0, padding: 0, cursor: "pointer" }}
               >
                 +{extraCount}
@@ -2968,7 +2744,7 @@ export default function ProfilePage() {
   const [profileSearchOpen, setProfileSearchOpen] = useState(false);
   const [profileMobileSearchOpen, setProfileMobileSearchOpen] = useState(false);
   const [profileSearchMessage, setProfileSearchMessage] = useState("");
-  const [profilePostImageViewer, setProfilePostImageViewer] = useState<ProfilePostImageViewer | null>(null);
+  const [profilePostImageViewer, setProfilePostImageViewer] = useState<PostMediaViewerState | null>(null);
 
   useEffect(() => {
     document.documentElement.style.overflowY = "auto";
@@ -3000,9 +2776,13 @@ export default function ProfilePage() {
   const profileActionsOpenRef = useRef(false);
   const friendRequestInFlight = useRef(false);
 
-  const openProfilePostImageViewer = useCallback((url: string, alt: string) => {
+  const openProfilePostImageViewer = useCallback<OpenPostMediaViewer>((url, alt, urls, index) => {
     if (!url) return;
-    setProfilePostImageViewer({ url, alt: alt || "Post image" });
+    setProfilePostImageViewer({
+      urls: urls?.length ? urls : [url],
+      initialIndex: index ?? Math.max(0, urls?.indexOf(url) ?? 0),
+      alt: alt || "Post image",
+    });
   }, []);
 
   const closeProfilePostImageViewer = useCallback(() => {
@@ -20554,7 +20334,7 @@ return (
         onClose={closeProfileLikeList}
       />
 
-      <ProfilePostImageViewerModal viewer={profilePostImageViewer} onClose={closeProfilePostImageViewer} />
+      <PostMediaViewer viewer={profilePostImageViewer} onClose={closeProfilePostImageViewer} />
 
       {!showcaseComposerOpen ? (
         <ProfileStableBottomNav
