@@ -103,6 +103,10 @@ export default function ProfileThoughtBubble({
   }, []);
 
   const displayText = (text?.trim() || dailyPrompt).slice(0, 60);
+  // Visitors still see the daily prompt when no permitted, current thought is
+  // available. The prompt is informational; only the owner can create a thought.
+  const hasThought = Boolean(text?.trim());
+  const canOpen = isOwnProfile || (hasThought && Boolean(onOpenReadOnly));
 
   // v30: always portal the composer through document.body. The visible thought
   // bubble may live inside deeply nested/stacked profile layout containers, but
@@ -338,7 +342,8 @@ export default function ProfileThoughtBubble({
       <button
         type="button"
         className="profile-thought-bubble"
-        aria-label={isOwnProfile ? "Create or edit thought" : `Open thought: ${displayText}`}
+        disabled={!canOpen}
+        aria-label={isOwnProfile ? "Create or edit thought" : hasThought ? `Open thought: ${displayText}` : `Daily prompt: ${displayText}`}
         aria-expanded={isOwnProfile ? composerOpen : undefined}
         onPointerUp={(event) => {
           event.stopPropagation();
@@ -396,6 +401,11 @@ export default function ProfileThoughtBubble({
           transform: translateZ(0);
           font: inherit;
           text-align: left;
+        }
+
+        .profile-thought-bubble:disabled {
+          cursor: default;
+          opacity: 1;
         }
 
         .profile-thought-window {

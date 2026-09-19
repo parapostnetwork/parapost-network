@@ -16292,15 +16292,13 @@ return (
 
                 <div className="profile-mobile-header-real">
                   <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}>
-                    {isOwnProfile || profileThought?.text ? (
-                      <ProfileThoughtBubble
-                        text={profileThought?.text || undefined}
-                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                        isOwnProfile={isOwnProfile}
-                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                        onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
-                      />
-                    ) : null}
+                    <ProfileThoughtBubble
+                      text={profileThought?.text || undefined}
+                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                      isOwnProfile={isOwnProfile}
+                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                      onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
+                    />
                     {profile?.avatar_url ? (
                       <img
                         src={profile?.avatar_url || ""}
@@ -16482,15 +16480,13 @@ return (
                   {/* Desktop thought bubble lives outside the avatar wrapper so it cannot be
                       clipped or painted underneath the cover/banner stacking context. */}
                   <div className="profile-desktop-thought-anchor" aria-hidden="false">
-                    {isOwnProfile || profileThought?.text ? (
-                      <ProfileThoughtBubble
-                        text={profileThought?.text || undefined}
-                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                        isOwnProfile={isOwnProfile}
-                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                        onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
-                      />
-                    ) : null}
+                    <ProfileThoughtBubble
+                      text={profileThought?.text || undefined}
+                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                      isOwnProfile={isOwnProfile}
+                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                      onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
+                    />
                     {isOwnProfile ? (
                       <button
                         type="button"
@@ -16508,15 +16504,13 @@ return (
 
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
                     <div className="profile-avatar-thought-original">
-                      {isOwnProfile || profileThought?.text ? (
-                        <ProfileThoughtBubble
-                          text={profileThought?.text || undefined}
-                          avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                          isOwnProfile={isOwnProfile}
-                          onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                          onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
-                        />
-                      ) : null}
+                      <ProfileThoughtBubble
+                        text={profileThought?.text || undefined}
+                        avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
+                        isOwnProfile={isOwnProfile}
+                        onShare={isOwnProfile ? handleShareProfileThought : undefined}
+                        onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
+                      />
                       {isOwnProfile ? (
                         <button
                           type="button"
