@@ -13,6 +13,8 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import useReelPlayback from "@/components/reels/useReelPlayback";
+import { mergeReelRefresh, resolveActiveReel } from "@/lib/reels/refresh";
 
 type ReelItem = {
   id: string;
@@ -515,6 +517,10 @@ export default function ProfileReelsViewerPage() {
         : "";
   }, [params]);
 
+  return <ProfileReelsViewer key={profileId} profileId={profileId} />;
+}
+
+function ProfileReelsViewer({ profileId }: { profileId: string }) {
   const [resolvedProfileId, setResolvedProfileId] = useState("");
   const effectiveProfileId = resolvedProfileId || profileId;
 
@@ -834,9 +840,7 @@ export default function ProfileReelsViewerPage() {
 
     if (reelsResult.error) {
       console.error("Error loading profile reels:", reelsResult.error.message);
-      setReels([]);
-      setComments([]);
-      setLikedMap({});
+      // Keep the current player on a transient refresh failure.
       setIsFetchingReels(false);
       return;
     }
@@ -1090,15 +1094,8 @@ export default function ProfileReelsViewerPage() {
       ];
     }
 
-    setReels(mapped);
-
-    if (mapped.length > 0) {
-      const target = initialTargetReelIdRef.current;
-      const matched = target ? mapped.find((reel) => reel.id === target) : null;
-      setActiveReelId(matched?.id || mapped[0].id);
-    } else {
-      setActiveReelId("");
-    }
+    setReels((current) => mergeReelRefresh(current, mapped));
+    setActiveReelId((current) => resolveActiveReel(current, mapped));
 
     setIsFetchingReels(false);
   };
@@ -1121,6 +1118,12 @@ export default function ProfileReelsViewerPage() {
     )
       return;
 
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleReelsRefresh = () => {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => { void fetchReels(); }, 250);
+    };
+
     const channel = supabase
       .channel(
         `profile-reels-live-${effectiveProfileId}-${currentUserId || "guest"}`,
@@ -1128,42 +1131,33 @@ export default function ProfileReelsViewerPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reels" },
-        async () => {
-          await fetchReels();
-        },
+        scheduleReelsRefresh,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reel_likes" },
-        async () => {
-          await fetchReels();
-        },
+        scheduleReelsRefresh,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reel_comments" },
-        async () => {
-          await fetchReels();
-        },
+        scheduleReelsRefresh,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reel_comment_likes" },
-        async () => {
-          await fetchReels();
-        },
+        scheduleReelsRefresh,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reel_shares" },
-        async () => {
-          await fetchReels();
-        },
+        scheduleReelsRefresh,
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
     };
   }, [effectiveProfileId, currentUserId, canViewProfileContent]);
 
@@ -1203,28 +1197,14 @@ export default function ProfileReelsViewerPage() {
     };
   }, []);
 
-  useEffect(() => {
-    reels.forEach((reel) => {
-      const video = videoRefs.current[reel.id];
-      if (!video) return;
-
-      video.muted = muteAll;
-
-      if (
-        reel.id === activeReelId &&
-        holdPausedId !== reel.id &&
-        !commentsOpen &&
-        !detailsOpen
-      ) {
-        const playPromise = video.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      } else {
-        video.pause();
-      }
-    });
-  }, [activeReelId, reels, muteAll, holdPausedId, commentsOpen, detailsOpen]);
+  useReelPlayback({
+    videoRefs,
+    reels,
+    activeId: activeReelId,
+    pausedId: holdPausedId,
+    blocked: commentsOpen || detailsOpen || shareOpen || editOpen,
+    muted: muteAll,
+  });
 
   useEffect(() => {
     if (!isFetchingReels && activeReelId && !hasInitialScrolledRef.current) {
@@ -1385,14 +1365,6 @@ export default function ProfileReelsViewerPage() {
           setActiveReelId(resumeReelId);
         }
       }
-
-      const video = videoRefs.current[resumeReelId];
-      if (video) {
-        const playPromise = video.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      }
     }, 80);
   };
 
@@ -1450,18 +1422,7 @@ export default function ProfileReelsViewerPage() {
   };
 
   const closeDetails = () => {
-    const resumeReelId = detailsReelId;
     setDetailsReelId("");
-
-    window.setTimeout(() => {
-      const video = videoRefs.current[resumeReelId];
-      if (video) {
-        const playPromise = video.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      }
-    }, 80);
   };
 
   const scrollToReel = (
@@ -1553,15 +1514,7 @@ export default function ProfileReelsViewerPage() {
       showPlayPauseFeedback(reelId, "play");
       setHoldPausedId(null);
 
-      window.requestAnimationFrame(() => {
-        const currentVideo = videoRefs.current[reelId];
-        if (!currentVideo) return;
-
-        const playPromise = currentVideo.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      });
+      void video.play().catch(() => {});
     } else {
       showPlayPauseFeedback(reelId, "pause");
       setHoldPausedId(reelId);
@@ -1756,20 +1709,7 @@ export default function ProfileReelsViewerPage() {
   };
 
   const closeShareModal = () => {
-    const resumeReelId = activeReelId;
     setShareOpen(false);
-
-    window.setTimeout(() => {
-      if (commentsOpen || detailsOpen || !resumeReelId) return;
-
-      const video = videoRefs.current[resumeReelId];
-      if (video) {
-        const playPromise = video.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      }
-    }, 80);
   };
 
   const handleAddComment = async () => {
@@ -2511,6 +2451,8 @@ export default function ProfileReelsViewerPage() {
     whiteSpace: "nowrap",
   };
 
+  const activeReelIndex = reels.findIndex((reel) => reel.id === activeReelId);
+
   return (
     <div
       style={{
@@ -2698,7 +2640,7 @@ export default function ProfileReelsViewerPage() {
         </div>
       )}
 
-      {isFetchingReels ? (
+      {isFetchingReels && reels.length === 0 ? (
         <div
           style={{
             minHeight: "100dvh",
@@ -2902,7 +2844,7 @@ export default function ProfileReelsViewerPage() {
             commentsOpen || detailsOpen ? undefined : updateActiveFromScroll
           }
         >
-          {reels.map((reel) => {
+          {reels.map((reel, reelIndex) => {
             const isLiked = !!likedMap[reel.id];
             const isOwner = isReelOwner(
               reel,
@@ -3001,7 +2943,12 @@ export default function ProfileReelsViewerPage() {
                       poster={reel.poster || undefined}
                       muted
                       playsInline
-                      preload="metadata"
+                      loop
+                      preload={
+                        reel.id === activeReelId
+                          ? "auto"
+                          : Math.abs(reelIndex - activeReelIndex) <= 1 ? "metadata" : "none"
+                      }
                       onLoadedMetadata={(event) => {
                         const video = event.currentTarget;
                         const isLandscape =
@@ -3023,16 +2970,6 @@ export default function ProfileReelsViewerPage() {
                           ...prev,
                           [reel.id]: percent,
                         }));
-                      }}
-                      onEnded={(event) => {
-                        event.currentTarget.currentTime = 0;
-                        const playPromise = event.currentTarget.play();
-                        if (
-                          playPromise &&
-                          typeof playPromise.catch === "function"
-                        ) {
-                          playPromise.catch(() => {});
-                        }
                       }}
                       style={{
                         position: "absolute",

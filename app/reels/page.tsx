@@ -20,6 +20,8 @@ import ReelUploadModal from "./ReelUploadModal";
 import ReelCard from "@/components/reels/ReelCard";
 import ReelCommentsPanel from "@/components/reels/ReelCommentsPanel";
 import { supabase } from "@/lib/supabase";
+import useReelPlayback from "@/components/reels/useReelPlayback";
+import { mergeReelRefresh, resolveActiveReel } from "@/lib/reels/refresh";
 
 type ReelItem = {
   id: string;
@@ -126,7 +128,6 @@ type PlayPauseFeedback = { reelId: string; mode: "play" | "pause"; nonce: number
 
 const initialComments: ReelComment[] = [];
 const REEL_CAPTION_MAX_LENGTH = 4000;
-
 
 const pageStyle: CSSProperties = {
   minHeight: "100dvh",
@@ -354,7 +355,6 @@ function formatRelativeTime(value?: string | null) {
   const years = Math.floor(days / 365);
   return `${years}y ago`;
 }
-
 
 function formatActionCount(value: number | string) {
   if (typeof value === "string") return value;
@@ -758,13 +758,7 @@ export default function ReelsPage() {
 
     if (reelsError) {
       console.error("Error loading reels:", reelsError.message);
-      setReels([]);
-      setComments([]);
-      setLikedMap({});
-      setRelationshipMap({});
-      setFollowingCreatorMap({});
-      setFollowerCreatorMap({});
-      setVideoFitMap({});
+      // A failed background refresh must not discard a playing video.
       setIsFetchingReels(false);
       return;
     }
@@ -971,19 +965,8 @@ export default function ReelsPage() {
       setLikedMap({});
     }
 
-    setReels(mapped);
-
-    if (mapped.length > 0) {
-      const preferredExists =
-        !!preferredReelId && mapped.some((reel) => reel.id === preferredReelId);
-
-      setActiveReelId((prev) => {
-        if (preferredExists) return preferredReelId;
-        return prev || mapped[0].id;
-      });
-    } else {
-      setActiveReelId("");
-    }
+    setReels((current) => mergeReelRefresh(current, mapped));
+    setActiveReelId((current) => resolveActiveReel(current, mapped, preferredReelId));
 
     setIsFetchingReels(false);
   };
@@ -1108,43 +1091,15 @@ export default function ReelsPage() {
     return () => window.clearTimeout(focusTimer);
   }, [commentsOpen, activeReelId]);
 
-  useEffect(() => {
-    reels.forEach((reel) => {
-      const video = videoRefs.current[reel.id];
-      if (!video) return;
+  useReelPlayback({
+    videoRefs,
+    reels,
+    activeId: activeReelId,
+    pausedId: holdPausedId,
+    blocked: commentsOpen || detailsOpen || shareOpen || editOpen || isUploadModalOpen,
+    muted: muteAll,
+  });
 
-      video.muted = muteAll;
-
-      if (reel.id === activeReelId && holdPausedId !== reel.id && !commentsOpen && !detailsOpen) {
-        const playPromise = video.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      } else {
-        video.pause();
-      }
-    });
-  }, [activeReelId, reels, muteAll, holdPausedId, commentsOpen, detailsOpen]);
-
-  useEffect(() => {
-    const handlePageHidden = () => {
-      if (document.visibilityState === "hidden") {
-        pauseAllReelVideos();
-      }
-    };
-
-    const handlePageHide = () => {
-      prepareReelsRouteExit();
-    };
-
-    document.addEventListener("visibilitychange", handlePageHidden);
-    window.addEventListener("pagehide", handlePageHide);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handlePageHidden);
-      window.removeEventListener("pagehide", handlePageHide);
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -1259,7 +1214,6 @@ export default function ReelsPage() {
     return reels.find((reel) => reel.id === activeReelId) || reels[0];
   }, [reels, activeReelId]);
 
-
   const activeComments = useMemo(() => {
     return comments.filter(
       (comment) =>
@@ -1318,16 +1272,6 @@ export default function ReelsPage() {
       target.scrollIntoView({ behavior: "auto", block: "start" });
       container.style.scrollBehavior = previousScrollBehavior || "";
       setActiveReelId(reelIdToRestore);
-
-      window.requestAnimationFrame(() => {
-        const video = videoRefs.current[reelIdToRestore];
-        if (!video) return;
-
-        const playPromise = video.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      });
     }, 80);
   };
 
@@ -1389,15 +1333,7 @@ export default function ReelsPage() {
       showPlayPauseFeedback(reelId, "play");
       setHoldPausedId(null);
 
-      window.requestAnimationFrame(() => {
-        const currentVideo = videoRefs.current[reelId];
-        if (!currentVideo) return;
-
-        const playPromise = currentVideo.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      });
+      void video.play().catch(() => {});
     } else {
       showPlayPauseFeedback(reelId, "pause");
       setHoldPausedId(reelId);
@@ -2437,18 +2373,10 @@ export default function ReelsPage() {
   };
 
   const closeDetails = () => {
-    const resumeReelId = detailsReelId;
     setDetailsReelId("");
-
-    window.setTimeout(() => {
-      if (!commentsOpen && resumeReelId === activeReelId) {
-        const playPromise = videoRefs.current[resumeReelId]?.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      }
-    }, 80);
   };
+
+  const activeReelIndex = reels.findIndex((reel) => reel.id === activeReelId);
 
   return (
     <div style={pageStyle}>
@@ -2632,7 +2560,7 @@ export default function ReelsPage() {
         </div>
       )}
 
-      {isFetchingReels ? (
+      {isFetchingReels && reels.length === 0 ? (
         <div
           style={{
             minHeight: "100dvh",
@@ -2697,7 +2625,7 @@ export default function ReelsPage() {
           style={scrollContainerStyle}
           onScroll={updateActiveFromScroll}
         >
-          {reels.map((reel) => {
+          {reels.map((reel, reelIndex) => {
             const isLiked = !!likedMap[reel.id];
             const isOwner = isReelOwner(reel, currentUserId);
             const relationship = relationshipMap[reel.creator_profile_id] || (isOwner ? "you" : "profile");
@@ -2826,7 +2754,11 @@ export default function ReelsPage() {
                       muted
                       playsInline
                       loop
-                      preload="metadata"
+                      preload={
+                        reel.id === activeReelId
+                          ? "auto"
+                          : Math.abs(reelIndex - activeReelIndex) <= 1 ? "metadata" : "none"
+                      }
                       onLoadedMetadata={(event) => handleVideoLoadedMetadata(reel.id, event)}
                       onPlaying={() => scheduleReelView(reel)}
                       onPause={() => cancelScheduledReelView(reel.id)}
@@ -3595,7 +3527,6 @@ export default function ReelsPage() {
           </div>
         );
       })()}
-
 
       {detailsOpen && detailsReel && (
         <>
