@@ -1,0 +1,28 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "net.parapost.network",
+      "sha256_cert_fingerprints": [
+        "67:DB:BC:A4:26:B6:80:A5:46:C5:8F:5B:F7:86:79:D2:9D:4E:7B:9C:87:61:E1:5D:9B:7D:DA:B1:2F:1E:1D:19",
+        "A4:C9:4F:AE:7B:03:E8:15:C8:30:0B:E3:AD:99:A4:E3:41:6C:F3:86:C1:EB:5D:E3:73:41:B2:54:EE:CA:D0:87",
+        "2A:DA:35:6B:FA:51:51:9A:5F:7E:66:58:A4:97:4A:12:24:C2:96:C9:88:1E:6D:85:26:75:2E:B2:D5:A1:49:F4"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "net.parapost.network",
+      "sha256_cert_fingerprints": [
+        "55:0B:97:87:AB:29:FF:59:19:6A:7B:63:5B:FE:87:B1:14:04:A3:2E:C4:79:FB:A5:0B:FD:1E:1A:1A:AE:65:28"
+      ]
+    }
+  }
+]
