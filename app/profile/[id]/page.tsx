@@ -20,7 +20,6 @@ import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { useLiveRefresh } from "@/lib/live/useLiveRefresh";
 import { canPlayPublishedStream } from "@/lib/live/playback";
 import {
   acceptFriendRequest,
@@ -1159,14 +1158,13 @@ function formatProfileLiveDate(value?: string | null) {
 }
 
 function isProfileLiveStale(stream: {
-  provider?: string | null;
   status?: string | null;
   started_at?: string | null;
   updated_at?: string | null;
   scheduled_at?: string | null;
   created_at?: string | null;
 }) {
-  if (stream.status !== "live" || stream.provider === "youtube") return false;
+  if (stream.status !== "live") return false;
 
   const anchor =
     stream.started_at ||
@@ -1182,7 +1180,6 @@ function isProfileLiveStale(stream: {
 }
 
 function getProfileEffectiveLiveStatus(stream: {
-  provider?: string | null;
   status?: string | null;
   started_at?: string | null;
   updated_at?: string | null;
@@ -1194,7 +1191,6 @@ function getProfileEffectiveLiveStatus(stream: {
 }
 
 function getProfileLiveStatusLabel(stream: {
-  provider?: string | null;
   status?: string | null;
   started_at?: string | null;
   updated_at?: string | null;
@@ -4481,31 +4477,24 @@ useEffect(() => {
     };
   }, [viewerId, profileId, loadPage]);
 
-  const refreshProfileLive = useCallback(async () => {
-    if (!profileId || !viewerId) return;
-    const { data, error } = await supabase.from("live_streams")
-      .select(PROFILE_LIVE_SELECT)
-      .eq("user_id", profileId).eq("visibility", "public").eq("is_hidden", false)
-      .in("status", ["upcoming", "live", "ended"])
-      .order("updated_at", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false }).limit(50);
-    if (error) return;
-    setProfileLiveStreams(((data || []) as ProfileLiveStream[])
-      .filter(stream => Boolean(stream.id && stream.user_id))
-      .map(stream => ({ ...stream, created_at: getProfileLiveTimestamp(stream) })));
-  }, [profileId, viewerId]);
-
-  useLiveRefresh(refreshProfileLive, Boolean(profileId && viewerId));
-
   useEffect(() => {
-    if (!profileId || !viewerId) return;
-    const channel = supabase.channel(`profile-live-streams-${profileId}`)
-      .on("postgres_changes",
+    if (!profileId) return;
+
+    const channel = supabase
+      .channel(`profile-live-streams-${profileId}`)
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "live_streams", filter: `user_id=eq.${profileId}` },
-        () => { void refreshProfileLive(); })
+        async () => {
+          await loadPage();
+        }
+      )
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [profileId, viewerId, refreshProfileLive]);
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profileId, loadPage]);
 
   const handleRemoveSharedReel = async (shareId: string) => {
     if (!viewerId || !isOwnProfile) return;
@@ -18681,7 +18670,7 @@ return (
                                     marginRight: "auto",
                                   }}
                                 >
-                                  {(isLive || isReplay) && liveEmbedUrl ? (
+                                  {liveEmbedUrl ? (
                                     <iframe
                                       id={`profile-live-player-${item.id}`}
                                       src={liveEmbedUrl}

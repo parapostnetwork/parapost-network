@@ -6,8 +6,7 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "test:live": "node --experimental-strip-types --test tests/live-sync.test.ts"
+    "lint": "eslint"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.15.0",
