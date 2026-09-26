@@ -15,9 +15,23 @@ manager loads. It does not contact YouTube and it has no independent schedule.
 Edit/save updates metadata plus updated_at; it does not set live. That database
 write triggers realtime refreshes. Revisiting Live Manager runs the overdue-show
 promotion. This combination explains the reported workaround. We have not
-reproduced the user's individual historical broadcast or inspected any external
-backend jobs that may exist outside Git; the precise historical 5–10 second
-latency cannot be established from these files.
+reproduced the user's individual historical broadcast; the precise historical
+5–10 second latency cannot be established from these files.
+
+## Production inspection (read-only, September 26, 2026)
+
+The production Supabase dashboard shows no deployed Edge Functions and no custom
+Edge Function secrets. Read-only database inspection found neither pg_cron nor
+pg_net installed. The only live_streams trigger is live_streams_set_updated_at;
+no YouTube synchronization function was found among public live-related functions.
+There are 16 published ended YouTube rows and two published upcoming YouTube rows,
+one already past its scheduled time. A scheduled time alone does not establish
+whether that broadcast has actually started. No rows or configuration were changed.
+These checks do not rule out an external service outside this Supabase project.
+
+The draft PR's Vercel preview deployment passed. Local build, TypeScript checks,
+targeted lint and 14 mocked regression tests passed. Production provider access,
+scheduling and real-device playback remain unverified pending setup and approval.
 
 ## Changes
 
