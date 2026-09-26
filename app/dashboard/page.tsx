@@ -6404,25 +6404,24 @@ export default function DashboardPage() {
           overscroll-behavior: contain !important;
         }
 
+        html.parapost-dashboard-menu-open,
+        html.parapost-dashboard-menu-open body {
+          overflow: hidden !important;
+          overscroll-behavior: none !important;
+        }
+
         .dashboard-mobile-menu-drawer * {
           overscroll-behavior: contain;
         }
 
         .dashboard-mobile-menu-scroll-area {
-          height: calc(100vh - 78px) !important;
-          max-height: calc(100vh - 78px) !important;
-          overflow-y: scroll !important;
+          min-width: 0;
+          min-height: 0;
+          overflow-y: auto !important;
           overflow-x: hidden !important;
           -webkit-overflow-scrolling: touch !important;
           overscroll-behavior-y: contain !important;
           touch-action: pan-y !important;
-        }
-
-        @supports (height: 100dvh) {
-          .dashboard-mobile-menu-scroll-area {
-            height: calc(100dvh - 78px) !important;
-            max-height: calc(100dvh - 78px) !important;
-          }
         }
 
         /* === Dashboard mobile vertical scroll fix === */
@@ -13855,6 +13854,7 @@ function MobileDashboardMenuDrawer({
 }) {
   const [activeSection, setActiveSection] =
     useState<DashboardMobileMenuSection>(initialSection);
+  const menuDrawerRef = useRef<HTMLElement | null>(null);
   const menuScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -13864,22 +13864,46 @@ function MobileDashboardMenuDrawer({
   useEffect(() => {
     if (!isOpen) return;
 
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
+    const root = document.documentElement;
+    const alreadyLocked = root.classList.contains("parapost-dashboard-menu-open");
+    root.classList.add("parapost-dashboard-menu-open");
+
+    // iOS zoom/keyboard changes can move and shrink the visible screen without
+    // changing 100vw. Keep the menu inside that visible area, not the wider page.
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const updateViewport = () => {
+      const drawer = menuDrawerRef.current;
+      if (!drawer) return;
+      drawer.style.setProperty("--menu-left", `${viewport?.offsetLeft ?? 0}px`);
+      drawer.style.setProperty("--menu-top", `${viewport?.offsetTop ?? 0}px`);
+      drawer.style.setProperty("--menu-width", `${viewport?.width || root.clientWidth}px`);
+      drawer.style.setProperty("--menu-height", `${viewport?.height || window.innerHeight}px`);
+    };
+    const scheduleViewportUpdate = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(updateViewport);
+    };
+
+    updateViewport();
+    viewport?.addEventListener("resize", scheduleViewportUpdate);
+    viewport?.addEventListener("scroll", scheduleViewportUpdate);
+    window.addEventListener("resize", scheduleViewportUpdate);
 
     return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
+      window.cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", scheduleViewportUpdate);
+      viewport?.removeEventListener("scroll", scheduleViewportUpdate);
+      window.removeEventListener("resize", scheduleViewportUpdate);
+      if (!alreadyLocked) root.classList.remove("parapost-dashboard-menu-open");
     };
   }, [isOpen]);
 
   useEffect(() => {
-    menuScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
-  }, [activeSection]);
+    menuScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [activeSection, isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === "undefined") return null;
 
   void currentProfile;
 
@@ -13949,10 +13973,10 @@ function MobileDashboardMenuDrawer({
                             ? "Help & Legal"
                             : "Settings & Support";
 
-  return (
+  return createPortal(
     <>
       <div className="dashboard-mobile-menu-backdrop" style={mobileMenuBackdropStyle} onClick={onClose} />
-      <aside className="dashboard-mobile-menu-drawer" style={mobileMenuDrawerStyle} role="dialog" aria-modal="true" aria-label="Dashboard menu">
+      <aside ref={menuDrawerRef} className="dashboard-mobile-menu-drawer" style={mobileMenuDrawerStyle} role="dialog" aria-modal="true" aria-label="Dashboard menu">
         <div style={mobileMenuTopBarStyle}>
           <button type="button" onClick={goBack} style={mobileMenuBackButtonStyle} aria-label={activeSection === "main" ? "Close dashboard menu" : "Back to previous menu"}>
             {activeSection === "main" ? (
@@ -14140,7 +14164,8 @@ function MobileDashboardMenuDrawer({
         ) : null}
         </div>
       </aside>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -15241,20 +15266,19 @@ const mobileMenuTopBarStyle: CSSProperties = {
   position: "relative",
   zIndex: 5,
   display: "grid",
-  gridTemplateColumns: "96px minmax(0, 1fr) 42px",
+  gridTemplateColumns: "minmax(54px, 96px) minmax(0, 1fr) 42px",
   alignItems: "center",
   gap: 10,
-  width: "calc(100% + 32px)",
-  marginLeft: -16,
-  marginRight: -16,
-  padding: "max(12px, env(safe-area-inset-top)) 16px 14px",
+  width: "100%",
+  minWidth: 0,
+  padding: "max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 14px max(16px, env(safe-area-inset-left))",
   borderBottom: "1px solid rgba(255,255,255,0.06)",
   background: "transparent",
   backdropFilter: "none",
 };
 
 const mobileMenuBackButtonStyle: CSSProperties = {
-  minWidth: 88,
+  minWidth: 0,
   height: 42,
   border: "none",
   background: "transparent",
@@ -15297,19 +15321,22 @@ const mobileMenuTitleStyle: CSSProperties = {
 
 const mobileMenuListWrapStyle: CSSProperties = {
   display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr)",
+  minWidth: 0,
   gap: 0,
   paddingTop: 8,
-  paddingBottom: "calc(180px + env(safe-area-inset-bottom))",
+  paddingBottom: 24,
 };
 
 const mobileMenuScrollAreaStyle: CSSProperties = {
   flex: "1 1 auto",
+  width: "100%",
+  minWidth: 0,
   minHeight: 0,
   height: "auto",
   overflowY: "auto",
   overflowX: "hidden",
-  paddingRight: 2,
-  paddingBottom: "calc(96px + env(safe-area-inset-bottom))",
+  padding: "0 max(16px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left))",
   WebkitOverflowScrolling: "touch",
   overscrollBehaviorY: "contain",
   overscrollBehaviorX: "none",
@@ -15325,13 +15352,14 @@ const mobileMenuSectionHeadingStyle: CSSProperties = {
 
 const mobileMenuDividerStyle: CSSProperties = {
   height: 8,
-  margin: "14px -16px 0",
+  margin: "14px 0 0",
   background: "rgba(255,255,255,0.06)",
   borderTop: "1px solid rgba(255,255,255,0.045)",
   borderBottom: "1px solid rgba(255,255,255,0.045)",
 };
 
 const mobileMenuListRowStyle: CSSProperties = {
+  minWidth: 0,
   minHeight: 58,
   padding: "0 2px",
   border: "none",
@@ -15483,17 +15511,19 @@ const mobileMenuBackdropStyle: CSSProperties = {
 
 const mobileMenuDrawerStyle: CSSProperties = {
   position: "fixed",
-  inset: 0,
+  top: "var(--menu-top, 0px)",
+  left: "var(--menu-left, 0px)",
   zIndex: 220,
-  width: "100vw",
-  height: "100dvh",
-  minHeight: "100dvh",
-  maxHeight: "100dvh",
+  width: "var(--menu-width, 100%)",
+  height: "var(--menu-height, 100dvh)",
+  minWidth: 0,
+  minHeight: 0,
+  boxSizing: "border-box",
   background:
     "radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--parapost-accent-2) 22%, transparent), transparent 34%), linear-gradient(180deg, rgba(10,12,22,0.995), rgba(5,7,13,0.995))",
   border: "none",
   boxShadow: "none",
-  padding: "0 16px",
+  padding: 0,
   overflow: "hidden",
   display: "flex",
   flexDirection: "column",
