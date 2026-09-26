@@ -20,6 +20,7 @@ import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { canPlayPublishedStream } from "@/lib/live/playback";
 import {
   acceptFriendRequest,
   cancelFriendRequest,
@@ -18571,7 +18572,7 @@ return (
                           const effectiveStatus = getProfileEffectiveLiveStatus(item);
                           const isLive = effectiveStatus === "live";
                           const isReplay = effectiveStatus === "ended";
-                          const liveEmbedUrl = (isLive || isReplay) ? item.embed_url || "" : "";
+                          const liveEmbedUrl = canPlayPublishedStream(item) ? item.embed_url || "" : "";
                           const chatStatus = getProfileLiveChatStatus(effectiveStatus);
                           const hasLongDescription = Boolean(item.description && item.description.length > 150);
                           const scheduleLabel = isLive
@@ -18669,7 +18670,7 @@ return (
                                     marginRight: "auto",
                                   }}
                                 >
-                                  {(isLive || isReplay) && liveEmbedUrl ? (
+                                  {liveEmbedUrl ? (
                                     <iframe
                                       id={`profile-live-player-${item.id}`}
                                       src={liveEmbedUrl}

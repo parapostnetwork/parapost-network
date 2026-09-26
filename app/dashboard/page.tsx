@@ -23,6 +23,7 @@ import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } 
 import DashboardReelsSection from "./DashboardReelsSection";
 import LiveChatPanel from "@/components/live/LiveChatPanel";
 import { supabase } from "@/lib/supabase";
+import { canPlayPublishedStream } from "@/lib/live/playback";
 
 // Dashboard launch polish: original layout preserved with cleaner professional Parapost surfaces.
 
@@ -12110,7 +12111,7 @@ function DashboardLiveStreamCard({
   const effectiveStatus = getDashboardEffectiveLiveStatus(stream);
   const isLive = effectiveStatus === "live";
   const isReplay = effectiveStatus === "ended";
-  const isPlayable = (isLive || isReplay) && Boolean(stream.embed_url);
+  const isPlayable = canPlayPublishedStream(stream);
   const chatStatus = getDashboardLiveChatStatus(effectiveStatus);
   const hasLongDescription = Boolean(stream.description && stream.description.length > 150);
   const scheduleLabel = isLive
