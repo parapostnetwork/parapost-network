@@ -412,3 +412,7 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Protected by x-live-sync-secret; called only by the scheduled backend job.
+[functions.sync-youtube-live]
+verify_jwt = false

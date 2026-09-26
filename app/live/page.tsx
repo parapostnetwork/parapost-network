@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useLiveRefresh } from "@/lib/live/useLiveRefresh";
 
 type LiveStatus = "draft" | "upcoming" | "live" | "ended" | "cancelled";
 type LiveVisibility = "private" | "friends" | "public";
@@ -58,6 +59,7 @@ function isScheduledTimeDue(value?: string | null) {
 
 function getEffectiveLiveStatus(stream: LiveStreamRow): LiveStatus {
   if (
+    stream.provider !== "youtube" &&
     stream.status === "upcoming" &&
     stream.visibility === "public" &&
     !stream.is_hidden &&
@@ -76,7 +78,9 @@ function getStatusLabel(stream: LiveStreamRow) {
   if (status === "ended") return "Replay";
   if (status === "cancelled") return "Cancelled";
   if (status === "upcoming") {
-    if (stream.scheduled_at && isScheduledTimeDue(stream.scheduled_at)) return "Ready to Go Live";
+    if (stream.scheduled_at && isScheduledTimeDue(stream.scheduled_at)) {
+      return stream.provider === "youtube" ? "Waiting for broadcast" : "Ready to Go Live";
+    }
     return "Scheduled";
   }
 
@@ -255,6 +259,7 @@ export default function ParapostLivePage() {
 
     const ownedDueShows = rows.filter(
       (stream) =>
+        stream.provider !== "youtube" &&
         stream.status === "upcoming" &&
         stream.visibility === "public" &&
         !stream.is_hidden &&
@@ -276,6 +281,9 @@ export default function ParapostLivePage() {
             })
             .eq("id", stream.id)
             .eq("user_id", user.id)
+            .eq("status", "upcoming")
+            .eq("visibility", "public")
+            .eq("is_hidden", false)
         )
       );
 
@@ -315,6 +323,8 @@ export default function ParapostLivePage() {
     router.prefetch("/friends");
     router.prefetch("/settings");
   }, [router]);
+
+  useLiveRefresh(() => loadLiveManager({ silent: true }), Boolean(currentUserId));
 
   const updateOwnedStream = async (
     stream: LiveStreamRow,

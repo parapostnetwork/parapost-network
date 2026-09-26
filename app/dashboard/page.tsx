@@ -23,6 +23,8 @@ import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } 
 import DashboardReelsSection from "./DashboardReelsSection";
 import LiveChatPanel from "@/components/live/LiveChatPanel";
 import { supabase } from "@/lib/supabase";
+import { useLiveRefresh } from "@/lib/live/useLiveRefresh";
+import { canPlayPublishedStream } from "@/lib/live/playback";
 
 // Dashboard launch polish: original layout preserved with cleaner professional Parapost surfaces.
 
@@ -512,13 +514,14 @@ function formatDashboardLiveDate(value?: string | null) {
 }
 
 function isDashboardLiveStale(stream: {
+  provider?: string | null;
   status?: string | null;
   started_at?: string | null;
   updated_at?: string | null;
   scheduled_at?: string | null;
   created_at?: string | null;
 }) {
-  if (stream.status !== "live") return false;
+  if (stream.status !== "live" || stream.provider === "youtube") return false;
 
   const anchor =
     stream.started_at ||
@@ -534,6 +537,7 @@ function isDashboardLiveStale(stream: {
 }
 
 function getDashboardEffectiveLiveStatus(stream: {
+  provider?: string | null;
   status?: string | null;
   started_at?: string | null;
   updated_at?: string | null;
@@ -545,6 +549,7 @@ function getDashboardEffectiveLiveStatus(stream: {
 }
 
 function getDashboardLiveStatusLabel(stream: {
+  provider?: string | null;
   status?: string | null;
   started_at?: string | null;
   updated_at?: string | null;
@@ -3320,6 +3325,8 @@ export default function DashboardPage() {
     setLiveFeedStreams(nextStreams);
     return nextStreams;
   }, []);
+
+  useLiveRefresh(() => fetchLiveFeedStreams(blockedUserIds), Boolean(currentUserId));
 
   const fetchDashboardData = useCallback(async (showFeedLoading = false) => {
     if (dashboardRefreshInFlightRef.current) return;
@@ -12110,7 +12117,7 @@ function DashboardLiveStreamCard({
   const effectiveStatus = getDashboardEffectiveLiveStatus(stream);
   const isLive = effectiveStatus === "live";
   const isReplay = effectiveStatus === "ended";
-  const isPlayable = (isLive || isReplay) && Boolean(stream.embed_url);
+  const isPlayable = canPlayPublishedStream(stream);
   const chatStatus = getDashboardLiveChatStatus(effectiveStatus);
   const hasLongDescription = Boolean(stream.description && stream.description.length > 150);
   const scheduleLabel = isLive
