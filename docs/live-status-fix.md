@@ -1,43 +1,51 @@
-# Restore published YouTube waiting-room playback
+# Live comments, labels and six-hour replay badge
 
-## Cause
+## Cause and behavior
 
-The earlier Live hub rendered the YouTube iframe for published upcoming shows
-(commit 08fc45e and its predecessor 962e5a2). When playback moved to Dashboard and
-Profile (19daded), the new cards gated the iframe on stored live/ended status.
-Publishing sets status to upcoming. Opening Live Manager promotes the owner's
-overdue shows; editing/saving also triggers realtime refresh. This explains why
-returning to the manager can make playback appear. The precise historical
-5–10 second delay has not been reproduced.
+The waiting-player fix removed playback's dependency on stored status, but
+comments and badge rendering still required a stored live/ended status. The
+only scheduled database promotion ran when the owner opened Live Manager.
 
-## Fix
+This patch permits a signed-in viewer's Dashboard/Profile refresh to request a
+deterministic scheduled start through POST /api/live/start. The server verifies
+the Supabase session, reads the public visible show under that user's RLS, checks
+the scheduled timestamp against server time, then conditionally changes only an
+upcoming row to live. A concurrent hide, cancellation, reschedule, edit or End
+Show prevents the update. Arbitrary status/timestamp payloads are ignored. The
+existing server-only service-role credential performs this narrow update; no
+credential is exposed to the client. Normal comment inserts still use user RLS.
 
-Dashboard and Profile now render the existing YouTube player for public, visible,
-published upcoming shows as well as live/replay shows. Profile's second JSX gate
-is removed too. The same iframe URL and identity are retained across status
-changes. YouTube's waiting player can handle the broadcast starting without a
-creator edit/save or a Parapost status update. Existing and future eligible shows
-use the same rendering path; no data migration is needed.
+Labels are Live Soon before activation and Live after activation. End Show saves
+ended_at and preserves comments. The badge remains Live for six hours after
+ended_at, then becomes Replay. A still-running show no longer becomes a replay
+six hours after its start. Ended rows without a valid end time display Replay.
+Dashboard/Profile retain the waiting-player iframe; Profile status realtime
+updates refresh only show rows instead of resetting the whole page/player.
+Visible pages with relevant shows refresh every 10 seconds and on foreground
+return; clock badges update even if a refresh fails. No timer runs in a backend.
 
-No Google Cloud account, API key, backend function or scheduled job is required.
-Native iOS/Android projects, signing keys, database writes, publishing behavior,
-status labels, chat rules, and other providers' playback behavior are unchanged.
-This restores playback access; it does not independently synchronize Parapost's
-stored live/ended status with YouTube. Viewers may still need to tap Play under
-the browser's media policy. YouTube must allow the video to be embedded.
+## Explicit limitation accepted by the user
 
-## Validation and deployment
+No Google Cloud/YouTube API is used. Start activation follows the saved schedule,
+not YouTube's actual broadcast state. The creator must use End Show to begin the
+six-hour countdown. YouTube ending on its own is not detected automatically.
+The owner need not return to Edit/Save for scheduled activation or commenting.
+If nobody is viewing, activation is applied when a signed-in viewer next loads
+Dashboard/Profile (or the owner loads Live Manager). Delayed broadcasts should
+have their schedule edited. Manual End Show is never automatically reversed.
 
-Run `node --experimental-strip-types --test tests/live-playback.test.mjs`.
-The tests cover visibility/status eligibility and evaluate each page's actual
-media JSX conditional for upcoming/live/replay, checking iframe identity and URL.
-They do not simulate a real YouTube broadcast starting or device autoplay policy.
-Validation passed: all three regression tests, TypeScript check, targeted ESLint,
-and production webpack build with dummy Supabase environment values.
+## Setup and validation
 
-Production approval is required before merging/deploying. After deployment,
-verify an existing published upcoming show on Dashboard and Profile, then verify
-a real YouTube start while the creator stays out of Live Manager. Check Safari
-and the Android emulator; tablet/desktop use the same responsive pages. No claim
-of end-to-end playback verification until that broadcast test has been completed.
-Rollback by reverting this frontend patch; no database rollback is needed.
+No Supabase schema/RLS/function/cron changes, signing changes or native app edits.
+Uses existing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and
+SUPABASE_SERVICE_ROLE_KEY. Production names were confirmed read-only in Vercel;
+values were not revealed. Branch previews lack the production service-role
+variable, so a successful preview build does not prove authenticated activation.
+
+Run:
+node --experimental-strip-types --test tests/live-playback.test.mjs tests/live-status.test.mjs tests/live-start.test.mjs
+
+Tests cover iframe stability, comment-status eligibility, server authentication,
+eligibility, concurrency guards, manual-ended preservation and the six-hour
+boundary. Real-device posting and production activation need verification after
+an approved deployment. Rollback: revert this code; do not mass-reset rows.

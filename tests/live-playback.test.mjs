@@ -50,3 +50,20 @@ for (const [file, prefix] of [['app/dashboard/page.tsx', 'dashboard'], ['app/pro
     }
   });
 }
+
+for (const [file, prefix] of [['app/dashboard/page.tsx', 'Dashboard'], ['app/profile/[id]/page.tsx', 'Profile']]) {
+  test(`${prefix} keeps comments enabled for a long-running live and an ended show`, () => {
+    const source = ts.createSourceFile(file, readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const declarations = source.statements.filter(node => ts.isFunctionDeclaration(node) && [`get${prefix}EffectiveLiveStatus`, `get${prefix}LiveChatStatus`].includes(node.name?.text));
+    assert.equal(declarations.length, 2);
+    const chatSource = ts.createSourceFile('chat.tsx', readFileSync(new URL('../components/live/LiveChatPanel.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const canComment = chatSource.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'canCommentForStatus');
+    const js = ts.transpileModule([...declarations.map(node => node.getText(source)), canComment.getText(chatSource)].join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+    for (const status of ['live', 'ended']) {
+      const result = vm.runInNewContext(`${js}\ncanCommentForStatus(get${prefix}LiveChatStatus(get${prefix}EffectiveLiveStatus(stream)))`, {
+        stream: { ...published, status, started_at: '2020-01-01T00:00:00Z' },
+      });
+      assert.equal(result, true);
+    }
+  });
+}
