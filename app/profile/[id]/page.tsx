@@ -14,6 +14,7 @@
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
 // PROFILE THOUGHT PERSISTENCE v28 - Supabase-backed profile thoughts + portal composer wiring.
 
+import { followMember } from "@/lib/followers";
 import LiveStreamViewCount from "@/components/live/LiveStreamViewCount";
 import { livePlayerUrl } from "@/lib/live/youtube-player";
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -5854,7 +5855,7 @@ useEffect(() => {
   };
 
   const handleFollowToggle = async () => {
-    if (!viewerId || !profileId || isOwnProfile) return;
+    if (!viewerId || !profileId || isOwnProfile || followLoading) return;
 
     setFollowLoading(true);
 
@@ -5877,9 +5878,7 @@ useEffect(() => {
       return;
     }
 
-    const { error } = await supabase
-      .from("followers")
-      .insert([{ follower_id: viewerId, following_id: profileId }]);
+    const { error } = await followMember(supabase, viewerId, profileId);
 
     if (error) {
       alert(`Follow error: ${error.message}`);

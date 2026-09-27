@@ -2,6 +2,7 @@
 // DASHBOARD SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or realtime listeners from Dashboard.
 // DASHBOARD LOADING PERFORMANCE PASS v1 - page shell, Showcases, and first timeline batch render faster; heavy extras load after first paint.
 
+import { followMember } from "@/lib/followers";
 import LiveStreamViewCount from "@/components/live/LiveStreamViewCount";
 import { livePlayerUrl } from "@/lib/live/youtube-player";
 import {
@@ -4907,9 +4908,7 @@ export default function DashboardPage() {
       setFollowingMap((prev) => ({ ...prev, [targetUserId]: false }));
       setFollowedUserIds((prev) => prev.filter((id) => id !== targetUserId));
     } else {
-      const { error } = await supabase
-        .from("followers")
-        .insert([{ follower_id: currentUserId, following_id: targetUserId }]);
+      const { error } = await followMember(supabase, currentUserId, targetUserId);
 
       if (error) {
         alert(`Follow error: ${error.message}`);

@@ -2,6 +2,7 @@
 "use client";
 // REELS FLOW POLISH v1 - smoother route exits, lightweight prefetch, and safer video pause behavior.
 
+import { followMember } from "@/lib/followers";
 import {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
@@ -1384,9 +1385,7 @@ export default function ReelsPage() {
           .delete()
           .eq("follower_id", currentUserId)
           .eq("following_id", creatorId)
-      : await supabase
-          .from("followers")
-          .insert([{ follower_id: currentUserId, following_id: creatorId }]);
+      : await followMember(supabase, currentUserId, creatorId);
 
     if (result.error) {
       setFollowingCreatorMap((current) => ({ ...current, [creatorId]: wasFollowing }));
