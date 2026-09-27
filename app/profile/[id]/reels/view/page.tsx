@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, @next/next/no-img-element */
 "use client";
 
+import { followMember } from "@/lib/followers";
 import {
   CSSProperties,
   MouseEvent as ReactMouseEvent,
@@ -1568,9 +1569,7 @@ function ProfileReelsViewer({ profileId }: { profileId: string }) {
           .delete()
           .eq("follower_id", currentUserId)
           .eq("following_id", creatorId)
-      : await supabase
-          .from("followers")
-          .insert([{ follower_id: currentUserId, following_id: creatorId }]);
+      : await followMember(supabase, currentUserId, creatorId);
 
     if (result.error) {
       setFollowingCreatorMap((current) => ({
