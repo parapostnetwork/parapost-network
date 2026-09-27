@@ -1,22 +1,20 @@
 export type LiveStatus = "draft" | "upcoming" | "live" | "ended" | "cancelled";
 export const LIVE_REPLAY_DELAY_MS = 6 * 60 * 60 * 1000;
+type ShowTiming = { status?: string | null; scheduled_at?: string | null; started_at?: string | null; ended_at?: string | null };
 
-// A running broadcast must not expire just because it started six hours ago.
-// The display grace period begins only when an end timestamp has been recorded.
-export function getLiveDisplayStatus(stream: {
-  status?: string | null;
-  ended_at?: string | null;
-}, now = Date.now()): LiveStatus {
-  if (stream.status === "ended") {
-    const endedAt = stream.ended_at ? Date.parse(stream.ended_at) : NaN;
-    if (Number.isFinite(endedAt) && endedAt <= now && now - endedAt < LIVE_REPLAY_DELAY_MS) return "live";
-    return "ended";
-  }
-  if (stream.status === "live" || stream.status === "upcoming" || stream.status === "cancelled") return stream.status;
-  return "draft";
+// Published scheduled shows use a fixed six-hour window. Manual End Show wins.
+// Display timing must not wait for a successful database synchronization.
+export function getLiveDisplayStatus(stream: ShowTiming, now = Date.now()): LiveStatus {
+  if (stream.status === "ended" || stream.status === "cancelled") return stream.status;
+  if (stream.status !== "upcoming" && stream.status !== "live") return "draft";
+  const start = Date.parse(stream.scheduled_at || stream.started_at || "");
+  if (!Number.isFinite(start)) return stream.status;
+  if (now >= start + LIVE_REPLAY_DELAY_MS) return "ended";
+  if (now >= start) return "live";
+  return stream.status;
 }
 
-export function getLiveDisplayLabel(stream: { status?: string | null; ended_at?: string | null }, now = Date.now()) {
+export function getLiveDisplayLabel(stream: ShowTiming, now = Date.now()) {
   switch (getLiveDisplayStatus(stream, now)) {
     case "upcoming": return "Live Soon";
     case "live": return "Live";
@@ -26,7 +24,6 @@ export function getLiveDisplayLabel(stream: { status?: string | null; ended_at?:
   }
 }
 
-export function needsLiveRefresh(stream: { status?: string | null; ended_at?: string | null }) {
-  return stream.status === "upcoming" || stream.status === "live" ||
-    (stream.status === "ended" && getLiveDisplayStatus(stream) === "live");
+export function needsLiveRefresh(stream: ShowTiming) {
+  return stream.status === "upcoming" || stream.status === "live";
 }

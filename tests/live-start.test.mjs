@@ -62,3 +62,32 @@ test('missing configuration and backend failures fail closed without exposing se
   assert.equal(result.status, 502);
   assert.deepEqual(await result.json(), { error: 'Live start unavailable' });
 });
+
+for (const status of ['upcoming', 'live']) {
+  test(`expired ${status} synchronizes Replay using schedule plus six hours`, async () => {
+    const old = { ...row, status, scheduled_at: '2026-09-26T14:00:00Z' };
+    let writes = 0;
+    const handler = createScheduledStartHandler(name => config[name], async (input, init = {}) => {
+      if (input.includes('/auth/')) return Response.json({ id: 'viewer' });
+      if (init.method !== 'PATCH') return Response.json([old]);
+      writes++;
+      assert.equal(new URL(input).searchParams.get('status'), `eq.${status}`);
+      const patch = JSON.parse(init.body);
+      assert.equal(patch.status, 'ended');
+      assert.equal(patch.ended_at, new Date(now).toISOString());
+      return Response.json([{ ...old, ...patch }]);
+    }, () => now);
+    assert.equal((await (await handler(request())).json()).stream.status, 'ended');
+    assert.equal(writes, 1);
+  });
+}
+test('new secret API key uses apikey without an invalid JWT bearer header', async () => {
+  const handler = createScheduledStartHandler(name => name === 'SUPABASE_SERVICE_ROLE_KEY' ? '  sb_secret_test  ' : config[name], async (input, init = {}) => {
+    if (input.includes('/auth/')) return Response.json({ id: 'viewer' });
+    if (init.method !== 'PATCH') return Response.json([row]);
+    assert.equal(init.headers.apikey, 'sb_secret_test');
+    assert.equal(init.headers.Authorization, undefined);
+    return Response.json([{ ...row, status: 'live' }]);
+  }, () => now);
+  assert.equal((await handler(request())).status, 200);
+});
