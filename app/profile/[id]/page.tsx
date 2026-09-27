@@ -21,6 +21,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { canPlayPublishedStream } from "@/lib/live/playback";
+import { getLiveDisplayLabel, getLiveDisplayStatus, needsLiveRefresh } from "@/lib/live/status";
+import { useLiveRefresh } from "@/lib/live/useLiveRefresh";
+import { startDueShows } from "@/lib/live/startDueShows";
 import {
   acceptFriendRequest,
   cancelFriendRequest,
@@ -208,7 +211,6 @@ type ProfileLiveStream = {
 const PROFILE_LIVE_SELECT =
   "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at, views";
 
-const PROFILE_LIVE_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
 
 type ProfileFeedItem =
   | (Post & { feedKind: "post" })
@@ -1157,65 +1159,13 @@ function formatProfileLiveDate(value?: string | null) {
   });
 }
 
-function isProfileLiveStale(stream: {
-  status?: string | null;
-  started_at?: string | null;
-  updated_at?: string | null;
-  scheduled_at?: string | null;
-  created_at?: string | null;
-}) {
-  if (stream.status !== "live") return false;
-
-  const anchor =
-    stream.started_at ||
-    stream.updated_at ||
-    stream.scheduled_at ||
-    stream.created_at;
-
-  if (!anchor) return false;
-
-  const anchorTime = new Date(anchor).getTime();
-
-  return Number.isFinite(anchorTime) && Date.now() - anchorTime > PROFILE_LIVE_STALE_AFTER_MS;
-}
-
-function getProfileEffectiveLiveStatus(stream: {
-  status?: string | null;
-  started_at?: string | null;
-  updated_at?: string | null;
-  scheduled_at?: string | null;
-  created_at?: string | null;
-}) {
-  if (isProfileLiveStale(stream)) return "ended";
+// Database status controls discussion permissions; only the badge has a six-hour end grace.
+function getProfileEffectiveLiveStatus(stream: { status?: string | null }) {
   return stream.status;
 }
 
-function getProfileLiveStatusLabel(stream: {
-  status?: string | null;
-  started_at?: string | null;
-  updated_at?: string | null;
-  scheduled_at?: string | null;
-  created_at?: string | null;
-}) {
-  const effectiveStatus = getProfileEffectiveLiveStatus(stream);
-
-  if (effectiveStatus === "live") return "Live Now";
-  if (effectiveStatus === "ended") return "Replay";
-  if (effectiveStatus === "cancelled") return "Cancelled";
-  if (effectiveStatus === "draft") return "Not Published";
-
-  if (effectiveStatus === "upcoming" && stream.scheduled_at) {
-    const scheduledTime = new Date(stream.scheduled_at).getTime();
-
-    if (Number.isFinite(scheduledTime)) {
-      const msUntilLive = scheduledTime - Date.now();
-      const twoHours = 2 * 60 * 60 * 1000;
-
-      if (msUntilLive > 0 && msUntilLive <= twoHours) return "Live Soon";
-    }
-  }
-
-  return "Upcoming Live";
+function getProfileLiveStatusLabel(stream: { status?: string | null; ended_at?: string | null }) {
+  return getLiveDisplayLabel(stream);
 }
 
 function getProfileLiveChatStatus(status?: string | null): "draft" | "upcoming" | "live" | "ended" | "cancelled" {
@@ -4477,24 +4427,32 @@ useEffect(() => {
     };
   }, [viewerId, profileId, loadPage]);
 
+  const refreshProfileLive = useCallback(async () => {
+    if (!profileId || !viewerId) return;
+    const { data, error } = await supabase.from("live_streams")
+      .select(PROFILE_LIVE_SELECT)
+      .eq("user_id", profileId).eq("visibility", "public").eq("is_hidden", false)
+      .in("status", ["upcoming", "live", "ended"])
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false }).limit(50);
+    if (error) return;
+    const startedRows = await startDueShows((data || []) as ProfileLiveStream[]);
+    setProfileLiveStreams(startedRows
+      .filter(stream => Boolean(stream.id && stream.user_id))
+      .map(stream => ({ ...stream, created_at: getProfileLiveTimestamp(stream) })));
+  }, [profileId, viewerId]);
+
+  useLiveRefresh(refreshProfileLive, Boolean(profileId && viewerId) && profileLiveStreams.some(needsLiveRefresh));
+
   useEffect(() => {
-    if (!profileId) return;
-
-    const channel = supabase
-      .channel(`profile-live-streams-${profileId}`)
-      .on(
-        "postgres_changes",
+    if (!profileId || !viewerId) return;
+    const channel = supabase.channel(`profile-live-streams-${profileId}`)
+      .on("postgres_changes",
         { event: "*", schema: "public", table: "live_streams", filter: `user_id=eq.${profileId}` },
-        async () => {
-          await loadPage();
-        }
-      )
+        () => { void refreshProfileLive(); })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profileId, loadPage]);
+    return () => { void supabase.removeChannel(channel); };
+  }, [profileId, viewerId, refreshProfileLive]);
 
   const handleRemoveSharedReel = async (shareId: string) => {
     if (!viewerId || !isOwnProfile) return;
@@ -18574,6 +18532,7 @@ return (
                           const isReplay = effectiveStatus === "ended";
                           const liveEmbedUrl = canPlayPublishedStream(item) ? item.embed_url || "" : "";
                           const chatStatus = getProfileLiveChatStatus(effectiveStatus);
+                          const badgeIsLive = getLiveDisplayStatus(item) === "live";
                           const hasLongDescription = Boolean(item.description && item.description.length > 150);
                           const scheduleLabel = isLive
                             ? "Live Now"
@@ -18635,7 +18594,7 @@ return (
                                     </span>
                                   </div>
 
-                                  {!isReplay ? (
+                                  {(isLive || isReplay || effectiveStatus === "upcoming") ? (
                                     <span
                                       style={{
                                         display: "inline-flex",
@@ -18643,9 +18602,9 @@ return (
                                         gap: 7,
                                         padding: "7px 10px",
                                         borderRadius: 999,
-                                        color: isLive ? "#dcfce7" : "#fef3c7",
-                                        background: isLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
-                                        border: isLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
+                                        color: badgeIsLive ? "#dcfce7" : "#fef3c7",
+                                        background: badgeIsLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
+                                        border: badgeIsLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
                                         fontSize: 12,
                                         fontWeight: 900,
                                         textTransform: "uppercase",
@@ -18653,7 +18612,7 @@ return (
                                         whiteSpace: "nowrap",
                                       }}
                                     >
-                                      {isLive ? "●" : "◎"} {getProfileLiveStatusLabel(item)}
+                                      {badgeIsLive ? "●" : "◎"} {getProfileLiveStatusLabel(item)}
                                     </span>
                                   ) : null}
                                 </header>
@@ -18819,7 +18778,7 @@ return (
                                       >
                                         {isLive
                                           ? "Watch and comment here on Parapost."
-                                          : "This becomes the live player when the show starts."}
+                                          : "The broadcast will play here when it starts."}
                                       </span>
                                     </div>
                                   ) : null}

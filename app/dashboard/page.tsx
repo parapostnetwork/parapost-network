@@ -24,6 +24,9 @@ import DashboardReelsSection from "./DashboardReelsSection";
 import LiveChatPanel from "@/components/live/LiveChatPanel";
 import { supabase } from "@/lib/supabase";
 import { canPlayPublishedStream } from "@/lib/live/playback";
+import { getLiveDisplayLabel, getLiveDisplayStatus, needsLiveRefresh } from "@/lib/live/status";
+import { useLiveRefresh } from "@/lib/live/useLiveRefresh";
+import { startDueShows } from "@/lib/live/startDueShows";
 
 // Dashboard launch polish: original layout preserved with cleaner professional Parapost surfaces.
 
@@ -188,7 +191,6 @@ type DashboardLiveStreamItem = {
 const DASHBOARD_LIVE_SELECT =
   "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at, views";
 
-const DASHBOARD_LIVE_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
 
 type MixedFeedItem =
   | { type: "post"; id: string; created_at: string; post: Post }
@@ -512,65 +514,13 @@ function formatDashboardLiveDate(value?: string | null) {
   });
 }
 
-function isDashboardLiveStale(stream: {
-  status?: string | null;
-  started_at?: string | null;
-  updated_at?: string | null;
-  scheduled_at?: string | null;
-  created_at?: string | null;
-}) {
-  if (stream.status !== "live") return false;
-
-  const anchor =
-    stream.started_at ||
-    stream.updated_at ||
-    stream.scheduled_at ||
-    stream.created_at;
-
-  if (!anchor) return false;
-
-  const anchorTime = new Date(anchor).getTime();
-
-  return Number.isFinite(anchorTime) && Date.now() - anchorTime > DASHBOARD_LIVE_STALE_AFTER_MS;
-}
-
-function getDashboardEffectiveLiveStatus(stream: {
-  status?: string | null;
-  started_at?: string | null;
-  updated_at?: string | null;
-  scheduled_at?: string | null;
-  created_at?: string | null;
-}) {
-  if (isDashboardLiveStale(stream)) return "ended";
+// Database status controls discussion permissions; only the badge has a six-hour end grace.
+function getDashboardEffectiveLiveStatus(stream: { status?: string | null }) {
   return stream.status;
 }
 
-function getDashboardLiveStatusLabel(stream: {
-  status?: string | null;
-  started_at?: string | null;
-  updated_at?: string | null;
-  scheduled_at?: string | null;
-  created_at?: string | null;
-}) {
-  const effectiveStatus = getDashboardEffectiveLiveStatus(stream);
-
-  if (effectiveStatus === "live") return "Live Now";
-  if (effectiveStatus === "ended") return "Replay";
-  if (effectiveStatus === "cancelled") return "Cancelled";
-  if (effectiveStatus === "draft") return "Not Published";
-
-  if (effectiveStatus === "upcoming" && stream.scheduled_at) {
-    const scheduledTime = new Date(stream.scheduled_at).getTime();
-
-    if (Number.isFinite(scheduledTime)) {
-      const msUntilLive = scheduledTime - Date.now();
-      const twoHours = 2 * 60 * 60 * 1000;
-
-      if (msUntilLive > 0 && msUntilLive <= twoHours) return "Live Soon";
-    }
-  }
-
-  return "Upcoming Live";
+function getDashboardLiveStatusLabel(stream: { status?: string | null; ended_at?: string | null }) {
+  return getLiveDisplayLabel(stream);
 }
 
 function getDashboardLiveChatStatus(status?: string | null): "draft" | "upcoming" | "live" | "ended" | "cancelled" {
@@ -3313,7 +3263,8 @@ export default function DashboardPage() {
 
     const liveProfileMap = new Map(liveProfiles.map((profile) => [profile.id, profile]));
 
-    const nextStreams = streamRows.map((stream) => ({
+    const startedRows = await startDueShows(streamRows);
+    const nextStreams = startedRows.map((stream) => ({
       ...stream,
       profile: liveProfileMap.get(stream.user_id) || null,
     })) as DashboardLiveStreamItem[];
@@ -3321,6 +3272,8 @@ export default function DashboardPage() {
     setLiveFeedStreams(nextStreams);
     return nextStreams;
   }, []);
+
+  useLiveRefresh(() => fetchLiveFeedStreams(blockedUserIds), Boolean(currentUserId) && liveFeedStreams.some(needsLiveRefresh));
 
   const fetchDashboardData = useCallback(async (showFeedLoading = false) => {
     if (dashboardRefreshInFlightRef.current) return;
@@ -12113,6 +12066,7 @@ function DashboardLiveStreamCard({
   const isReplay = effectiveStatus === "ended";
   const isPlayable = canPlayPublishedStream(stream);
   const chatStatus = getDashboardLiveChatStatus(effectiveStatus);
+  const badgeIsLive = getLiveDisplayStatus(stream) === "live";
   const hasLongDescription = Boolean(stream.description && stream.description.length > 150);
   const scheduleLabel = isLive
     ? "Live Now"
@@ -12167,7 +12121,7 @@ function DashboardLiveStreamCard({
             </span>
           </div>
 
-          {!isReplay ? (
+          {(isLive || isReplay || effectiveStatus === "upcoming") ? (
             <span
               style={{
                 display: "inline-flex",
@@ -12175,9 +12129,9 @@ function DashboardLiveStreamCard({
                 gap: 7,
                 padding: "7px 10px",
                 borderRadius: 999,
-                color: isLive ? "#dcfce7" : "#fef3c7",
-                background: isLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
-                border: isLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
+                color: badgeIsLive ? "#dcfce7" : "#fef3c7",
+                background: badgeIsLive ? "rgba(34,197,94,0.18)" : "rgba(245,158,11,0.16)",
+                border: badgeIsLive ? "1px solid rgba(74,222,128,0.30)" : "1px solid rgba(251,191,36,0.26)",
                 fontSize: 12,
                 fontWeight: 900,
                 textTransform: "uppercase",
@@ -12185,7 +12139,7 @@ function DashboardLiveStreamCard({
                 whiteSpace: "nowrap",
               }}
             >
-              {isLive ? "●" : "◎"} {getDashboardLiveStatusLabel(stream)}
+              {badgeIsLive ? "●" : "◎"} {getDashboardLiveStatusLabel(stream)}
             </span>
           ) : null}
         </header>
@@ -12372,7 +12326,7 @@ function DashboardLiveStreamCard({
               >
                 {isLive
                   ? "Watch and comment here on Parapost."
-                  : "This becomes the live player when the show starts."}
+                  : "The broadcast will play here when it starts."}
               </span>
             </div>
           ) : null}

@@ -5,6 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useLiveRefresh } from "@/lib/live/useLiveRefresh";
+import { startDueShows } from "@/lib/live/startDueShows";
+import { getLiveDisplayLabel, needsLiveRefresh } from "@/lib/live/status";
 
 type LiveStatus = "draft" | "upcoming" | "live" | "ended" | "cancelled";
 type LiveVisibility = "private" | "friends" | "public";
@@ -57,30 +60,11 @@ function isScheduledTimeDue(value?: string | null) {
 }
 
 function getEffectiveLiveStatus(stream: LiveStreamRow): LiveStatus {
-  if (
-    stream.status === "upcoming" &&
-    stream.visibility === "public" &&
-    !stream.is_hidden &&
-    isScheduledTimeDue(stream.scheduled_at)
-  ) {
-    return "live";
-  }
-
   return stream.status;
 }
 
 function getStatusLabel(stream: LiveStreamRow) {
-  const status = getEffectiveLiveStatus(stream);
-
-  if (status === "live") return "Live Now";
-  if (status === "ended") return "Replay";
-  if (status === "cancelled") return "Cancelled";
-  if (status === "upcoming") {
-    if (stream.scheduled_at && isScheduledTimeDue(stream.scheduled_at)) return "Ready to Go Live";
-    return "Scheduled";
-  }
-
-  return "Not Published";
+  return getLiveDisplayLabel({ ...stream, status: getEffectiveLiveStatus(stream) });
 }
 
 function getProviderLabel(provider?: string | null) {
@@ -253,47 +237,7 @@ export default function ParapostLivePage() {
 
     const rows = (data || []) as LiveStreamRow[];
 
-    const ownedDueShows = rows.filter(
-      (stream) =>
-        stream.status === "upcoming" &&
-        stream.visibility === "public" &&
-        !stream.is_hidden &&
-        isScheduledTimeDue(stream.scheduled_at)
-    );
-
-    if (ownedDueShows.length > 0) {
-      const now = new Date().toISOString();
-
-      await Promise.all(
-        ownedDueShows.map((stream) =>
-          supabase
-            .from("live_streams")
-            .update({
-              status: "live",
-              started_at: stream.started_at || now,
-              ended_at: null,
-              updated_at: now,
-            })
-            .eq("id", stream.id)
-            .eq("user_id", user.id)
-        )
-      );
-
-      const { data: refreshedData, error: refreshedError } = await supabase
-        .from("live_streams")
-        .select(LIVE_SELECT)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (!refreshedError) {
-        setOwnedStreams((refreshedData || []) as LiveStreamRow[]);
-        finishLoading();
-        return;
-      }
-    }
-
-    setOwnedStreams(rows);
+    setOwnedStreams(await startDueShows(rows));
     finishLoading();
   }, []);
 
@@ -315,6 +259,8 @@ export default function ParapostLivePage() {
     router.prefetch("/friends");
     router.prefetch("/settings");
   }, [router]);
+
+  useLiveRefresh(() => loadLiveManager({ silent: true }), Boolean(currentUserId) && ownedStreams.some(needsLiveRefresh));
 
   const updateOwnedStream = async (
     stream: LiveStreamRow,
@@ -409,7 +355,7 @@ export default function ParapostLivePage() {
         ended_at: new Date().toISOString(),
       },
       "End this show on Parapost?",
-      "The show is now marked as ended. It can remain available as a replay with comments."
+      "The show has ended. Comments remain available, and its Live badge switches to Replay after six hours."
     );
   };
 
