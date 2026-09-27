@@ -2,6 +2,8 @@
 // DASHBOARD SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or realtime listeners from Dashboard.
 // DASHBOARD LOADING PERFORMANCE PASS v1 - page shell, Showcases, and first timeline batch render faster; heavy extras load after first paint.
 
+import LiveStreamViewCount from "@/components/live/LiveStreamViewCount";
+import { livePlayerUrl } from "@/lib/live/youtube-player";
 import {
   ChangeEvent,
   CSSProperties,
@@ -514,9 +516,9 @@ function formatDashboardLiveDate(value?: string | null) {
   });
 }
 
-// Database status controls discussion permissions; only the badge has a six-hour end grace.
-function getDashboardEffectiveLiveStatus(stream: { status?: string | null }) {
-  return stream.status;
+// Use the saved schedule immediately; the server separately synchronizes RLS status.
+function getDashboardEffectiveLiveStatus(stream: { status?: string | null; scheduled_at?: string | null; started_at?: string | null }) {
+  return getLiveDisplayStatus(stream);
 }
 
 function getDashboardLiveStatusLabel(stream: { status?: string | null; ended_at?: string | null }) {
@@ -11984,69 +11986,6 @@ function MiniFeedStat({ label, value }: { label: string; value: number }) {
 }
 
 
-function LiveStreamViewCount({
-  streamId,
-  initialViews = 0,
-  shouldCount = true,
-  playerElementId,
-}: {
-  streamId: string;
-  initialViews?: number | null;
-  shouldCount?: boolean;
-  playerElementId: string;
-}) {
-  const [viewCount, setViewCount] = useState(Math.max(0, Number(initialViews || 0)));
-  const countedRef = useRef(false);
-
-  useEffect(() => {
-    if (!streamId || !shouldCount || !playerElementId || countedRef.current) return;
-
-    const countView = async () => {
-      if (countedRef.current) return;
-      countedRef.current = true;
-
-      const { data, error } = await supabase.rpc("increment_live_stream_views", {
-        target_stream_id: streamId,
-      });
-
-      if (error) {
-        countedRef.current = false;
-        console.warn("Live view count update skipped:", error.message);
-        return;
-      }
-
-      const nextCount =
-        typeof data === "number"
-          ? data
-          : Array.isArray(data) && typeof data[0] === "number"
-            ? data[0]
-            : Number(data);
-
-      if (Number.isFinite(nextCount)) {
-        setViewCount(Math.max(0, nextCount));
-      }
-    };
-
-    const handleWindowBlur = () => {
-      window.setTimeout(() => {
-        const activeElement = document.activeElement;
-        if (!(activeElement instanceof HTMLIFrameElement)) return;
-        if (activeElement.id !== playerElementId) return;
-        void countView();
-      }, 0);
-    };
-
-    window.addEventListener("blur", handleWindowBlur);
-
-    return () => {
-      window.removeEventListener("blur", handleWindowBlur);
-    };
-  }, [playerElementId, shouldCount, streamId]);
-
-  const label = viewCount === 1 ? "View" : "Views";
-
-  return <span>{viewCount.toLocaleString()} {label}</span>;
-}
 
 function DashboardLiveStreamCard({
   stream,
@@ -12165,7 +12104,7 @@ function DashboardLiveStreamCard({
           {isPlayable ? (
             <iframe
               id={`dashboard-live-player-${stream.id}`}
-              src={stream.embed_url || ""}
+              src={livePlayerUrl(stream.embed_url || "", typeof window !== "undefined" ? window.location.origin : undefined)}
               title={stream.title || "Parapost Live Show"}
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen

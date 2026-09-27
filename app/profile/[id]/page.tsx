@@ -14,6 +14,8 @@
 // PROFILE MOBILE MENU CLEAN FIX v2 - profile menu uses profile/account shortcuts only; dashboard extras stay on Dashboard.
 // PROFILE THOUGHT PERSISTENCE v28 - Supabase-backed profile thoughts + portal composer wiring.
 
+import LiveStreamViewCount from "@/components/live/LiveStreamViewCount";
+import { livePlayerUrl } from "@/lib/live/youtube-player";
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } from "@/components/PostMediaViewer";
@@ -1159,9 +1161,9 @@ function formatProfileLiveDate(value?: string | null) {
   });
 }
 
-// Database status controls discussion permissions; only the badge has a six-hour end grace.
-function getProfileEffectiveLiveStatus(stream: { status?: string | null }) {
-  return stream.status;
+// Use the saved schedule immediately; the server separately synchronizes RLS status.
+function getProfileEffectiveLiveStatus(stream: { status?: string | null; scheduled_at?: string | null; started_at?: string | null }) {
+  return getLiveDisplayStatus(stream);
 }
 
 function getProfileLiveStatusLabel(stream: { status?: string | null; ended_at?: string | null }) {
@@ -2250,69 +2252,6 @@ function TwoLineExpandableComment({
 }
 
 
-function LiveStreamViewCount({
-  streamId,
-  initialViews = 0,
-  shouldCount = true,
-  playerElementId,
-}: {
-  streamId: string;
-  initialViews?: number | null;
-  shouldCount?: boolean;
-  playerElementId: string;
-}) {
-  const [viewCount, setViewCount] = useState(Math.max(0, Number(initialViews || 0)));
-  const countedRef = useRef(false);
-
-  useEffect(() => {
-    if (!streamId || !shouldCount || !playerElementId || countedRef.current) return;
-
-    const countView = async () => {
-      if (countedRef.current) return;
-      countedRef.current = true;
-
-      const { data, error } = await supabase.rpc("increment_live_stream_views", {
-        target_stream_id: streamId,
-      });
-
-      if (error) {
-        countedRef.current = false;
-        console.warn("Live view count update skipped:", error.message);
-        return;
-      }
-
-      const nextCount =
-        typeof data === "number"
-          ? data
-          : Array.isArray(data) && typeof data[0] === "number"
-            ? data[0]
-            : Number(data);
-
-      if (Number.isFinite(nextCount)) {
-        setViewCount(Math.max(0, nextCount));
-      }
-    };
-
-    const handleWindowBlur = () => {
-      window.setTimeout(() => {
-        const activeElement = document.activeElement;
-        if (!(activeElement instanceof HTMLIFrameElement)) return;
-        if (activeElement.id !== playerElementId) return;
-        void countView();
-      }, 0);
-    };
-
-    window.addEventListener("blur", handleWindowBlur);
-
-    return () => {
-      window.removeEventListener("blur", handleWindowBlur);
-    };
-  }, [playerElementId, shouldCount, streamId]);
-
-  const label = viewCount === 1 ? "View" : "Views";
-
-  return <span>{viewCount.toLocaleString()} {label}</span>;
-}
 
 function ProfileLikesModal({
   target,
@@ -18632,7 +18571,7 @@ return (
                                   {liveEmbedUrl ? (
                                     <iframe
                                       id={`profile-live-player-${item.id}`}
-                                      src={liveEmbedUrl}
+                                      src={livePlayerUrl(liveEmbedUrl, typeof window !== "undefined" ? window.location.origin : undefined)}
                                       title={item.title || "Parapost Live Show"}
                                       allow="autoplay; fullscreen; picture-in-picture"
                                       allowFullScreen

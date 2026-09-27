@@ -1,3 +1,4 @@
+const LIVE_REPLAY_DELAY_MS = 6 * 60 * 60 * 1000;
 type Env = (name: string) => string | undefined;
 const select = "id,status,scheduled_at,started_at,ended_at,updated_at";
 
@@ -11,7 +12,7 @@ export function createScheduledStartHandler(env: Env, fetcher: typeof fetch = fe
     if (!authorization?.startsWith("Bearer ")) return Response.json({ error: "Unauthorized" }, { status: 401 });
     const url = env("NEXT_PUBLIC_SUPABASE_URL");
     const anon = env("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-    const service = env("SUPABASE_SERVICE_ROLE_KEY");
+    const service = env("SUPABASE_SERVICE_ROLE_KEY")?.trim();
     if (!url || !anon || !service) return Response.json({ error: "Live start unavailable" }, { status: 503 });
     try {
       const body = await request.json();
@@ -29,16 +30,30 @@ export function createScheduledStartHandler(env: Env, fetcher: typeof fetch = fe
       const [row] = await read.json();
       if (!row) return Response.json({ stream: null });
       const scheduled = row.scheduled_at ? Date.parse(row.scheduled_at) : NaN;
-      if (row.status !== "upcoming" || !Number.isFinite(scheduled) || scheduled > now()) return Response.json({ stream: row });
-      query.set("status", "eq.upcoming");
+      const currentTime = now();
+      const expired = Number.isFinite(scheduled) && currentTime >= scheduled + LIVE_REPLAY_DELAY_MS;
+      if (!["upcoming", "live"].includes(row.status) || !Number.isFinite(scheduled) || scheduled > currentTime || (row.status === "live" && !expired)) return Response.json({ stream: row });
+      query.set("status", `eq.${row.status}`);
       query.set("scheduled_at", `eq.${row.scheduled_at}`);
       query.set("updated_at", row.updated_at ? `eq.${row.updated_at}` : "is.null");
       const update = await fetcher(`${table}?${query}`, {
         method: "PATCH", signal: AbortSignal.timeout(10000),
-        headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json", Prefer: "return=representation" },
-        body: JSON.stringify({ status: "live", started_at: row.started_at || row.scheduled_at, ended_at: null, updated_at: new Date(now()).toISOString() }),
+        headers: { apikey: service, ...(!service.startsWith("sb_secret_") ? { Authorization: `Bearer ${service}` } : {}), "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ status: expired ? "ended" : "live", started_at: row.started_at || row.scheduled_at, ended_at: expired ? new Date(scheduled + LIVE_REPLAY_DELAY_MS).toISOString() : null, updated_at: new Date(currentTime).toISOString() }),
       });
-      if (!update.ok) return Response.json({ error: "Cannot start show" }, { status: 502 });
+      if (!update.ok) {
+        // Log only an allowlisted category/status, never credentials or response bodies.
+        let reason = "backend_rejected";
+        try {
+          const failure = await update.json();
+          const message = String(failure?.message || "").toLowerCase();
+          if (message.includes("invalid api key") || message.includes("unregistered api key")) reason = "invalid_api_key";
+          else if (message.includes("jwt")) reason = "invalid_jwt";
+          else if (message.includes("permission")) reason = "permission_denied";
+        } catch { /* Keep the generic category. */ }
+        console.error("Live status synchronization rejected", { status: update.status, reason });
+        return Response.json({ error: "Cannot synchronize show" }, { status: 502 });
+      }
       const [updated] = await update.json();
       return Response.json({ stream: updated || null });
     } catch {

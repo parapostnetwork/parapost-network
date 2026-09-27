@@ -355,7 +355,7 @@ export default function ParapostLivePage() {
         ended_at: new Date().toISOString(),
       },
       "End this show on Parapost?",
-      "The show has ended. Comments remain available, and its Live badge switches to Replay after six hours."
+      "The show has ended and is now a Replay. Comments remain available."
     );
   };
 

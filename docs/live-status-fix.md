@@ -1,51 +1,58 @@
-# Live comments, labels and six-hour replay badge
+# Scheduled Live status and playback views
 
-## Cause and behavior
+## Production failure and correction
 
-The waiting-player fix removed playback's dependency on stored status, but
-comments and badge rendering still required a stored live/ended status. The
-only scheduled database promotion ran when the owner opened Live Manager.
+Production logs on September 26 confirmed POST /api/live/start returning 502.
+Its Supabase authentication and row read succeeded, but the privileged PATCH
+returned 401. Vercel's server key is a sensitive variable and cannot be retrieved
+for offline validation. Do not claim that its validity has been confirmed.
+The handler now trims surrounding whitespace and supports both legacy JWT
+service-role keys and newer secret API keys (apikey only for the latter).
+Sanitized failure logging reports HTTP status and an allowlisted category only.
+It never logs a credential, request authorization, or upstream response body.
 
-This patch permits a signed-in viewer's Dashboard/Profile refresh to request a
-deterministic scheduled start through POST /api/live/start. The server verifies
-the Supabase session, reads the public visible show under that user's RLS, checks
-the scheduled timestamp against server time, then conditionally changes only an
-upcoming row to live. A concurrent hide, cancellation, reschedule, edit or End
-Show prevents the update. Arbitrary status/timestamp payloads are ignored. The
-existing server-only service-role credential performs this narrow update; no
-credential is exposed to the client. Normal comment inserts still use user RLS.
+Display status now follows scheduled_at immediately, independent of a failed
+network update: Live Soon before start; Live for six hours from scheduled start;
+Replay at the exact six-hour boundary. This supersedes the earlier end-time
+six-hour grace rule at the user's explicit request. Manual End Show immediately
+sets Replay. Draft/cancelled/ended shows are never revived. For unscheduled live
+shows, started_at is a display fallback; without either timestamp the stored
+status is preserved.
 
-Labels are Live Soon before activation and Live after activation. End Show saves
-ended_at and preserves comments. The badge remains Live for six hours after
-ended_at, then becomes Replay. A still-running show no longer becomes a replay
-six hours after its start. Ended rows without a valid end time display Replay.
-Dashboard/Profile retain the waiting-player iframe; Profile status realtime
-updates refresh only show rows instead of resetting the whole page/player.
-Visible pages with relevant shows refresh every 10 seconds and on foreground
-return; clock badges update even if a refresh fails. No timer runs in a backend.
+The authenticated server route also synchronizes due upcoming/live records to
+live/ended. It validates the caller with Supabase Auth, reads under user RLS, and
+conditionally updates only public, visible shows with unchanged schedule,
+updated_at, and status. An old upcoming show goes directly to Replay. Ended_at
+for automatic expiration is scheduled_at plus six hours, not the request time.
+No scheduler, database migration, or Google Cloud setup is needed. When nobody
+is viewing, persisted synchronization occurs on a later viewer refresh.
+Client failures back off 30 seconds per show; visible pages refresh every ten
+seconds. Comments and the existing views RPC still require successful database
+synchronization. Correct labels alone do not prove those operations are fixed.
 
-## Explicit limitation accepted by the user
+## Views
 
-No Google Cloud/YouTube API is used. Start activation follows the saved schedule,
-not YouTube's actual broadcast state. The creator must use End Show to begin the
-six-hour countdown. YouTube ending on its own is not detected automatically.
-The owner need not return to Edit/Save for scheduled activation or commenting.
-If nobody is viewing, activation is applied when a signed-in viewer next loads
-Dashboard/Profile (or the owner loads Live Manager). Delayed broadcasts should
-have their schedule edited. Manual End Show is never automatically reversed.
+Dashboard and Profile share one counter. YouTube's public iframe API observes
+PLAYING, including touch/mobile playback; it requires no Data API key. Merely
+loading, focusing, or pausing a YouTube iframe does not count. A successful view
+increments once per mounted counter; pause/resume does not increment again.
+Failed/zero RPC results retry during playback. This preserves view totals rather
+than introducing unique-user accounting. Refreshed totals now display other
+viewers' increments. Other providers retain their existing interaction behavior.
+The iframe URL/id remains stable across status changes and polling.
 
-## Setup and validation
+## Verification and rollout
 
-No Supabase schema/RLS/function/cron changes, signing changes or native app edits.
-Uses existing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and
-SUPABASE_SERVICE_ROLE_KEY. Production names were confirmed read-only in Vercel;
-values were not revealed. Branch previews lack the production service-role
-variable, so a successful preview build does not prove authenticated activation.
+Run node --experimental-strip-types --test tests/live-*.test.mjs.
+Twenty focused tests cover clock boundaries, owner-independent status, iframe
+identity, comments eligibility, authentication, update races, both key formats,
+actual playback events, retry and duplicate prevention. TypeScript and targeted
+ESLint also pass. Production deployment requires user approval.
 
-Run:
-node --experimental-strip-types --test tests/live-playback.test.mjs tests/live-status.test.mjs tests/live-start.test.mjs
-
-Tests cover iframe stability, comment-status eligibility, server authentication,
-eligibility, concurrency guards, manual-ended preservation and the six-hour
-boundary. Real-device posting and production activation need verification after
-an approved deployment. Rollback: revert this code; do not mass-reset rows.
+After deployment, verify /api/live/start succeeds for signed-in users and
+Supabase PATCH no longer returns 401. If it still fails, use the sanitized
+failure category to correct the existing production credential with explicit
+approval; do not weaken RLS or expose credentials. Verify real comments and
+view increments on desktop and mobile before calling the fix complete.
+No iOS/Android native changes, signing changes, or Supabase settings changes.
+Rollback by reverting this commit. Do not mass-reset existing show rows.

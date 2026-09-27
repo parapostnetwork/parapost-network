@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { getLiveDisplayStatus } from '../lib/live/status.ts';
+import { livePlayerUrl } from '../lib/live/youtube-player.ts';
 import { canPlayPublishedStream } from '../lib/live/playback.ts';
 
 const published = { id: 'show', title: 'Scheduled show', provider: 'youtube', status: 'upcoming', visibility: 'public', is_hidden: false, embed_url: 'https://www.youtube.com/embed/abcdefghijk' };
@@ -39,13 +41,13 @@ for (const [file, prefix] of [['app/dashboard/page.tsx', 'dashboard'], ['app/pro
       const stream = { ...published, status };
       return vm.runInNewContext(js, {
         React: { createElement: (tag, props) => ({ tag, props }) },
-        stream, item: stream, isLive: status === 'live', isReplay: status === 'ended',
+        livePlayerUrl, stream, item: stream, isLive: status === 'live', isReplay: status === 'ended',
         isPlayable: canPlayPublishedStream(stream), liveEmbedUrl: canPlayPublishedStream(stream) ? stream.embed_url : '',
       });
     });
     for (const rendered of renders) {
       assert.equal(rendered.tag, 'iframe');
-      assert.equal(rendered.props.src, published.embed_url);
+      assert.equal(rendered.props.src, livePlayerUrl(published.embed_url));
       assert.equal(rendered.props.id, `${prefix}-live-player-show`);
     }
   });
@@ -61,7 +63,7 @@ for (const [file, prefix] of [['app/dashboard/page.tsx', 'Dashboard'], ['app/pro
     const js = ts.transpileModule([...declarations.map(node => node.getText(source)), canComment.getText(chatSource)].join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
     for (const status of ['live', 'ended']) {
       const result = vm.runInNewContext(`${js}\ncanCommentForStatus(get${prefix}LiveChatStatus(get${prefix}EffectiveLiveStatus(stream)))`, {
-        stream: { ...published, status, started_at: '2020-01-01T00:00:00Z' },
+        getLiveDisplayStatus, stream: { ...published, status, started_at: '2020-01-01T00:00:00Z' },
       });
       assert.equal(result, true);
     }
