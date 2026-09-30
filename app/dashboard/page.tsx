@@ -2,6 +2,9 @@
 // DASHBOARD SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or realtime listeners from Dashboard.
 // DASHBOARD LOADING PERFORMANCE PASS v1 - page shell, Showcases, and first timeline batch render faster; heavy extras load after first paint.
 
+import { preserveBlockedIds } from "@/lib/dashboard/blocked-ids";
+import { queryDashboardLikes, queryExactPostLikes } from "@/lib/dashboard/like-queries";
+import { createLikeReconciler } from "@/lib/dashboard/like-reconciliation";
 import { followMember } from "@/lib/followers";
 import LiveStreamViewCount from "@/components/live/LiveStreamViewCount";
 import { livePlayerUrl } from "@/lib/live/youtube-player";
@@ -227,6 +230,24 @@ type FeelingActivityOption = {
 type CountMap = Record<string, number>;
 type ToggleMap = Record<string, boolean>;
 type FollowMap = Record<string, boolean>;
+
+// Each caller creates fresh promises; no relationship results survive a refresh.
+async function queryDashboardFollowing(userId: string) {
+  return await supabase.from("followers").select("following_id").eq("follower_id", userId);
+}
+
+async function queryDashboardFriendships(userId: string) {
+  return await supabase
+    .from("friend_requests")
+    .select("sender_id, receiver_id, status")
+    .eq("status", "accepted")
+    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+}
+
+type DashboardRelationshipQueries = {
+  following: ReturnType<typeof queryDashboardFollowing>;
+  friendships: ReturnType<typeof queryDashboardFriendships>;
+};
 
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
 const POST_CHARACTER_LIMIT = 63206;
@@ -2048,7 +2069,7 @@ export default function DashboardPage() {
   const [acceptedFriendUserIds, setAcceptedFriendUserIds] = useState<string[]>([]);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [followingMap, setFollowingMap] = useState<FollowMap>({});
-  const [likeCounts, setLikeCounts] = useState<CountMap>({});
+  const [likeCounts, applyLikeCounts] = useState<CountMap>({});
   const [commentCounts, setCommentCounts] = useState<CountMap>({});
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, DashboardComment[]>>({});
@@ -2061,7 +2082,7 @@ export default function DashboardPage() {
   const [editingCommentText, setEditingCommentText] = useState("");
   const [savingCommentId, setSavingCommentId] = useState<string | null>(null);
   const [shareCounts, setShareCounts] = useState<CountMap>({});
-  const [userLikes, setUserLikes] = useState<ToggleMap>({});
+  const [userLikes, applyUserLikes] = useState<ToggleMap>({});
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingPostContent, setEditingPostContent] = useState("");
@@ -2117,6 +2138,77 @@ export default function DashboardPage() {
   const removedReelShareIdsRef = useRef<Set<string>>(new Set());
   const removedReelShareKeysRef = useRef<Set<string>>(new Set());
   const targetedPostScrollRef = useRef("");
+
+  const likesReconcilerRef = useRef<ReturnType<typeof createLikeReconciler> | null>(null);
+  const likesSnapshotRef = useRef({ userId: "", postIds: [] as string[] });
+  const setLikeCounts = useCallback<typeof applyLikeCounts>((value) => {
+    likesReconcilerRef.current?.externalWrite();
+    applyLikeCounts(value);
+  }, []);
+  const setUserLikes = useCallback<typeof applyUserLikes>((value) => {
+    likesReconcilerRef.current?.externalWrite();
+    applyUserLikes(value);
+  }, []);
+
+  useEffect(() => {
+    likesSnapshotRef.current = {
+      userId: currentUserId,
+      postIds: [...new Set([...posts.map(post => post.id), ...sharedPostItems.map(share => share.post_id)])],
+    };
+  }, [currentUserId, posts, sharedPostItems]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    const reconciler = createLikeReconciler({
+      snapshot: () => ({
+        ...likesSnapshotRef.current,
+        canRun: shouldRunDashboardNetworkRefresh(),
+        fullLoad: dashboardRefreshInFlightRef.current,
+      }),
+      read: (postIds) => queryDashboardLikes(supabase, postIds),
+      readExact: (postId) => queryExactPostLikes(supabase, postId, currentUserId),
+      apply: (counts, liked) => {
+        applyLikeCounts(previous => ({ ...previous, ...counts }));
+        applyUserLikes(previous => ({ ...previous, ...liked }));
+      },
+      onError: () => console.warn("Dashboard targeted likes refresh failed; awaiting recovery"),
+    });
+    likesReconcilerRef.current = reconciler;
+    const resume = () => reconciler.resume();
+    window.addEventListener("focus", resume);
+    window.addEventListener("online", resume);
+    window.addEventListener("pageshow", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      reconciler.dispose();
+      if (likesReconcilerRef.current === reconciler) likesReconcilerRef.current = null;
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("pageshow", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [currentUserId]);
+
+  const notificationRefreshRef = useRef({
+    mounted: false,
+    userId: "",
+    generation: 0,
+    running: false,
+    pending: false,
+  });
+
+  useEffect(() => {
+    const refresh = notificationRefreshRef.current;
+    refresh.mounted = true;
+    refresh.userId = currentUserId;
+    refresh.generation += 1;
+    return () => {
+      refresh.mounted = false;
+      refresh.userId = "";
+      refresh.generation += 1;
+      refresh.pending = false;
+    };
+  }, [currentUserId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2511,23 +2603,31 @@ export default function DashboardPage() {
     return buildDashboardTrendingTopics(mixedFeedItems);
   }, [mixedFeedItems]);
 
-  const fetchPeopleToDiscover = useCallback(async (userId?: string, blockedIds: string[] = []) => {
+  const fetchPeopleToDiscover = useCallback(async (userId?: string, blockedIds: string[] = [], relationships?: DashboardRelationshipQueries) => {
     if (!userId) {
       setDiscoverProfiles([]);
       return;
     }
 
-    const [{ data: friendshipRows }, { data: followingRows }] = await Promise.all([
-      supabase
-        .from("friend_requests")
-        .select("sender_id, receiver_id, status")
-        .eq("status", "accepted")
-        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`),
-      supabase
-        .from("followers")
-        .select("following_id")
-        .eq("follower_id", userId),
-    ]);
+    let friendshipResult;
+    let followingResult;
+    try {
+      [friendshipResult, followingResult] = await Promise.all([
+        relationships?.friendships ?? queryDashboardFriendships(userId),
+        relationships?.following ?? queryDashboardFollowing(userId),
+      ]);
+    } catch {
+      console.error("Error fetching People to Discover relationships");
+      setDiscoverProfiles([]);
+      return;
+    }
+    if (friendshipResult.error || followingResult.error) {
+      console.error("Error fetching People to Discover relationships:", (friendshipResult.error || followingResult.error)?.message);
+      setDiscoverProfiles([]);
+      return;
+    }
+    const friendshipRows = friendshipResult.data;
+    const followingRows = followingResult.data;
 
     const friendIds = new Set(
       (friendshipRows || [])
@@ -2546,32 +2646,18 @@ export default function DashboardPage() {
       ...blockedIds,
     ]);
 
-    const selectWithDates =
-      "id, username, full_name, avatar_url, bio, location, is_online, last_seen_at, created_at, updated_at";
-
-    let profilesData: ProfilePreview[] = [];
-
     const { data, error } = await supabase
       .from("profiles")
-      .select(selectWithDates)
-      .limit(160);
+      .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+      .limit(80);
 
     if (error) {
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from("profiles")
-        .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
-        .limit(80);
-
-      if (fallbackError) {
-        console.error("Error fetching People to Discover:", fallbackError.message);
-        setDiscoverProfiles([]);
-        return;
-      }
-
-      profilesData = (fallbackData || []) as ProfilePreview[];
-    } else {
-      profilesData = (data || []) as ProfilePreview[];
+      console.error("Error fetching People to Discover:", error.message);
+      setDiscoverProfiles([]);
+      return;
     }
+
+    const profilesData = (data || []) as ProfilePreview[];
 
     const nextProfiles = profilesData
       .filter((profile) => profile.id && !hiddenIds.has(profile.id))
@@ -2848,19 +2934,16 @@ export default function DashboardPage() {
 
       return next;
     });
-  }, [blockedUserIds, updateDashboardCommentLikeState]);
+  }, [blockedUserIds, updateDashboardCommentLikeState, setLikeCounts, setUserLikes]);
 
-  const fetchFollowData = useCallback(async (userId?: string) => {
+  const fetchFollowData = useCallback(async (userId?: string, followingQuery?: DashboardRelationshipQueries["following"]) => {
     if (!userId) {
       setFollowedUserIds([]);
       setFollowingMap({});
       return [] as string[];
     }
 
-    const { data, error } = await supabase
-      .from("followers")
-      .select("following_id")
-      .eq("follower_id", userId);
+    const { data, error } = await (followingQuery ?? queryDashboardFollowing(userId));
 
     if (error) {
       console.error("Error fetching following list:", error.message);
@@ -2881,67 +2964,79 @@ export default function DashboardPage() {
   }, []);
 
   const fetchNotifications = useCallback(async (userId?: string) => {
-    if (!userId) {
-      setNotificationsCount(0);
-      setParachatUnreadCount(0);
-      setPendingFriendRequestCount(0);
-      return;
-    }
+    const refresh = notificationRefreshRef.current;
+    if (!refresh.mounted || !userId || userId !== refresh.userId) return;
+    if (!shouldRunDashboardNetworkRefresh()) return;
+    refresh.pending = true;
+    if (refresh.running) return;
 
-    const [
-      { count: unreadCount, error: unreadError },
-      { count: parachatCount, error: parachatError },
-      { count: requestCount, error: requestError },
-    ] = await Promise.all([
-      supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("is_read", false),
-      supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("is_read", false)
-        .in("type", ["parachat_message", "parachat_photo"]),
-      supabase
-        .from("friend_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("receiver_id", userId)
-        .eq("status", "pending"),
-    ]);
+    refresh.running = true;
+    try {
+      while (refresh.pending && refresh.mounted && refresh.userId) {
+        refresh.pending = false;
+        if (!shouldRunDashboardNetworkRefresh()) break;
+        const userId = refresh.userId;
+        const generation = refresh.generation;
+        try {
+          const [
+            { count: unreadCount, error: unreadError },
+            { count: parachatCount, error: parachatError },
+            { count: requestCount, error: requestError },
+          ] = await Promise.all([
+            supabase
+              .from("notifications")
+              .select("id", { count: "exact", head: true })
+              .eq("user_id", userId)
+              .eq("is_read", false),
+            supabase
+              .from("notifications")
+              .select("id", { count: "exact", head: true })
+              .eq("user_id", userId)
+              .eq("is_read", false)
+              .in("type", ["parachat_message", "parachat_photo"]),
+            supabase
+              .from("friend_requests")
+              .select("*", { count: "exact", head: true })
+              .eq("receiver_id", userId)
+              .eq("status", "pending"),
+          ].map((request) => Promise.resolve(request).catch((error) => ({ count: null, error }))));
 
-    if (unreadError) {
-      logDashboardNetworkIssue("Dashboard notification badge refresh skipped", unreadError);
-    } else {
-      setNotificationsCount(unreadCount || 0);
-    }
+          if (!refresh.mounted || refresh.generation !== generation || refresh.userId !== userId) continue;
 
-    if (parachatError) {
-      logDashboardNetworkIssue("Dashboard Parachat badge refresh skipped", parachatError);
-    } else {
-      setParachatUnreadCount(parachatCount || 0);
-    }
+          if (unreadError) {
+            logDashboardNetworkIssue("Dashboard notification badge refresh skipped", unreadError);
+          } else {
+            setNotificationsCount(unreadCount || 0);
+          }
 
-    if (requestError) {
-      logDashboardNetworkIssue("Dashboard friend-request badge refresh skipped", requestError);
-    } else {
-      setPendingFriendRequestCount(requestCount || 0);
+          if (parachatError) {
+            logDashboardNetworkIssue("Dashboard Parachat badge refresh skipped", parachatError);
+          } else {
+            setParachatUnreadCount(parachatCount || 0);
+          }
+
+          if (requestError) {
+            logDashboardNetworkIssue("Dashboard friend-request badge refresh skipped", requestError);
+          } else {
+            setPendingFriendRequestCount(requestCount || 0);
+          }
+        } catch (error) {
+          logDashboardNetworkIssue("Dashboard notification refresh skipped", error);
+        }
+      }
+    } finally {
+      refresh.running = false;
     }
   }, []);
 
-  const fetchFriendShowcases = useCallback(async (userId?: string, blockedIds: string[] = []) => {
+  const fetchFriendShowcases = useCallback(async (userId?: string, blockedIds: string[] = [], friendshipQuery?: DashboardRelationshipQueries["friendships"]) => {
     if (!userId) {
       setAcceptedFriendUserIds([]);
       setFriendShowcases([]);
       return [] as DashboardShowcaseItem[];
     }
 
-    const { data: friendshipRows, error: friendshipError } = await supabase
-      .from("friend_requests")
-      .select("sender_id, receiver_id, status")
-      .eq("status", "accepted")
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+    const { data: friendshipRows, error: friendshipError } = await (friendshipQuery ?? queryDashboardFriendships(userId));
 
     if (friendshipError) {
       console.error("Error fetching dashboard friend showcase relationships:", friendshipError.message);
@@ -3278,10 +3373,11 @@ export default function DashboardPage() {
 
   useLiveRefresh(() => fetchLiveFeedStreams(blockedUserIds), Boolean(currentUserId) && liveFeedStreams.some(needsLiveRefresh));
 
-  const fetchDashboardData = useCallback(async (showFeedLoading = false) => {
+  const fetchDashboardData = useCallback(async (showFeedLoading = false, refreshNotificationCounts = true) => {
     if (dashboardRefreshInFlightRef.current) return;
 
     dashboardRefreshInFlightRef.current = true;
+    likesReconcilerRef.current?.fullStart();
 
     const shouldShowFeedLoading = showFeedLoading || !hasLoadedDashboardOnceRef.current;
     if (shouldShowFeedLoading) setFetchingPosts(true);
@@ -3330,19 +3426,26 @@ export default function DashboardPage() {
           blockedIds = buildDashboardBlockedUserIds((blocksData as BlockedUserRow[]) || [], user.id);
         }
 
-        setBlockedUserIds(blockedIds);
+        setBlockedUserIds(previous => preserveBlockedIds(previous, blockedIds));
+
+        const relationships: DashboardRelationshipQueries = {
+          following: queryDashboardFollowing(user.id),
+          friendships: queryDashboardFriendships(user.id),
+        };
 
         // Start these immediately, but do not make the timeline wait for them.
-        void fetchFollowData(user.id).catch((error) => logDashboardNetworkIssue("Dashboard following skipped", error));
-        void fetchNotifications(user.id).catch((error) => logDashboardNetworkIssue("Dashboard notifications skipped", error));
+        void fetchFollowData(user.id, relationships.following).catch((error) => logDashboardNetworkIssue("Dashboard following skipped", error));
+        if (refreshNotificationCounts) {
+          void fetchNotifications(user.id).catch((error) => logDashboardNetworkIssue("Dashboard notifications skipped", error));
+        }
         void fetchRecentlyViewed(user.id, blockedIds).catch((error) => logDashboardNetworkIssue("Dashboard recently viewed skipped", error));
-        void fetchPeopleToDiscover(user.id, blockedIds).catch((error) => logDashboardNetworkIssue("Dashboard discover skipped", error));
-        void fetchFriendShowcases(user.id, blockedIds).catch((error) => logDashboardNetworkIssue("Dashboard showcases skipped", error));
+        void fetchPeopleToDiscover(user.id, blockedIds, relationships).catch((error) => logDashboardNetworkIssue("Dashboard discover skipped", error));
+        void fetchFriendShowcases(user.id, blockedIds, relationships.friendships).catch((error) => logDashboardNetworkIssue("Dashboard showcases skipped", error));
       } else {
         setCurrentUserId("");
         setUserEmail("");
         setCurrentProfile(null);
-        setBlockedUserIds([]);
+        setBlockedUserIds(previous => preserveBlockedIds(previous, []));
         setFollowedUserIds([]);
         setFollowingMap({});
         setNotificationsCount(0);
@@ -3444,6 +3547,7 @@ export default function DashboardPage() {
     } finally {
       hasLoadedDashboardOnceRef.current = true;
       dashboardRefreshInFlightRef.current = false;
+      likesReconcilerRef.current?.resume();
       setFetchingPosts(false);
     }
   }, [fetchCounts, fetchFollowData, fetchFriendShowcases, fetchLiveFeedStreams, fetchNotifications, fetchPeopleToDiscover, fetchProfileMap, fetchRecentlyViewed, fetchSharedPosts, fetchSharedReels]);
@@ -3544,10 +3648,10 @@ export default function DashboardPage() {
 
     let refreshTimer: number | null = null;
 
-    const requestDashboardRefresh = () => {
+    const requestDashboardRefresh = (refreshNotificationCounts = true) => {
       if (!shouldRunDashboardNetworkRefresh()) return;
       if (dashboardRefreshInFlightRef.current) return;
-      void fetchDashboardData(false);
+      void fetchDashboardData(false, refreshNotificationCounts);
     };
 
     const schedulePulseRefresh = () => {
@@ -3565,7 +3669,7 @@ export default function DashboardPage() {
       .channel(`dashboard-network-pulse-${currentUserId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "shares" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, schedulePulseRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, (payload) => likesReconcilerRef.current?.event(payload))
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "followers" }, schedulePulseRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, schedulePulseRefresh)
@@ -3574,7 +3678,10 @@ export default function DashboardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "blocked_users" }, schedulePulseRefresh)
       .subscribe();
 
-    const intervalId = window.setInterval(requestDashboardRefresh, DASHBOARD_BACKGROUND_REFRESH_MS);
+    const intervalId = window.setInterval(
+      () => requestDashboardRefresh(false),
+      DASHBOARD_BACKGROUND_REFRESH_MS
+    );
 
     const handleFocusRefresh = () => {
       schedulePulseRefresh();
@@ -3601,19 +3708,24 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!currentUserId || typeof window === "undefined") return;
 
+    let disposed = false;
     let badgeRefreshTimer: number | null = null;
 
     const refreshNotificationBadges = () => {
-      if (!shouldRunDashboardNetworkRefresh()) return;
+      if (disposed || !shouldRunDashboardNetworkRefresh()) return;
       void fetchNotifications(currentUserId);
     };
 
     const scheduleNotificationBadgeRefresh = () => {
+      if (disposed) return;
       if (badgeRefreshTimer) {
         window.clearTimeout(badgeRefreshTimer);
       }
 
-      badgeRefreshTimer = window.setTimeout(refreshNotificationBadges, 180);
+      badgeRefreshTimer = window.setTimeout(() => {
+        badgeRefreshTimer = null;
+        refreshNotificationBadges();
+      }, 180);
     };
 
     const notificationBadgeChannel = supabase
@@ -3638,29 +3750,36 @@ export default function DashboardPage() {
         },
         scheduleNotificationBadgeRefresh
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") scheduleNotificationBadgeRefresh();
+      });
 
-    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 8000);
+    const badgeIntervalId = window.setInterval(refreshNotificationBadges, 720000);
 
     const handleBadgeFocusRefresh = () => {
-      refreshNotificationBadges();
+      scheduleNotificationBadgeRefresh();
     };
 
     const handleBadgeVisibilityRefresh = () => {
       if (document.visibilityState === "visible") {
-        refreshNotificationBadges();
+        scheduleNotificationBadgeRefresh();
       }
     };
 
     refreshNotificationBadges();
 
     window.addEventListener("focus", handleBadgeFocusRefresh);
+    window.addEventListener("pageshow", handleBadgeFocusRefresh);
+    window.addEventListener("online", handleBadgeFocusRefresh);
     document.addEventListener("visibilitychange", handleBadgeVisibilityRefresh);
 
     return () => {
+      disposed = true;
       if (badgeRefreshTimer) window.clearTimeout(badgeRefreshTimer);
       window.clearInterval(badgeIntervalId);
       window.removeEventListener("focus", handleBadgeFocusRefresh);
+      window.removeEventListener("pageshow", handleBadgeFocusRefresh);
+      window.removeEventListener("online", handleBadgeFocusRefresh);
       document.removeEventListener("visibilitychange", handleBadgeVisibilityRefresh);
       void supabase.removeChannel(notificationBadgeChannel);
     };
@@ -4262,33 +4381,43 @@ export default function DashboardPage() {
   }, []);
 
   const handleLikeToggle = async (postId: string) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const reconciler = likesReconcilerRef.current;
+    reconciler?.beginMutation(postId);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      alert("You must be logged in to like a post.");
-      return;
-    }
-
-    const alreadyLiked = !!userLikes[postId];
-
-    if (alreadyLiked) {
-      const { error } = await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
-      if (error) {
-        alert(`Unlike error: ${error.message}`);
+      if (!user) {
+        alert("You must be logged in to like a post.");
         return;
       }
-      setUserLikes((prev) => ({ ...prev, [postId]: false }));
-      setLikeCounts((prev) => ({ ...prev, [postId]: Math.max((prev[postId] || 1) - 1, 0) }));
-    } else {
-      const { error } = await supabase.from("likes").insert([{ user_id: user.id, post_id: postId }]);
-      if (error) {
-        alert(`Like error: ${error.message}`);
-        return;
+
+      if (reconciler && !reconciler.isCurrent(user.id)) return;
+
+      const alreadyLiked = !!userLikes[postId];
+
+      if (alreadyLiked) {
+        const { error } = await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
+        if (error) {
+          alert(`Unlike error: ${error.message}`);
+          return;
+        }
+        if (reconciler && !reconciler.isCurrent(user.id)) return;
+        setUserLikes((prev) => ({ ...prev, [postId]: false }));
+        setLikeCounts((prev) => ({ ...prev, [postId]: Math.max((prev[postId] || 1) - 1, 0) }));
+      } else {
+        const { error } = await supabase.from("likes").insert([{ user_id: user.id, post_id: postId }]);
+        if (error) {
+          alert(`Like error: ${error.message}`);
+          return;
+        }
+        if (reconciler && !reconciler.isCurrent(user.id)) return;
+        setUserLikes((prev) => ({ ...prev, [postId]: true }));
+        setLikeCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
       }
-      setUserLikes((prev) => ({ ...prev, [postId]: true }));
-      setLikeCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
+    } finally {
+      reconciler?.endMutation(postId);
     }
   };
 
