@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { supabase } from "@/lib/supabase";
+import { createUploadAttempt, getVideoDuration, generatePosterFromFile } from "@/lib/reels/upload-lifecycle";
 
 type UploadedReel = {
   id: string;
@@ -177,153 +178,6 @@ function isOverReelDurationLimit(duration: number) {
   return duration > MAX_REEL_DURATION_SECONDS + MAX_REEL_DURATION_TOLERANCE_SECONDS;
 }
 
-function getReadableVideoDuration(video: HTMLVideoElement) {
-  const duration = video.duration;
-  return Number.isFinite(duration) && duration > 0 ? duration : 0;
-}
-
-async function getVideoDuration(file: File) {
-  return await new Promise<number>((resolve, reject) => {
-    const video = document.createElement("video");
-    const objectUrl = URL.createObjectURL(file);
-    let settled = false;
-    let bestDuration = 0;
-    let acceptShortDurationTimer: number | null = null;
-    let timeoutTimer: number | null = null;
-
-    const cleanup = () => {
-      if (acceptShortDurationTimer) window.clearTimeout(acceptShortDurationTimer);
-      if (timeoutTimer) window.clearTimeout(timeoutTimer);
-      URL.revokeObjectURL(objectUrl);
-      video.removeAttribute("src");
-      video.load();
-    };
-
-    const finish = (duration: number) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(duration);
-    };
-
-    const fail = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error("Could not read the selected video."));
-    };
-
-    const checkDuration = () => {
-      const duration = getReadableVideoDuration(video);
-      if (duration > bestDuration) bestDuration = duration;
-
-      if (isOverReelDurationLimit(bestDuration)) {
-        finish(bestDuration);
-        return;
-      }
-
-      // Some mobile browsers update video duration shortly after metadata loads.
-      // Wait a moment before accepting a short duration so longer videos are not
-      // accidentally treated like 7-10 second clips.
-      if (bestDuration > 0 && !acceptShortDurationTimer) {
-        acceptShortDurationTimer = window.setTimeout(() => finish(bestDuration), 1500);
-      }
-    };
-
-    video.preload = "metadata";
-    video.muted = true;
-    video.playsInline = true;
-
-    video.onloadedmetadata = () => {
-      checkDuration();
-
-      // Force the browser to resolve the real end time when possible.
-      // This helps prevent some mobile uploads from being misread as a short
-      // 7-10 second clip when the selected video is actually longer.
-      try {
-        video.currentTime = Number.MAX_SAFE_INTEGER;
-      } catch {
-        // Some browsers do not allow seeking before enough metadata is ready.
-      }
-    };
-
-    video.ondurationchange = checkDuration;
-    video.oncanplay = checkDuration;
-    video.onseeked = checkDuration;
-    video.onerror = fail;
-
-    timeoutTimer = window.setTimeout(() => {
-      if (bestDuration > 0) {
-        finish(bestDuration);
-        return;
-      }
-
-      fail();
-    }, 8000);
-
-    video.src = objectUrl;
-    video.load();
-  });
-}
-
-async function generatePosterFromFile(file: File, seekTo = 0.6) {
-  return await new Promise<Blob>((resolve, reject) => {
-    const video = document.createElement("video");
-    const objectUrl = URL.createObjectURL(file);
-
-    video.playsInline = true;
-    video.muted = true;
-    video.preload = "metadata";
-    video.src = objectUrl;
-
-    const cleanup = () => {
-      URL.revokeObjectURL(objectUrl);
-      video.removeAttribute("src");
-      video.load();
-    };
-
-    video.onloadedmetadata = () => {
-      const targetTime =
-        Number.isFinite(video.duration) && video.duration > seekTo
-          ? seekTo
-          : Math.max(0, video.duration * 0.2 || 0);
-      video.currentTime = targetTime;
-    };
-
-    video.onseeked = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth || 720;
-      canvas.height = video.videoHeight || 1280;
-      const ctx = canvas.getContext("2d");
-
-      if (!ctx) {
-        cleanup();
-        reject(new Error("Could not generate reel cover image."));
-        return;
-      }
-
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(
-        (blob) => {
-          cleanup();
-          if (!blob) {
-            reject(new Error("Could not generate reel cover image."));
-            return;
-          }
-          resolve(blob);
-        },
-        "image/jpeg",
-        0.9,
-      );
-    };
-
-    video.onerror = () => {
-      cleanup();
-      reject(new Error("Could not generate reel cover image."));
-    };
-  });
-}
-
 function getViewportType(width: number) {
   if (width <= 899) return "mobile";
   if (width <= 1200) return "tablet";
@@ -337,6 +191,19 @@ export default function ReelUploadModal({
   onUploadSuccess,
 }: ReelUploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const attemptRef = useRef<ReturnType<typeof createUploadAttempt> | null>(null);
+  const openRef = useRef(false);
+  const publishPendingRef = useRef(false);
+  const cancelAttempt = () => {
+    attemptRef.current?.cancel();
+    attemptRef.current = null;
+    publishPendingRef.current = false;
+  };
+  useEffect(() => {
+    openRef.current = isOpen;
+    if (isOpen) resetState();
+    return () => { openRef.current = false; cancelAttempt(); };
+  }, [isOpen]);
 
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -356,7 +223,7 @@ export default function ReelUploadModal({
   const viewportType = getViewportType(viewportWidth);
   const isMobile = viewportType === "mobile";
   const isReadyToUpload =
-    !!selectedVideo && !!userId && title.trim().length > 0 && !isUploading;
+    !!selectedVideo && !!userId && title.trim().length > 0 && !isUploading && !isPreparing;
   const publishButtonLabel = isUploading
     ? isGeneratingPoster
       ? "Preparing..."
@@ -406,12 +273,17 @@ export default function ReelUploadModal({
   };
 
   const handleClose = () => {
-    if (isUploading) return;
+    if (!openRef.current) return;
+    openRef.current = false;
+    cancelAttempt();
     resetState();
     onClose();
   };
 
   const handleRemoveVideo = () => {
+    if (publishPendingRef.current) return;
+    cancelAttempt();
+    setIsPreparing(false);
     setSelectedVideo(null);
     setVideoDuration(0);
     setTitle("");
@@ -434,6 +306,7 @@ export default function ReelUploadModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    let cancelled = false;
     const loadProfile = async () => {
       if (!userId) {
         setProfile(null);
@@ -446,6 +319,7 @@ export default function ReelUploadModal({
         .eq("id", userId)
         .maybeSingle();
 
+      if (cancelled || !openRef.current) return;
       if (data) {
         setProfile(data);
       } else {
@@ -458,14 +332,15 @@ export default function ReelUploadModal({
       }
     };
 
-    loadProfile();
+    void loadProfile().catch(() => {});
+    return () => { cancelled = true; };
   }, [isOpen, userId]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isUploading) {
+      if (event.key === "Escape") {
         handleClose();
       }
     };
@@ -475,10 +350,7 @@ export default function ReelUploadModal({
   });
 
   useEffect(() => {
-    if (!selectedVideo) {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+    if (!isOpen || !selectedVideo) {
       setPreviewUrl("");
       setVideoDuration(0);
       return;
@@ -490,7 +362,7 @@ export default function ReelUploadModal({
     return () => {
       URL.revokeObjectURL(nextUrl);
     };
-  }, [selectedVideo]);
+  }, [selectedVideo, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -504,9 +376,16 @@ export default function ReelUploadModal({
   }, [isOpen]);
 
   const processVideoFile = async (file: File) => {
+    if (!openRef.current || publishPendingRef.current) return;
+    cancelAttempt();
+    const attempt = createUploadAttempt();
+    attemptRef.current = attempt;
+    const current = () => openRef.current && attemptRef.current === attempt;
     clearTransientMessages();
 
     if (!file.type.startsWith("video/")) {
+      attemptRef.current = null;
+      setIsPreparing(false);
       setErrorMessage("Please choose a video file.");
       return;
     }
@@ -514,7 +393,8 @@ export default function ReelUploadModal({
     setIsPreparing(true);
 
     try {
-      const duration = await getVideoDuration(file);
+      const duration = await getVideoDuration(file, attempt.signal);
+      if (!current()) return;
 
       if (isOverReelDurationLimit(duration)) {
         setErrorMessage(REEL_TOO_LONG_MESSAGE);
@@ -536,11 +416,10 @@ export default function ReelUploadModal({
       if (isMobile) {
         setMobileStep("preview");
       }
-    } catch (error) {
-      console.error(error);
-      setErrorMessage("Could not read that video. Try another file.");
+    } catch {
+      if (current()) setErrorMessage("Could not read that video. Try another file.");
     } finally {
-      setIsPreparing(false);
+      if (current()) { setIsPreparing(false); attemptRef.current = null; }
     }
   };
 
@@ -563,7 +442,7 @@ export default function ReelUploadModal({
   };
 
   const handleUpload = async () => {
-    if (isUploading) return;
+    if (!openRef.current || publishPendingRef.current) return;
     clearTransientMessages();
 
     if (!userId) {
@@ -583,12 +462,28 @@ export default function ReelUploadModal({
       return;
     }
 
+    cancelAttempt();
+    const attempt = createUploadAttempt();
+    attemptRef.current = attempt;
+    publishPendingRef.current = true;
+    const current = () => openRef.current && attemptRef.current === attempt;
+    const finishAttempt = () => {
+      if (!current()) return;
+      publishPendingRef.current = false;
+      attemptRef.current = null;
+      setIsUploading(false);
+      setIsPreparing(false);
+      setIsGeneratingPoster(false);
+    };
     let confirmedDuration = videoDuration;
 
     try {
       setIsPreparing(true);
-      confirmedDuration = await getVideoDuration(selectedVideo);
+      confirmedDuration = await getVideoDuration(selectedVideo, attempt.signal);
+      if (!current()) return;
     } catch {
+      if (!current()) return;
+      finishAttempt();
       setErrorMessage("Could not confirm this video length. Please try another video.");
       setIsPreparing(false);
       if (isMobile) setMobileStep("select");
@@ -598,6 +493,7 @@ export default function ReelUploadModal({
     setIsPreparing(false);
 
     if (isOverReelDurationLimit(confirmedDuration)) {
+      finishAttempt();
       setErrorMessage(REEL_TOO_LONG_MESSAGE);
       setSelectedVideo(null);
       setPreviewUrl("");
@@ -612,6 +508,18 @@ export default function ReelUploadModal({
 
     let videoPath = "";
     let posterPath = "";
+    let insertStarted = false;
+    let committed = false;
+    const storageState = new Map<string, "pending" | "settled" | "cleaning">();
+    const removeAbandoned = (bucket: string, path: string) => {
+      if (!path || insertStarted || storageState.get(bucket) !== "settled") return;
+      storageState.set(bucket, "cleaning");
+      // Cleanup must never hold the UI open, and must never delete media that
+      // an in-flight insert might reference. Wait for storage settlement before
+      // removing its unique path, so a late upload cannot recreate the object.
+      const cleanup = createUploadAttempt();
+      void cleanup.wait(supabase.storage.from(bucket).remove([path]), 15000).catch(() => {});
+    };
 
     try {
       const extension = extractFileExtension(selectedVideo.name);
@@ -619,7 +527,8 @@ export default function ReelUploadModal({
       const posterFileName = createFileName("reel-poster", "jpg");
 
       setIsGeneratingPoster(true);
-      const posterBlob = await generatePosterFromFile(selectedVideo);
+      const posterBlob = await generatePosterFromFile(selectedVideo, attempt.signal);
+      if (!current()) return;
       setIsGeneratingPoster(false);
 
       videoPath = `${userId}/${videoFileName}`;
@@ -627,14 +536,22 @@ export default function ReelUploadModal({
 
       let finalVideoUploadError: { message?: string } | null = null;
 
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const { error } = await supabase.storage
+      for (let retry = 0; retry < 2; retry += 1) {
+        const upload = supabase.storage
           .from("reels")
           .upload(videoPath, selectedVideo, {
             cacheControl: "604800",
             upsert: false,
             contentType: selectedVideo.type || "video/mp4",
           });
+        storageState.set("reels", "pending");
+        const videoSettled = () => {
+          storageState.set("reels", "settled");
+          if (attempt.signal.aborted) removeAbandoned("reels", videoPath);
+        };
+        void upload.then(videoSettled, videoSettled);
+        const { error } = await attempt.wait(upload);
+        if (!current()) return;
 
         if (!error) {
           finalVideoUploadError = null;
@@ -650,7 +567,7 @@ export default function ReelUploadModal({
         );
       }
 
-      const { error: posterUploadError } = await supabase.storage
+      const posterUpload = supabase.storage
         .from("reel-posters")
         .upload(posterPath, posterBlob, {
           cacheControl: "3600",
@@ -658,6 +575,14 @@ export default function ReelUploadModal({
           contentType: "image/jpeg",
         });
 
+      storageState.set("reel-posters", "pending");
+      const posterSettled = () => {
+        storageState.set("reel-posters", "settled");
+        if (attempt.signal.aborted) removeAbandoned("reel-posters", posterPath);
+      };
+      void posterUpload.then(posterSettled, posterSettled);
+      const { error: posterUploadError } = await attempt.wait(posterUpload);
+      if (!current()) return;
       if (posterUploadError) {
         throw new Error(posterUploadError.message || "Poster upload failed.");
       }
@@ -685,16 +610,20 @@ export default function ReelUploadModal({
         created_at: createdAt,
       };
 
-      const { data: insertedReel, error: insertError } = await supabase
+      insertStarted = true;
+      const { data: insertedReel, error: insertError } = await attempt.wait(supabase
         .from("reels")
         .insert(insertPayload)
         .select("id")
-        .single();
+        .abortSignal(attempt.signal)
+        .single(), 60000);
+      if (!current()) return;
 
       if (insertError) {
         throw new Error(insertError.message || "Could not save reel record.");
       }
 
+      committed = true;
       const newReel: UploadedReel = {
         id: insertedReel?.id || `reel-${Date.now()}`,
         user_id: userId,
@@ -714,44 +643,29 @@ export default function ReelUploadModal({
       };
 
       onUploadSuccess(newReel);
+      if (!current()) return;
 
-      window.setTimeout(() => {
-        window.dispatchEvent(new Event("reels-refresh"));
-      }, 300);
-
-      window.setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }, 200);
-
-      setSuccessMessage("Reel uploaded successfully.");
+      // Run success-only effects now: no delayed callback can outlive dismissal.
+      window.dispatchEvent(new Event("reels-refresh"));
+      if (!current()) return;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      finishAttempt();
       resetState();
+      openRef.current = false;
       onClose();
     } catch (error) {
-      console.error(error);
-
-      if (videoPath) {
-        await supabase.storage
-          .from("reels")
-          .remove([videoPath])
-          .catch(() => {});
-      }
-
-      if (posterPath) {
-        await supabase.storage
-          .from("reel-posters")
-          .remove([posterPath])
-          .catch(() => {});
-      }
-
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong while uploading.",
-      );
+      removeAbandoned("reels", videoPath);
+      removeAbandoned("reel-posters", posterPath);
+      if (!current()) return;
+      setErrorMessage(insertStarted && !committed
+        ? "The Reel save could not be confirmed. Check your Reels before trying again; it may already have published."
+        : error instanceof Error ? error.message : "Something went wrong while uploading.");
     } finally {
-      setIsUploading(false);
-      setIsPreparing(false);
-      setIsGeneratingPoster(false);
+      if (attempt.signal.aborted) {
+        removeAbandoned("reels", videoPath);
+        removeAbandoned("reel-posters", posterPath);
+      }
+      finishAttempt();
     }
   };
 
@@ -1070,6 +984,7 @@ export default function ReelUploadModal({
         <button
           type="button"
           onClick={() => {
+            if (attemptRef.current) { handleClose(); return; }
             if (mobileStep === "details") {
               setMobileStep("preview");
               return;
@@ -1124,7 +1039,7 @@ export default function ReelUploadModal({
         <>
           <div
             style={overlayStyle}
-            onClick={isUploading ? undefined : handleClose}
+            onClick={handleClose}
           />
           <div style={{ ...wrapStyle, padding: 0 }}>
             <div
@@ -1277,7 +1192,7 @@ export default function ReelUploadModal({
         <>
           <div
             style={overlayStyle}
-            onClick={isUploading ? undefined : handleClose}
+            onClick={handleClose}
           />
           <div style={{ ...wrapStyle, padding: 0 }}>
             <div
@@ -1345,7 +1260,7 @@ export default function ReelUploadModal({
       <>
         <div
           style={overlayStyle}
-          onClick={isUploading ? undefined : handleClose}
+          onClick={handleClose}
         />
         <div style={{ ...wrapStyle, padding: 0 }}>
           <div
@@ -1401,7 +1316,7 @@ export default function ReelUploadModal({
     <>
       <div
         style={overlayStyle}
-        onClick={isUploading ? undefined : handleClose}
+        onClick={handleClose}
       />
       <div style={wrapStyle}>
         <div
