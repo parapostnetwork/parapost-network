@@ -39,6 +39,7 @@ import ProfileAboutSection from "@/components/profile/ProfileAboutSection";
 import ProfilePhotosSection from "@/components/profile/ProfilePhotosSection";
 import LiveChatPanel from "@/components/live/LiveChatPanel";
 import ProfileThoughtBubble from "@/components/ProfileThoughtBubble";
+import { useThoughtViewport } from "@/lib/thoughts/use-thought-viewport";
 
 type ProfileRow = {
   id: string;
@@ -2537,6 +2538,7 @@ export default function ProfilePage() {
   // a programmatic click into a nested ProfileThoughtBubble instance.
   const [desktopThoughtComposerOpen, setDesktopThoughtComposerOpen] = useState(false);
   const [profileThoughtViewerOpen, setProfileThoughtViewerOpen] = useState(false);
+  const thoughtViewport = useThoughtViewport(desktopThoughtComposerOpen || profileThoughtViewerOpen);
   const [desktopThoughtDraft, setDesktopThoughtDraft] = useState("");
   const [desktopThoughtAudience, setDesktopThoughtAudience] = useState<"friends" | "everyone">("friends");
   const [desktopThoughtSharing, setDesktopThoughtSharing] = useState(false);
@@ -7396,6 +7398,7 @@ return (
             style={{
               position: "fixed",
               inset: 0,
+              ...thoughtViewport,
               zIndex: 2147483647,
               display: "grid",
               placeItems: "center",
@@ -7412,9 +7415,10 @@ return (
               aria-labelledby="profile-thought-viewer-title"
               style={{
                 width: "min(520px, calc(100vw - 48px))",
-                minHeight: 430,
-                maxHeight: "calc(100dvh - 48px)",
-                overflowY: "auto",
+                minHeight: "min(430px, calc(var(--thought-height, 100dvh) - 48px))",
+                maxHeight: "calc(var(--thought-height, 100dvh) - 48px)",
+                boxSizing: "border-box",
+                overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
                 color: "#fff",
@@ -7426,8 +7430,8 @@ return (
             >
               <header
                 style={{
-                  height: 76,
-                  minHeight: 76,
+                  height: "clamp(56px, calc(var(--thought-height, 100dvh) - 400px), 76px)",
+                  flexShrink: 0,
                   display: "grid",
                   gridTemplateColumns: "70px 1fr 70px",
                   alignItems: "center",
@@ -7467,17 +7471,21 @@ return (
               <div
                 style={{
                   flex: 1,
+                  minHeight: 0,
+                  overflowY: "auto",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  padding: "48px 28px 34px",
+                  justifyContent: "safe center",
+                  padding: "clamp(12px, calc((var(--thought-height, 100dvh) - 400px) / 4), 48px) 28px clamp(12px, calc((var(--thought-height, 100dvh) - 400px) / 10), 34px)",
                 }}
               >
                 <div
                   style={{
                     position: "relative",
+                    flexShrink: 0,
                     width: "min(360px, 78vw)",
+                    maxWidth: "100%",
                     minHeight: 96,
                     display: "grid",
                     placeItems: "center",
@@ -7514,6 +7522,7 @@ return (
                   aria-hidden="true"
                   style={{
                     position: "relative",
+                    flexShrink: 0,
                     zIndex: 2,
                     width: 118,
                     height: 118,
@@ -7577,6 +7586,7 @@ return (
             style={{
               position: "fixed",
               inset: 0,
+              ...thoughtViewport,
               zIndex: 2147483647,
               display: "grid",
               placeItems: "center",
@@ -7593,9 +7603,10 @@ return (
               aria-labelledby="desktop-thought-composer-title"
               style={{
                 width: "min(620px, calc(100vw - 48px))",
-                minHeight: 640,
-                maxHeight: "calc(100dvh - 48px)",
-                overflowY: "auto",
+                minHeight: "min(640px, calc(var(--thought-height, 100dvh) - 48px))",
+                maxHeight: "calc(var(--thought-height, 100dvh) - 48px)",
+                boxSizing: "border-box",
+                overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
                 color: "#fff",
@@ -7607,8 +7618,8 @@ return (
             >
               <header
                 style={{
-                  height: 82,
-                  minHeight: 82,
+                  height: "clamp(56px, calc(var(--thought-height, 100dvh) - 400px), 82px)",
+                  flexShrink: 0,
                   display: "grid",
                   gridTemplateColumns: "90px 1fr 90px",
                   alignItems: "center",
@@ -7672,18 +7683,22 @@ return (
               <div
                 style={{
                   flex: 1,
+                  minHeight: 0,
+                  overflowY: "auto",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "flex-start",
-                  padding: "90px 30px 36px",
+                  padding: "clamp(12px, calc((var(--thought-height, 100dvh) - 500px) / 2), 90px) 30px clamp(12px, calc((var(--thought-height, 100dvh) - 400px) / 10), 36px)",
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, maxWidth: "100%" }}>
                   <div
                     style={{
                       position: "relative",
+                      flexShrink: 0,
                       width: "min(330px, 74vw)",
+                      maxWidth: "100%",
                       minHeight: 92,
                       marginBottom: 10,
                       borderRadius: 28,
@@ -7713,7 +7728,7 @@ return (
                         fontSize: 22,
                         lineHeight: 1.25,
                         textAlign: "center",
-                        overflow: "hidden",
+                        overflowY: "auto",
                       }}
                     />
                     <span
@@ -7735,6 +7750,7 @@ return (
                     aria-hidden="true"
                     style={{
                       position: "relative",
+                      flexShrink: 0,
                       zIndex: 2,
                       width: 142,
                       height: 142,
@@ -7767,6 +7783,7 @@ return (
                       role="alert"
                       style={{
                         width: "min(360px, 78vw)",
+                        maxWidth: "100%",
                         marginTop: 16,
                         color: "#fca5a5",
                         fontSize: 13,
@@ -7783,11 +7800,15 @@ return (
 
               <footer
                 style={{
+                  minHeight: 0,
+                  overflowY: "auto",
+                  maxHeight: "max(0px, calc(var(--thought-height, 100dvh) - 130px))",
+                  flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   gap: 18,
-                  padding: "22px 28px",
+                  padding: "clamp(8px, calc((var(--thought-height, 100dvh) - 400px) / 10), 22px) 28px",
                   borderTop: "1px solid rgba(255,255,255,0.08)",
                 }}
               >

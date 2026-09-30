@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useThoughtViewport } from "@/lib/thoughts/use-thought-viewport";
 
 
 const DAILY_PROMPTS = [
@@ -56,6 +57,7 @@ export default function ProfileThoughtBubble({
   onOpenReadOnly,
 }: ProfileThoughtBubbleProps) {
   const [composerOpen, setComposerOpen] = useState(false);
+  const thoughtViewport = useThoughtViewport(composerOpen);
   const [draft, setDraft] = useState("");
   const [audience, setAudience] = useState<"friends" | "everyone">("friends");
   const [sharing, setSharing] = useState(false);
@@ -251,6 +253,7 @@ export default function ProfileThoughtBubble({
   const composerNode = composerOpen ? (
     <div
       className="thought-composer-backdrop"
+      style={thoughtViewport}
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) setComposerOpen(false);
@@ -472,9 +475,10 @@ export default function ProfileThoughtBubble({
 
         .thought-composer {
           width: min(620px, 100%);
-          min-height: 640px;
-          max-height: min(820px, calc(100dvh - 48px));
-          overflow: auto;
+          min-height: min(640px, calc(var(--thought-height, 100dvh) - 48px));
+          max-height: min(820px, calc(var(--thought-height, 100dvh) - 48px));
+          box-sizing: border-box;
+          overflow: hidden;
           display: flex;
           flex-direction: column;
           color: #fff;
@@ -487,7 +491,8 @@ export default function ProfileThoughtBubble({
         }
 
         .thought-composer-header {
-          height: 82px;
+          height: clamp(56px, calc(var(--thought-height, 100dvh) - 400px), 82px);
+          flex-shrink: 0;
           display: grid;
           grid-template-columns: 90px 1fr 90px;
           align-items: center;
@@ -539,20 +544,25 @@ export default function ProfileThoughtBubble({
         }
 
         .thought-composer-body {
+          min-height: 0;
+          overflow-y: auto;
           flex: 1;
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 90px 30px 36px;
+          padding: clamp(12px, calc((var(--thought-height, 100dvh) - 500px) / 2), 90px) 30px clamp(12px, calc((var(--thought-height, 100dvh) - 400px) / 10), 36px);
         }
 
         .thought-identity {
+          max-width: 100%;
+          flex-shrink: 0;
           display: flex;
           flex-direction: column;
           align-items: center;
         }
 
         .thought-input-wrap {
+          max-width: 100%;
           position: relative;
           width: min(330px, 74vw);
           min-height: 92px;
@@ -577,7 +587,7 @@ export default function ProfileThoughtBubble({
           font-size: 22px;
           line-height: 1.25;
           text-align: center;
-          overflow: hidden;
+          overflow-y: auto;
         }
 
         .thought-input-wrap textarea::placeholder {
@@ -638,11 +648,15 @@ export default function ProfileThoughtBubble({
         }
 
         .thought-composer-footer {
+          min-height: 0;
+          overflow-y: auto;
+          max-height: max(0px, calc(var(--thought-height, 100dvh) - 130px));
+          flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 18px;
-          padding: 22px 28px calc(22px + env(safe-area-inset-bottom));
+          padding: clamp(8px, calc((var(--thought-height, 100dvh) - 400px) / 10), 22px) 28px calc(clamp(8px, calc((var(--thought-height, 100dvh) - 400px) / 10), 22px) + env(safe-area-inset-bottom));
           border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
 
@@ -731,16 +745,17 @@ export default function ProfileThoughtBubble({
 
           .thought-composer {
             width: 100%;
-            height: 100dvh;
-            min-height: 100dvh;
-            max-height: 100dvh;
+            height: var(--thought-height, 100dvh);
+            min-height: 0;
+            max-height: var(--thought-height, 100dvh);
             border: 0;
             border-radius: 0;
             box-shadow: none;
           }
 
           .thought-composer-header {
-            height: 76px;
+            height: calc(clamp(56px, calc(var(--thought-height, 100dvh) - 400px), 76px) + env(safe-area-inset-top));
+            box-sizing: border-box;
             grid-template-columns: 74px 1fr 74px;
             padding: env(safe-area-inset-top) 18px 0;
           }
@@ -754,10 +769,11 @@ export default function ProfileThoughtBubble({
           }
 
           .thought-composer-body {
-            padding: 110px 22px 28px;
+            padding: clamp(12px, calc((var(--thought-height, 100dvh) - 500px) / 2), 110px) 22px 28px;
           }
 
           .thought-input-wrap {
+          max-width: 100%;
             width: min(315px, 78vw);
             min-height: 84px;
           }
@@ -794,7 +810,7 @@ export default function ProfileThoughtBubble({
           }
 
           .thought-composer-body {
-            padding-top: 78px;
+            padding-top: clamp(12px, calc((var(--thought-height, 100dvh) - 500px) / 2), 78px);
           }
 
           .thought-main-share {
