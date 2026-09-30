@@ -452,19 +452,13 @@ export default function ProfileReelsGridPage() {
                             }}
                           />
                         ) : (
-                          <video
-                            src={reel.video_url || undefined}
-                            muted
-                            playsInline
-                            preload="metadata"
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              display: "block",
-                              background: "#000",
-                            }}
-                          />
+                          <div
+                            role="img"
+                            aria-label="Reel preview unavailable"
+                            style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", background: "#000" }}
+                          >
+                            ▶
+                          </div>
                         )}
                         <div
                           style={{

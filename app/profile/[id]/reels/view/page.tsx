@@ -4839,12 +4839,7 @@ function ProfileReelsViewer({ profileId }: { profileId: string }) {
                     background: "#101828",
                   }}
                 >
-                  <video
-                    src={activeReel.video}
-                    poster={activeReel.poster || undefined}
-                    muted
-                    playsInline
-                    controls
+                  <div
                     style={{
                       width: "100%",
                       height:
@@ -4853,11 +4848,21 @@ function ProfileReelsViewer({ profileId }: { profileId: string }) {
                           : viewportType === "tablet"
                             ? "230px"
                             : "260px",
-                      objectFit: "contain",
-                      display: "block",
+                      display: "grid",
+                      placeItems: "center",
                       background: "#000",
                     }}
-                  />
+                  >
+                    {activeReel.poster ? (
+                      <img
+                        src={activeReel.poster}
+                        alt="Reel share preview"
+                        style={{ width: "100%", height: "100%", minHeight: 0, objectFit: "contain", display: "block" }}
+                      />
+                    ) : (
+                      <span role="img" aria-label="Reel preview unavailable">▶</span>
+                    )}
+                  </div>
                 </div>
 
                 <textarea

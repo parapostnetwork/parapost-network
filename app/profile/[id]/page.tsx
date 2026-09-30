@@ -18193,11 +18193,9 @@ return (
                                   style={miniReelVideoStyle}
                                 />
                               ) : (
-                                <video
-                                  src={reel.video_url || undefined}
-                                  muted
-                                  playsInline
-                                  preload="metadata"
+                                <div
+                                  role="img"
+                                  aria-label="Reel preview unavailable"
                                   style={miniReelVideoStyle}
                                 />
                               )
