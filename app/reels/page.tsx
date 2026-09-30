@@ -625,7 +625,7 @@ export default function ReelsPage() {
 
   const prepareReelsRouteExit = () => {
     closeReelsOverlays();
-    setHoldPausedId(null);
+    setHoldPausedId(activeReelId);
     setPlayPauseFeedback(null);
     pauseAllReelVideos();
   };
