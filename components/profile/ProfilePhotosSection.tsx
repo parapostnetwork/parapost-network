@@ -1,5 +1,7 @@
 "use client";
 
+import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
+
 import { useEffect, useMemo, useState } from "react";
 
 type ProfileSummary = {
@@ -310,7 +312,9 @@ export default function ProfilePhotosSection({
                       aria-label="Open photo"
                     />
 
-                    <img
+                    <ResponsiveMediaImage
+                      purpose="post"
+                      sizes="auto, (min-width: 1280px) 25vw, (min-width: 640px) 33vw, 50vw"
                       src={photo.url}
                       alt={photo.caption?.trim() || "Profile photo"}
                       className="h-full w-full object-cover transition duration-300 group-hover:scale-105"

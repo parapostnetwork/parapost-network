@@ -1,5 +1,7 @@
 "use client";
 
+import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
+
 import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -996,7 +998,7 @@ export default function NotificationsPage() {
                       <div className="notifications-avatar" style={avatarShellStyle}>
                         <span style={avatarClipStyle}>
                           {notification.actor?.avatar_url ? (
-                            <img src={notification.actor.avatar_url} alt="" style={avatarImageStyle} />
+                            <ResponsiveMediaImage purpose="avatar" avatarSize={48} src={notification.actor.avatar_url} alt="" style={avatarImageStyle} />
                           ) : (
                             <span style={avatarFallbackStyle}>{getInitial(notification.actor)}</span>
                           )}
@@ -1113,7 +1115,8 @@ export default function NotificationsPage() {
                     <div key={person.notificationId} style={reelActivityPersonRowStyle}>
                       <div style={reelActivityPersonAvatarStyle}>
                         {person.actor?.avatar_url ? (
-                          <img
+                          <ResponsiveMediaImage
+                            purpose="avatar" avatarSize={48}
                             src={person.actor.avatar_url}
                             alt=""
                             style={reelActivityPersonAvatarImageStyle}

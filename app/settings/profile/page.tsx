@@ -1,5 +1,6 @@
 "use client";
 
+import { uploadImageWithVariant } from "@/lib/images/media-variants";
 import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
 
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -234,17 +235,17 @@ export default function ProfileSettingsPage() {
     try {
       const optimizedFile = (await optimizeImageUpload(file, "avatar")).file;
       const safeExt = getSafeAvatarExtension(optimizedFile);
-      const storagePath = `${userId}/avatars/avatar-${Date.now()}-${Math.random()
+      let storagePath = `${userId}/avatars/avatar-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}.${safeExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(AVATAR_BUCKET)
-        .upload(storagePath, optimizedFile, {
+      const { error: uploadError, path: uploadedPath } = await uploadImageWithVariant(
+        supabase.storage.from(AVATAR_BUCKET), storagePath, optimizedFile, "avatar", {
           cacheControl: "604800",
           upsert: false,
           contentType: optimizedFile.type,
         });
+      storagePath = uploadedPath;
 
       if (uploadError) throw uploadError;
 

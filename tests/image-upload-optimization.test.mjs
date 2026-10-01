@@ -58,7 +58,7 @@ for(const [path,purpose,start,end,occurrence=0] of paths){
  const source=readFileSync(new URL('../'+path,import.meta.url),'utf8');let pos=-1;for(let i=0;i<=occurrence;i++)pos=source.indexOf(start,pos+1);assert.ok(pos>=0);const body=source.slice(pos,source.indexOf(end,pos));
  for(const failure of [null,'optimization','upload'])test(`${path} ${purpose}: ${failure||'optimized upload'}`,async()=>{
   const original=new File(['original'],'phone.png',{type:'image/png'}),optimized=new File(['small'],'phone.webp',{type:'image/webp'});const uploads=[],loading=[];let calls=0;
-  const bindings={File,Math,Date,index:0,user:{id:'u'},viewerId:'u',currentUserId:'u',userId:'u',file:original,imageFile:original,AVATAR_BUCKET:'post-images',COVER_BUCKET_NAME:'profile-covers',console:{error(){}},alert(){},setLoading:v=>loading.push(v),setProfilePostLoading:v=>loading.push(v),setUploadingAvatar:v=>loading.push(v),setUploadingCover:v=>loading.push(v),setStatusKind(){},setStatusMessage(){},getDashboardUploadErrorMessage:()=> 'Upload failed',getDashboardUploadContentType:f=>f.type,getSafeAvatarExtension:f=>f.name.split('.').pop(),optimizeImageUpload:async(f,p)=>{calls++;assert.equal(f,original);assert.equal(p,purpose);if(failure==='optimization')throw Error('Could not prepare image');return {file:optimized};},supabase:{storage:{from:()=>({upload:async(...args)=>{uploads.push(args);return {error:failure==='upload'?{message:'Upload failed'}:null};}})}}};
+  const bindings={uploadImageWithVariant:async(bucket,path,file,_purpose,options)=>({...await bucket.upload(path,file,options),path}),File,Math,Date,index:0,user:{id:'u'},viewerId:'u',currentUserId:'u',userId:'u',file:original,imageFile:original,AVATAR_BUCKET:'post-images',COVER_BUCKET_NAME:'profile-covers',console:{error(){}},alert(){},setLoading:v=>loading.push(v),setProfilePostLoading:v=>loading.push(v),setUploadingAvatar:v=>loading.push(v),setUploadingCover:v=>loading.push(v),setStatusKind(){},setStatusMessage(){},getDashboardUploadErrorMessage:()=> 'Upload failed',getDashboardUploadContentType:f=>f.type,getSafeAvatarExtension:f=>f.name.split('.').pop(),optimizeImageUpload:async(f,p)=>{calls++;assert.equal(f,original);assert.equal(p,purpose);if(failure==='optimization')throw Error('Could not prepare image');return {file:optimized};},supabase:{storage:{from:()=>({upload:async(...args)=>{uploads.push(args);return {error:failure==='upload'?{message:'Upload failed'}:null};}})}}};
   const js=ts.transpileModule(`(async()=>{${body}})()`,{compilerOptions:{target:ts.ScriptTarget.ES2020}}).outputText;
   try{await vm.runInNewContext(js,bindings);}catch(e){assert.ok(path.includes('settings')&&failure);assert.match(e.message,/Could not prepare image|Upload failed/);}
   assert.equal(calls,1);assert.equal(uploads.length,failure==='optimization'?0:1);
@@ -77,4 +77,19 @@ test('encoder timeout rejects and releases temporary resources',async t=>{
   const rejected=assert.rejects(promise,/too long/);
   for(let i=0;i<20;i++)await Promise.resolve();
   t.mock.timers.tick(20000);await rejected;assert.equal(b.revoked,1);assert.equal(b.canvas.width,0);
+});
+
+for (const [purpose, width, height, expected] of [
+  ['post', 2048, 1536, [1024, 768]], ['post', 1536, 2048, [768, 1024]],
+  ['post', 2048, 2048, [1024, 1024]], ['post', 400, 300, [400, 300]],
+  ['avatar', 512, 512, [192, 192]], ['avatar', 256, 512, [96, 192]],
+  ['avatar', 512, 256, [192, 96]], ['avatar', 100, 100, [100, 100]],
+]) test(`thumbnail ${purpose} ${width}x${height}: bounded, aspect-preserving, never upscaled`, async t => {
+  const b = browser(t, { width, height });
+  const result = await optimizeImageUpload(new File([png(width, height)], 'master.png', { type: 'image/png' }), purpose, true);
+  assert.deepEqual([result.width, result.height], expected);
+  assert.deepEqual([result.sourceWidth, result.sourceHeight], [width, height]);
+  assert.ok(result.width <= width && result.height <= height);
+  assert.ok(Math.abs(result.width / result.height - width / height) < 0.002);
+  assert.equal(b.revoked, 1); assert.equal(b.canvas.width, 0);
 });

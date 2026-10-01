@@ -1,5 +1,6 @@
 "use client";
 
+import { uploadImageWithVariant } from "@/lib/images/media-variants";
 import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
 
 import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
@@ -272,11 +273,11 @@ export default function EditProfilePage() {
       return;
     }
     const extension = optimizedFile.name.split(".").pop()!;
-    const fileName = `${currentUserId}-${Date.now()}.${extension}`;
+    let fileName = `${currentUserId}-${Date.now()}.${extension}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(fileName, optimizedFile, { contentType: optimizedFile.type, cacheControl: "3600", upsert: false });
+    const { error: uploadError, path: uploadedPath } = await uploadImageWithVariant(
+      supabase.storage.from("avatars"), fileName, optimizedFile, "avatar", { contentType: optimizedFile.type, cacheControl: "3600", upsert: false });
+    fileName = uploadedPath;
 
     if (uploadError) {
       setUploadingAvatar(false);

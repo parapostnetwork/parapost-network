@@ -101,7 +101,7 @@ function encode(canvas: HTMLCanvasElement, type: string) {
   });
 }
 
-export async function optimizeImageUpload(file: File, purpose: ImagePurpose) {
+export async function optimizeImageUpload(file: File, purpose: ImagePurpose, thumbnail = false) {
   validateImageSource(file);
   readImageDimensions(new Uint8Array(await file.slice(0, 1024 * 1024).arrayBuffer()), file.type);
   const image = new Image();
@@ -110,7 +110,10 @@ export async function optimizeImageUpload(file: File, purpose: ImagePurpose) {
   try {
     // HTML image decoding applies the browser's EXIF orientation exactly once.
     await decode(image, url);
-    const { width, height } = optimizedDimensions(image.naturalWidth, image.naturalHeight, purpose);
+    const master = optimizedDimensions(image.naturalWidth, image.naturalHeight, purpose);
+    const scale = thumbnail ? Math.min(1, (purpose === "avatar" ? 192 : 1024) / Math.max(master.width, master.height)) : 1;
+    const width = Math.max(1, Math.round(master.width * scale));
+    const height = Math.max(1, Math.round(master.height * scale));
     canvas.width = width; canvas.height = height;
     const context = canvas.getContext("2d");
     if (!context) throw new ImageUploadError("Your browser could not prepare this image. Please try again.");
@@ -128,7 +131,7 @@ export async function optimizeImageUpload(file: File, purpose: ImagePurpose) {
     validateFinalImage(output.size, purpose);
     const extension = output.type === "image/jpeg" ? "jpg" : output.type === "image/png" ? "png" : "webp";
     const name = (file.name.replace(/\.[^.]*$/, "") || "photo") + "." + extension;
-    return { file: new File([output], name, { type: output.type }), width, height, size: output.size };
+    return { file: new File([output], name, { type: output.type }), width, height, size: output.size, sourceWidth: image.naturalWidth, sourceHeight: image.naturalHeight };
   } catch (error) {
     if (error instanceof ImageUploadError) throw error;
     throw new ImageUploadError("This image could not be prepared. Please try another photo.");

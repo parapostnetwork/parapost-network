@@ -1,5 +1,8 @@
 "use client";
 
+import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
+
+import { uploadImageWithVariant } from "@/lib/images/media-variants";
 import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
 // DASHBOARD SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or realtime listeners from Dashboard.
 // DASHBOARD LOADING PERFORMANCE PASS v1 - page shell, Showcases, and first timeline batch render faster; heavy extras load after first paint.
@@ -1178,7 +1181,9 @@ function PostImageGrid({
     const imageAlt = `${alt} ${index + 1}`;
 
     return (
-      <img
+      <ResponsiveMediaImage
+        purpose="post"
+        sizes="auto, (max-width: 760px) 50vw, (max-width: 1180px) 45vw, 500px"
         src={url}
         alt={imageAlt}
         loading="lazy"
@@ -1220,7 +1225,9 @@ function PostImageGrid({
         aria-label={`${alt} video`}
       />
     ) : (
-      <img
+      <ResponsiveMediaImage
+        purpose="post"
+        sizes="(max-width: 760px) 100vw, (max-width: 1180px) 90vw, 1000px"
         src={safeUrls[0]}
         alt={alt}
         loading="lazy"
@@ -1558,7 +1565,9 @@ function Avatar({
     <div style={getAvatarShellStyle(size, isActuallyOnline)}>
       <div style={cropStyle}>
         {profile?.avatar_url ? (
-          <img
+          <ResponsiveMediaImage
+            purpose="avatar"
+            avatarSize={innerSize}
             src={profile.avatar_url}
             alt={profile.full_name || profile.username || "Profile"}
             style={{
@@ -4220,13 +4229,14 @@ export default function DashboardPage() {
         return;
       }
       const safeExt = optimizedFile.name.split(".").pop()!;
-      const fileName = `${user.id}/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${safeExt}`;
+      let fileName = `${user.id}/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${safeExt}`;
 
-      const { error: uploadError } = await supabase.storage.from("post-images").upload(fileName, optimizedFile, {
+      const { error: uploadError, path: uploadedPath } = await uploadImageWithVariant(supabase.storage.from("post-images"), fileName, optimizedFile, "post", {
         cacheControl: "604800",
         contentType: getDashboardUploadContentType(optimizedFile),
         upsert: false,
       });
+      fileName = uploadedPath;
 
       if (uploadError) {
         console.error("Upload error:", uploadError);

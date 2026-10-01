@@ -1,5 +1,8 @@
 "use client";
 
+import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
+
+import { uploadImageWithVariant } from "@/lib/images/media-variants";
 import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
 // STAGING THOUGHT BUBBLE 24-HOUR EXPIRY v37
 // Any user-created thought expires 24 hours after its latest share/update, disappearing from the bubble and Profile Posts.
@@ -1848,7 +1851,10 @@ function ProfilePostImageGrid({
     const imageStyle = single ? postImageStyle : profilePostImageGridImageStyle;
 
     return (
-      <img
+      <ResponsiveMediaImage
+        purpose="post"
+        loading="lazy"
+        sizes={single ? "(max-width: 760px) 100vw, 1000px" : "auto, (max-width: 760px) 50vw, 500px"}
         src={url}
         alt={imageAlt}
         className={single ? "profile-post-image" : "profile-post-media-item"}
@@ -4535,15 +4541,15 @@ useEffect(() => {
         return;
       }
       const safeExt = optimizedFile.name.split(".").pop()!;
-      const fileName = `${viewerId}/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${safeExt}`;
+      let fileName = `${viewerId}/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${safeExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("post-images")
-        .upload(fileName, optimizedFile, {
+      const { error: uploadError, path: uploadedPath } = await uploadImageWithVariant(
+        supabase.storage.from("post-images"), fileName, optimizedFile, "post", {
           contentType: optimizedFile.type,
           cacheControl: "604800",
           upsert: false,
         });
+      fileName = uploadedPath;
 
       if (uploadError) {
         alert(`Upload error: ${uploadError.message}`);
@@ -5347,7 +5353,8 @@ useEffect(() => {
           aria-label={`Open ${commentName}'s profile`}
         >
           {commentProfile?.avatar_url ? (
-            <img
+            <ResponsiveMediaImage
+              purpose="avatar" avatarSize={56}
               src={commentProfile.avatar_url}
               alt=""
               style={{ width: "100%", height: "100%", minWidth: "100%", minHeight: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "center", display: "block", flexShrink: 0 }}
@@ -5618,7 +5625,8 @@ useEffect(() => {
               <header style={postHeaderStyle}>
                 <Link href={`/profile/${post.user_id}`} style={profileCommentsOverlayAuthorAvatarStyle}>
                   {authorProfile?.avatar_url ? (
-                    <img
+                    <ResponsiveMediaImage
+                      purpose="avatar" avatarSize={56}
                       src={authorProfile.avatar_url}
                       alt=""
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
@@ -5781,7 +5789,8 @@ useEffect(() => {
               aria-label="Open your profile"
             >
               {currentViewerProfile?.avatar_url ? (
-                <img
+                <ResponsiveMediaImage
+                  purpose="avatar" avatarSize={56}
                   src={currentViewerProfile.avatar_url}
                   alt=""
                   style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
