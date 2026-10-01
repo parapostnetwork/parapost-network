@@ -1,5 +1,7 @@
 "use client";
 
+import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
+
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -31,7 +33,7 @@ const emptyForm: ProfileSettingsForm = {
 };
 
 const AVATAR_BUCKET = "post-images";
-const MAX_AVATAR_MB = 8;
+const MAX_AVATAR_MB = IMAGE_SOURCE_MAX_BYTES / (1024 * 1024);
 
 function getSafeAvatarExtension(file: File) {
   const rawExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
@@ -230,17 +232,18 @@ export default function ProfileSettingsPage() {
     setAvatarUploading(true);
 
     try {
-      const safeExt = getSafeAvatarExtension(file);
+      const optimizedFile = (await optimizeImageUpload(file, "avatar")).file;
+      const safeExt = getSafeAvatarExtension(optimizedFile);
       const storagePath = `${userId}/avatars/avatar-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}.${safeExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from(AVATAR_BUCKET)
-        .upload(storagePath, file, {
+        .upload(storagePath, optimizedFile, {
           cacheControl: "604800",
           upsert: false,
-          contentType: file.type || undefined,
+          contentType: optimizedFile.type,
         });
 
       if (uploadError) throw uploadError;

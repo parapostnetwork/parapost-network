@@ -1,5 +1,7 @@
 "use client";
 
+import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
+
 import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -19,7 +21,7 @@ type ProfileRow = {
 const BIO_MAX_LENGTH = 175;
 const USERNAME_TAKEN_MESSAGE = "That username already exists. Please choose another one.";
 const COVER_BUCKET_NAME = "profile-covers";
-const COVER_MAX_SIZE_MB = 10;
+const COVER_MAX_SIZE_MB = IMAGE_SOURCE_MAX_BYTES / (1024 * 1024);
 
 type StatusKind = "success" | "error" | "info";
 
@@ -260,12 +262,21 @@ export default function EditProfilePage() {
     setStatusMessage("");
     setStatusKind("info");
 
-    const extension = file.name.split(".").pop() || "jpg";
+    let optimizedFile: File;
+    try {
+      optimizedFile = (await optimizeImageUpload(file, "avatar")).file;
+    } catch (error) {
+      setUploadingAvatar(false);
+      setStatusKind("error");
+      setStatusMessage(error instanceof Error ? error.message : "This image could not be prepared. Please try another photo.");
+      return;
+    }
+    const extension = optimizedFile.name.split(".").pop()!;
     const fileName = `${currentUserId}-${Date.now()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(fileName, file, { cacheControl: "3600", upsert: false });
+      .upload(fileName, optimizedFile, { contentType: optimizedFile.type, cacheControl: "3600", upsert: false });
 
     if (uploadError) {
       setUploadingAvatar(false);
@@ -317,12 +328,21 @@ export default function EditProfilePage() {
     setStatusMessage("");
     setStatusKind("info");
 
-    const extension = file.name.split(".").pop() || "jpg";
+    let optimizedFile: File;
+    try {
+      optimizedFile = (await optimizeImageUpload(file, "cover")).file;
+    } catch (error) {
+      setUploadingCover(false);
+      setStatusKind("error");
+      setStatusMessage(error instanceof Error ? error.message : "This image could not be prepared. Please try another photo.");
+      return;
+    }
+    const extension = optimizedFile.name.split(".").pop()!;
     const fileName = `${currentUserId}/cover-${Date.now()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
       .from(COVER_BUCKET_NAME)
-      .upload(fileName, file, { cacheControl: "604800", upsert: false });
+      .upload(fileName, optimizedFile, { contentType: optimizedFile.type, cacheControl: "604800", upsert: false });
 
     if (uploadError) {
       setUploadingCover(false);

@@ -1,4 +1,6 @@
 "use client";
+
+import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
 // STAGING THOUGHT BUBBLE 24-HOUR EXPIRY v37
 // Any user-created thought expires 24 hours after its latest share/update, disappearing from the bubble and Profile Posts.
 // STAGING THOUGHT BUBBLE PROFILE POSTS FEED v36
@@ -1639,7 +1641,7 @@ const POST_CHARACTER_LIMIT = 63206;
 const MAX_POST_IMAGES = 10;
 
 const MAX_POST_VIDEO_SECONDS = 60;
-const MAX_POST_IMAGE_MB = 12;
+const MAX_POST_IMAGE_MB = IMAGE_SOURCE_MAX_BYTES / (1024 * 1024);
 const MAX_POST_VIDEO_MB = 100;
 const PROFILE_COMMENT_PREVIEW_LIMIT = 2;
 
@@ -4524,13 +4526,21 @@ useEffect(() => {
     const uploadedImages: Array<{ image_url: string; storage_path: string; display_order: number }> = [];
 
     for (const [index, imageFile] of profilePostImages.entries()) {
-      const fileExt = imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
-      const safeExt = fileExt.replace(/[^a-z0-9]/g, "") || "jpg";
+      let optimizedFile: File;
+      try {
+        optimizedFile = (await optimizeImageUpload(imageFile, "post")).file;
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "This image could not be prepared. Please try another photo.");
+        setProfilePostLoading(false);
+        return;
+      }
+      const safeExt = optimizedFile.name.split(".").pop()!;
       const fileName = `${viewerId}/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${safeExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("post-images")
-        .upload(fileName, imageFile, {
+        .upload(fileName, optimizedFile, {
+          contentType: optimizedFile.type,
           cacheControl: "604800",
           upsert: false,
         });

@@ -1,4 +1,6 @@
 "use client";
+
+import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
 // DASHBOARD SHOWCASE COMING SOON v1 - Showcase feature is fully paused: no profile_showcases reads, writes, or realtime listeners from Dashboard.
 // DASHBOARD LOADING PERFORMANCE PASS v1 - page shell, Showcases, and first timeline batch render faster; heavy extras load after first paint.
 
@@ -253,7 +255,7 @@ const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
 const POST_CHARACTER_LIMIT = 63206;
 const MAX_POST_IMAGES = 10;
 const MAX_POST_VIDEO_SECONDS = 60;
-const MAX_POST_IMAGE_MB = 12;
+const MAX_POST_IMAGE_MB = IMAGE_SOURCE_MAX_BYTES / (1024 * 1024);
 const MAX_POST_VIDEO_MB = 100;
 const FEED_INITIAL_BATCH_SIZE = 14;
 const FEED_BATCH_INCREMENT = 8;
@@ -4209,14 +4211,20 @@ export default function DashboardPage() {
     const uploadedImages: Array<{ image_url: string; storage_path: string; display_order: number }> = [];
 
     for (const [index, imageFile] of postImages.entries()) {
-      const mediaKind = getDashboardMediaKind(imageFile);
-      const fileExt = getDashboardFileExtension(imageFile) || (mediaKind === "video" ? "mp4" : "jpg");
-      const safeExt = fileExt.replace(/[^a-z0-9]/g, "") || (mediaKind === "video" ? "mp4" : "jpg");
+      let optimizedFile: File;
+      try {
+        optimizedFile = (await optimizeImageUpload(imageFile, "post")).file;
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "This image could not be prepared. Please try another photo.");
+        setLoading(false);
+        return;
+      }
+      const safeExt = optimizedFile.name.split(".").pop()!;
       const fileName = `${user.id}/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${safeExt}`;
 
-      const { error: uploadError } = await supabase.storage.from("post-images").upload(fileName, imageFile, {
+      const { error: uploadError } = await supabase.storage.from("post-images").upload(fileName, optimizedFile, {
         cacheControl: "604800",
-        contentType: getDashboardUploadContentType(imageFile),
+        contentType: getDashboardUploadContentType(optimizedFile),
         upsert: false,
       });
 
