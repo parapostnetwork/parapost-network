@@ -127,12 +127,24 @@ export async function getVideoDuration(file: File, signal: AbortSignal) {
   });
 }
 
+export function getReelPosterDimensions(width: number, height: number) {
+  const valid = (value: number) => Number.isFinite(value) && Number.isInteger(value) && value > 0;
+  if (!valid(width) || !valid(height)) throw new Error("Could not read the video frame dimensions.");
+  const scale = Math.min(1, 1280 / Math.max(width, height));
+  const output = { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+  if (!valid(output.width) || !valid(output.height) || Math.max(output.width, output.height) > 1280) {
+    throw new Error("Could not prepare the Reel cover dimensions.");
+  }
+  return output;
+}
+
 export async function generatePosterFromFile(file: File, signal: AbortSignal, seekTo = 0.6) {
   return await new Promise<Blob>((resolve, reject) => {
     const video = document.createElement("video");
     const objectUrl = URL.createObjectURL(file);
     let settled = false;
     let capturing = false;
+    let canvas: HTMLCanvasElement | null = null;
     const abort = () => finish(null, "Reel preparation was cancelled.");
     const timer = setTimeout(() => finish(null, "Preparing the Reel cover took too long. Please try again."), 30000);
     const finish = (blob: Blob | null, message = "Could not generate reel cover image.") => {
@@ -144,19 +156,26 @@ export async function generatePosterFromFile(file: File, signal: AbortSignal, se
       video.removeAttribute("src");
       video.load();
       URL.revokeObjectURL(objectUrl);
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+        canvas = null;
+      }
       if (blob) resolve(blob); else reject(new Error(message));
     };
     const capture = () => {
       if (settled || capturing || video.seeking || video.readyState < 2) return;
       capturing = true;
       try {
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 720;
-        canvas.height = video.videoHeight || 1280;
+        // Use browser-decoded dimensions/orientation; do not transform the video.
+        const dimensions = getReelPosterDimensions(video.videoWidth, video.videoHeight);
+        canvas = document.createElement("canvas");
+        canvas.width = dimensions.width;
+        canvas.height = dimensions.height;
         const context = canvas.getContext("2d");
         if (!context) { finish(null); return; }
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(blob => finish(blob), "image/jpeg", 0.9);
+        canvas.toBlob(blob => finish(blob), "image/jpeg", 0.82);
       } catch { finish(null); }
     };
     video.playsInline = true;
