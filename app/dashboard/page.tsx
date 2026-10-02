@@ -6039,8 +6039,10 @@ export default function DashboardPage() {
           .dashboard-mobile-header button,
           .dashboard-mobile-header a[aria-label="Notifications"],
           .dashboard-mobile-header a[aria-label="Parachat"] {
-            width: 38px !important;
-            height: 38px !important;
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
             border-radius: 13px !important;
           }
         }
@@ -10160,7 +10162,7 @@ export default function DashboardPage() {
 
           .dashboard-post-actions button,
           .dashboard-post-actions a {
-            min-height: 40px !important;
+            min-height: 44px !important;
             padding-inline: 4px !important;
           }
 
@@ -10200,7 +10202,7 @@ export default function DashboardPage() {
 
           .dashboard-post-actions button,
           .dashboard-post-actions a {
-            min-height: 38px !important;
+            min-height: 44px !important;
           }
 
           .dashboard-post-actions svg {

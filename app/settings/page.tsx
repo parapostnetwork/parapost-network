@@ -405,7 +405,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="settings-hub-page min-h-svh touch-pan-y overflow-x-hidden px-4 py-5 pb-[calc(9.5rem+env(safe-area-inset-bottom))] text-white sm:px-5 sm:py-6 lg:min-h-0 lg:px-6">
+    <main className="settings-hub-page min-h-svh touch-pan-y overflow-x-hidden px-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top,0px))] text-white sm:px-5 sm:pb-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top,0px))] lg:min-h-0 lg:px-6">
       <div className="relative z-10 mx-auto w-full max-w-3xl xl:max-w-6xl 2xl:max-w-7xl">
 
         {/* Top bar */}

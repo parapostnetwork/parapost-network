@@ -591,7 +591,7 @@ export default function ConversationPage() {
 }
 
 const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
+  minHeight: "100dvh",
   background:
     "radial-gradient(circle at top left, rgba(168,85,247,0.22), transparent 34%), radial-gradient(circle at bottom right, rgba(34,211,238,0.10), transparent 30%), #05070a",
   color: "#f9fafb",
@@ -608,7 +608,7 @@ const shellStyle: React.CSSProperties = {
 };
 
 const sidebarStyle: React.CSSProperties = {
-  minHeight: "calc(100vh - 36px)",
+  minHeight: "calc(100dvh - 36px)",
   border: "1px solid rgba(255,255,255,0.10)",
   background: "linear-gradient(180deg, rgba(17,24,39,0.92), rgba(10,12,18,0.92))",
   borderRadius: "28px",
@@ -692,7 +692,7 @@ const profileLinkStyle: React.CSSProperties = {
 };
 
 const chatPanelStyle: React.CSSProperties = {
-  minHeight: "calc(100vh - 36px)",
+  minHeight: "calc(100dvh - 36px)",
   border: "1px solid rgba(255,255,255,0.10)",
   background: "rgba(7,10,16,0.86)",
   borderRadius: "28px",
@@ -721,8 +721,8 @@ const headerLeftStyle: React.CSSProperties = {
 };
 
 const mobileBackButtonStyle: React.CSSProperties = {
-  width: "38px",
-  height: "38px",
+  width: "44px",
+  height: "44px",
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.12)",
   background: "rgba(255,255,255,0.06)",

@@ -3062,9 +3062,9 @@ function MessagesPage() {
 
           .parachat-image-button,
           .parachat-voice-button {
-            width: 40px !important;
-            min-width: 40px !important;
-            height: 40px !important;
+            width: 44px !important;
+            min-width: 44px !important;
+            height: 44px !important;
           }
 
           .parachat-composer textarea {
@@ -3092,16 +3092,16 @@ function MessagesPage() {
           }
 
           .parachat-mobile-chat-open .parachat-composer textarea {
-            height: 40px !important;
-            min-height: 40px !important;
+            height: 44px !important;
+            min-height: 44px !important;
             max-height: 70px !important;
           }
 
           .parachat-mobile-chat-open .parachat-composer button[type="submit"],
           .parachat-mobile-chat-open .parachat-image-button,
           .parachat-mobile-chat-open .parachat-voice-button {
-            min-height: 40px !important;
-            height: 40px !important;
+            min-height: 44px !important;
+            height: 44px !important;
           }
         }
       `}</style>
@@ -4535,8 +4535,8 @@ const headerActionsStyle: React.CSSProperties = {
 
 const mobileBackButtonStyle: React.CSSProperties = {
   display: "none",
-  width: "38px",
-  height: "38px",
+  width: "44px",
+  height: "44px",
   alignItems: "center",
   justifyContent: "center",
   borderRadius: "999px",
@@ -4606,8 +4606,8 @@ const profileButtonStyle: React.CSSProperties = {
 };
 
 const closeChatButtonStyle: React.CSSProperties = {
-  width: "38px",
-  height: "38px",
+  width: "44px",
+  height: "44px",
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.14)",
   background: "rgba(255,255,255,0.075)",
