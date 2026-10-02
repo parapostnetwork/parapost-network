@@ -41,7 +41,7 @@ Use Node 22+ and the checkout's already installed `sharp` (currently 0.34.5,
 provided by Next). No package/configuration change was introduced. Encoder
 version changes may change bytes; existing outputs must match checksums or stop.
 
-JSON snapshot shape (all `referenceTables` exported by maintenance.mjs required):
+JSON snapshot shape (all `referenceTables` exported by maintenance.mjs required; example below is abbreviated and must not be used as a complete export):
 
 ```json
 {
@@ -160,3 +160,20 @@ are still available, apply approved conditional reversals, reread rows, and reco
 results. Never overwrite a newer user change. Keep BOTH generations after
 rollback; no removal is part of rollback. No production rollback command is
 shipped because no production adapter or production writes exist here.
+
+
+## Production reference compatibility correction (2026-10-02)
+
+The live catalog also contains `saved_photos.photo_url`, `badges.icon_url`,
+`support_messages.attachment_url/metadata`, `reel_comments.content`, and other
+text-bearing records. The mandatory export list now includes all 26 public
+text/JSON-bearing tables with IDs identified by that catalog. Missing any blocks
+preparation. Unknown reference fields remain report-only; no additional field is
+permitted for automatic rewriting. The scanner already scans supplied nested
+JSON/text, so its matching and mutation rules are unchanged.
+
+A candidate-scoped snapshot can contain only matching rows **after** a complete,
+timeout-bounded reference scan has verified the empty results for each table.
+Record the scan scope/time; do not turn unqueried tables into empty arrays. Check
+non-ID tables and auth metadata separately, and reassess the catalog on future
+batches. This registry is a verified baseline, not proof of future completeness.

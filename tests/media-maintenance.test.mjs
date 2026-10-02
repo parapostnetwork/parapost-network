@@ -205,3 +205,16 @@ test('unsupported image input cannot produce replacement media', async () => {
   await assert.rejects(transform(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"/>'),'post'),/Unsupported/);
   await assert.rejects(transform(Buffer.alloc(0),'post'),/empty/);
 });
+
+
+for (const table of ['saved_photos', 'support_messages', 'badges', 'reel_comments', 'shares']) {
+  test(`live reference table ${table} cannot be omitted or silently rewritten`, async () => {
+    const missing = snapshot(); delete missing.tables[table];
+    assert.equal((await prepare(missing)).results[0].status, 'skipped');
+    const referenced = snapshot(); referenced.tables[table] = [{ id: 'extra', nested: { media: url } }];
+    assert.equal(inspectObject(object, referenced.tables).classification, 'ACTIVE/REFERENCED');
+    const result = (await prepare(referenced)).results[0];
+    assert.equal(result.status, 'failed'); assert.equal(result.plan, undefined);
+    assert.match(result.reason, /Unsupported\/ambiguous reference/);
+  });
+}

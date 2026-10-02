@@ -5,7 +5,16 @@ import sharp from 'sharp';
 export const POLICY = 'ppe1';
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const fields = { posts: ['image_url'], post_images: ['image_url', 'storage_path'], profiles: ['avatar_url', 'cover_url'], reels: ['poster_url'] };
-export const referenceTables = ['posts', 'post_images', 'profiles', 'reels', 'direct_messages', 'profile_showcases', 'live_streams', 'achievements', 'notifications', 'comments'];
+// Live catalog verified 2026-10-02: all public text/JSON-bearing tables with IDs.
+// Omitting a reference-bearing table must never make an export appear complete.
+export const referenceTables = [
+  'posts', 'post_images', 'profiles', 'reels', 'direct_messages', 'profile_showcases',
+  'live_streams', 'achievements', 'notifications', 'comments',
+  'achievement_activity', 'badges', 'comment_reports', 'friend_requests',
+  'live_chat_blocks', 'live_chat_messages', 'live_chat_mutes', 'profile_reports',
+  'reel_comments', 'reel_shares', 'reported_comments', 'reports', 'saved_photos',
+  'shares', 'support_messages', 'user_badges',
+];
 const purposes = { 'post-images': 'post', avatars: 'avatar', 'profile-covers': 'cover', 'reel-posters': 'poster' };
 export function objectKey(object) {
   if (!object || typeof object.bucket !== 'string' || !/^[a-z0-9-]+$/.test(object.bucket) || typeof object.path !== 'string' || !object.path || object.path.startsWith('/') || object.path.includes('\\') || object.path.split('/').some(p => !p || p === '.' || p === '..')) throw Error('Malformed object identity');
