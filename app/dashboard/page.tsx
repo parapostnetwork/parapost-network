@@ -11169,8 +11169,6 @@ export default function DashboardPage() {
         /* === Dashboard mobile scroll performance pass v1 === */
         @media (max-width: 760px) {
           .dashboard-feed-card {
-            content-visibility: auto;
-            contain-intrinsic-size: auto 680px;
           }
 
           .dashboard-card,
