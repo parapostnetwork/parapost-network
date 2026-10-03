@@ -587,11 +587,10 @@ export default function CreateLiveShowPage() {
               min-height: 100svh !important;
               height: auto !important;
               max-height: none !important;
-              overflow-y: auto !important;
+              overflow-y: visible !important;
               overflow-x: hidden !important;
               touch-action: pan-y !important;
-              overscroll-behavior-y: contain !important;
-              -webkit-overflow-scrolling: touch !important;
+              overscroll-behavior-y: auto !important;
               padding: 12px 10px calc(150px + env(safe-area-inset-bottom)) !important;
               scroll-padding-bottom: calc(150px + env(safe-area-inset-bottom));
             }
