@@ -263,7 +263,7 @@ const MAX_POST_VIDEO_MB = 100;
 const FEED_INITIAL_BATCH_SIZE = 14;
 const FEED_BATCH_INCREMENT = 8;
 const DASHBOARD_REALTIME_REFRESH_DELAY_MS = 1500;
-const DASHBOARD_BACKGROUND_REFRESH_MS = 120000;
+const DASHBOARD_BACKGROUND_REFRESH_MS = 600000;
 const DASHBOARD_COMMENT_PREVIEW_LIMIT = 2;
 
 const DASHBOARD_VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "m4v", "ogg", "3gp", "3gpp", "mkv"]);
@@ -2150,6 +2150,41 @@ export default function DashboardPage() {
   const removedReelShareKeysRef = useRef<Set<string>>(new Set());
   const targetedPostScrollRef = useRef("");
 
+  const dashboardRealtimeSnapshotRef = useRef({
+    postIds: [] as string[],
+    openCommentsPostId: null as string | null,
+    commentPostIdsByCommentId: {} as Record<string, string>,
+    sharedPostIdsByShareId: {} as Record<string, string>,
+  });
+
+  useEffect(() => {
+    const commentPostIdsByCommentId: Record<string, string> = {};
+    for (const [postId, comments] of Object.entries(commentsByPostId)) {
+      for (const comment of comments) {
+        if (comment.id) commentPostIdsByCommentId[comment.id] = postId;
+      }
+    }
+
+    const sharedPostIdsByShareId: Record<string, string> = {};
+    for (const item of sharedPostItems) {
+      if (item.id && item.post_id) {
+        sharedPostIdsByShareId[item.id] = item.post_id;
+      }
+    }
+
+    dashboardRealtimeSnapshotRef.current = {
+      postIds: [
+        ...new Set([
+          ...posts.map((post) => post.id),
+          ...sharedPostItems.map((item) => item.post_id),
+        ].filter(Boolean)),
+      ],
+      openCommentsPostId,
+      commentPostIdsByCommentId,
+      sharedPostIdsByShareId,
+    };
+  }, [commentsByPostId, openCommentsPostId, posts, sharedPostItems]);
+
   const likesReconcilerRef = useRef<ReturnType<typeof createLikeReconciler> | null>(null);
   const likesSnapshotRef = useRef({ userId: "", postIds: [] as string[] });
   const setLikeCounts = useCallback<typeof applyLikeCounts>((value) => {
@@ -2945,6 +2980,105 @@ export default function DashboardPage() {
     });
   }, [blockedUserIds, updateDashboardCommentLikeState, setLikeCounts, setUserLikes]);
 
+  const refreshCommentStateForPost = useCallback(
+    async (postId: string, userId?: string) => {
+      if (!postId) return;
+
+      const { data, error } = await supabase
+        .from("comments")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        logDashboardNetworkIssue("Dashboard realtime comments skipped", error);
+        return;
+      }
+
+      const visibleComments = ((data || []) as DashboardComment[]).filter(
+        (comment) =>
+          comment.post_id &&
+          !comment.is_hidden &&
+          !blockedUserIds.includes(comment.user_id)
+      );
+
+      const visibleCommentIds = visibleComments
+        .map((comment) => comment.id)
+        .filter(Boolean);
+
+      await updateDashboardCommentLikeState(visibleCommentIds, userId);
+
+      setCommentCounts((previous) => ({
+        ...previous,
+        [postId]: visibleComments.length,
+      }));
+
+      const keepFullThread =
+        dashboardRealtimeSnapshotRef.current.openCommentsPostId === postId;
+
+      setCommentsByPostId((previous) => ({
+        ...previous,
+        [postId]: keepFullThread
+          ? visibleComments
+          : visibleComments.slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT),
+      }));
+
+      const commenterIds = [
+        ...new Set(
+          visibleComments
+            .map((comment) => comment.user_id)
+            .filter(Boolean)
+        ),
+      ];
+
+      if (commenterIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+          .in("id", commenterIds);
+
+        if (!profilesError && profilesData) {
+          const nextProfiles: Record<string, ProfilePreview> = {};
+
+          for (const profile of profilesData as ProfilePreview[]) {
+            if (profile.id) nextProfiles[profile.id] = profile;
+          }
+
+          setProfilesMap((previous) => ({
+            ...previous,
+            ...nextProfiles,
+          }));
+        }
+      }
+    },
+    [blockedUserIds, updateDashboardCommentLikeState]
+  );
+
+  const refreshShareCountForPost = useCallback(async (postId: string) => {
+    if (!postId) return;
+
+    const { data, error } = await supabase
+      .from("shares")
+      .select("post_id, share_destination, deleted_at")
+      .eq("post_id", postId);
+
+    if (error) {
+      logDashboardNetworkIssue("Dashboard realtime share count skipped", error);
+      return;
+    }
+
+    const count = (data || []).filter(
+      (share) =>
+        !share.deleted_at &&
+        (!share.share_destination || share.share_destination === "feed")
+    ).length;
+
+    setShareCounts((previous) => ({
+      ...previous,
+      [postId]: count,
+    }));
+  }, []);
+
   const fetchFollowData = useCallback(async (userId?: string, followingQuery?: DashboardRelationshipQueries["following"]) => {
     if (!userId) {
       setFollowedUserIds([]);
@@ -3380,6 +3514,99 @@ export default function DashboardPage() {
     return nextStreams;
   }, []);
 
+  const refreshPostFromRealtime = useCallback(
+    async (payload: any) => {
+      const nextRow = (payload?.new || {}) as Partial<Post>;
+      const previousRow = (payload?.old || {}) as Partial<Post>;
+      const postId = String(nextRow.id || previousRow.id || "");
+
+      if (!postId) return;
+
+      if (payload?.eventType === "DELETE") {
+        setPosts((previous) =>
+          previous.filter((post) => post.id !== postId)
+        );
+
+        setSharedPostItems((previous) =>
+          previous.filter(
+            (item) =>
+              item.post_id !== postId &&
+              item.original_post.id !== postId
+          )
+        );
+
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("posts")
+        .select("id, content, image_url, created_at, user_id")
+        .eq("id", postId)
+        .maybeSingle();
+
+      if (error) {
+        logDashboardNetworkIssue("Dashboard realtime post refresh skipped", error);
+        return;
+      }
+
+      if (!data || blockedUserIds.includes(data.user_id)) {
+        setPosts((previous) =>
+          previous.filter((post) => post.id !== postId)
+        );
+        return;
+      }
+
+      let postImages: PostImage[] = [];
+
+      try {
+        const postImagesMap = await fetchPostImagesMap([postId]);
+        postImages = postImagesMap[postId] || [];
+      } catch (error) {
+        logDashboardNetworkIssue("Dashboard realtime post images skipped", error);
+      }
+
+      const refreshedPost = {
+        ...(data as Post),
+        images: postImages,
+      };
+
+      setPosts((previous) => {
+        const nextPosts = [
+          refreshedPost,
+          ...previous.filter((post) => post.id !== postId),
+        ];
+
+        nextPosts.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime()
+        );
+
+        return nextPosts.slice(0, 80);
+      });
+
+      setSharedPostItems((previous) =>
+        previous.map((item) =>
+          item.post_id === postId || item.original_post.id === postId
+            ? {
+                ...item,
+                original_post: refreshedPost,
+              }
+            : item
+        )
+      );
+
+      void fetchProfileMap([refreshedPost.user_id], blockedUserIds).catch(
+        (error) =>
+          logDashboardNetworkIssue(
+            "Dashboard realtime post profile skipped",
+            error
+          )
+      );
+    },
+    [blockedUserIds, fetchProfileMap]
+  );
+
   useLiveRefresh(() => fetchLiveFeedStreams(blockedUserIds), Boolean(currentUserId) && liveFeedStreams.some(needsLiveRefresh));
 
   const fetchDashboardData = useCallback(async (showFeedLoading = false, refreshNotificationCounts = true) => {
@@ -3405,14 +3632,7 @@ export default function DashboardPage() {
         setCurrentUserId(user.id);
         setUserEmail(user.email || "");
 
-        // Presence is useful, but it should never block the feed from appearing.
-        void supabase
-          .from("profiles")
-          .update({ is_online: true, last_seen_at: new Date().toISOString() })
-          .eq("id", user.id)
-          .then(({ error }) => {
-            if (error) logDashboardNetworkIssue("Dashboard presence update skipped", error);
-          });
+        // Presence is handled by the dedicated presence heartbeat below.
 
         const [{ data: profileData }, { data: blocksData, error: blocksError }] = await Promise.all([
           supabase
@@ -3590,7 +3810,7 @@ export default function DashboardPage() {
 
     void updatePresence(true);
 
-    const heartbeatId = window.setInterval(markOnlineIfVisible, 45000);
+    const heartbeatId = window.setInterval(markOnlineIfVisible, 120000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -3674,17 +3894,191 @@ export default function DashboardPage() {
       );
     };
 
+    const refreshSharedReelsOnly = () => {
+      if (!shouldRunDashboardNetworkRefresh()) return;
+
+      void fetchSharedReels(blockedUserIds).catch((error) =>
+        logDashboardNetworkIssue("Dashboard realtime reel shares skipped", error)
+      );
+    };
+
+    const refreshLiveStreamsOnly = () => {
+      if (!shouldRunDashboardNetworkRefresh()) return;
+
+      void fetchLiveFeedStreams(blockedUserIds).catch((error) =>
+        logDashboardNetworkIssue("Dashboard realtime live streams skipped", error)
+      );
+    };
+
+    const refreshFollowingOnly = () => {
+      if (!shouldRunDashboardNetworkRefresh()) return;
+
+      void fetchFollowData(currentUserId).catch((error) =>
+        logDashboardNetworkIssue("Dashboard realtime following skipped", error)
+      );
+
+      void fetchPeopleToDiscover(currentUserId, blockedUserIds).catch((error) =>
+        logDashboardNetworkIssue("Dashboard realtime discover skipped", error)
+      );
+    };
+
+    const refreshFriendshipsOnly = () => {
+      if (!shouldRunDashboardNetworkRefresh()) return;
+
+      void fetchFriendShowcases(currentUserId, blockedUserIds).catch((error) =>
+        logDashboardNetworkIssue("Dashboard realtime friendships skipped", error)
+      );
+
+      void fetchPeopleToDiscover(currentUserId, blockedUserIds).catch((error) =>
+        logDashboardNetworkIssue("Dashboard realtime discover skipped", error)
+      );
+    };
+
+    const refreshCommentsOnly = (payload: any) => {
+      if (!shouldRunDashboardNetworkRefresh()) return;
+
+      const nextRow = payload?.new || {};
+      const previousRow = payload?.old || {};
+      const commentId = String(nextRow.id || previousRow.id || "");
+
+      const postId = String(
+        nextRow.post_id ||
+        previousRow.post_id ||
+        dashboardRealtimeSnapshotRef.current.commentPostIdsByCommentId[commentId] ||
+        ""
+      );
+
+      if (!postId) return;
+
+      if (
+        !dashboardRealtimeSnapshotRef.current.postIds.includes(postId)
+      ) {
+        return;
+      }
+
+      void refreshCommentStateForPost(postId, currentUserId).catch((error) =>
+        logDashboardNetworkIssue("Dashboard realtime comment refresh skipped", error)
+      );
+    };
+
+    const refreshSharesOnly = (payload: any) => {
+      if (!shouldRunDashboardNetworkRefresh()) return;
+
+      const nextRow = payload?.new || {};
+      const previousRow = payload?.old || {};
+      const shareId = String(nextRow.id || previousRow.id || "");
+
+      const knownPostId =
+        dashboardRealtimeSnapshotRef.current.sharedPostIdsByShareId[shareId];
+
+      const postId = String(
+        nextRow.post_id ||
+        previousRow.post_id ||
+        knownPostId ||
+        ""
+      );
+
+      const destination = String(
+        nextRow.share_destination ||
+        previousRow.share_destination ||
+        ""
+      );
+
+      const knownFeedShare = Boolean(knownPostId);
+
+      if (
+        destination &&
+        destination !== "feed" &&
+        !knownFeedShare
+      ) {
+        return;
+      }
+
+      void fetchSharedPosts(blockedUserIds).catch((error) =>
+        logDashboardNetworkIssue("Dashboard realtime shared posts skipped", error)
+      );
+
+      if (postId) {
+        void refreshShareCountForPost(postId).catch((error) =>
+          logDashboardNetworkIssue("Dashboard realtime share count skipped", error)
+        );
+      }
+    };
+
     const channel = supabase
       .channel(`dashboard-network-pulse-${currentUserId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "shares" }, schedulePulseRefresh)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts" },
+        (payload) => {
+          void refreshPostFromRealtime(payload).catch((error) =>
+            logDashboardNetworkIssue("Dashboard realtime post skipped", error)
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shares" },
+        refreshSharesOnly
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, (payload) => likesReconcilerRef.current?.event(payload))
-      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "followers" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_streams" }, schedulePulseRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "blocked_users" }, schedulePulseRefresh)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "comments" },
+        refreshCommentsOnly
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "followers",
+          filter: `follower_id=eq.${currentUserId}`,
+        },
+        refreshFollowingOnly
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+          filter: `sender_id=eq.${currentUserId}`,
+        },
+        refreshFriendshipsOnly
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+          filter: `receiver_id=eq.${currentUserId}`,
+        },
+        refreshFriendshipsOnly
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, refreshSharedReelsOnly)
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_streams" }, refreshLiveStreamsOnly)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "blocked_users",
+          filter: `blocker_id=eq.${currentUserId}`,
+        },
+        schedulePulseRefresh
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "blocked_users",
+          filter: `blocked_id=eq.${currentUserId}`,
+        },
+        schedulePulseRefresh
+      )
       .subscribe();
 
     const intervalId = window.setInterval(
@@ -3712,7 +4106,20 @@ export default function DashboardPage() {
       document.removeEventListener("visibilitychange", handleVisibilityRefresh);
       void supabase.removeChannel(channel);
     };
-  }, [currentUserId, fetchDashboardData]);
+  }, [
+    blockedUserIds,
+    currentUserId,
+    fetchDashboardData,
+    fetchFollowData,
+    fetchFriendShowcases,
+    fetchLiveFeedStreams,
+    fetchPeopleToDiscover,
+    fetchSharedPosts,
+    fetchSharedReels,
+    refreshCommentStateForPost,
+    refreshPostFromRealtime,
+    refreshShareCountForPost,
+  ]);
 
   useEffect(() => {
     if (!currentUserId || typeof window === "undefined") return;
@@ -4320,7 +4727,6 @@ export default function DashboardPage() {
     setSelectedFeelingActivity(null);
     setFeelingActivityOpen(false);
     handleRemoveImage();
-    void fetchDashboardData(false);
     setLoading(false);
   };
 
@@ -4506,7 +4912,6 @@ export default function DashboardPage() {
       });
     }
 
-    void fetchDashboardData(false);
     alert("Shared to your feed and profile.");
   };
 

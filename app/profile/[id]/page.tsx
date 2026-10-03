@@ -4172,7 +4172,7 @@ const closeProfileMobileSearch = useCallback(() => {
 
     void updatePresence(true);
 
-    const heartbeatId = window.setInterval(markOnlineIfVisible, 45000);
+    const heartbeatId = window.setInterval(markOnlineIfVisible, 120000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
