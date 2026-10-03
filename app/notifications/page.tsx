@@ -392,6 +392,8 @@ export default function NotificationsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [reelActivityModal, setReelActivityModal] = useState<NotificationCard | null>(null);
   const realtimeReloadTimerRef = useRef<number | null>(null);
+  const reelActivityDialogRef = useRef<HTMLDivElement | null>(null);
+  const reelActivityCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const displayNotifications = useMemo(() => {
     return groupReelActivityNotifications(groupParachatNotifications(notifications));
@@ -452,6 +454,54 @@ export default function NotificationsPage() {
 
     return Array.from(uniquePeople.values());
   }, [notifications, reelActivityModal]);
+
+  useEffect(() => {
+    if (!reelActivityModal) return;
+
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    reelActivityCloseButtonRef.current?.focus({ preventScroll: true });
+
+    const handleDialogKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setReelActivityModal(null);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const controls = Array.from(
+        reelActivityDialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        ) || []
+      );
+
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleDialogKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleDialogKeyDown);
+
+      if (previousFocus?.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    };
+  }, [reelActivityModal]);
 
   const showStatus = useCallback((message: string) => {
     setStatusMessage(message);
@@ -1072,6 +1122,7 @@ export default function NotificationsPage() {
           />
 
           <div
+            ref={reelActivityDialogRef}
             role="dialog"
             aria-modal="true"
             aria-label={getReelActivityModalTitle(reelActivityModal.type)}
@@ -1092,6 +1143,7 @@ export default function NotificationsPage() {
                 </div>
 
                 <button
+                  ref={reelActivityCloseButtonRef}
                   type="button"
                   onClick={() => setReelActivityModal(null)}
                   style={reelActivityCloseButtonStyle}

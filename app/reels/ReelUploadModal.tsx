@@ -194,6 +194,8 @@ export default function ReelUploadModal({
   const attemptRef = useRef<ReturnType<typeof createUploadAttempt> | null>(null);
   const openRef = useRef(false);
   const publishPendingRef = useRef(false);
+  const reelUploadDialogRef = useRef<HTMLDivElement | null>(null);
+  const reelUploadPreviousFocusRef = useRef<HTMLElement | null>(null);
   const cancelAttempt = () => {
     attemptRef.current?.cancel();
     attemptRef.current = null;
@@ -348,6 +350,72 @@ export default function ReelUploadModal({
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const activeElement = document.activeElement as HTMLElement | null;
+
+    reelUploadPreviousFocusRef.current =
+      activeElement && typeof activeElement.focus === "function"
+        ? activeElement
+        : null;
+
+    const handleTabKey = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+
+      const controls = Array.from(
+        reelUploadDialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        ) || []
+      );
+
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleTabKey);
+
+    return () => {
+      window.removeEventListener("keydown", handleTabKey);
+
+      const previousFocus = reelUploadPreviousFocusRef.current;
+      reelUploadPreviousFocusRef.current = null;
+
+      if (previousFocus?.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const dialog = reelUploadDialogRef.current;
+    if (!dialog) return;
+
+    const activeElement = document.activeElement as HTMLElement | null;
+
+    if (activeElement && dialog.contains(activeElement)) {
+      return;
+    }
+
+    const firstControl = dialog.querySelector<HTMLElement>(
+      'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+    );
+
+    firstControl?.focus({ preventScroll: true });
+  }, [isOpen, viewportType, mobileStep, selectedVideo]);
 
   useEffect(() => {
     if (!isOpen || !selectedVideo) {
@@ -1044,6 +1112,7 @@ export default function ReelUploadModal({
           <div style={{ ...wrapStyle, padding: 0 }}>
             <div
               style={mobileShellStyle}
+              ref={reelUploadDialogRef}
               role="dialog"
               aria-modal="true"
               aria-label="Create Parapost Reel"
@@ -1197,6 +1266,7 @@ export default function ReelUploadModal({
           <div style={{ ...wrapStyle, padding: 0 }}>
             <div
               style={mobileShellStyle}
+              ref={reelUploadDialogRef}
               role="dialog"
               aria-modal="true"
               aria-label="Create Parapost Reel"
@@ -1265,6 +1335,7 @@ export default function ReelUploadModal({
         <div style={{ ...wrapStyle, padding: 0 }}>
           <div
             style={mobileShellStyle}
+            ref={reelUploadDialogRef}
             role="dialog"
             aria-modal="true"
             aria-label="Create Parapost Reel"
@@ -1321,6 +1392,7 @@ export default function ReelUploadModal({
       <div style={wrapStyle}>
         <div
           style={modalStyle}
+          ref={reelUploadDialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Create Parapost Reel"

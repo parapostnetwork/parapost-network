@@ -14643,17 +14643,66 @@ function FeelingActivityModal({
 }) {
   const feelingOptions = FEELING_ACTIVITY_OPTIONS.filter((option) => option.category === "Feeling");
   const activityOptions = FEELING_ACTIVITY_OPTIONS.filter((option) => option.category === "Activity");
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    closeButtonRef.current?.focus({ preventScroll: true });
+
+    const handleTabKey = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+
+      const controls = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        ) || []
+      );
+
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleTabKey);
+
+    return () => {
+      window.removeEventListener("keydown", handleTabKey);
+
+      if (previousFocus?.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    };
+  }, []);
 
   return (
     <div style={modalOverlayStyle} onClick={onClose}>
-      <div style={feelingActivityModalStyle} onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        style={feelingActivityModalStyle}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dashboard-feeling-activity-title"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div style={modalHeaderStyle}>
           <div>
             <div style={modalEyebrowStyle}>Create a post</div>
-            <h2 style={{ margin: 0, fontSize: 22 }}>Feeling / Activity</h2>
+            <h2 id="dashboard-feeling-activity-title" style={{ margin: 0, fontSize: 22 }}>Feeling / Activity</h2>
             <p style={feelingActivityIntroStyle}>Choose one to add context to your post. It will publish with your post and show on your profile timeline.</p>
           </div>
-          <button type="button" onClick={onClose} style={modalCloseButtonStyle}>×</button>
+          <button ref={closeButtonRef} type="button" onClick={onClose} style={modalCloseButtonStyle} aria-label="Close feeling and activity picker">×</button>
         </div>
 
         {selectedFeelingActivity ? (

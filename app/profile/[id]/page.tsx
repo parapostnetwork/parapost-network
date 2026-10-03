@@ -2675,7 +2675,113 @@ export default function ProfilePage() {
   const profileActionButtonRef = useRef<HTMLButtonElement | null>(null);
   const openPostMenuIdRef = useRef<string | null>(null);
   const profileActionsOpenRef = useRef(false);
+  const profileMobileSearchOpenRef = useRef(false);
+  const profileMobileOverlayReturnFocusRef = useRef<HTMLElement | null>(null);
+  const profileMainMenuDialogRef = useRef<HTMLDivElement | null>(null);
+  const profileMainMenuCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const profileMobileSearchDialogRef = useRef<HTMLDivElement | null>(null);
+  const profileMobileSearchCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const friendRequestInFlight = useRef(false);
+
+  useEffect(() => {
+    if (!profileMainMenuOpen) return;
+
+    if (
+      !profileMobileOverlayReturnFocusRef.current &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      profileMobileOverlayReturnFocusRef.current = document.activeElement;
+    }
+
+    profileMainMenuCloseButtonRef.current?.focus({ preventScroll: true });
+
+    const handleTabKey = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+
+      const controls = Array.from(
+        profileMainMenuDialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        ) || []
+      );
+
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleTabKey);
+
+    return () => {
+      window.removeEventListener("keydown", handleTabKey);
+
+      if (!profileMobileSearchOpenRef.current) {
+        const returnFocus = profileMobileOverlayReturnFocusRef.current;
+        profileMobileOverlayReturnFocusRef.current = null;
+
+        if (returnFocus?.isConnected) {
+          returnFocus.focus({ preventScroll: true });
+        }
+      }
+    };
+  }, [profileMainMenuOpen]);
+
+  useEffect(() => {
+    if (!profileMobileSearchOpen) return;
+
+    if (
+      !profileMobileOverlayReturnFocusRef.current &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      profileMobileOverlayReturnFocusRef.current = document.activeElement;
+    }
+
+    profileMobileSearchCloseButtonRef.current?.focus({ preventScroll: true });
+
+    const handleTabKey = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+
+      const controls = Array.from(
+        profileMobileSearchDialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        ) || []
+      );
+
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleTabKey);
+
+    return () => {
+      window.removeEventListener("keydown", handleTabKey);
+
+      const returnFocus = profileMobileOverlayReturnFocusRef.current;
+      profileMobileOverlayReturnFocusRef.current = null;
+
+      if (returnFocus?.isConnected) {
+        returnFocus.focus({ preventScroll: true });
+      }
+    };
+  }, [profileMobileSearchOpen]);
 
   const openProfilePostImageViewer = useCallback<OpenPostMediaViewer>((url, alt, urls, index) => {
     if (!url) return;
@@ -3420,6 +3526,7 @@ const openProfileSearchResult = useCallback(
   (result: ProfileSearchResult) => {
     if (!result?.id) return;
 
+    profileMobileSearchOpenRef.current = false;
     setProfileSearchOpen(false);
     setProfileMobileSearchOpen(false);
     setProfileSearchQuery("");
@@ -3439,11 +3546,13 @@ const handleProfileSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
 };
 
 const openProfileMobileSearch = useCallback(() => {
+  profileMobileSearchOpenRef.current = true;
   setProfileMobileSearchOpen(true);
   setProfileSearchOpen(true);
 }, []);
 
 const closeProfileMobileSearch = useCallback(() => {
+  profileMobileSearchOpenRef.current = false;
   setProfileMobileSearchOpen(false);
   setProfileSearchOpen(false);
   setProfileSearchQuery("");
@@ -4180,7 +4289,8 @@ useEffect(() => {
 
 useEffect(() => {
   profileActionsOpenRef.current = profileActionsOpen;
-}, [profileActionsOpen]);
+  profileMobileSearchOpenRef.current = profileMobileSearchOpen;
+}, [profileActionsOpen, profileMobileSearchOpen]);
 
 useEffect(() => {
   const profileActionSelector =
@@ -4236,6 +4346,13 @@ useEffect(() => {
       setEditingProfileCommentId(null);
       setEditingProfileCommentDraft("");
       setSavingProfileCommentId(null);
+      setProfileMainMenuOpen(false);
+      profileMobileSearchOpenRef.current = false;
+      setProfileMobileSearchOpen(false);
+      setProfileSearchOpen(false);
+      setProfileSearchQuery("");
+      setProfileSearchResults([]);
+      setProfileSearchMessage("");
       setProfileFeelingActivityOpen(false);
       setActiveProfileShowcase(null);
       setProfileBadgesViewerOpen(false);
@@ -15937,6 +16054,7 @@ return (
       ? createPortal(
           (
             <div
+              ref={profileMainMenuDialogRef}
               className="profile-mobile-main-menu-overlay"
               style={profileMobileMainMenuOverlayStyle}
               role="dialog"
@@ -15952,6 +16070,7 @@ return (
               >
                 <div style={profileMobileMainMenuTopBarStyle}>
                   <button
+                    ref={profileMainMenuCloseButtonRef}
                     type="button"
                     onClick={() => setProfileMainMenuOpen(false)}
                     style={profileMobileMainMenuTextButtonStyle}
@@ -16115,6 +16234,7 @@ return (
       ? createPortal(
           (
             <div
+              ref={profileMobileSearchDialogRef}
               className="profile-mobile-search-overlay"
               style={profileMobileSearchOverlayStyle}
               role="dialog"
@@ -16133,6 +16253,7 @@ return (
                     <h3 style={profileMobileSearchTitleStyle}>Search Parapost</h3>
                   </span>
                   <button
+                    ref={profileMobileSearchCloseButtonRef}
                     type="button"
                     onClick={closeProfileMobileSearch}
                     style={profileMobileSearchCloseStyle}
