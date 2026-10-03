@@ -394,6 +394,7 @@ export default function CreateLiveShowPage() {
                 value={scheduledAt}
                 onChange={(event) => setScheduledAt(event.target.value)}
                 style={inputStyle}
+                className="parapost-live-create-datetime"
               />
             </label>
           </div>
@@ -496,6 +497,20 @@ export default function CreateLiveShowPage() {
           .parapost-live-create-form textarea,
           .parapost-live-create-form select {
             font-size: 16px !important;
+          }
+
+          .parapost-live-create-datetime {
+            cursor: pointer !important;
+            color-scheme: dark;
+          }
+
+          .parapost-live-create-datetime::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 1;
+            width: 24px;
+            height: 24px;
+            padding: 6px;
+            filter: brightness(0) invert(1);
           }
 
           .parapost-live-create-form button,
