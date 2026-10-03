@@ -8607,8 +8607,8 @@ return (
       @media (min-width: 1051px) {
         .profile-showcase-modal-overlay > div {
           width: min(1180px, calc(100vw - 36px)) !important;
-          height: min(860px, calc(100vh - 36px)) !important;
-          max-height: calc(100vh - 36px) !important;
+          height: min(860px, calc(100dvh - 36px)) !important;
+          max-height: calc(100dvh - 36px) !important;
           border-radius: 30px !important;
         }
 
@@ -8617,7 +8617,7 @@ return (
         }
 
         .profile-showcase-modal-overlay [style*="min-height: 460px"] {
-          min-height: min(520px, calc(100vh - 260px)) !important;
+          min-height: min(520px, calc(100dvh - 260px)) !important;
         }
       }
 
@@ -8629,8 +8629,8 @@ return (
 
         .profile-showcase-modal-overlay > div {
           width: calc(100vw - 24px) !important;
-          height: calc(100vh - 24px) !important;
-          max-height: calc(100vh - 24px) !important;
+          height: calc(100dvh - 24px) !important;
+          max-height: calc(100dvh - 24px) !important;
           border-radius: 24px !important;
         }
 
@@ -8640,7 +8640,7 @@ return (
         }
 
         .profile-showcase-modal-overlay [style*="min-height: 460px"] {
-          min-height: min(440px, calc(100vh - 265px)) !important;
+          min-height: min(440px, calc(100dvh - 265px)) !important;
         }
       }
 
@@ -8830,7 +8830,7 @@ return (
 
         .profile-showcase-modal-actions button {
           width: 100% !important;
-          min-height: 42px !important;
+          min-height: 44px !important;
           justify-content: center !important;
         }
       }
@@ -8842,8 +8842,8 @@ return (
 
         .profile-showcase-modal-overlay > div {
           width: calc(100vw - 24px) !important;
-          height: calc(100vh - 24px) !important;
-          max-height: calc(100vh - 24px) !important;
+          height: calc(100dvh - 24px) !important;
+          max-height: calc(100dvh - 24px) !important;
           border-radius: 24px !important;
         }
 
@@ -8888,7 +8888,7 @@ return (
         }
 
         .profile-showcase-preview-column [style*="min-height"] {
-          min-height: min(500px, calc(100vh - 260px)) !important;
+          min-height: min(500px, calc(100dvh - 260px)) !important;
         }
       }
 
@@ -8899,8 +8899,8 @@ return (
 
         .profile-showcase-modal-overlay > div {
           width: calc(100vw - 24px) !important;
-          height: calc(100vh - 24px) !important;
-          max-height: calc(100vh - 24px) !important;
+          height: calc(100dvh - 24px) !important;
+          max-height: calc(100dvh - 24px) !important;
           border-radius: 24px !important;
         }
 
@@ -8915,7 +8915,7 @@ return (
         }
 
         .profile-showcase-preview-column [style*="min-height"] {
-          min-height: min(430px, calc(100vh - 265px)) !important;
+          min-height: min(430px, calc(100dvh - 265px)) !important;
         }
       }
 
@@ -9014,7 +9014,7 @@ return (
 
         .profile-showcase-modal-actions button {
           width: 100% !important;
-          min-height: 42px !important;
+          min-height: 44px !important;
           justify-content: center !important;
         }
       }
@@ -9056,15 +9056,15 @@ return (
         }
 
         .profile-showcase-preview-column [style*="min-height"] {
-          min-height: min(520px, calc(100vh - 270px)) !important;
+          min-height: min(520px, calc(100dvh - 270px)) !important;
         }
       }
 
       @media (min-width: 721px) and (max-width: 1050px) {
         .profile-showcase-modal-shell {
           width: calc(100vw - 24px) !important;
-          height: calc(100vh - 24px) !important;
-          max-height: calc(100vh - 24px) !important;
+          height: calc(100dvh - 24px) !important;
+          max-height: calc(100dvh - 24px) !important;
           border-radius: 26px !important;
           padding: 18px !important;
         }
@@ -9080,7 +9080,7 @@ return (
         }
 
         .profile-showcase-preview-column [style*="min-height"] {
-          min-height: min(455px, calc(100vh - 270px)) !important;
+          min-height: min(455px, calc(100dvh - 270px)) !important;
         }
 
         .profile-showcase-upload-card {
@@ -9191,7 +9191,7 @@ return (
 
         .profile-showcase-modal-actions button {
           width: 100% !important;
-          min-height: 42px !important;
+          min-height: 44px !important;
           justify-content: center !important;
         }
       }
@@ -9690,7 +9690,7 @@ return (
           width: 100% !important;
           max-width: none !important;
           border-radius: 22px 22px 0 0 !important;
-          max-height: calc(100vh - 118px) !important;
+          max-height: calc(100dvh - 118px) !important;
           overflow-y: auto !important;
           padding: 12px 12px 18px !important;
           overscroll-behavior: contain !important;
@@ -9900,7 +9900,7 @@ return (
         .profile-desktop-action-menu {
           top: calc(100% + 10px) !important;
           bottom: auto !important;
-          max-height: min(300px, calc(100vh - 210px)) !important;
+          max-height: min(300px, calc(100dvh - 210px)) !important;
           overflow-y: auto !important;
           overscroll-behavior: contain !important;
           z-index: 2147483000 !important;
@@ -9914,7 +9914,7 @@ return (
         bottom: auto !important;
         z-index: 2147483000 !important;
         width: min(280px, calc(100vw - 48px)) !important;
-        max-height: min(300px, calc(100vh - 210px)) !important;
+        max-height: min(300px, calc(100dvh - 210px)) !important;
         overflow-y: auto !important;
         overscroll-behavior: contain !important;
         scrollbar-width: thin;

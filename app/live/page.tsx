@@ -800,7 +800,7 @@ const heroActionRowStyle: CSSProperties = {
 };
 
 const primaryLinkStyle: CSSProperties = {
-  minHeight: 42,
+  minHeight: 44,
   borderRadius: 999,
   display: "inline-flex",
   alignItems: "center",
@@ -816,7 +816,7 @@ const primaryLinkStyle: CSSProperties = {
 };
 
 const secondaryButtonStyle: CSSProperties = {
-  minHeight: 42,
+  minHeight: 44,
   borderRadius: 999,
   border: "1px solid rgba(255,255,255,0.12)",
   background: "rgba(255,255,255,0.06)",
@@ -899,7 +899,7 @@ const sectionTitleStyle: CSSProperties = {
 };
 
 const smallCreateLinkStyle: CSSProperties = {
-  minHeight: 36,
+  minHeight: 44,
   borderRadius: 999,
   display: "inline-flex",
   alignItems: "center",

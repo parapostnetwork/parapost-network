@@ -223,7 +223,7 @@ export default function ProfileReelsGridPage() {
     <div
       className="profile-reels-grid-page"
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background:
           "radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--parapost-accent, #a855f7) 22%, transparent), transparent 34%), radial-gradient(circle at 92% 10%, rgba(124,58,237,0.16), transparent 30%), #07090d",
         color: "#ffffff",

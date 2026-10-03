@@ -16169,7 +16169,7 @@ const sponsorIconStyle: CSSProperties = {
 
 // Phase 3.2B: dashboard now uses the global Parapost accent layer while keeping text readable.
 const dashboardRootStyle: CSSProperties = {
-  minHeight: "100vh",
+  minHeight: "100dvh",
   height: "auto",
   width: "100%",
   maxWidth: "100vw",

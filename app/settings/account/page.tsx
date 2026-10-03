@@ -645,7 +645,7 @@ export default function AccountSecuritySettingsPage() {
 
           .account-settings-page button,
           .account-settings-page a {
-            min-height: 42px;
+            min-height: 44px;
           }
         }
 

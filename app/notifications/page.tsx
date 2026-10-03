@@ -1418,7 +1418,7 @@ const filterScrollerStyle: CSSProperties = {
 };
 
 const filterButtonStyle: CSSProperties = {
-  minHeight: "40px",
+  minHeight: "44px",
   width: "100%",
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.10)",
@@ -1788,8 +1788,8 @@ const reelActivitySubtitleStyle: CSSProperties = {
 };
 
 const reelActivityCloseButtonStyle: CSSProperties = {
-  width: "38px",
-  height: "38px",
+  width: "44px",
+  height: "44px",
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.12)",
   background: "rgba(255,255,255,0.08)",
@@ -1894,7 +1894,7 @@ const reelActivityFooterStyle: CSSProperties = {
 };
 
 const reelActivityViewReelButtonStyle: CSSProperties = {
-  minHeight: "40px",
+  minHeight: "44px",
   borderRadius: "999px",
   border: "1px solid var(--parapost-accent-border)",
   background: "var(--parapost-accent-muted-bg)",
@@ -1905,7 +1905,7 @@ const reelActivityViewReelButtonStyle: CSSProperties = {
 };
 
 const reelActivityDoneButtonStyle: CSSProperties = {
-  minHeight: "40px",
+  minHeight: "44px",
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.13)",
   background: "rgba(255,255,255,0.08)",

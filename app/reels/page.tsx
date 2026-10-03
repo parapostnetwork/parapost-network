@@ -2465,9 +2465,9 @@ export default function ReelsPage() {
               }}
               style={
                 viewportType === "mobile"
-                  ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" }
+                  ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "44px" }
                   : viewportType === "tablet"
-                    ? { ...buttonStyle, padding: "9px 13px", fontSize: "13px", minHeight: "40px", whiteSpace: "nowrap" }
+                    ? { ...buttonStyle, padding: "9px 13px", fontSize: "13px", minHeight: "44px", whiteSpace: "nowrap" }
                     : buttonStyle
               }
             >
@@ -2478,9 +2478,9 @@ export default function ReelsPage() {
               onClick={() => setMuteAll((prev) => !prev)}
               style={
                 viewportType === "mobile"
-                  ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" }
+                  ? { ...buttonStyle, padding: "8px 10px", fontSize: "12px", minHeight: "44px" }
                   : viewportType === "tablet"
-                    ? { ...buttonStyle, padding: "9px 13px", fontSize: "13px", minHeight: "40px", whiteSpace: "nowrap" }
+                    ? { ...buttonStyle, padding: "9px 13px", fontSize: "13px", minHeight: "44px", whiteSpace: "nowrap" }
                     : buttonStyle
               }
             >
@@ -2492,9 +2492,9 @@ export default function ReelsPage() {
               onClick={prepareReelsRouteExit}
               style={
                 viewportType === "mobile"
-                  ? { ...navLinkStyle, padding: "8px 10px", fontSize: "12px", minHeight: "36px" }
+                  ? { ...navLinkStyle, padding: "8px 10px", fontSize: "12px", minHeight: "44px" }
                   : viewportType === "tablet"
-                    ? { ...navLinkStyle, padding: "9px 13px", fontSize: "13px", minHeight: "40px", whiteSpace: "nowrap" }
+                    ? { ...navLinkStyle, padding: "9px 13px", fontSize: "13px", minHeight: "44px", whiteSpace: "nowrap" }
                     : navLinkStyle
               }
             >

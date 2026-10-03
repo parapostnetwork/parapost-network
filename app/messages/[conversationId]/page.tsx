@@ -681,7 +681,7 @@ const profileLinkStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  minHeight: "42px",
+  minHeight: "44px",
   borderRadius: "999px",
   border: "1px solid rgba(168,85,247,0.36)",
   background: "rgba(168,85,247,0.14)",

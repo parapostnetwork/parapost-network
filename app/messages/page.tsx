@@ -738,7 +738,7 @@ export default function MessagesPageWrapper() {
       fallback={
         <div
           style={{
-            minHeight: "100vh",
+            minHeight: "100dvh",
             background: "#05070a",
             color: "white",
             display: "grid",
@@ -2760,12 +2760,12 @@ function MessagesPage() {
         @media (min-width: 1181px) {
           .parachat-inbox,
           .parachat-panel {
-            height: calc(100vh - 36px) !important;
-            max-height: calc(100vh - 36px) !important;
+            height: calc(100dvh - 36px) !important;
+            max-height: calc(100dvh - 36px) !important;
           }
 
           .parachat-conversation-list {
-            max-height: calc(100vh - 290px) !important;
+            max-height: calc(100dvh - 290px) !important;
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch !important;
             padding-right: 2px !important;
@@ -2782,9 +2782,9 @@ function MessagesPage() {
 
           .parachat-inbox,
           .parachat-panel {
-            height: calc(100vh - 28px) !important;
-            max-height: calc(100vh - 28px) !important;
-            min-height: calc(100vh - 28px) !important;
+            height: calc(100dvh - 28px) !important;
+            max-height: calc(100dvh - 28px) !important;
+            min-height: calc(100dvh - 28px) !important;
             border-radius: 24px !important;
           }
 
@@ -2793,7 +2793,7 @@ function MessagesPage() {
           }
 
           .parachat-conversation-list {
-            max-height: calc(100vh - 276px) !important;
+            max-height: calc(100dvh - 276px) !important;
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch !important;
           }
@@ -4161,7 +4161,7 @@ const conversationListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "8px",
-  maxHeight: "calc(100vh - 300px)",
+  maxHeight: "calc(100dvh - 300px)",
   overflowY: "auto",
   WebkitOverflowScrolling: "touch",
   overscrollBehavior: "contain",
@@ -4486,7 +4486,7 @@ const chatPanelStyle: React.CSSProperties = {
 };
 
 const selectConversationStyle: React.CSSProperties = {
-  minHeight: "calc(100vh - 36px)",
+  minHeight: "calc(100dvh - 36px)",
   display: "grid",
   placeItems: "center",
   color: "#9ca3af",
@@ -5194,8 +5194,8 @@ const imageViewerMetaStyle: React.CSSProperties = {
 };
 
 const imageViewerCloseButtonStyle: React.CSSProperties = {
-  width: "40px",
-  height: "40px",
+  width: "44px",
+  height: "44px",
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.14)",
   background: "rgba(255,255,255,0.08)",

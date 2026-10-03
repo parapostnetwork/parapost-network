@@ -1010,7 +1010,7 @@ export default function ProfileAboutSection({
           }
 
           .profile-about-section button {
-            min-height: 40px;
+            min-height: 44px;
           }
 
           .profile-about-save-actions {

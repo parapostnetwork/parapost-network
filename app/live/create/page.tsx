@@ -918,7 +918,7 @@ const actionsStyle: CSSProperties = {
 };
 
 const cancelButtonStyle: CSSProperties = {
-  minHeight: 42,
+  minHeight: 44,
   borderRadius: 999,
   padding: "0 16px",
   border: "1px solid rgba(255,255,255,0.12)",
@@ -933,7 +933,7 @@ const cancelButtonStyle: CSSProperties = {
 };
 
 const saveButtonStyle: CSSProperties = {
-  minHeight: 42,
+  minHeight: 44,
   borderRadius: 999,
   padding: "0 18px",
   border: "1px solid rgba(216,180,254,0.30)",

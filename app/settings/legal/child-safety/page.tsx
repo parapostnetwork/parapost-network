@@ -153,7 +153,7 @@ export default function ChildSafetyPage() {
         }
 
         .child-safety-page {
-          min-height: 100vh;
+          min-height: 100dvh;
           padding: 48px 20px 72px;
           background:
             radial-gradient(
