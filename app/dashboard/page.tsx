@@ -12262,7 +12262,7 @@ function DashboardLiveStreamCard({
                 display: "grid",
                 placeItems: "center",
                 textAlign: "center",
-                padding: 24,
+                padding: "clamp(14px, 3.5vw, 28px)",
                 background:
                   "radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--parapost-accent, #a855f7) 24%, transparent), transparent 32%), linear-gradient(135deg, #09090f, #05070a)",
               }}
@@ -12271,16 +12271,18 @@ function DashboardLiveStreamCard({
                 style={{
                   display: "grid",
                   justifyItems: "center",
-                  gap: 10,
-                  maxWidth: 430,
+                  gap: "clamp(7px, 1.5vw, 11px)",
+                  width: "100%",
+                  maxWidth: "min(430px, 88%)",
+                  transform: "translateY(-6%)",
                 }}
               >
                 <img
                   src="/icons/parapost-512.png"
                   alt="Parapost Network"
                   style={{
-                    width: 92,
-                    height: 92,
+                    width: "clamp(68px, 13vw, 92px)",
+                    height: "clamp(68px, 13vw, 92px)",
                     objectFit: "contain",
                     borderRadius: "50%",
                   }}
@@ -12288,7 +12290,7 @@ function DashboardLiveStreamCard({
                 <strong
                   style={{
                     color: "#ffffff",
-                    fontSize: 20,
+                    fontSize: "clamp(18px, 4vw, 20px)",
                     lineHeight: 1.2,
                   }}
                 >
@@ -12297,8 +12299,9 @@ function DashboardLiveStreamCard({
                 <span
                   style={{
                     color: "#cbd5e1",
-                    fontSize: 14,
-                    lineHeight: 1.45,
+                    fontSize: "clamp(13px, 3.2vw, 14px)",
+                    lineHeight: 1.4,
+                    maxWidth: "min(360px, 92%)",
                   }}
                 >
                   This Twitch broadcast is no longer available to watch.

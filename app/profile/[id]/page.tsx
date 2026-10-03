@@ -18627,15 +18627,24 @@ return (
                           const effectiveStatus = getProfileEffectiveLiveStatus(item);
                           const isLive = effectiveStatus === "live";
                           const isReplay = effectiveStatus === "ended";
-                          const liveEmbedUrl = canPlayPublishedStream(item) ? item.embed_url || "" : "";
+                          const isTwitch =
+                            (item.provider || "").trim().toLowerCase() === "twitch" ||
+                            (item.embed_url || "").toLowerCase().includes("player.twitch.tv") ||
+                            (item.external_url || "").toLowerCase().includes("twitch.tv");
+                          const hasTwitchReplay = /[?&]video=/.test(item.embed_url || "");
+                          const isTwitchEnded = isReplay && isTwitch && !hasTwitchReplay;
+                          const liveEmbedUrl =
+                            canPlayPublishedStream(item) && !isTwitchEnded ? item.embed_url || "" : "";
                           const chatStatus = getProfileLiveChatStatus(effectiveStatus);
                           const badgeIsLive = getLiveDisplayStatus(item) === "live";
                           const hasLongDescription = Boolean(item.description && item.description.length > 150);
                           const scheduleLabel = isLive
                             ? "Live Now"
-                            : isReplay
-                              ? `Replay from ${formatProfileLiveDate(getProfileLiveTimestamp(item))}`
-                              : `Scheduled ${formatProfileLiveDate(item.scheduled_at)}`;
+                            : isTwitchEnded
+                              ? `Ended ${formatProfileLiveDate(getProfileLiveTimestamp(item))}`
+                              : isReplay
+                                ? `Replay from ${formatProfileLiveDate(getProfileLiveTimestamp(item))}`
+                                : `Scheduled ${formatProfileLiveDate(item.scheduled_at)}`;
 
                           return (
                             <article
@@ -18687,7 +18696,7 @@ return (
                                       {profileDisplayName || "Parapost Member"}
                                     </strong>
                                     <span style={postMetaStyle}>
-                                      @{profileDisplayUsername || "new-member"} {isLive ? "is live now" : isReplay ? "shared a replay" : "scheduled a live show"} · {formatTimeAgo(item.created_at)}
+                                      @{profileDisplayUsername || "new-member"} {isLive ? "is live now" : isTwitchEnded ? "ended a live show" : isReplay ? "shared a replay" : "scheduled a live show"} · {formatTimeAgo(item.created_at)}
                                     </span>
                                   </div>
 
@@ -18709,7 +18718,7 @@ return (
                                         whiteSpace: "nowrap",
                                       }}
                                     >
-                                      {badgeIsLive ? "●" : "◎"} {getProfileLiveStatusLabel(item)}
+                                      {badgeIsLive ? "●" : "◎"} {isTwitchEnded ? "ENDED" : getProfileLiveStatusLabel(item)}
                                     </span>
                                   ) : null}
                                 </header>
@@ -18726,7 +18735,61 @@ return (
                                     marginRight: "auto",
                                   }}
                                 >
-                                  {liveEmbedUrl ? (
+                                  {isTwitchEnded ? (
+                                    <div
+                                      style={{
+                                        width: "100%",
+                                        aspectRatio: "16 / 9",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        textAlign: "center",
+                                        padding: "clamp(14px, 3.5vw, 28px)",
+                                        background:
+                                          "radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--parapost-accent, #a855f7) 24%, transparent), transparent 32%), linear-gradient(135deg, #09090f, #05070a)",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          display: "grid",
+                                          justifyItems: "center",
+                                          gap: "clamp(7px, 1.5vw, 11px)",
+                                          width: "100%",
+                                          maxWidth: "min(430px, 88%)",
+                                          transform: "translateY(-6%)",
+                                        }}
+                                      >
+                                        <img
+                                          src="/icons/parapost-512.png"
+                                          alt="Parapost Network"
+                                          style={{
+                                            width: "clamp(68px, 13vw, 92px)",
+                                            height: "clamp(68px, 13vw, 92px)",
+                                            objectFit: "contain",
+                                            borderRadius: "50%",
+                                          }}
+                                        />
+                                        <strong
+                                          style={{
+                                            color: "#ffffff",
+                                            fontSize: "clamp(18px, 4vw, 20px)",
+                                            lineHeight: 1.2,
+                                          }}
+                                        >
+                                          This live has ended
+                                        </strong>
+                                        <span
+                                          style={{
+                                            color: "#cbd5e1",
+                                            fontSize: "clamp(13px, 3.2vw, 14px)",
+                                            lineHeight: 1.4,
+                                            maxWidth: "min(360px, 92%)",
+                                          }}
+                                        >
+                                          This Twitch broadcast is no longer available to watch.
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ) : liveEmbedUrl ? (
                                     <iframe
                                       id={`profile-live-player-${item.id}`}
                                       src={livePlayerUrl(liveEmbedUrl, typeof window !== "undefined" ? window.location.origin : undefined)}
@@ -18915,7 +18978,7 @@ return (
                                           listStyle: "none",
                                         }}
                                       >
-                                        View replay discussion / add comment
+                                        {isTwitchEnded ? "View discussion / add comment" : "View replay discussion / add comment"}
                                       </summary>
 
                                       <div style={{ padding: "0 10px 10px" }}>
