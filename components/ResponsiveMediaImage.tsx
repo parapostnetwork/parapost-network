@@ -19,6 +19,8 @@ export default function ResponsiveMediaImage({ src, purpose, avatarSize, sizes, 
     // Native srcSet selects our stored variants without a second optimization service.
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      width={variant?.width}
+      height={variant?.height}
       {...props}
       alt={alt}
       src={src}

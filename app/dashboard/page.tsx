@@ -2242,14 +2242,12 @@ export default function DashboardPage() {
 
     resetDashboardScroll();
     const firstFrame = window.requestAnimationFrame(resetDashboardScroll);
-    const secondFrame = window.setTimeout(resetDashboardScroll, 80);
 
     const handlePageShow = () => resetDashboardScroll();
     window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       window.cancelAnimationFrame(firstFrame);
-      window.clearTimeout(secondFrame);
       window.removeEventListener("pageshow", handlePageShow);
       window.history.scrollRestoration = previousScrollRestoration;
     };
