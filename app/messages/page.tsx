@@ -162,15 +162,28 @@ function getProfileName(profile?: ProfileRow | null) {
   return profile?.full_name || profile?.username || "Parapost Member";
 }
 
-const PARACHAT_ONLINE_TIMEOUT_MS = 3 * 60 * 1000;
+const PARACHAT_ONLINE_TIMEOUT_MS = 7 * 60 * 1000;
 const PARACHAT_TYPING_IDLE_MS = 1400;
 const PARACHAT_TYPING_REMOTE_TIMEOUT_MS = 3500;
 const PARACHAT_TYPING_BROADCAST_THROTTLE_MS = 700;
 
 const PARACHAT_IMAGE_BUCKET = "parachat-images";
-const PARACHAT_MAX_IMAGE_DIMENSION = 1600;
-const PARACHAT_TARGET_IMAGE_BYTES = 1_200_000;
+const PARACHAT_MAX_IMAGE_DIMENSION = 720;
+const PARACHAT_TARGET_IMAGE_BYTES = 450_000;
 const PARACHAT_ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const PARACHAT_SIGNED_IMAGE_URL_SECONDS = 60 * 60;
+const PARACHAT_SIGNED_IMAGE_URL_REUSE_MS = 50 * 60 * 1000;
+const PARACHAT_MESSAGE_PAGE_SIZE = 50;
+
+type ParachatSignedImageUrlCacheEntry = {
+  url: string;
+  reuseUntil: number;
+};
+
+const parachatSignedImageUrlCache = new Map<
+  string,
+  ParachatSignedImageUrlCacheEntry
+>();
 
 const DIRECT_MESSAGE_SELECT =
   "id, conversation_id, sender_id, body, created_at, is_read, message_type, image_path, image_mime_type, image_size_bytes, image_width, image_height";
@@ -279,7 +292,7 @@ async function compressParachatImage(file: File) {
 
     context.drawImage(image, 0, 0, targetWidth, targetHeight);
 
-    let quality = 0.84;
+    let quality = 0.80;
     let blob = await canvasToBlob(canvas, "image/jpeg", quality);
 
     while (blob.size > PARACHAT_TARGET_IMAGE_BYTES && quality > 0.58) {
@@ -309,14 +322,33 @@ function waitForParachatImageUrlRetry(delayMs: number) {
 async function attachSignedImageUrlToMessage(message: MessageRow) {
   if (!message.image_path) return message;
 
+  const cached = parachatSignedImageUrlCache.get(message.image_path);
+  const now = Date.now();
+
+  if (cached && cached.reuseUntil > now) {
+    return { ...message, signedImageUrl: cached.url };
+  }
+
+  if (cached) {
+    parachatSignedImageUrlCache.delete(message.image_path);
+  }
+
   const maxAttempts = 5;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const { data, error } = await supabase.storage
       .from(PARACHAT_IMAGE_BUCKET)
-      .createSignedUrl(message.image_path, 60 * 60);
+      .createSignedUrl(
+        message.image_path,
+        PARACHAT_SIGNED_IMAGE_URL_SECONDS
+      );
 
     if (!error && data?.signedUrl) {
+      parachatSignedImageUrlCache.set(message.image_path, {
+        url: data.signedUrl,
+        reuseUntil: Date.now() + PARACHAT_SIGNED_IMAGE_URL_REUSE_MS,
+      });
+
       return { ...message, signedImageUrl: data.signedUrl };
     }
 
@@ -772,6 +804,8 @@ function MessagesPage() {
   const [searchText, setSearchText] = useState("");
   const [loadingInbox, setLoadingInbox] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -804,6 +838,9 @@ function MessagesPage() {
   const activeConversationIdRef = useRef(selectedConversationFromUrl);
   const conversationsRef = useRef<ConversationItem[]>([]);
   const messagesRef = useRef<MessageRow[]>([]);
+  const hasMoreMessagesRef = useRef(false);
+  const loadingOlderMessagesRef = useRef(false);
+  const messagesNearBottomRef = useRef(true);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const localTypingStopTimeoutRef = useRef<number | null>(null);
   const remoteTypingTimeoutRef = useRef<number | null>(null);
@@ -1188,7 +1225,7 @@ function MessagesPage() {
   }, []);
 
   useEffect(() => {
-    if (!remoteTypingUserId) return;
+    if (!remoteTypingUserId || !messagesNearBottomRef.current) return;
     scrollToBottom("smooth");
   }, [remoteTypingUserId, scrollToBottom]);
 
@@ -1546,9 +1583,15 @@ function MessagesPage() {
     async (conversationId: string, currentViewerId: string) => {
       if (!conversationId || !currentViewerId) {
         setMessages([]);
+        setHasMoreMessages(false);
+        hasMoreMessagesRef.current = false;
         return;
       }
 
+      loadingOlderMessagesRef.current = false;
+      setLoadingOlderMessages(false);
+      hasMoreMessagesRef.current = false;
+      setHasMoreMessages(false);
       setLoadingMessages(true);
       setErrorMessage("");
 
@@ -1556,23 +1599,153 @@ function MessagesPage() {
         .from("direct_messages")
         .select(DIRECT_MESSAGE_SELECT)
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false })
+        .limit(PARACHAT_MESSAGE_PAGE_SIZE + 1);
 
       if (error) {
         setErrorMessage(getParachatErrorMessage(error.message || "Could not load this conversation."));
         setMessages([]);
+        setHasMoreMessages(false);
+        hasMoreMessagesRef.current = false;
         setLoadingMessages(false);
         return;
       }
 
-      const preparedMessages = await attachSignedImageUrls((data as MessageRow[]) || []);
+      const rows = ((data as MessageRow[]) || []).filter(Boolean);
+      const hasMore = rows.length > PARACHAT_MESSAGE_PAGE_SIZE;
+      const newestPage = rows
+        .slice(0, PARACHAT_MESSAGE_PAGE_SIZE)
+        .reverse();
+
+      const preparedMessages = await attachSignedImageUrls(newestPage);
+
+      if (activeConversationIdRef.current !== conversationId) {
+        setLoadingMessages(false);
+        return;
+      }
+
+      hasMoreMessagesRef.current = hasMore;
+      setHasMoreMessages(hasMore);
       setMessages(preparedMessages);
+      messagesNearBottomRef.current = true;
+
       await markConversationRead(conversationId, currentViewerId);
+
       setLoadingMessages(false);
       scrollToBottom("auto");
     },
     [markConversationRead, scrollToBottom]
   );
+
+  const loadOlderMessages = useCallback(async () => {
+    const conversationId = activeConversationIdRef.current;
+    const currentMessages = messagesRef.current;
+    const oldestMessage = currentMessages[0];
+
+    if (
+      !conversationId ||
+      !viewerId ||
+      !oldestMessage ||
+      !hasMoreMessagesRef.current ||
+      loadingOlderMessagesRef.current
+    ) {
+      return;
+    }
+
+    loadingOlderMessagesRef.current = true;
+    setLoadingOlderMessages(true);
+
+    const messagesArea = messagesAreaRef.current;
+    const previousScrollHeight = messagesArea?.scrollHeight || 0;
+    const previousScrollTop = messagesArea?.scrollTop || 0;
+
+    try {
+      const { data, error } = await supabase
+        .from("direct_messages")
+        .select(DIRECT_MESSAGE_SELECT)
+        .eq("conversation_id", conversationId)
+        .lt("created_at", oldestMessage.created_at)
+        .order("created_at", { ascending: false })
+        .limit(PARACHAT_MESSAGE_PAGE_SIZE + 1);
+
+      if (error) {
+        console.warn("Could not load earlier Parachat messages:", error.message);
+        return;
+      }
+
+      if (activeConversationIdRef.current !== conversationId) return;
+
+      const rows = ((data as MessageRow[]) || []).filter(Boolean);
+      const hasMore = rows.length > PARACHAT_MESSAGE_PAGE_SIZE;
+      const olderPage = rows
+        .slice(0, PARACHAT_MESSAGE_PAGE_SIZE)
+        .reverse();
+
+      const preparedMessages = await attachSignedImageUrls(olderPage);
+
+      if (activeConversationIdRef.current !== conversationId) return;
+
+      hasMoreMessagesRef.current = hasMore;
+      setHasMoreMessages(hasMore);
+
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((message) => message.id));
+        const uniqueOlderMessages = preparedMessages.filter(
+          (message) => !existingIds.has(message.id)
+        );
+
+        return [...uniqueOlderMessages, ...prev];
+      });
+
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            const nextMessagesArea = messagesAreaRef.current;
+
+            if (
+              !nextMessagesArea ||
+              activeConversationIdRef.current !== conversationId
+            ) {
+              return;
+            }
+
+            const addedHeight =
+              nextMessagesArea.scrollHeight - previousScrollHeight;
+
+            nextMessagesArea.scrollTop =
+              previousScrollTop + Math.max(0, addedHeight);
+
+            messagesNearBottomRef.current = false;
+          });
+        });
+      }
+    } finally {
+      if (activeConversationIdRef.current === conversationId) {
+        loadingOlderMessagesRef.current = false;
+        setLoadingOlderMessages(false);
+      }
+    }
+  }, [viewerId]);
+
+  const handleMessagesScroll = useCallback(() => {
+    const messagesArea = messagesAreaRef.current;
+    if (!messagesArea) return;
+
+    const distanceFromBottom =
+      messagesArea.scrollHeight -
+      messagesArea.scrollTop -
+      messagesArea.clientHeight;
+
+    messagesNearBottomRef.current = distanceFromBottom <= 180;
+
+    if (
+      messagesArea.scrollTop <= 120 &&
+      hasMoreMessagesRef.current &&
+      !loadingOlderMessagesRef.current
+    ) {
+      void loadOlderMessages();
+    }
+  }, [loadOlderMessages]);
 
   useEffect(() => {
     loadInbox();
@@ -1601,7 +1774,7 @@ function MessagesPage() {
 
     void updatePresence(true);
 
-    const heartbeatId = window.setInterval(markOnlineIfVisible, 45000);
+    const heartbeatId = window.setInterval(markOnlineIfVisible, 5 * 60 * 1000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -1634,12 +1807,6 @@ function MessagesPage() {
 
     loadMessages(activeConversationId, viewerId);
   }, [activeConversationId, viewerId, loadMessages]);
-
-  useEffect(() => {
-    if (!activeConversationId || loadingMessages) return;
-
-    scrollToBottom("auto");
-  }, [activeConversationId, loadingMessages, messages.length, scrollToBottom]);
 
   useEffect(() => {
     const closeFloatingMenus = () => {
@@ -1767,17 +1934,10 @@ function MessagesPage() {
               await markConversationRead(nextMessage.conversation_id, viewerId);
             }
 
-            scrollToBottom();
-
-            if (isImageMessage(nextMessage)) {
-              globalThis.setTimeout(() => {
-                void loadMessages(nextMessage.conversation_id, viewerId);
-              }, 900);
-
-              globalThis.setTimeout(() => {
-                void loadMessages(nextMessage.conversation_id, viewerId);
-              }, 1800);
+            if (messagesNearBottomRef.current) {
+              scrollToBottom();
             }
+
           }
         }
       )
@@ -2059,6 +2219,8 @@ function MessagesPage() {
     }
 
     if (message.image_path) {
+      parachatSignedImageUrlCache.delete(message.image_path);
+
       const { error: removeImageError } = await supabase.storage
         .from(PARACHAT_IMAGE_BUCKET)
         .remove([message.image_path]);
@@ -2621,15 +2783,6 @@ function MessagesPage() {
     setSending(false);
     scrollToBottom();
 
-    if (imageDraft) {
-      globalThis.setTimeout(() => {
-        void loadMessages(sendConversationId, viewerId);
-      }, 900);
-
-      globalThis.setTimeout(() => {
-        void loadMessages(sendConversationId, viewerId);
-      }, 1800);
-    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -3333,7 +3486,12 @@ function MessagesPage() {
                 </div>
               </header>
 
-              <section ref={messagesAreaRef} className="parachat-messages" style={messagesAreaStyle}>
+              <section
+                ref={messagesAreaRef}
+                className="parachat-messages"
+                style={messagesAreaStyle}
+                onScroll={handleMessagesScroll}
+              >
                 {errorMessage ? (
                   <div style={errorBoxStyle}>
                     <strong>Parachat needs attention</strong>
@@ -3366,6 +3524,21 @@ function MessagesPage() {
                   </>
                 ) : (
                   <div style={messageStackStyle}>
+                    {hasMoreMessages || loadingOlderMessages ? (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          fontSize: 12,
+                          color: "rgba(255,255,255,0.58)",
+                          padding: "4px 8px 10px",
+                        }}
+                      >
+                        {loadingOlderMessages
+                          ? "Loading earlier messages..."
+                          : "Scroll up for earlier messages"}
+                      </div>
+                    ) : null}
+
                     {groupedMessages.map((group) => (
                       <div key={group.label} style={messageGroupStyle}>
                         <div style={dateDividerStyle}>
@@ -3458,9 +3631,26 @@ function MessagesPage() {
                                         <img
                                           src={message.signedImageUrl}
                                           alt={message.body || "Parachat image"}
+                                          width={message.image_width || undefined}
+                                          height={message.image_height || undefined}
+                                          loading="lazy"
+                                          decoding="async"
+                                          fetchPriority="low"
                                           style={messageImageStyle}
                                           onClick={() => handleOpenImageViewer(message, isMine)}
-                                          onLoad={() => scrollToBottom("auto")}
+                                          onLoad={() => {
+                                            const messagesArea = messagesAreaRef.current;
+                                            if (!messagesArea) return;
+
+                                            const distanceFromBottom =
+                                              messagesArea.scrollHeight -
+                                              messagesArea.scrollTop -
+                                              messagesArea.clientHeight;
+
+                                            if (distanceFromBottom <= 180) {
+                                              scrollToBottom("auto");
+                                            }
+                                          }}
                                           title="Open photo"
                                         />
                                       ) : (
