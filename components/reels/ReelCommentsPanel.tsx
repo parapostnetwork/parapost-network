@@ -72,6 +72,8 @@ type ReelCommentsPanelProps = {
 };
 
 const primaryButtonStyle: CSSProperties = {
+  minWidth: 44,
+  minHeight: 44,
   background: "white",
   color: "#000",
   border: "none",
@@ -84,6 +86,8 @@ const primaryButtonStyle: CSSProperties = {
 };
 
 const secondaryButtonStyle: CSSProperties = {
+  minWidth: 44,
+  minHeight: 44,
   background: "rgba(255,255,255,0.07)",
   color: "white",
   border: "1px solid rgba(255,255,255,0.12)",
@@ -266,7 +270,7 @@ export default function ReelCommentsPanel({
                   cursor: commentDraft.trim() ? "pointer" : "not-allowed",
                   padding: footerIsCompact ? "10px 16px" : primaryButtonStyle.padding,
                   flexShrink: 0,
-                  minHeight: footerIsCompact ? 42 : undefined,
+                  minHeight: 44,
                 }}
               >
                 Post
@@ -895,6 +899,8 @@ const commentTextStyle: CSSProperties = {
 };
 
 const commentLikeButtonStyle: CSSProperties = {
+  minWidth: 44,
+  minHeight: 44,
   background: "transparent",
   border: "none",
   color: "#aeb3bd",
@@ -919,6 +925,8 @@ const actionRowStyle: CSSProperties = {
 };
 
 const textButtonStyle: CSSProperties = {
+  minWidth: 44,
+  minHeight: 44,
   background: "transparent",
   border: "none",
   color: "#aeb3bd",

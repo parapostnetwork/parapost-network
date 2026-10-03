@@ -275,10 +275,11 @@ export default function ProfileFollowingPage() {
 }
 
 const pageStyle: CSSProperties = {
-  minHeight: "100vh",
+  overflowWrap: "anywhere",
+  padding: "24px 14px calc(96px + env(safe-area-inset-bottom))",
+  minHeight: "100dvh",
   background: "radial-gradient(circle at top left, var(--parapost-accent-strong-glow), transparent 34%), #07090d",
   color: "#fff",
-  padding: "24px 14px 96px",
 };
 
 const shellStyle: CSSProperties = {
@@ -288,6 +289,9 @@ const shellStyle: CSSProperties = {
 };
 
 const backButtonStyle: CSSProperties = {
+  alignItems: "center",
+  display: "inline-flex",
+  minHeight: 44,
   border: "1px solid rgba(255,255,255,0.10)",
   background: "rgba(255,255,255,0.06)",
   color: "#e5e7eb",
@@ -339,6 +343,9 @@ const metaRowStyle: CSSProperties = {
 };
 
 const smallLinkStyle: CSSProperties = {
+  alignItems: "center",
+  display: "inline-flex",
+  minHeight: 44,
   color: "#fff",
   textDecoration: "none",
   border: "1px solid rgba(255,255,255,0.12)",
@@ -358,6 +365,7 @@ const listCardStyle: CSSProperties = {
 };
 
 const listHeaderStyle: CSSProperties = {
+  flexWrap: "wrap",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
@@ -379,6 +387,7 @@ const rowsStyle: CSSProperties = {
 };
 
 const rowStyle: CSSProperties = {
+  flexWrap: "wrap",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
@@ -393,6 +402,7 @@ const rowStyle: CSSProperties = {
 };
 
 const profileLinkStyle: CSSProperties = {
+  flex: "1 1 160px",
   display: "flex",
   alignItems: "center",
   gap: 12,
@@ -400,7 +410,6 @@ const profileLinkStyle: CSSProperties = {
   overflow: "hidden",
   color: "#fff",
   textDecoration: "none",
-  flex: "1 1 auto",
 };
 
 const avatarShellStyle: CSSProperties = {
@@ -489,6 +498,9 @@ const bioStyle: CSSProperties = {
 };
 
 const removeButtonStyle: CSSProperties = {
+  alignItems: "center",
+  display: "inline-flex",
+  minHeight: 44,
   flex: "0 0 auto",
   border: "1px solid rgba(255,255,255,0.14)",
   background: "rgba(255,255,255,0.07)",

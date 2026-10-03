@@ -427,7 +427,7 @@ export default function ProfileFriendsPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))",
                       gap: "12px",
                       marginTop: "18px",
                     }}
@@ -458,7 +458,7 @@ export default function ProfileFriendsPage() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "minmax(0, 1.5fr) minmax(180px, 0.7fr)",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
                         gap: "12px",
                       }}
                     >
@@ -556,7 +556,7 @@ export default function ProfileFriendsPage() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 270px), 1fr))",
                         gap: "16px",
                       }}
                     >
@@ -722,7 +722,7 @@ function getFilterButtonStyle(isActive: boolean): CSSProperties {
     padding: "10px 14px",
     fontWeight: 700,
     cursor: "pointer",
-    minHeight: "40px",
+    minHeight: "44px",
   };
 }
 
@@ -735,11 +735,12 @@ function getPagerButtonStyle(isDisabled: boolean): CSSProperties {
     padding: "10px 16px",
     fontWeight: 700,
     cursor: isDisabled ? "not-allowed" : "pointer",
-    minHeight: "40px",
+    minHeight: "44px",
   };
 }
 
 const pageShellStyle: CSSProperties = {
+  overflowWrap: "anywhere",
   background:
     "radial-gradient(circle at 18% 0%, rgba(139,92,246,0.22), transparent 34%), radial-gradient(circle at 82% 10%, rgba(217,70,239,0.14), transparent 30%), linear-gradient(180deg, #05050b 0%, #080812 52%, #05060b 100%)",
 };
@@ -766,6 +767,8 @@ const sideCardStyle: CSSProperties = {
 };
 
 const friendCardStyle: CSSProperties = {
+  overflowWrap: "anywhere",
+  minWidth: 0,
   background:
     "linear-gradient(180deg, rgba(168,85,247,0.095) 0%, rgba(255,255,255,0.038) 100%)",
   border: "1px solid rgba(196,181,253,0.14)",
@@ -775,6 +778,9 @@ const friendCardStyle: CSSProperties = {
 };
 
 const primaryButtonStyle: CSSProperties = {
+  justifyContent: "center",
+  alignItems: "center",
+  display: "inline-flex",
   background: "linear-gradient(135deg, #8b5cf6, #d946ef)",
   color: "#ffffff",
   border: "1px solid rgba(255,255,255,0.14)",
@@ -782,11 +788,14 @@ const primaryButtonStyle: CSSProperties = {
   padding: "10px 16px",
   fontWeight: 850,
   cursor: "pointer",
-  minHeight: "42px",
+  minHeight: "44px",
   boxShadow: "0 10px 22px rgba(124,58,237,0.24)",
 };
 
 const secondaryButtonStyle: CSSProperties = {
+  justifyContent: "center",
+  alignItems: "center",
+  display: "inline-flex",
   background: "rgba(255,255,255,0.055)",
   color: "white",
   border: "1px solid rgba(196,181,253,0.16)",
@@ -794,7 +803,7 @@ const secondaryButtonStyle: CSSProperties = {
   padding: "10px 16px",
   fontWeight: 700,
   cursor: "pointer",
-  minHeight: "42px",
+  minHeight: "44px",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.045)",
 };
 
@@ -912,8 +921,10 @@ const mutedPillStyle: CSSProperties = {
 };
 
 const searchInputStyle: CSSProperties = {
+  fontSize: "16px",
+  minWidth: 0,
   width: "100%",
-  minHeight: "46px",
+  minHeight: 44,
   borderRadius: "16px",
   border: "1px solid rgba(196,181,253,0.14)",
   background: "rgba(3,7,18,0.46)",
@@ -923,8 +934,10 @@ const searchInputStyle: CSSProperties = {
 };
 
 const selectStyle: CSSProperties = {
+  fontSize: "16px",
+  minWidth: 0,
   width: "100%",
-  minHeight: "46px",
+  minHeight: 44,
   borderRadius: "16px",
   border: "1px solid rgba(196,181,253,0.14)",
   background: "rgba(3,7,18,0.46)",

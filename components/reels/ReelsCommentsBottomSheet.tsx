@@ -249,8 +249,8 @@ export default function ReelsCommentsBottomSheet({
                 onClick={onClose}
                 style={{
                   ...closeButtonStyle,
-                  width: isMobile ? 36 : 40,
-                  height: isMobile ? 36 : 40,
+                  width: 44,
+                  height: 44,
                 }}
                 aria-label="Close comments"
               >

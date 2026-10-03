@@ -356,7 +356,7 @@ const pageStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: "24px",
+  padding: "24px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
   position: "relative",
   overflowX: "hidden",
   overflowY: "auto",
@@ -456,6 +456,7 @@ const passwordFieldWrapStyle: CSSProperties = {
 };
 
 const inputStyle: CSSProperties = {
+  minWidth: 0,
   width: "100%",
   height: "50px",
   borderRadius: "16px",
@@ -464,7 +465,7 @@ const inputStyle: CSSProperties = {
   color: "#f9fafb",
   padding: "0 16px",
   outline: "none",
-  fontSize: "14px",
+  fontSize: "16px",
   boxSizing: "border-box",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
 };
@@ -474,7 +475,7 @@ const showButtonStyle: CSSProperties = {
   right: "8px",
   top: "50%",
   transform: "translateY(-50%)",
-  minHeight: "34px",
+  minHeight: "44px",
   border: 0,
   borderRadius: "12px",
   background: "rgba(255,255,255,0.06)",

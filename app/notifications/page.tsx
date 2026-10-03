@@ -763,7 +763,7 @@ export default function NotificationsPage() {
             flex: 0 0 auto !important;
             min-width: 112px !important;
             width: auto !important;
-            min-height: 38px !important;
+            min-height: 44px !important;
           }
 
           .notifications-content-shell {
@@ -800,7 +800,7 @@ export default function NotificationsPage() {
           .notifications-delete-button,
           .notifications-reel-people-button {
             width: 100% !important;
-            min-height: 40px !important;
+            min-height: 44px !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -1374,7 +1374,7 @@ const heroActionsRowStyle: CSSProperties = {
 };
 
 const primaryActionStyle: CSSProperties = {
-  minHeight: "42px",
+  minHeight: "44px",
   width: "100%",
   borderRadius: "999px",
   border: "1px solid var(--parapost-accent-active-border)",
@@ -1393,7 +1393,7 @@ const primaryActionStyle: CSSProperties = {
 };
 
 const secondaryActionStyle: CSSProperties = {
-  minHeight: "42px",
+  minHeight: "44px",
   width: "100%",
   borderRadius: "999px",
   border: "1px solid var(--parapost-accent-border)",

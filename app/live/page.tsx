@@ -419,7 +419,7 @@ export default function ParapostLivePage() {
       <style>{`
         @media (max-width: 760px) {
           .parapost-live-manager-page {
-            padding: 18px 10px 130px !important;
+            padding: 18px max(10px, env(safe-area-inset-right)) calc(130px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
             overflow-x: hidden;
           }
 
@@ -463,6 +463,7 @@ export default function ParapostLivePage() {
           .parapost-live-manager-actions button {
             width: 100% !important;
             min-width: 0 !important;
+            min-height: 44px !important;
             white-space: normal !important;
             line-height: 1.15 !important;
             text-align: center !important;
@@ -705,7 +706,7 @@ export default function ParapostLivePage() {
 }
 
 const pageStyle: CSSProperties = {
-  minHeight: "100vh",
+  minHeight: "100dvh",
   overflowX: "hidden",
   padding: "28px 16px 56px",
   background:

@@ -378,7 +378,7 @@ export default function Home() {
   return (
     <main className="min-h-[100dvh] bg-black text-white">
       <div
-        className="min-h-[100dvh] px-3 py-3 sm:px-5 sm:py-5 lg:px-6 lg:py-6"
+        className="min-h-[100dvh] px-3 py-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-5 sm:py-5 lg:px-6 lg:py-6"
         style={{
           background:
             "radial-gradient(circle at 50% 0%, rgba(168,85,247,0.24) 0%, rgba(7,9,13,0.88) 38%, #05070b 78%), linear-gradient(180deg, #090b11 0%, #05070b 100%)",
@@ -539,7 +539,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-2 top-1/2 min-h-9 -translate-y-1/2 rounded-xl px-3 text-xs font-black text-purple-300 hover:bg-white/5"
+                      className="absolute right-2 top-1/2 min-h-11 -translate-y-1/2 rounded-xl px-3 text-xs font-black text-purple-300 hover:bg-white/5"
                     >
                       {showPassword ? "Hide" : "Show"}
                     </button>
@@ -565,7 +565,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword((value) => !value)}
-                        className="absolute right-2 top-1/2 min-h-9 -translate-y-1/2 rounded-xl px-3 text-xs font-black text-purple-300 hover:bg-white/5"
+                        className="absolute right-2 top-1/2 min-h-11 -translate-y-1/2 rounded-xl px-3 text-xs font-black text-purple-300 hover:bg-white/5"
                       >
                         {showConfirmPassword ? "Hide" : "Show"}
                       </button>
@@ -587,7 +587,7 @@ export default function Home() {
                       type="button"
                       onClick={handleForgotPassword}
                       disabled={loading || checkingSession}
-                      className="self-end text-sm font-bold text-purple-300 hover:text-purple-200 disabled:opacity-60"
+                      className="min-h-11 self-end text-sm font-bold text-purple-300 hover:text-purple-200 disabled:opacity-60"
                     >
                       Forgot Password?
                     </button>
@@ -614,7 +614,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => switchMode("signup")}
-                      className="font-black text-purple-300 hover:text-purple-200"
+                      className="inline-flex min-h-11 items-center font-black text-purple-300 hover:text-purple-200"
                     >
                       Create an account
                     </button>
@@ -625,7 +625,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => switchMode("signin")}
-                      className="font-black text-purple-300 hover:text-purple-200"
+                      className="inline-flex min-h-11 items-center font-black text-purple-300 hover:text-purple-200"
                     >
                       Go to Sign In
                     </button>

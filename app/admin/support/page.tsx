@@ -739,6 +739,19 @@ export default function AdminSupportInboxPage() {
           }
 
           @media (max-width: 640px) {
+            .parapost-admin-support-page button,
+            .parapost-admin-support-page a {
+              min-height: 44px;
+              min-width: 44px;
+              overflow-wrap: anywhere;
+            }
+
+            .parapost-admin-support-page h1,
+            .parapost-admin-support-page h2,
+            .parapost-admin-support-page p {
+              overflow-wrap: anywhere;
+            }
+
             .parapost-admin-support-page header {
               border-radius: 24px;
               padding: 16px;

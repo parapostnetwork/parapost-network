@@ -8878,8 +8878,8 @@ return (
       @media (min-width: 1051px) {
         .profile-showcase-modal-overlay > div {
           width: min(1180px, calc(100vw - 32px)) !important;
-          height: min(840px, calc(100vh - 32px)) !important;
-          max-height: calc(100vh - 32px) !important;
+          height: min(840px, calc(100dvh - 32px)) !important;
+          max-height: calc(100dvh - 32px) !important;
         }
 
         .profile-showcase-preview-column {
@@ -9040,8 +9040,8 @@ return (
       @media (min-width: 1051px) {
         .profile-showcase-modal-shell {
           width: min(1220px, calc(100vw - 32px)) !important;
-          height: min(860px, calc(100vh - 32px)) !important;
-          max-height: calc(100vh - 32px) !important;
+          height: min(860px, calc(100dvh - 32px)) !important;
+          max-height: calc(100dvh - 32px) !important;
           padding: 24px !important;
         }
 
@@ -21043,6 +21043,25 @@ function ProfileStableBottomNav({
           background: rgba(255,255,255,0.06);
         }
 
+        @media (max-width: 1180px) {
+          html body .profile-polish-surface .profile-post-action-button,
+          html body .profile-polish-surface .profile-post-menu-trigger,
+          html body .profile-polish-surface .profile-mobile-primary-real,
+          html body .profile-polish-surface .profile-mobile-secondary-real,
+          html body .profile-polish-surface .profile-mobile-owner-more-real,
+          html body .profile-polish-surface .profile-mobile-camera-real,
+          html body .profile-polish-surface .profile-mobile-inline-more,
+          html body .profile-polish-surface .profile-tabs-desktop button,
+          html body .profile-polish-surface .profile-showcase-modal-actions button,
+          html body .profile-polish-surface .profile-viewer-back-to-options {
+            min-height: 44px !important;
+            min-width: 44px !important;
+          }
+          html body .profile-polish-surface .profile-page-shell .parapost-expandable-post-toggle {
+            min-height: 44px !important;
+          }
+        }
+
         .profile-comments-overlay-scroll::-webkit-scrollbar-thumb {
           background: rgba(255,255,255,0.45);
           border-radius: 999px;
@@ -21065,7 +21084,7 @@ function ProfileStableBottomNav({
 
           .profile-comments-overlay-header {
             min-height: 60px !important;
-            padding: 9px 12px !important;
+            padding: calc(9px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 9px max(12px, env(safe-area-inset-left)) !important;
           }
 
           .profile-comments-overlay-post {
@@ -21079,14 +21098,14 @@ function ProfileStableBottomNav({
           }
 
           .profile-comments-overlay-composer textarea {
-            min-height: 42px !important;
+            min-height: 44px !important;
             max-height: 96px !important;
             resize: none !important;
           }
 
           .profile-comments-overlay-composer button {
             min-width: 58px !important;
-            min-height: 42px !important;
+            min-height: 44px !important;
             padding-inline: 12px !important;
           }
         }
@@ -24427,8 +24446,8 @@ const profileShowcaseViewerOverlayStyle: CSSProperties = {
 
 const profileShowcaseViewerShellStyle: CSSProperties = {
   width: "min(760px, calc(100vw - 32px))",
-  height: "min(900px, calc(100vh - 32px))",
-  maxHeight: "calc(100vh - 32px)",
+  height: "min(900px, calc(100dvh - 32px))",
+  maxHeight: "calc(100dvh - 32px)",
   display: "flex",
   flexDirection: "column",
   gap: "12px",
@@ -24623,8 +24642,8 @@ const profileShowcaseModalOverlayStyle: CSSProperties = {
 
 const profileShowcaseModalStyle: CSSProperties = {
   width: "min(1180px, calc(100vw - 32px))",
-  height: "min(840px, calc(100vh - 32px))",
-  maxHeight: "calc(100vh - 32px)",
+  height: "min(840px, calc(100dvh - 32px))",
+  maxHeight: "calc(100dvh - 32px)",
   overflowY: "auto",
   borderRadius: "32px",
   border: "1px solid rgba(255,255,255,0.14)",
@@ -27014,8 +27033,8 @@ const profileCommentsOverlaySubtitleStyle: CSSProperties = {
 };
 
 const profileCommentsOverlayCloseButtonStyle: CSSProperties = {
-  width: 42,
-  height: 42,
+  width: 44,
+  height: 44,
   flexShrink: 0,
   borderRadius: 999,
   border: "1px solid rgba(255,255,255,0.12)",

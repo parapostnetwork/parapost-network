@@ -376,9 +376,16 @@ export default function LiveChatPanel({
   ]);
 
   useEffect(() => {
-    if (!compact || typeof window === "undefined") {
-      setIsMobileCompact(false);
-      return;
+    if (typeof window === "undefined") return;
+
+    if (!compact) {
+      const frame = window.requestAnimationFrame(() => {
+        setIsMobileCompact(false);
+      });
+
+      return () => {
+        window.cancelAnimationFrame(frame);
+      };
     }
 
     const query = window.matchMedia("(max-width: 760px)");
@@ -907,8 +914,9 @@ export default function LiveChatPanel({
 }
 
 const mobileOpenDiscussionButtonStyle: CSSProperties = {
+  minWidth: 44,
   width: "100%",
-  minHeight: 42,
+  minHeight: 44,
   border: 0,
   borderTop: "1px solid rgba(255,255,255,0.08)",
   background:
@@ -921,8 +929,9 @@ const mobileOpenDiscussionButtonStyle: CSSProperties = {
 };
 
 const mobileHideDiscussionButtonStyle: CSSProperties = {
+  minWidth: 44,
   width: "100%",
-  minHeight: 34,
+  minHeight: 44,
   border: 0,
   borderTop: "1px solid rgba(255,255,255,0.08)",
   background: "rgba(255,255,255,0.035)",
@@ -1079,6 +1088,8 @@ const messageActionWrapStyle: CSSProperties = {
 };
 
 const editButtonStyle: CSSProperties = {
+  minWidth: 44,
+  minHeight: 44,
   border: 0,
   background: "transparent",
   color: "#c4b5fd",
@@ -1089,6 +1100,8 @@ const editButtonStyle: CSSProperties = {
 };
 
 const removeButtonStyle: CSSProperties = {
+  minWidth: 44,
+  minHeight: 44,
   border: 0,
   background: "transparent",
   color: "#fca5a5",
@@ -1115,6 +1128,8 @@ const commentFooterStyle: CSSProperties = {
 };
 
 const likeButtonStyle: CSSProperties = {
+  minWidth: 44,
+  minHeight: 44,
   border: 0,
   background: "transparent",
   padding: 0,
@@ -1124,6 +1139,8 @@ const likeButtonStyle: CSSProperties = {
 };
 
 const moderationButtonStyle: CSSProperties = {
+  minWidth: 44,
+  minHeight: 44,
   border: 0,
   background: "transparent",
   color: "#fbbf24",
@@ -1163,7 +1180,8 @@ const editActionRowStyle: CSSProperties = {
 };
 
 const saveEditButtonStyle: CSSProperties = {
-  minHeight: 30,
+  minWidth: 44,
+  minHeight: 44,
   borderRadius: 999,
   border: "1px solid rgba(216,180,254,0.26)",
   background: "rgba(168,85,247,0.22)",
@@ -1181,8 +1199,9 @@ const cancelEditButtonStyle: CSSProperties = {
 };
 
 const viewMoreButtonStyle: CSSProperties = {
+  minWidth: 44,
   width: "100%",
-  minHeight: 34,
+  minHeight: 44,
   border: 0,
   borderTop: "1px solid rgba(255,255,255,0.08)",
   background: "rgba(255,255,255,0.035)",
@@ -1201,19 +1220,21 @@ const formStyle: CSSProperties = {
 };
 
 const inputStyle: CSSProperties = {
+  fontSize: 16,
   minWidth: 0,
-  minHeight: 40,
+  minHeight: 44,
   borderRadius: 999,
   border: "1px solid rgba(255,255,255,0.12)",
   outline: "none",
   background: "rgba(255,255,255,0.065)",
   color: "#fff",
   padding: "0 13px",
-  fontSize: 13,
+
 };
 
 const sendButtonStyle: CSSProperties = {
-  minHeight: 40,
+  minWidth: 44,
+  minHeight: 44,
   borderRadius: 999,
   border: "1px solid rgba(216,180,254,0.26)",
   background:

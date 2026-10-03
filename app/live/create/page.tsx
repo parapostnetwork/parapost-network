@@ -574,19 +574,19 @@ export default function CreateLiveShowPage() {
           }
 
           @media (max-width: 760px) {
-            html,
-            body {
-              height: 100% !important;
-              max-height: 100% !important;
+            html:has(.parapost-live-create-page),
+            body:has(.parapost-live-create-page) {
+              height: auto !important;
+              max-height: none !important;
               background: #05050b !important;
-              overflow-y: hidden !important;
+              overflow-y: auto !important;
               overflow-x: hidden !important;
             }
 
             .parapost-live-create-page {
               min-height: 100svh !important;
-              height: 100svh !important;
-              max-height: 100svh !important;
+              height: auto !important;
+              max-height: none !important;
               overflow-y: auto !important;
               overflow-x: hidden !important;
               touch-action: pan-y !important;
@@ -641,7 +641,9 @@ export default function CreateLiveShowPage() {
             }
 
             .parapost-live-create-form input,
-            .parapost-live-create-form select {
+            .parapost-live-create-form select,
+            .parapost-live-create-form textarea {
+              font-size: 16px !important;
               min-height: 46px !important;
             }
 

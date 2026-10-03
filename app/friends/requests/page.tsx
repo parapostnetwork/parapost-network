@@ -309,13 +309,13 @@ export default function FriendRequestsPage() {
 
           .friend-request-top-actions a {
             width: 100% !important;
-            min-height: 40px !important;
+            min-height: 44px !important;
             padding: 0 12px !important;
             font-size: 13px !important;
           }
 
           .friend-request-top-actions span {
-            min-height: 40px !important;
+            min-height: 44px !important;
             padding: 0 12px !important;
             font-size: 13px !important;
           }
@@ -406,7 +406,7 @@ export default function FriendRequestsPage() {
         @media (max-height: 520px) and (orientation: landscape) {
           .friend-requests-inner {
             padding-top: 10px !important;
-            padding-bottom: 84px !important;
+            padding-bottom: calc(84px + env(safe-area-inset-bottom)) !important;
           }
 
           .friend-requests-card {

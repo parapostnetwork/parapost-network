@@ -4759,7 +4759,7 @@ function ProfileReelsViewer({ profileId }: { profileId: string }) {
       <style jsx global>{`
         @media (max-width: 480px) {
           .parapost-reel-mobile-action button {
-            min-height: 42px;
+            min-height: 44px;
           }
         }
 

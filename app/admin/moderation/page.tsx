@@ -795,6 +795,19 @@ export default function AdminModerationPage() {
           }
 
           @media (max-width: 640px) {
+            .parapost-admin-moderation-page button,
+            .parapost-admin-moderation-page a {
+              min-height: 44px;
+              min-width: 44px;
+              overflow-wrap: anywhere;
+            }
+
+            .parapost-admin-moderation-page h1,
+            .parapost-admin-moderation-page h2,
+            .parapost-admin-moderation-page p {
+              overflow-wrap: anywhere;
+            }
+
             .parapost-admin-moderation-page header {
               border-radius: 24px;
               padding: 16px;

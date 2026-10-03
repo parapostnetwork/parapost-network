@@ -575,6 +575,18 @@ export default function EditProfilePage() {
             touch-action: pan-y !important;
           }
 
+          .edit-profile-page-container input:not([type="range"]):not([type="checkbox"]),
+          .edit-profile-page-container select,
+          .edit-profile-page-container textarea {
+            font-size: 16px !important;
+            min-width: 0;
+            max-width: 100%;
+          }
+
+          .edit-profile-page-container button {
+            min-height: 44px;
+          }
+
           .edit-profile-page-container {
             padding: 14px 10px calc(118px + env(safe-area-inset-bottom)) !important;
           }

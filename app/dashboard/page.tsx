@@ -11134,7 +11134,7 @@ export default function DashboardPage() {
 
           .parapost-comments-overlay-header {
             min-height: 60px !important;
-            padding: 9px 12px !important;
+            padding: calc(9px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 9px max(12px, env(safe-area-inset-left)) !important;
           }
 
           .parapost-comments-overlay-post {
@@ -11148,14 +11148,14 @@ export default function DashboardPage() {
           }
 
           .parapost-comments-overlay-composer textarea {
-            min-height: 42px !important;
+            min-height: 44px !important;
             max-height: 96px !important;
             resize: none !important;
           }
 
           .parapost-comments-overlay-composer button {
             min-width: 58px !important;
-            min-height: 42px !important;
+            min-height: 44px !important;
             padding-inline: 12px !important;
           }
         }
@@ -14736,14 +14736,14 @@ function SearchModal({
   onClose: () => void;
 }) {
   return (
-    <div style={modalOverlayStyle} onClick={onClose}>
-      <div style={searchModalStyle} onClick={(event) => event.stopPropagation()}>
+    <div style={{ ...modalOverlayStyle, padding: "max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))", overflowY: "auto", maxHeight: "100dvh" }} onClick={onClose}>
+      <div style={searchModalStyle} role="dialog" aria-modal="true" aria-label="Search Parapost" onClick={(event) => event.stopPropagation()}>
         <div style={modalHeaderStyle}>
           <div>
             <div style={modalEyebrowStyle}>Parapost Network</div>
             <h2 style={{ margin: 0, fontSize: 22 }}>Search Parapost</h2>
           </div>
-          <button type="button" onClick={onClose} style={modalCloseButtonStyle}>×</button>
+          <button type="button" onClick={onClose} aria-label="Close search" style={{ ...modalCloseButtonStyle, minWidth: 44, minHeight: 44 }}>×</button>
         </div>
         <div className="dashboard-search-parapost dashboard-search-modal-bar" style={{ ...searchWrapStyle, maxWidth: "none", width: "100%" }}>
           <SearchIcon />
@@ -14752,7 +14752,7 @@ function SearchModal({
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search Parapost"
-            style={searchInputStyle}
+            aria-label="Search Parapost" style={{ ...searchInputStyle, minWidth: 0, fontSize: 16 }}
           />
         </div>
         <div style={{ marginTop: 14 }}>
@@ -17802,8 +17802,8 @@ const dashboardCommentsOverlaySubtitleStyle: CSSProperties = {
 };
 
 const dashboardCommentsOverlayCloseButtonStyle: CSSProperties = {
-  width: 42,
-  height: 42,
+  width: 44,
+  height: 44,
   flexShrink: 0,
   borderRadius: 999,
   border: "1px solid rgba(255,255,255,0.12)",
@@ -18382,7 +18382,7 @@ const onlineDotStyle: CSSProperties = {
 };
 
 const modalOverlayStyle: CSSProperties = { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(12px)", display: "grid", placeItems: "start center", padding: "82px 18px 24px" };
-const searchModalStyle: CSSProperties = { width: "min(620px, 100%)", borderRadius: 24, border: "1px solid rgba(255,255,255,0.12)", background: "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(8,10,18,0.98))", boxShadow: "0 28px 80px rgba(0,0,0,0.58)", padding: 18 };
+const searchModalStyle: CSSProperties = { maxHeight: "calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))", overflowY: "auto", overscrollBehavior: "contain", overflowWrap: "anywhere", minHeight: 0, width: "min(620px, 100%)", borderRadius: 24, border: "1px solid rgba(255,255,255,0.12)", background: "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(8,10,18,0.98))", boxShadow: "0 28px 80px rgba(0,0,0,0.58)", padding: 18 };
 const modalHeaderStyle: CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 14 };
 const modalEyebrowStyle: CSSProperties = { color: "var(--parapost-accent-text)", textTransform: "uppercase", letterSpacing: "0.14em", fontSize: 11, fontWeight: 950, marginBottom: 4 };
 const modalCloseButtonStyle: CSSProperties = { width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 26, cursor: "pointer" };

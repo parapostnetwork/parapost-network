@@ -703,7 +703,7 @@ export default function ProfileReelsGridPage() {
 
           .profile-reels-header-actions a {
             justify-content: center !important;
-            min-height: 40px !important;
+            min-height: 44px !important;
             padding: 9px 12px !important;
           }
 
@@ -786,7 +786,7 @@ export default function ProfileReelsGridPage() {
           }
 
           .profile-reels-header-actions a {
-            min-height: 42px !important;
+            min-height: 44px !important;
           }
         }
 
