@@ -12147,15 +12147,23 @@ function DashboardLiveStreamCard({
   const effectiveStatus = getDashboardEffectiveLiveStatus(stream);
   const isLive = effectiveStatus === "live";
   const isReplay = effectiveStatus === "ended";
-  const isPlayable = canPlayPublishedStream(stream);
+  const isTwitch =
+    (stream.provider || "").trim().toLowerCase() === "twitch" ||
+    (stream.embed_url || "").toLowerCase().includes("player.twitch.tv") ||
+    (stream.external_url || "").toLowerCase().includes("twitch.tv");
+  const hasTwitchReplay = /[?&]video=/.test(stream.embed_url || "");
+  const isTwitchEnded = isReplay && isTwitch && !hasTwitchReplay;
+  const isPlayable = canPlayPublishedStream(stream) && !isTwitchEnded;
   const chatStatus = getDashboardLiveChatStatus(effectiveStatus);
   const badgeIsLive = getLiveDisplayStatus(stream) === "live";
   const hasLongDescription = Boolean(stream.description && stream.description.length > 150);
   const scheduleLabel = isLive
     ? "Live Now"
-    : isReplay
-      ? `Replay from ${formatDashboardLiveDate(getDashboardLiveTimestamp(stream))}`
-      : `Scheduled ${formatDashboardLiveDate(stream.scheduled_at)}`;
+    : isTwitchEnded
+      ? `Ended ${formatDashboardLiveDate(getDashboardLiveTimestamp(stream))}`
+      : isReplay
+        ? `Replay from ${formatDashboardLiveDate(getDashboardLiveTimestamp(stream))}`
+        : `Scheduled ${formatDashboardLiveDate(stream.scheduled_at)}`;
   const providerLabel = stream.provider
     ? stream.provider.charAt(0).toUpperCase() + stream.provider.slice(1)
     : "Live stream";
@@ -12200,7 +12208,7 @@ function DashboardLiveStreamCard({
               {creatorName}
             </Link>
             <span style={postMetaStyle}>
-              @{creatorHandle} · {isLive ? "is live now" : isReplay ? "shared a replay" : "scheduled a live show"}
+              @{creatorHandle} · {isLive ? "is live now" : isTwitchEnded ? "ended a live show" : isReplay ? "shared a replay" : "scheduled a live show"}
             </span>
           </div>
 
@@ -12222,7 +12230,7 @@ function DashboardLiveStreamCard({
                 whiteSpace: "nowrap",
               }}
             >
-              {badgeIsLive ? "●" : "◎"} {getDashboardLiveStatusLabel(stream)}
+              {badgeIsLive ? "●" : "◎"} {isTwitchEnded ? "ENDED" : getDashboardLiveStatusLabel(stream)}
             </span>
           ) : null}
         </header>
@@ -12245,7 +12253,59 @@ function DashboardLiveStreamCard({
             justifyContent: "center",
           }}
         >
-          {isPlayable ? (
+          {isTwitchEnded ? (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                minHeight: 180,
+                display: "grid",
+                placeItems: "center",
+                textAlign: "center",
+                padding: 24,
+                background:
+                  "radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--parapost-accent, #a855f7) 24%, transparent), transparent 32%), linear-gradient(135deg, #09090f, #05070a)",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  justifyItems: "center",
+                  gap: 10,
+                  maxWidth: 430,
+                }}
+              >
+                <img
+                  src="/icons/parapost-512.png"
+                  alt="Parapost Network"
+                  style={{
+                    width: 92,
+                    height: 92,
+                    objectFit: "contain",
+                    borderRadius: "50%",
+                  }}
+                />
+                <strong
+                  style={{
+                    color: "#ffffff",
+                    fontSize: 20,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  This live has ended
+                </strong>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 14,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  This Twitch broadcast is no longer available to watch.
+                </span>
+              </div>
+            </div>
+          ) : isPlayable ? (
             <iframe
               id={`dashboard-live-player-${stream.id}`}
               src={livePlayerUrl(stream.embed_url || "", typeof window !== "undefined" ? window.location.origin : undefined)}
@@ -12433,12 +12493,12 @@ function DashboardLiveStreamCard({
                   onClick={() => setShowReplayDiscussion(true)}
                   style={replayDiscussionButtonStyle}
                 >
-                  View replay discussion / add comment
+                  {isTwitchEnded ? "View discussion / add comment" : "View replay discussion / add comment"}
                 </button>
               ) : (
                 <>
                   <div style={replayDiscussionHeaderStyle}>
-                    <strong>Replay discussion</strong>
+                    <strong>{isTwitchEnded ? "Discussion" : "Replay discussion"}</strong>
                     <button
                       type="button"
                       onClick={() => setShowReplayDiscussion(false)}
