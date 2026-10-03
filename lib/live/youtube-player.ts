@@ -2,11 +2,32 @@
 export function livePlayerUrl(value: string, origin?: string) {
   try {
     const url = new URL(value);
-    if (!["www.youtube.com", "www.youtube-nocookie.com", "youtube.com"].includes(url.hostname) || !url.pathname.startsWith("/embed/")) return value;
-    url.searchParams.set("enablejsapi", "1");
-    if (origin) url.searchParams.set("origin", origin);
-    return url.toString();
-  } catch { return value; }
+
+    if (
+      ["www.youtube.com", "www.youtube-nocookie.com", "youtube.com"].includes(url.hostname) &&
+      url.pathname.startsWith("/embed/")
+    ) {
+      url.searchParams.set("enablejsapi", "1");
+      if (origin) url.searchParams.set("origin", origin);
+      return url.toString();
+    }
+
+    if (url.hostname === "player.twitch.tv") {
+      if (origin) {
+        try {
+          const parentHost = new URL(origin).hostname;
+          if (parentHost) url.searchParams.set("parent", parentHost);
+        } catch {
+          // Leave the Twitch URL otherwise unchanged if origin is malformed.
+        }
+      }
+      return url.toString();
+    }
+
+    return value;
+  } catch {
+    return value;
+  }
 }
 
 type Player = { getPlayerState(): number; addEventListener(name: string, listener: (event: { data: number }) => void): void; removeEventListener(name: string, listener: (event: { data: number }) => void): void };
