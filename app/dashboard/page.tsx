@@ -2027,7 +2027,7 @@ function TwoLineExpandableComment({
       <div
         style={{
           ...style,
-          ...(!expanded
+          ...(!expanded && shouldOfferToggle
             ? {
                 display: "-webkit-box",
                 WebkitLineClamp: 2,

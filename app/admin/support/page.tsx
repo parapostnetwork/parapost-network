@@ -421,7 +421,7 @@ export default function AdminSupportInboxPage() {
   }
 
   return (
-    <main className="parapost-admin-support-page h-dvh min-h-dvh overflow-y-auto overflow-x-hidden overscroll-y-contain bg-[#05050b] px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:px-8">
+    <main className="parapost-admin-support-page min-h-dvh overflow-x-hidden bg-[#05050b] px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 lg:h-dvh lg:overflow-y-auto lg:overscroll-y-contain lg:px-8">
       <div className="pointer-events-none fixed -right-32 -top-32 h-96 w-96 rounded-full bg-purple-600/20 blur-3xl" />
       <div className="pointer-events-none fixed -bottom-32 -left-32 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
 
@@ -530,7 +530,7 @@ export default function AdminSupportInboxPage() {
               </button>
             </div>
 
-            <div className="max-h-[42dvh] space-y-3 overflow-y-auto pr-1 lg:max-h-[680px]">
+            <div className="space-y-3 pr-1 lg:max-h-[680px] lg:overflow-y-auto">
               {loadingMessages ? (
                 <div className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm text-slate-300">
                   Loading support messages...
