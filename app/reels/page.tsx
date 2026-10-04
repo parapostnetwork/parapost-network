@@ -1248,7 +1248,7 @@ export default function ReelsPage() {
       const isNarrowTablet = viewportWidth <= 820;
 
       return {
-        stageWidth: isNarrowTablet ? "min(88vw, 560px)" : "min(72vw, 620px)",
+        stageWidth: isNarrowTablet ? "min(72vw, 480px)" : "min(60vw, 500px)",
         stageHeight: "min(calc(100dvh - 142px), 820px)",
         borderRadius: 30,
         showDesktopArrows: false,
@@ -1271,7 +1271,7 @@ export default function ReelsPage() {
     }
 
     return {
-      stageWidth: isNotebook ? "min(42vw, 560px)" : "min(34vw, 540px)",
+      stageWidth: isNotebook ? "min(34vw, 480px)" : "min(30vw, 480px)",
       stageHeight: "min(90dvh, 980px)",
       borderRadius: 32,
       showDesktopArrows: true,
