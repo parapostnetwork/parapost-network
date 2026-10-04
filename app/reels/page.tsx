@@ -774,7 +774,7 @@ export default function ReelsPage() {
     if (profileIds.length > 0) {
       const { data: profileRows, error: profilesError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, username, display_name, avatar_url")
         .in("id", profileIds);
 
       if (profilesError) {
@@ -979,7 +979,7 @@ export default function ReelsPage() {
   }, []);
 
   useEffect(() => {
-    const scheduleReelsRefresh = () => {
+    const scheduleStructuralReelsRefresh = () => {
       if (reelsRealtimeRefreshTimerRef.current) {
         window.clearTimeout(reelsRealtimeRefreshTimerRef.current);
       }
@@ -987,16 +987,16 @@ export default function ReelsPage() {
       reelsRealtimeRefreshTimerRef.current = window.setTimeout(() => {
         reelsRealtimeRefreshTimerRef.current = null;
         void fetchReels();
-      }, 250);
+      }, 2000);
     };
 
     const channel = supabase
-      .channel(`reels-live-${currentUserId || "guest"}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, scheduleReelsRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_likes" }, scheduleReelsRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comments" }, scheduleReelsRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_comment_likes" }, scheduleReelsRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reel_shares" }, scheduleReelsRefresh)
+      .channel(`reels-structure-${currentUserId || "guest"}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reels" },
+        scheduleStructuralReelsRefresh
+      )
       .subscribe();
 
     return () => {
@@ -1007,6 +1007,17 @@ export default function ReelsPage() {
       void supabase.removeChannel(channel);
     };
   }, [currentUserId]);
+
+  useEffect(() => {
+    const refreshIntervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void fetchReels();
+    }, 30 * 60 * 1000);
+
+    return () => {
+      window.clearInterval(refreshIntervalId);
+    };
+  }, []);
 
   useEffect(() => {
     const commitViewportSize = () => {
@@ -2753,11 +2764,7 @@ export default function ReelsPage() {
                       muted
                       playsInline
                       loop
-                      preload={
-                        reel.id === activeReelId
-                          ? "auto"
-                          : Math.abs(reelIndex - activeReelIndex) <= 1 ? "metadata" : "none"
-                      }
+                      preload={reel.id === activeReelId ? "auto" : "none"}
                       onLoadedMetadata={(event) => handleVideoLoadedMetadata(reel.id, event)}
                       onPlaying={() => scheduleReelView(reel)}
                       onPause={() => cancelScheduledReelView(reel.id)}
