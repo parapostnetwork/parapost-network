@@ -35,7 +35,7 @@ type FriendRequestRow = {
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
 const DASHBOARD_REELS_WINDOW_HOURS = 24;
 const DASHBOARD_REELS_MAX_ITEMS = 20;
-const DASHBOARD_REELS_REFRESH_MS = 5 * 60 * 1000;
+const DASHBOARD_REELS_REFRESH_MS = 30 * 60 * 1000;
 
 function getInitial(name?: string | null, username?: string | null) {
   const value = name || username || "P";
@@ -115,6 +115,8 @@ export default function DashboardReelsSection() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const rowRef = useRef<HTMLDivElement | null>(null);
+  const allowedRealtimeUserIdsRef = useRef<Set<string>>(new Set());
+  const visibleReelIdsRef = useRef<Set<string>>(new Set());
 
 
   const fetchFriendIds = useCallback(async (userId: string) => {
@@ -175,6 +177,8 @@ export default function DashboardReelsSection() {
       setCurrentUserId("");
       setReels([]);
       setProfilesMap({});
+      allowedRealtimeUserIdsRef.current = new Set();
+      visibleReelIdsRef.current = new Set();
       setMessage("Sign in to see Reels from your friend circle.");
       setLoading(false);
       return;
@@ -185,6 +189,7 @@ export default function DashboardReelsSection() {
     const acceptedFriendIds = await fetchFriendIds(user.id);
 
     const allowedIds = [...new Set([user.id, ...acceptedFriendIds].filter(Boolean))];
+    allowedRealtimeUserIdsRef.current = new Set(allowedIds);
 
     if (allowedIds.length === 0) {
       setReels([]);
@@ -266,6 +271,7 @@ export default function DashboardReelsSection() {
     const profileIds = reelsWithViews.map((reel) => reelOwnerId(reel));
 
     await fetchProfiles([...allowedIds, ...profileIds]);
+    visibleReelIdsRef.current = new Set(reelsWithViews.map((reel) => reel.id).filter(Boolean));
     setReels(reelsWithViews);
     setLoading(false);
   }, [fetchFriendIds, fetchProfiles]);
@@ -288,14 +294,61 @@ export default function DashboardReelsSection() {
   useEffect(() => {
     if (!currentUserId) return;
 
+    const handleReelRealtime = (payload: any) => {
+      const nextRow = payload?.new || {};
+      const oldRow = payload?.old || {};
+
+      const reelId = String(nextRow.id || oldRow.id || "");
+      const ownerIds = [
+        nextRow.user_id,
+        nextRow.creator_profile_id,
+        oldRow.user_id,
+        oldRow.creator_profile_id,
+      ].filter(Boolean);
+
+      const affectsVisibleReel =
+        !!reelId && visibleReelIdsRef.current.has(reelId);
+
+      const affectsFriendCircle = ownerIds.some((id) =>
+        allowedRealtimeUserIdsRef.current.has(String(id))
+      );
+
+      if (!affectsVisibleReel && !affectsFriendCircle) return;
+
+      void fetchDashboardReels();
+    };
+
     const channel = supabase
       .channel(`dashboard-friend-reels-${currentUserId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, () => {
-        void fetchDashboardReels();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => {
-        void fetchDashboardReels();
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reels" },
+        handleReelRealtime
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+          filter: `sender_id=eq.${currentUserId}`,
+        },
+        () => {
+          void fetchDashboardReels();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+          filter: `receiver_id=eq.${currentUserId}`,
+        },
+        () => {
+          void fetchDashboardReels();
+        }
+      )
       .subscribe();
 
     return () => {
