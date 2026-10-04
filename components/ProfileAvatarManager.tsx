@@ -63,7 +63,7 @@ export default function ProfileAvatarManager({
       const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(filePath, file, {
-          cacheControl: "604800",
+          cacheControl: "31536000",
           upsert: true,
         });
 
