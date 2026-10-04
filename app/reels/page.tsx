@@ -2760,7 +2760,7 @@ export default function ReelsPage() {
                         videoRefs.current[reel.id] = el;
                       }}
                       src={reel.video}
-                      poster={reel.poster || undefined}
+                      poster={reel.id === activeReelId ? reel.poster || undefined : undefined}
                       muted
                       playsInline
                       loop
