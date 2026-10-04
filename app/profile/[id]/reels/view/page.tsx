@@ -1134,26 +1134,6 @@ function ProfileReelsViewer({ profileId }: { profileId: string }) {
         { event: "*", schema: "public", table: "reels" },
         scheduleReelsRefresh,
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "reel_likes" },
-        scheduleReelsRefresh,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "reel_comments" },
-        scheduleReelsRefresh,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "reel_comment_likes" },
-        scheduleReelsRefresh,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "reel_shares" },
-        scheduleReelsRefresh,
-      )
       .subscribe();
 
     return () => {
@@ -2943,11 +2923,7 @@ function ProfileReelsViewer({ profileId }: { profileId: string }) {
                       muted
                       playsInline
                       loop
-                      preload={
-                        reel.id === activeReelId
-                          ? "auto"
-                          : Math.abs(reelIndex - activeReelIndex) <= 1 ? "metadata" : "none"
-                      }
+                      preload={reel.id === activeReelId ? "auto" : "none"}
                       onLoadedMetadata={(event) => {
                         const video = event.currentTarget;
                         const isLandscape =
