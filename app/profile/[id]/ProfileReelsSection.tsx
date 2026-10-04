@@ -67,8 +67,8 @@ export default function ProfileReelsSection({
               poster={reel.poster_url}
               muted
               loop
-              autoPlay
               playsInline
+              preload="none"
               style={{
                 width: "100%",
                 height: "100%",
