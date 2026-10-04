@@ -1217,6 +1217,7 @@ export default function ReelsPage() {
     const isTinyPhone = viewportWidth <= 380;
     const isSmallPhone = viewportWidth <= 430;
     const isShortScreen = viewportHeight <= 700;
+    const isShortNonMobile = viewportType !== "mobile" && viewportHeight <= 760;
     const isLandscapePhone = viewportType === "mobile" && viewportWidth > viewportHeight;
     const isNotebook = viewportWidth > 1024 && viewportWidth <= 1366;
 
@@ -1248,8 +1249,14 @@ export default function ReelsPage() {
       const isNarrowTablet = viewportWidth <= 820;
 
       return {
-        stageWidth: isNarrowTablet ? "min(72vw, 480px)" : "min(60vw, 500px)",
-        stageHeight: "min(calc(100dvh - 142px), 820px)",
+        stageWidth: isShortNonMobile
+          ? "min(52vw, calc((100dvh - 164px) * 0.62), 380px)"
+          : isNarrowTablet
+            ? "min(72vw, 480px)"
+            : "min(60vw, 500px)",
+        stageHeight: isShortNonMobile
+          ? "min(calc(100dvh - 164px), 640px)"
+          : "min(calc(100dvh - 142px), 820px)",
         borderRadius: 30,
         showDesktopArrows: true,
         outerPadding: isNarrowTablet ? 14 : 20,
@@ -1271,8 +1278,14 @@ export default function ReelsPage() {
     }
 
     return {
-      stageWidth: isNotebook ? "min(34vw, 480px)" : "min(30vw, 480px)",
-      stageHeight: "min(90dvh, 980px)",
+      stageWidth: isShortNonMobile
+        ? "min(30vw, calc((100dvh - 132px) * 0.62), 420px)"
+        : isNotebook
+          ? "min(34vw, 480px)"
+          : "min(30vw, 480px)",
+      stageHeight: isShortNonMobile
+        ? "min(calc(100dvh - 132px), 720px)"
+        : "min(90dvh, 980px)",
       borderRadius: 32,
       showDesktopArrows: true,
       outerPadding: isNotebook ? 20 : 24,
