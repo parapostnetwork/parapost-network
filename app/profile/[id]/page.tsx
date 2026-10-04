@@ -4509,7 +4509,16 @@ useEffect(() => {
       .map(stream => ({ ...stream, created_at: getProfileLiveTimestamp(stream) })));
   }, [profileId, viewerId]);
 
-  useLiveRefresh(refreshProfileLive, Boolean(profileId && viewerId) && profileLiveStreams.some(needsLiveRefresh));
+  useLiveRefresh(
+    async () => {
+      const startedRows = await startDueShows(profileLiveStreams);
+
+      if (startedRows !== profileLiveStreams) {
+        setProfileLiveStreams(startedRows);
+      }
+    },
+    Boolean(profileId && viewerId) && profileLiveStreams.some(needsLiveRefresh)
+  );
 
   useEffect(() => {
     if (!profileId || !viewerId) return;

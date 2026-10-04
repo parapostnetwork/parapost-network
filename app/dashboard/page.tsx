@@ -3607,7 +3607,16 @@ export default function DashboardPage() {
     [blockedUserIds, fetchProfileMap]
   );
 
-  useLiveRefresh(() => fetchLiveFeedStreams(blockedUserIds), Boolean(currentUserId) && liveFeedStreams.some(needsLiveRefresh));
+  useLiveRefresh(
+    async () => {
+      const startedRows = await startDueShows(liveFeedStreams);
+
+      if (startedRows !== liveFeedStreams) {
+        setLiveFeedStreams(startedRows);
+      }
+    },
+    Boolean(currentUserId) && liveFeedStreams.some(needsLiveRefresh)
+  );
 
   const fetchDashboardData = useCallback(async (showFeedLoading = false, refreshNotificationCounts = true) => {
     if (dashboardRefreshInFlightRef.current) return;
