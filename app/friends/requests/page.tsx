@@ -128,7 +128,12 @@ export default function FriendRequestsPage() {
       .channel(`friend-requests-${currentUserId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "friend_requests" },
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+          filter: `receiver_id=eq.${currentUserId}`,
+        },
         async () => {
           await fetchRequests(currentUserId);
         }
@@ -457,7 +462,7 @@ export default function FriendRequestsPage() {
             </div>
 
             <div className="friend-request-top-actions" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <Link href="/dashboard?menu=friends" style={secondaryLinkStyle}>
+              <Link href="/friends" style={secondaryLinkStyle}>
                 Back to Friends
               </Link>
               <span style={countPillStyle}>
