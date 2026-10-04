@@ -276,7 +276,7 @@ export default function EditProfilePage() {
     let fileName = `${currentUserId}-${Date.now()}.${extension}`;
 
     const { error: uploadError, path: uploadedPath } = await uploadImageWithVariant(
-      supabase.storage.from("avatars"), fileName, optimizedFile, "avatar", { contentType: optimizedFile.type, cacheControl: "3600", upsert: false });
+      supabase.storage.from("avatars"), fileName, optimizedFile, "avatar", { contentType: optimizedFile.type, cacheControl: "31536000", upsert: false });
     fileName = uploadedPath;
 
     if (uploadError) {
@@ -343,7 +343,7 @@ export default function EditProfilePage() {
 
     const { error: uploadError } = await supabase.storage
       .from(COVER_BUCKET_NAME)
-      .upload(fileName, optimizedFile, { contentType: optimizedFile.type, cacheControl: "604800", upsert: false });
+      .upload(fileName, optimizedFile, { contentType: optimizedFile.type, cacheControl: "31536000", upsert: false });
 
     if (uploadError) {
       setUploadingCover(false);
