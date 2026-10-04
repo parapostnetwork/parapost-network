@@ -761,7 +761,9 @@ function ProfileReelsViewer({ profileId }: { profileId: string }) {
     ] = await Promise.all([
       supabase
         .from("reels")
-        .select("*")
+        .select(
+          "id, user_id, creator_profile_id, title, caption, video_url, poster_url, shares, created_at",
+        )
         .or(
           `user_id.eq.${nextProfileId},creator_profile_id.eq.${nextProfileId}`,
         )
@@ -1131,7 +1133,47 @@ function ProfileReelsViewer({ profileId }: { profileId: string }) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "reels" },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "reels",
+          filter: `user_id=eq.${effectiveProfileId}`,
+        },
+        scheduleReelsRefresh,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "reels",
+          filter: `creator_profile_id=eq.${effectiveProfileId}`,
+        },
+        scheduleReelsRefresh,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "reels",
+          filter: `user_id=eq.${effectiveProfileId}`,
+        },
+        scheduleReelsRefresh,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "reels",
+          filter: `creator_profile_id=eq.${effectiveProfileId}`,
+        },
+        scheduleReelsRefresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "reels" },
         scheduleReelsRefresh,
       )
       .subscribe();

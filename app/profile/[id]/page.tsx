@@ -3638,7 +3638,6 @@ const closeProfileMobileSearch = useCallback(() => {
       profileResult,
       postsResult,
       sharesResult,
-      likesResult,
       reelsResult,
       reelSharesResult,
       liveStreamsResult,
@@ -3697,7 +3696,6 @@ const closeProfileMobileSearch = useCallback(() => {
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(200),
-      supabase.from("likes").select("post_id, user_id"),
       supabase
         .from("reels")
         .select("id, title, caption, video_url, poster_url, user_id, created_at")
@@ -3720,7 +3718,10 @@ const closeProfileMobileSearch = useCallback(() => {
         .order("updated_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
         .limit(50),
-      supabase.from("followers").select("follower_id, following_id"),
+      supabase
+        .from("followers")
+        .select("follower_id, following_id")
+        .or(`follower_id.eq.${profileId},following_id.eq.${profileId}`),
       nextViewerId && profileId && nextViewerId !== profileId
         ? supabase
             .from("friend_requests")
@@ -4005,18 +4006,6 @@ const closeProfileMobileSearch = useCallback(() => {
       );
     }
 
-    const nextLikeCounts: CountMap = {};
-    const nextUserLikes: ToggleMap = {};
-    for (const like of likesResult.data || []) {
-      nextLikeCounts[like.post_id] = (nextLikeCounts[like.post_id] || 0) + 1;
-      if (nextViewerId && like.user_id === nextViewerId) {
-        nextUserLikes[like.post_id] = true;
-      }
-    }
-
-    setLikeCounts(nextLikeCounts);
-    setUserLikes(nextUserLikes);
-
     const countPostIds = [
       ...new Set([
         ...loadedProfilePostsForCounts.map((post) => post.id),
@@ -4025,7 +4014,15 @@ const closeProfileMobileSearch = useCallback(() => {
     ];
 
     if (countPostIds.length > 0) {
-      const [{ data: commentsData, error: commentsCountError }, { data: sharesCountData, error: sharesCountError }] = await Promise.all([
+      const [
+        { data: likesData },
+        { data: commentsData, error: commentsCountError },
+        { data: sharesCountData, error: sharesCountError },
+      ] = await Promise.all([
+        supabase
+          .from("likes")
+          .select("post_id, user_id")
+          .in("post_id", countPostIds),
         supabase
           .from("comments")
           .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
@@ -4036,6 +4033,23 @@ const closeProfileMobileSearch = useCallback(() => {
           .select("post_id, share_destination, deleted_at")
           .in("post_id", countPostIds),
       ]);
+
+      const nextLikeCounts: CountMap = {};
+      const nextUserLikes: ToggleMap = {};
+
+      for (const like of likesData || []) {
+        const postId = String(like.post_id || "");
+        if (!postId) continue;
+
+        nextLikeCounts[postId] = (nextLikeCounts[postId] || 0) + 1;
+
+        if (nextViewerId && like.user_id === nextViewerId) {
+          nextUserLikes[postId] = true;
+        }
+      }
+
+      setLikeCounts(nextLikeCounts);
+      setUserLikes(nextUserLikes);
 
       if (commentsCountError) {
         console.warn("Profile comment counts could not load:", commentsCountError.message);
@@ -4068,9 +4082,12 @@ const closeProfileMobileSearch = useCallback(() => {
         setCommentCounts(nextCommentCounts);
         setCommentsByPostId(nextCommentPreviews);
 
-        const commenterIds = [
-          ...new Set(visibleComments.map((comment) => comment.user_id).filter(Boolean)),
-        ] as string[];
+        const previewCommenterIds = Object.values(nextCommentPreviews)
+          .flat()
+          .map((comment) => comment.user_id)
+          .filter(Boolean);
+
+        const commenterIds = [...new Set(previewCommenterIds)] as string[];
 
         if (commenterIds.length > 0) {
           const { data: profileRows, error: profileRowsError } = await supabase
@@ -4109,6 +4126,8 @@ const closeProfileMobileSearch = useCallback(() => {
         setShareCounts(nextShareCounts);
       }
     } else {
+      setLikeCounts({});
+      setUserLikes({});
       setCommentCounts({});
       setShareCounts({});
       setCommentsByPostId({});
@@ -4471,26 +4490,86 @@ useEffect(() => {
   useEffect(() => {
     if (!viewerId || !profileId || viewerId === profileId) return;
 
+    const refreshProfileRelationships = () => {
+      void loadPage();
+    };
+
     const channel = supabase
       .channel(`profile-friends-${viewerId}-${profileId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "friend_requests" },
-        async () => {
-          await loadPage();
-        }
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "friend_requests",
+          filter: `sender_id=eq.${viewerId}`,
+        },
+        refreshProfileRelationships
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "followers" },
-        async () => {
-          await loadPage();
-        }
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "friend_requests",
+          filter: `receiver_id=eq.${viewerId}`,
+        },
+        refreshProfileRelationships
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "friend_requests",
+          filter: `sender_id=eq.${viewerId}`,
+        },
+        refreshProfileRelationships
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "friend_requests",
+          filter: `receiver_id=eq.${viewerId}`,
+        },
+        refreshProfileRelationships
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "friend_requests" },
+        refreshProfileRelationships
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "followers",
+          filter: `following_id=eq.${profileId}`,
+        },
+        refreshProfileRelationships
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "followers",
+          filter: `follower_id=eq.${profileId}`,
+        },
+        refreshProfileRelationships
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "followers" },
+        refreshProfileRelationships
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, [viewerId, profileId, loadPage]);
 
