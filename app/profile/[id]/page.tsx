@@ -1837,7 +1837,7 @@ function ProfilePostImageGrid({
             }
           } : undefined}
           playsInline
-          preload="metadata"
+          preload="none"
           onLoadedMetadata={primeVideoPreview}
           onLoadedData={primeVideoPreview}
           className={single ? "profile-post-image" : "profile-post-media-item"}
@@ -4663,7 +4663,7 @@ useEffect(() => {
       const { error: uploadError, path: uploadedPath } = await uploadImageWithVariant(
         supabase.storage.from("post-images"), fileName, optimizedFile, "post", {
           contentType: optimizedFile.type,
-          cacheControl: "604800",
+          cacheControl: "31536000",
           upsert: false,
         });
       fileName = uploadedPath;
@@ -19070,7 +19070,7 @@ return (
                                       poster={item.reel.poster_url || undefined}
                                       muted
                                       playsInline
-                                      preload="metadata"
+                                      preload="none"
                                       style={{
                                         width: "100%",
                                         height: "100%",
