@@ -94,6 +94,22 @@ type ConversationItem = ConversationRow & {
   isNewFriend: boolean;
 };
 
+type ParachatInboxSummaryRow = {
+  conversation_id: string;
+  last_message_id: string | null;
+  last_sender_id: string | null;
+  last_body: string | null;
+  last_created_at: string | null;
+  last_is_read: boolean | null;
+  last_message_type: "text" | "image" | null;
+  last_image_path: string | null;
+  last_image_mime_type: string | null;
+  last_image_size_bytes: number | null;
+  last_image_width: number | null;
+  last_image_height: number | null;
+  unread_count: number | string | null;
+};
+
 type ParachatTypingPayload = {
   conversationId: string;
   userId: string;
@@ -1465,9 +1481,7 @@ function MessagesPage() {
       ),
     ];
 
-    const conversationIds = rawConversations.map((conversation) => conversation.id);
-
-    const [{ data: profileData }, { data: messageData, error: messagesError }] =
+    const [{ data: profileData }, { data: inboxSummaryData, error: inboxSummaryError }] =
       await Promise.all([
         otherUserIds.length > 0
           ? supabase
@@ -1475,15 +1489,15 @@ function MessagesPage() {
               .select("id, username, full_name, avatar_url, is_online, last_seen_at")
               .in("id", otherUserIds)
           : Promise.resolve({ data: [] }),
-        supabase
-          .from("direct_messages")
-          .select(DIRECT_MESSAGE_SELECT)
-          .in("conversation_id", conversationIds)
-          .order("created_at", { ascending: false }),
+        supabase.rpc("get_parachat_inbox_summaries"),
       ]);
 
-    if (messagesError) {
-      setErrorMessage(getParachatErrorMessage(messagesError.message || "Could not load messages."));
+    if (inboxSummaryError) {
+      setErrorMessage(
+        getParachatErrorMessage(
+          inboxSummaryError.message || "Could not load Parachat Inbox summaries."
+        )
+      );
       setLoadingInbox(false);
       return;
     }
@@ -1492,25 +1506,41 @@ function MessagesPage() {
       ((profileData as ProfileRow[]) || []).map((profile) => [profile.id, profile])
     );
 
-    const allMessages = ((messageData as MessageRow[]) || []).filter(Boolean);
+    const summaryMap = new Map(
+      ((inboxSummaryData as ParachatInboxSummaryRow[]) || [])
+        .filter((row) => row?.conversation_id)
+        .map((row) => [row.conversation_id, row])
+    );
 
     const nextItems: ConversationItem[] = rawConversations
       .map((conversation) => {
         const otherUserId = getConversationOtherUserId(conversation, user.id);
+        const summary = summaryMap.get(conversation.id);
 
-        const conversationMessages = allMessages.filter(
-          (message) => message.conversation_id === conversation.id
-        );
+        const lastMessage: MessageRow | null =
+          summary?.last_message_id &&
+          summary.last_sender_id &&
+          summary.last_created_at
+            ? {
+                id: summary.last_message_id,
+                conversation_id: conversation.id,
+                sender_id: summary.last_sender_id,
+                body: summary.last_body,
+                created_at: summary.last_created_at,
+                is_read: summary.last_is_read ?? false,
+                message_type: summary.last_message_type,
+                image_path: summary.last_image_path,
+                image_mime_type: summary.last_image_mime_type,
+                image_size_bytes: summary.last_image_size_bytes,
+                image_width: summary.last_image_width,
+                image_height: summary.last_image_height,
+              }
+            : null;
 
-        const lastMessage =
-          conversationMessages.sort(
-            (a, b) =>
-              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          )[0] || null;
-
-        const unreadCount = conversationMessages.filter(
-          (message) => message.sender_id !== user.id && message.is_read === false
-        ).length;
+        const parsedUnreadCount = Number(summary?.unread_count ?? 0);
+        const unreadCount = Number.isFinite(parsedUnreadCount)
+          ? Math.max(0, parsedUnreadCount)
+          : 0;
 
         return {
           ...conversation,
