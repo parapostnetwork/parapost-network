@@ -241,7 +241,7 @@ export default function ProfileSettingsPage() {
 
       const { error: uploadError, path: uploadedPath } = await uploadImageWithVariant(
         supabase.storage.from(AVATAR_BUCKET), storagePath, optimizedFile, "avatar", {
-          cacheControl: "604800",
+          cacheControl: "31536000",
           upsert: false,
           contentType: optimizedFile.type,
         });
