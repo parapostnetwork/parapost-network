@@ -4313,7 +4313,7 @@ useEffect(() => {
 
 useEffect(() => {
   const profileActionSelector =
-    ".profile-desktop-action-menu-fixed, .profile-desktop-action-menu-wrap, .profile-mobile-action-overlay";
+    ".profile-desktop-action-menu-fixed, .profile-desktop-action-menu-wrap, .profile-mobile-action-overlay, .profile-mobile-cover-more, .profile-mobile-owner-more-real, .profile-mobile-inline-more";
 
   const targetIsInsideProfileActions = (event: Event) => {
     const target = event.target;
