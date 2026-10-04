@@ -129,6 +129,7 @@ type PlayPauseFeedback = { reelId: string; mode: "play" | "pause"; nonce: number
 
 const initialComments: ReelComment[] = [];
 const REEL_CAPTION_MAX_LENGTH = 4000;
+const REELS_PAGE_SIZE = 20;
 
 const pageStyle: CSSProperties = {
   minHeight: "100dvh",
@@ -559,6 +560,7 @@ export default function ReelsPage() {
   const [heartBurstId, setHeartBurstId] = useState<string | null>(null);
   const [playPauseFeedback, setPlayPauseFeedback] = useState<PlayPauseFeedback>(null);
   const [isFetchingReels, setIsFetchingReels] = useState(true);
+  const [hasMoreReels, setHasMoreReels] = useState(true);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
@@ -571,9 +573,17 @@ export default function ReelsPage() {
   const commentLongPressTimeoutRef = useRef<number | null>(null);
   const commentLikeBurstTimeoutRef = useRef<number | null>(null);
   const reelsRealtimeRefreshTimerRef = useRef<number | null>(null);
+  const reelFetchLimitRef = useRef(REELS_PAGE_SIZE);
+  const loadingMoreReelsRef = useRef(false);
+  const targetReelIdRef = useRef("");
+  const activeReelIdRef = useRef("");
   const viewportResizeFrameRef = useRef<number | null>(null);
   const reelViewTimerMapRef = useRef<Record<string, number>>({});
   const recordedReelViewIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    activeReelIdRef.current = activeReelId;
+  }, [activeReelId]);
 
   useEffect(() => {
     router.prefetch("/dashboard");
@@ -742,8 +752,15 @@ export default function ReelsPage() {
     setRelationshipMap(nextRelationshipMap);
   };
 
-  const fetchReels = async (preferredReelId = "") => {
-    setIsFetchingReels(true);
+  const fetchReels = async (
+    preferredReelId = "",
+    requestedLimit = reelFetchLimitRef.current,
+    showLoading = true,
+    preserveReelId = preferredReelId
+  ) => {
+    if (showLoading) {
+      setIsFetchingReels(true);
+    }
 
     const {
       data: { user },
@@ -752,19 +769,40 @@ export default function ReelsPage() {
     const nextUserId = user?.id || "";
     setCurrentUserId(nextUserId);
 
+    const fetchLimit = Math.max(REELS_PAGE_SIZE, requestedLimit);
+
     const { data: reelRows, error: reelsError } = await supabase
       .from("reels")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(fetchLimit + 1);
 
     if (reelsError) {
       console.error("Error loading reels:", reelsError.message);
       // A failed background refresh must not discard a playing video.
-      setIsFetchingReels(false);
+      if (showLoading) {
+        setIsFetchingReels(false);
+      }
       return;
     }
 
-    const rows = (reelRows || []) as ReelDbRow[];
+    let rows = (reelRows || []) as ReelDbRow[];
+    const nextHasMoreReels = rows.length > fetchLimit;
+    rows = rows.slice(0, fetchLimit);
+
+    if (preserveReelId && !rows.some((row) => row.id === preserveReelId)) {
+      const { data: preservedReelRow, error: preservedReelError } = await supabase
+        .from("reels")
+        .select("*")
+        .eq("id", preserveReelId)
+        .maybeSingle();
+
+      if (preservedReelError) {
+        console.warn("Could not preserve linked Reel:", preservedReelError.message);
+      } else if (preservedReelRow) {
+        rows = [...rows, preservedReelRow as ReelDbRow];
+      }
+    }
     const profileIds = Array.from(
       new Set(rows.map((row) => row.creator_profile_id || row.user_id).filter(Boolean))
     ) as string[];
@@ -966,14 +1004,37 @@ export default function ReelsPage() {
       setLikedMap({});
     }
 
+    reelFetchLimitRef.current = fetchLimit;
+    setHasMoreReels(nextHasMoreReels);
     setReels((current) => mergeReelRefresh(current, mapped));
     setActiveReelId((current) => resolveActiveReel(current, mapped, preferredReelId));
 
-    setIsFetchingReels(false);
+    if (showLoading) {
+      setIsFetchingReels(false);
+    }
+  };
+
+  const loadMoreReels = async () => {
+    if (!hasMoreReels || loadingMoreReelsRef.current) return;
+
+    loadingMoreReelsRef.current = true;
+    const nextLimit = reelFetchLimitRef.current + REELS_PAGE_SIZE;
+
+    try {
+      await fetchReels(
+        "",
+        nextLimit,
+        false,
+        targetReelIdRef.current
+      );
+    } finally {
+      loadingMoreReelsRef.current = false;
+    }
   };
 
   useEffect(() => {
     const nextTargetReelId = getTargetReelIdFromUrl();
+    targetReelIdRef.current = nextTargetReelId;
     setTargetReelId(nextTargetReelId);
     fetchReels(nextTargetReelId);
   }, []);
@@ -986,7 +1047,12 @@ export default function ReelsPage() {
 
       reelsRealtimeRefreshTimerRef.current = window.setTimeout(() => {
         reelsRealtimeRefreshTimerRef.current = null;
-        void fetchReels();
+        void fetchReels(
+          "",
+          reelFetchLimitRef.current,
+          false,
+          activeReelIdRef.current || targetReelIdRef.current
+        );
       }, 2000);
     };
 
@@ -1011,7 +1077,12 @@ export default function ReelsPage() {
   useEffect(() => {
     const refreshIntervalId = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      void fetchReels();
+      void fetchReels(
+        "",
+        reelFetchLimitRef.current,
+        false,
+        activeReelIdRef.current || targetReelIdRef.current
+      );
     }, 30 * 60 * 1000);
 
     return () => {
@@ -1313,6 +1384,17 @@ export default function ReelsPage() {
     if (closestId !== activeReelId) {
       setActiveReelId(closestId);
       setHoldPausedId(null);
+    }
+
+    const closestIndex = reels.findIndex((reel) => reel.id === closestId);
+    const loadMoreThreshold = Math.max(0, reels.length - 4);
+
+    if (
+      hasMoreReels &&
+      !loadingMoreReelsRef.current &&
+      closestIndex >= loadMoreThreshold
+    ) {
+      void loadMoreReels();
     }
   };
 
