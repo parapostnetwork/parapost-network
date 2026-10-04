@@ -608,7 +608,7 @@ export default function ReelUploadModal({
         const upload = supabase.storage
           .from("reels")
           .upload(videoPath, selectedVideo, {
-            cacheControl: "604800",
+            cacheControl: "31536000",
             upsert: false,
             contentType: selectedVideo.type || "video/mp4",
           });
@@ -638,7 +638,7 @@ export default function ReelUploadModal({
       const posterUpload = supabase.storage
         .from("reel-posters")
         .upload(posterPath, posterBlob, {
-          cacheControl: "3600",
+          cacheControl: "31536000",
           upsert: false,
           contentType: "image/jpeg",
         });
