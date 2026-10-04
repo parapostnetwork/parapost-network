@@ -10,8 +10,9 @@ export default function FriendsNavItem() {
   useEffect(() => {
     let isMounted = true;
     const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    const loadRequestCount = async () => {
+    const initialize = async () => {
       const {
         data: { user },
         error: userError,
@@ -24,51 +25,46 @@ export default function FriendsNavItem() {
         return;
       }
 
-      const { count, error } = await supabase
-        .from("friend_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("receiver_id", user.id)
-        .eq("status", "pending");
+      const loadRequestCount = async () => {
+        const { count, error } = await supabase
+          .from("friend_requests")
+          .select("*", { count: "exact", head: true })
+          .eq("receiver_id", user.id)
+          .eq("status", "pending");
 
-      if (!error && isMounted) {
-        setRequestCount(count || 0);
-      }
+        if (!error && isMounted) {
+          setRequestCount(count || 0);
+        }
+      };
+
+      await loadRequestCount();
+
+      if (!isMounted) return;
+
+      channel = supabase
+        .channel(`friends-nav-requests-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "friend_requests",
+            filter: `receiver_id=eq.${user.id}`,
+          },
+          () => {
+            void loadRequestCount();
+          }
+        )
+        .subscribe();
     };
 
-    loadRequestCount();
-
-    const channel = supabase
-      .channel("friends-nav-requests")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "friend_requests",
-        },
-        async () => {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-
-          if (!user) return;
-
-          const { count, error } = await supabase
-            .from("friend_requests")
-            .select("*", { count: "exact", head: true })
-            .eq("receiver_id", user.id)
-            .eq("status", "pending");
-
-          if (!error && isMounted) {
-            setRequestCount(count || 0);
-          }
-        }
-      )
-      .subscribe();
+    void initialize();
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
     };
   }, []);
 
