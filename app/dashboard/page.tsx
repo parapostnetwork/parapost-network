@@ -263,7 +263,7 @@ const MAX_POST_VIDEO_MB = 100;
 const FEED_INITIAL_BATCH_SIZE = 14;
 const FEED_BATCH_INCREMENT = 8;
 const DASHBOARD_REALTIME_REFRESH_DELAY_MS = 1500;
-const DASHBOARD_BACKGROUND_REFRESH_MS = 600000;
+const DASHBOARD_BACKGROUND_REFRESH_MS = 30 * 60 * 1000;
 const DASHBOARD_COMMENT_PREVIEW_LIMIT = 2;
 
 const DASHBOARD_VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "m4v", "ogg", "3gp", "3gpp", "mkv"]);
@@ -1168,7 +1168,7 @@ function PostImageGrid({
             }
           } : undefined}
           playsInline
-          preload="metadata"
+          preload="none"
           onLoadedMetadata={primeVideoPreview}
           onLoadedData={primeVideoPreview}
           className="dashboard-post-media-item"
@@ -1217,7 +1217,7 @@ function PostImageGrid({
         src={safeUrls[0]}
         controls
         playsInline
-        preload="metadata"
+        preload="none"
         onLoadedMetadata={primeVideoPreview}
         onLoadedData={primeVideoPreview}
         className="dashboard-post-single-media"
@@ -4637,7 +4637,7 @@ export default function DashboardPage() {
       let fileName = `${user.id}/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${safeExt}`;
 
       const { error: uploadError, path: uploadedPath } = await uploadImageWithVariant(supabase.storage.from("post-images"), fileName, optimizedFile, "post", {
-        cacheControl: "604800",
+        cacheControl: "31536000",
         contentType: getDashboardUploadContentType(optimizedFile),
         upsert: false,
       });
