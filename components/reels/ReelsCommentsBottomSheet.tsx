@@ -92,7 +92,6 @@ export default function ReelsCommentsBottomSheet({
   const isTablet = viewportType === "tablet";
   const isMobile = viewportType === "mobile";
   const isShortMobile = isMobile && viewportHeight <= 700;
-  const isLandscapeTablet = isTablet && viewportWidth > viewportHeight;
 
   const sheetStyle = useMemo<CSSProperties>(() => {
     if (containedInParent) {
@@ -143,36 +142,21 @@ export default function ReelsCommentsBottomSheet({
       margin: 0,
     };
 
-    if (isDesktop) {
+    if (isDesktop || isTablet) {
       return {
         ...shared,
-        width: "min(620px, calc(100vw - 48px))",
-        height: "min(74dvh, 760px)",
-        maxHeight: "calc(100dvh - 92px)",
-        boxShadow:
-          "0 -24px 70px rgba(0,0,0,0.56), 0 0 44px rgba(168,85,247,0.12)",
-      };
-    }
-
-    if (isTablet) {
-      return {
-        ...shared,
-        top: "50%",
-        bottom: "auto",
-        width: isLandscapeTablet
-          ? "min(620px, calc(100vw - 96px))"
-          : "min(590px, calc(100vw - 72px))",
-        height: isLandscapeTablet
-          ? "min(72dvh, 620px)"
-          : "min(70dvh, 680px)",
-        maxHeight: isLandscapeTablet
-          ? "calc(100dvh - 72px)"
-          : "calc(100dvh - 96px)",
-        transform: "translate3d(-50%, -50%, 0)",
-        borderRadius: 28,
-        borderBottom: "1px solid rgba(255,255,255,0.12)",
-        boxShadow:
-          "0 24px 70px rgba(0,0,0,0.58), 0 0 34px rgba(168,85,247,0.12)",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: "auto",
+        width: isDesktop ? "min(460px, 100%)" : "min(420px, 88vw)",
+        height: "100dvh",
+        maxHeight: "100dvh",
+        transform: "none",
+        borderRadius: 0,
+        border: "none",
+        borderLeft: "1px solid rgba(255,255,255,0.11)",
+        boxShadow: "-18px 0 44px rgba(0,0,0,0.48)",
       };
     }
 
@@ -193,7 +177,6 @@ export default function ReelsCommentsBottomSheet({
   }, [
     isDesktop,
     isTablet,
-    isLandscapeTablet,
     isShortMobile,
     containedInParent,
   ]);
@@ -217,9 +200,11 @@ export default function ReelsCommentsBottomSheet({
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
       >
-        <div style={handleWrapStyle}>
-          <div style={handleStyle} />
-        </div>
+        {isMobile || containedInParent ? (
+          <div style={handleWrapStyle}>
+            <div style={handleStyle} />
+          </div>
+        ) : null}
 
         <div
           style={{

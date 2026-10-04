@@ -1251,7 +1251,7 @@ export default function ReelsPage() {
         stageWidth: isNarrowTablet ? "min(72vw, 480px)" : "min(60vw, 500px)",
         stageHeight: "min(calc(100dvh - 142px), 820px)",
         borderRadius: 30,
-        showDesktopArrows: false,
+        showDesktopArrows: true,
         outerPadding: isNarrowTablet ? 14 : 20,
         actionRight: 14,
         textLeft: 18,
@@ -1280,7 +1280,7 @@ export default function ReelsPage() {
       textLeft: 18,
       textRight: 84,
       bottomOffset: 16,
-      topOffset: 8,
+      topOffset: 92,
       titleSize: 22,
       captionSize: 14,
       captionLines: 3,
@@ -2601,7 +2601,7 @@ export default function ReelsPage() {
         <div
           style={{
             position: "fixed",
-            right: "32px",
+            right: "max(18px, calc(50% - 345px))",
             top: "50%",
             transform: "translateY(-50%)",
             display: "flex",
@@ -3301,6 +3301,13 @@ export default function ReelsPage() {
                         fontSize: `${stageMetrics.titleSize}px`,
                         lineHeight: 1.06,
                         textShadow: "0 3px 12px rgba(0,0,0,0.48)",
+                        maxWidth: "100%",
+                        overflow: "hidden",
+                        overflowWrap: "anywhere",
+                        wordBreak: "break-word",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
                       }}
                     >
                       {reel.title}
@@ -3393,7 +3400,6 @@ export default function ReelsPage() {
                       onCommentInputKeyDown={handleCommentInputKeyDown}
                       onAddComment={handleAddComment}
                       viewportType={viewportType}
-                      containedInParent={viewportType === "tablet"}
                       commentLikedMap={commentLikedMap}
                       commentLikeMap={commentLikeMap}
                       commentLikeBurstId={commentLikeBurstId}
