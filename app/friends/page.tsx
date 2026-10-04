@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -40,6 +40,7 @@ export default function FriendsListPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [processingFriendId, setProcessingFriendId] = useState<string | null>(null);
   const [onlineNow, setOnlineNow] = useState(() => Date.now());
+  const friendIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     router.prefetch("/dashboard");
@@ -81,6 +82,8 @@ export default function FriendsListPage() {
           .filter(Boolean)
       ),
     ];
+
+    friendIdsRef.current = new Set(friendIds);
 
     let profilesMap: Record<string, ProfilePreview> = {};
 
@@ -135,31 +138,112 @@ export default function FriendsListPage() {
     void initialize();
   }, [fetchFriends]);
 
+  const realtimeFriendIdsKey = useMemo(
+    () =>
+      friends
+        .map((friend) => friend.friendId)
+        .filter(Boolean)
+        .sort()
+        .join(","),
+    [friends]
+  );
+
   useEffect(() => {
     if (!currentUserId) return;
 
-    const channel = supabase
+    const refreshRelationships = async () => {
+      await fetchFriends(currentUserId, { silent: true });
+    };
+
+    const handleFriendProfileChange = (payload: any) => {
+      const row =
+        payload?.eventType === "DELETE"
+          ? payload?.old || {}
+          : payload?.new || {};
+
+      const profileId = String(row.id || "");
+      if (!profileId || !friendIdsRef.current.has(profileId)) return;
+
+      if (payload?.eventType === "DELETE") {
+        setFriends((current) =>
+          current.map((friend) =>
+            friend.friendId === profileId
+              ? { ...friend, profile: null }
+              : friend
+          )
+        );
+        return;
+      }
+
+      setFriends((current) =>
+        current.map((friend) => {
+          if (friend.friendId !== profileId) return friend;
+
+          return {
+            ...friend,
+            profile: {
+              ...(friend.profile || {
+                id: profileId,
+                username: null,
+                full_name: null,
+                avatar_url: null,
+              }),
+              ...row,
+              id: profileId,
+            } as ProfilePreview,
+          };
+        })
+      );
+    };
+
+    const profileFriendIds = realtimeFriendIdsKey
+      ? realtimeFriendIdsKey.split(",")
+      : [];
+
+    let channel = supabase
       .channel(`friends-list-${currentUserId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "friend_requests" },
-        async () => {
-          await fetchFriends(currentUserId, { silent: true });
-        }
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+          filter: `sender_id=eq.${currentUserId}`,
+        },
+        refreshRelationships
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        async () => {
-          await fetchFriends(currentUserId, { silent: true });
-        }
-      )
-      .subscribe();
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+          filter: `receiver_id=eq.${currentUserId}`,
+        },
+        refreshRelationships
+      );
+
+    for (let index = 0; index < profileFriendIds.length; index += 100) {
+      const friendIdChunk = profileFriendIds.slice(index, index + 100);
+
+      channel = channel.on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=in.(${friendIdChunk.join(",")})`,
+        },
+        handleFriendProfileChange
+      );
+    }
+
+    channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, fetchFriends]);
+  }, [currentUserId, fetchFriends, realtimeFriendIdsKey]);
 
   useEffect(() => {
     const onlineTimer = window.setInterval(() => {
