@@ -2857,22 +2857,8 @@ export default function DashboardPage() {
         return;
       }
 
-      const likedComment = Object.values(commentsByPostId)
-        .flat()
-        .find((comment) => comment.id === commentId);
-
-      if (likedComment?.user_id && likedComment.user_id !== currentUserId) {
-        await insertDashboardNotification({
-          userId: likedComment.user_id,
-          actorId: currentUserId,
-          type: "comment_like",
-          postId: likedComment.post_id,
-          commentId,
-          message: "liked your comment.",
-        });
-      }
     },
-    [commentsByPostId, currentUserId, dashboardCommentUserLikes, insertDashboardNotification]
+    [currentUserId, dashboardCommentUserLikes]
   );
 
   const fetchCounts = useCallback(async (userId: string | undefined, visiblePostIds: string[]) => {
@@ -13571,31 +13557,6 @@ function DashboardCommentsPanel({
       setReplyingToId(null);
       setReplyDraft("");
 
-      const recipients = new Set<string>();
-      if (replyToComment.user_id && replyToComment.user_id !== currentUserId) {
-        recipients.add(replyToComment.user_id);
-      }
-      if (postOwnerId && postOwnerId !== currentUserId) {
-        recipients.add(postOwnerId);
-      }
-
-      if (recipients.size > 0) {
-        await supabase.from("notifications").insert(
-          Array.from(recipients).map((recipientId) => ({
-            user_id: recipientId,
-            actor_id: currentUserId,
-            type: "comment_reply",
-            post_id: postId,
-            comment_id: savedReply.id,
-            friend_request_id: null,
-            message:
-              recipientId === replyToComment.user_id
-                ? "replied to your comment."
-                : "replied in a comment thread on your post.",
-            is_read: false,
-          }))
-        );
-      }
     } finally {
       setPostingReply(false);
     }

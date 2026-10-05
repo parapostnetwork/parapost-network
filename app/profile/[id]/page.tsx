@@ -5202,18 +5202,6 @@ useEffect(() => {
         return;
       }
 
-      if (comment.user_id && comment.user_id !== viewerId) {
-        await supabase.from("notifications").insert([{
-          user_id: comment.user_id,
-          actor_id: viewerId,
-          type: "comment_like",
-          post_id: comment.post_id,
-          comment_id: comment.id,
-          friend_request_id: null,
-          message: "liked your comment.",
-          is_read: false,
-        }]);
-      }
     },
     [profileCommentUserLikes, viewerId],
   );
@@ -5359,27 +5347,6 @@ useEffect(() => {
       setReplyingProfileCommentId(null);
       setProfileReplyDrafts((current) => ({ ...current, [replyToComment.id]: "" }));
 
-      const recipients = new Set<string>();
-      if (replyToComment.user_id && replyToComment.user_id !== viewerId) recipients.add(replyToComment.user_id);
-      if (postOwnerId && postOwnerId !== viewerId) recipients.add(postOwnerId);
-
-      if (recipients.size > 0) {
-        await supabase.from("notifications").insert(
-          Array.from(recipients).map((recipientId) => ({
-            user_id: recipientId,
-            actor_id: viewerId,
-            type: "comment_reply",
-            post_id: postId,
-            comment_id: savedReply.id,
-            friend_request_id: null,
-            message:
-              recipientId === replyToComment.user_id
-                ? "replied to your comment."
-                : "replied in a comment thread on your post.",
-            is_read: false,
-          }))
-        );
-      }
     } finally {
       setPostingProfileReplyId(null);
     }
