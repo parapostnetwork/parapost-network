@@ -450,6 +450,12 @@ export default function NotificationsPage() {
   const [postOverlayError, setPostOverlayError] = useState("");
   const [postOverlayIsMobile, setPostOverlayIsMobile] = useState(false);
   const [postOverlayExpanded, setPostOverlayExpanded] = useState(false);
+  const [postOverlayCommentLikeCounts, setPostOverlayCommentLikeCounts] = useState<Record<string, number>>({});
+  const [postOverlayCommentUserLikes, setPostOverlayCommentUserLikes] = useState<Record<string, boolean>>({});
+  const [postOverlayCommentLikeBusyId, setPostOverlayCommentLikeBusyId] = useState<string | null>(null);
+  const [postOverlayReplyingToId, setPostOverlayReplyingToId] = useState<string | null>(null);
+  const [postOverlayReplyDraft, setPostOverlayReplyDraft] = useState("");
+  const [postOverlayPostingReplyId, setPostOverlayPostingReplyId] = useState<string | null>(null);
   const realtimeReloadTimerRef = useRef<number | null>(null);
   const reelActivityDialogRef = useRef<HTMLDivElement | null>(null);
   const reelActivityCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -496,6 +502,196 @@ export default function NotificationsPage() {
       ? [postOverlayData.post.image_url]
       : [];
   }, [postOverlayData]);
+
+  const handleTogglePostOverlayCommentLike = async (commentId: string) => {
+    if (!commentId || postOverlayCommentLikeBusyId) return;
+
+    if (!currentUserId) {
+      alert("You must be logged in to like a comment.");
+      return;
+    }
+
+    const alreadyLiked = !!postOverlayCommentUserLikes[commentId];
+
+    setPostOverlayCommentLikeBusyId(commentId);
+
+    setPostOverlayCommentUserLikes((current) => ({
+      ...current,
+      [commentId]: !alreadyLiked,
+    }));
+
+    setPostOverlayCommentLikeCounts((current) => ({
+      ...current,
+      [commentId]: alreadyLiked
+        ? Math.max((current[commentId] || 1) - 1, 0)
+        : (current[commentId] || 0) + 1,
+    }));
+
+    try {
+      if (alreadyLiked) {
+        const { error } = await supabase
+          .from("comment_likes")
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq("comment_id", commentId);
+
+        if (error) {
+          setPostOverlayCommentUserLikes((current) => ({
+            ...current,
+            [commentId]: true,
+          }));
+
+          setPostOverlayCommentLikeCounts((current) => ({
+            ...current,
+            [commentId]: (current[commentId] || 0) + 1,
+          }));
+
+          alert(`Unlike comment error: ${error.message}`);
+        }
+
+        return;
+      }
+
+      const { error } = await supabase.from("comment_likes").insert([
+        {
+          user_id: currentUserId,
+          comment_id: commentId,
+        },
+      ]);
+
+      if (error) {
+        setPostOverlayCommentUserLikes((current) => ({
+          ...current,
+          [commentId]: false,
+        }));
+
+        setPostOverlayCommentLikeCounts((current) => ({
+          ...current,
+          [commentId]: Math.max((current[commentId] || 1) - 1, 0),
+        }));
+
+        alert(`Like comment error: ${error.message}`);
+      }
+    } finally {
+      setPostOverlayCommentLikeBusyId((current) =>
+        current === commentId ? null : current
+      );
+    }
+  };
+
+  const handleSubmitPostOverlayReply = async (
+    replyToComment: NotificationPostComment
+  ) => {
+    const trimmed = postOverlayReplyDraft.trim();
+
+    if (
+      !trimmed ||
+      !currentUserId ||
+      !postOverlayData ||
+      postOverlayPostingReplyId
+    ) {
+      return;
+    }
+
+    const rootParentId =
+      replyToComment.parent_comment_id || replyToComment.id;
+
+    setPostOverlayPostingReplyId(replyToComment.id);
+
+    try {
+      const { data, error } = await supabase
+        .from("comments")
+        .insert([
+          {
+            post_id: postOverlayData.post.id,
+            user_id: currentUserId,
+            content: trimmed,
+            parent_comment_id: rootParentId,
+            reply_to_user_id: replyToComment.user_id,
+          },
+        ])
+        .select(
+          "id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id"
+        )
+        .single();
+
+      if (error) {
+        alert(`Reply error: ${error.message}`);
+        return;
+      }
+
+      const savedReply = data as NotificationPostComment;
+
+      setPostOverlayData((current) =>
+        current
+          ? {
+              ...current,
+              comments: [...current.comments, savedReply],
+            }
+          : current
+      );
+
+      setPostOverlayCommentLikeCounts((current) => ({
+        ...current,
+        [savedReply.id]: 0,
+      }));
+
+      setPostOverlayCommentUserLikes((current) => ({
+        ...current,
+        [savedReply.id]: false,
+      }));
+
+      setPostOverlayReplyingToId(null);
+      setPostOverlayReplyDraft("");
+    } finally {
+      setPostOverlayPostingReplyId((current) =>
+        current === replyToComment.id ? null : current
+      );
+    }
+  };
+
+  const handleReportPostOverlayComment = async (
+    commentId: string,
+    commentOwnerId?: string | null
+  ) => {
+    if (!currentUserId) {
+      alert("Please log in to report comments.");
+      return;
+    }
+
+    if (!commentId) return;
+
+    if (commentOwnerId && commentOwnerId === currentUserId) {
+      alert("You cannot report your own comment from here.");
+      return;
+    }
+
+    const reason = window.prompt(
+      "Report this comment to Parapost moderation. Please add a short reason:",
+      ""
+    );
+
+    const trimmedReason = (reason || "").trim();
+
+    if (!trimmedReason) return;
+
+    const { error } = await supabase.from("reports").insert({
+      reporter_id: currentUserId,
+      reported_user_id: commentOwnerId || null,
+      target_type: "comment",
+      target_id: commentId,
+      reason: trimmedReason.slice(0, 160),
+      details: trimmedReason.length > 160 ? trimmedReason : null,
+      status: "open",
+    });
+
+    if (error) {
+      alert(`Could not report this comment: ${error.message}`);
+      return;
+    }
+
+    alert("Thanks. This comment has been sent to Parapost moderation.");
+  };
 
   const reelActivityPeople = useMemo<ReelActivityPerson[]>(() => {
     if (!reelActivityModal?.reel_id || !reelActivityModal.type) return [];
@@ -593,6 +789,12 @@ export default function NotificationsPage() {
       setPostOverlayLoading(true);
       setPostOverlayError("");
       setPostOverlayData(null);
+      setPostOverlayCommentLikeCounts({});
+      setPostOverlayCommentUserLikes({});
+      setPostOverlayReplyingToId(null);
+      setPostOverlayReplyDraft("");
+      setPostOverlayPostingReplyId(null);
+      setPostOverlayCommentLikeBusyId(null);
 
       try {
         const { data: postData, error: postError } = await supabase
@@ -655,9 +857,44 @@ export default function NotificationsPage() {
         const images = ((imagesResponse.data || []) as NotificationPostImage[])
           .filter((image) => Boolean(image.image_url));
 
+        const commentIds = comments
+          .map((comment) => comment.id)
+          .filter(Boolean);
+
+        const nextCommentLikeCounts: Record<string, number> = {};
+        const nextCommentUserLikes: Record<string, boolean> = {};
+
+        if (commentIds.length > 0) {
+          const { data: commentLikeRows, error: commentLikesError } =
+            await supabase
+              .from("comment_likes")
+              .select("comment_id, user_id")
+              .in("comment_id", commentIds);
+
+          if (commentLikesError) {
+            console.warn(
+              "Notification overlay comment likes could not be loaded:",
+              commentLikesError.message
+            );
+          } else {
+            for (const like of commentLikeRows || []) {
+              const commentId = String(like.comment_id || "");
+              if (!commentId) continue;
+
+              nextCommentLikeCounts[commentId] =
+                (nextCommentLikeCounts[commentId] || 0) + 1;
+
+              if (currentUserId && like.user_id === currentUserId) {
+                nextCommentUserLikes[commentId] = true;
+              }
+            }
+          }
+        }
+
         const profileIds = [
           ...new Set([
             post.user_id,
+            currentUserId,
             ...comments.map((comment) => comment.user_id),
           ].filter(Boolean)),
         ];
@@ -686,6 +923,9 @@ export default function NotificationsPage() {
         }
 
         if (cancelled) return;
+
+        setPostOverlayCommentLikeCounts(nextCommentLikeCounts);
+        setPostOverlayCommentUserLikes(nextCommentUserLikes);
 
         setPostOverlayData({
           post,
@@ -717,7 +957,7 @@ export default function NotificationsPage() {
     return () => {
       cancelled = true;
     };
-  }, [postOverlayNotification]);
+  }, [postOverlayNotification, currentUserId]);
 
   useEffect(() => {
     if (!postOverlayNotification || typeof window === "undefined") return;
@@ -1353,6 +1593,25 @@ export default function NotificationsPage() {
                           const isTarget =
                             postOverlayNotification.comment_id === comment.id;
 
+                          const commentLikeCount =
+                            postOverlayCommentLikeCounts[comment.id] || 0;
+
+                          const commentLiked =
+                            !!postOverlayCommentUserLikes[comment.id];
+
+                          const commentLikeBusy =
+                            postOverlayCommentLikeBusyId === comment.id;
+
+                          const isReplying =
+                            postOverlayReplyingToId === comment.id;
+
+                          const isPostingReply =
+                            postOverlayPostingReplyId === comment.id;
+
+                          const canReport =
+                            !!currentUserId &&
+                            comment.user_id !== currentUserId;
+
                           return (
                             <div
                               id={`notification-post-comment-${comment.id}`}
@@ -1456,6 +1715,199 @@ export default function NotificationsPage() {
                                 >
                                   {comment.content}
                                 </div>
+
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    flexWrap: "wrap",
+                                    gap: 12,
+                                    marginTop: 8,
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    disabled={commentLikeBusy}
+                                    onClick={() =>
+                                      void handleTogglePostOverlayCommentLike(
+                                        comment.id
+                                      )
+                                    }
+                                    style={{
+                                      border: 0,
+                                      padding: 0,
+                                      background: "transparent",
+                                      color: commentLiked
+                                        ? "#c4b5fd"
+                                        : "#a1a1aa",
+                                      fontSize: 12,
+                                      fontWeight: 850,
+                                      cursor: commentLikeBusy
+                                        ? "default"
+                                        : "pointer",
+                                    }}
+                                  >
+                                    {commentLiked ? "Unlike" : "Like"}
+                                    {commentLikeCount > 0
+                                      ? ` · ${commentLikeCount}`
+                                      : ""}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!currentUserId) {
+                                        alert(
+                                          "You must be logged in to reply."
+                                        );
+                                        return;
+                                      }
+
+                                      setPostOverlayReplyingToId(
+                                        (current) =>
+                                          current === comment.id
+                                            ? null
+                                            : comment.id
+                                      );
+                                      setPostOverlayReplyDraft("");
+                                    }}
+                                    style={{
+                                      border: 0,
+                                      padding: 0,
+                                      background: "transparent",
+                                      color: "#a1a1aa",
+                                      fontSize: 12,
+                                      fontWeight: 850,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Reply
+                                  </button>
+
+                                  {canReport ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleReportPostOverlayComment(
+                                          comment.id,
+                                          comment.user_id
+                                        )
+                                      }
+                                      style={{
+                                        border: 0,
+                                        padding: 0,
+                                        background: "transparent",
+                                        color: "#a1a1aa",
+                                        fontSize: 12,
+                                        fontWeight: 850,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Report
+                                    </button>
+                                  ) : null}
+                                </div>
+
+                                {isReplying ? (
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gap: 8,
+                                      marginTop: 10,
+                                    }}
+                                  >
+                                    <textarea
+                                      value={postOverlayReplyDraft}
+                                      onChange={(event) =>
+                                        setPostOverlayReplyDraft(
+                                          event.target.value
+                                        )
+                                      }
+                                      rows={2}
+                                      maxLength={1200}
+                                      placeholder={`Reply to ${getDisplayName(author)}...`}
+                                      autoFocus
+                                      style={{
+                                        width: "100%",
+                                        resize: "vertical",
+                                        minHeight: 58,
+                                        borderRadius: 12,
+                                        border:
+                                          "1px solid rgba(255,255,255,0.13)",
+                                        background:
+                                          "rgba(255,255,255,0.055)",
+                                        color: "#ffffff",
+                                        padding: "9px 10px",
+                                        fontSize: 13,
+                                        lineHeight: 1.4,
+                                        outline: "none",
+                                      }}
+                                    />
+
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !postOverlayReplyDraft.trim() ||
+                                          isPostingReply
+                                        }
+                                        onClick={() =>
+                                          void handleSubmitPostOverlayReply(
+                                            comment
+                                          )
+                                        }
+                                        style={{
+                                          border: 0,
+                                          borderRadius: 999,
+                                          padding: "7px 13px",
+                                          background: "#7c3aed",
+                                          color: "#ffffff",
+                                          fontSize: 12,
+                                          fontWeight: 900,
+                                          cursor: isPostingReply
+                                            ? "default"
+                                            : "pointer",
+                                          opacity:
+                                            !postOverlayReplyDraft.trim() ||
+                                            isPostingReply
+                                              ? 0.55
+                                              : 1,
+                                        }}
+                                      >
+                                        {isPostingReply
+                                          ? "Replying..."
+                                          : "Reply"}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={isPostingReply}
+                                        onClick={() => {
+                                          setPostOverlayReplyingToId(null);
+                                          setPostOverlayReplyDraft("");
+                                        }}
+                                        style={{
+                                          border:
+                                            "1px solid rgba(255,255,255,0.12)",
+                                          borderRadius: 999,
+                                          padding: "7px 13px",
+                                          background: "transparent",
+                                          color: "#d4d4d8",
+                                          fontSize: 12,
+                                          fontWeight: 850,
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                           );
