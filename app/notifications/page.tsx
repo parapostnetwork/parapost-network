@@ -449,6 +449,7 @@ export default function NotificationsPage() {
   const [postOverlayLoading, setPostOverlayLoading] = useState(false);
   const [postOverlayError, setPostOverlayError] = useState("");
   const [postOverlayIsMobile, setPostOverlayIsMobile] = useState(false);
+  const [postOverlayExpanded, setPostOverlayExpanded] = useState(false);
   const realtimeReloadTimerRef = useRef<number | null>(null);
   const reelActivityDialogRef = useRef<HTMLDivElement | null>(null);
   const reelActivityCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -953,6 +954,7 @@ export default function NotificationsPage() {
     const type = notification.type || "";
 
     if (notification.post_id && !type.startsWith("reel_")) {
+      setPostOverlayExpanded(false);
       setPostOverlayIsMobile(
         typeof window !== "undefined" &&
           window.matchMedia("(max-width: 700px)").matches
@@ -1061,7 +1063,7 @@ export default function NotificationsPage() {
                     lineHeight: 1.2,
                   }}
                 >
-                  {postOverlayIsMobile
+                  {postOverlayIsMobile && !postOverlayExpanded
                     ? getPostOverlayActivityTitle(postOverlayNotification)
                     : postOverlayData
                       ? `${getDisplayName(postOverlayData.author)}'s post`
@@ -1148,7 +1150,7 @@ export default function NotificationsPage() {
                       background: "rgba(255,255,255,0.018)",
                     }}
                   >
-                    {!postOverlayIsMobile ? (
+                    {!postOverlayIsMobile || postOverlayExpanded ? (
                       <div
                         style={{
                           display: "flex",
@@ -1216,13 +1218,14 @@ export default function NotificationsPage() {
                     {postOverlayData.post.content ? (
                       <div
                         style={{
-                          marginTop: postOverlayIsMobile ? 4 : 16,
+                          marginTop:
+                            postOverlayIsMobile && !postOverlayExpanded ? 4 : 16,
                           whiteSpace: "pre-wrap",
                           overflowWrap: "anywhere",
                           color: "#f9fafb",
                           lineHeight: 1.56,
                           fontSize: 15.8,
-                          ...(postOverlayIsMobile
+                          ...(postOverlayIsMobile && !postOverlayExpanded
                             ? {
                                 display: "-webkit-box",
                                 WebkitBoxOrient: "vertical",
@@ -1236,7 +1239,8 @@ export default function NotificationsPage() {
                       </div>
                     ) : null}
 
-                    {postOverlayImageUrls.length > 0 && !postOverlayIsMobile ? (
+                    {postOverlayImageUrls.length > 0 &&
+                    (!postOverlayIsMobile || postOverlayExpanded) ? (
                       <div
                         style={{
                           display: "grid",
@@ -1265,7 +1269,9 @@ export default function NotificationsPage() {
                       </div>
                     ) : null}
 
-                    {postOverlayIsMobile && postOverlayImageUrls.length > 0 ? (
+                    {postOverlayIsMobile &&
+                    !postOverlayExpanded &&
+                    postOverlayImageUrls.length > 0 ? (
                       <div
                         style={{
                           marginTop: 12,
@@ -1278,10 +1284,10 @@ export default function NotificationsPage() {
                       </div>
                     ) : null}
 
-                    {postOverlayIsMobile ? (
-                      <Link
-                        href={getNotificationHref(postOverlayNotification)}
-                        onClick={() => setPostOverlayNotification(null)}
+                    {postOverlayIsMobile && !postOverlayExpanded ? (
+                      <button
+                        type="button"
+                        onClick={() => setPostOverlayExpanded(true)}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -1299,7 +1305,7 @@ export default function NotificationsPage() {
                         }}
                       >
                         View Post
-                      </Link>
+                      </button>
                     ) : null}
                   </article>
 
