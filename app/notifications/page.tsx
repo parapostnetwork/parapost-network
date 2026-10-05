@@ -1779,7 +1779,7 @@ export default function NotificationsPage() {
                                         : "pointer",
                                     }}
                                   >
-                                    {commentLiked ? "Unlike" : "Like"}
+                                    Like
                                     {commentLikeCount > 0
                                       ? ` · ${commentLikeCount}`
                                       : ""}
