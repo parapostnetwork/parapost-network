@@ -503,6 +503,38 @@ export default function NotificationsPage() {
       : [];
   }, [postOverlayData]);
 
+  const postOverlayOrderedComments = useMemo(() => {
+    if (!postOverlayData) return [];
+
+    const topLevelComments: NotificationPostComment[] = [];
+    const topLevelCommentIds = new Set<string>();
+    const repliesByRoot = new Map<string, NotificationPostComment[]>();
+
+    for (const comment of postOverlayData.comments) {
+      if (comment.parent_comment_id) {
+        const replies = repliesByRoot.get(comment.parent_comment_id) || [];
+        replies.push(comment);
+        repliesByRoot.set(comment.parent_comment_id, replies);
+      } else {
+        topLevelComments.push(comment);
+        topLevelCommentIds.add(comment.id);
+      }
+    }
+
+    const orderedComments = topLevelComments.flatMap((comment) => [
+      comment,
+      ...(repliesByRoot.get(comment.id) || []),
+    ]);
+
+    const orphanReplies = postOverlayData.comments.filter(
+      (comment) =>
+        !!comment.parent_comment_id &&
+        !topLevelCommentIds.has(comment.parent_comment_id)
+    );
+
+    return [...orderedComments, ...orphanReplies];
+  }, [postOverlayData]);
+
   const handleTogglePostOverlayCommentLike = async (commentId: string) => {
     if (!commentId || postOverlayCommentLikeBusyId) return;
 
@@ -1586,7 +1618,7 @@ export default function NotificationsPage() {
                       </div>
                     ) : (
                       <div style={{ display: "grid", gap: 10 }}>
-                        {postOverlayData.comments.map((comment) => {
+                        {postOverlayOrderedComments.map((comment) => {
                           const author =
                             postOverlayData.profiles[comment.user_id] || null;
 
