@@ -37,6 +37,44 @@ type NotificationCard = NotificationRow & {
   reelActivityCount?: number;
 };
 
+type NotificationPost = {
+  id: string;
+  content: string;
+  image_url?: string | null;
+  created_at: string;
+  user_id: string;
+};
+
+type NotificationPostImage = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  image_url: string;
+  storage_path: string | null;
+  display_order: number;
+  created_at?: string | null;
+};
+
+type NotificationPostComment = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  is_hidden?: boolean | null;
+  parent_comment_id?: string | null;
+  reply_to_user_id?: string | null;
+};
+
+type NotificationPostOverlayData = {
+  post: NotificationPost;
+  author: ProfilePreview | null;
+  images: NotificationPostImage[];
+  comments: NotificationPostComment[];
+  profiles: Record<string, ProfilePreview>;
+  likeCount: number;
+};
+
 type FilterKey = "all" | "unread" | "friends" | "activity";
 
 type ReelActivityPerson = {
@@ -280,6 +318,21 @@ function getNotificationTitle(notification: NotificationCard) {
   return "You have a new notification.";
 }
 
+function getPostOverlayActivityTitle(notification: NotificationCard) {
+  const actorName = getDisplayName(notification.actor);
+  const type = notification.type || "";
+
+  if (type === "post_like") return `${actorName} liked your post`;
+  if (type === "post_comment") return `${actorName} commented on your post`;
+  if (type === "comment_like") return `${actorName} liked your comment`;
+  if (type === "comment_reply") return `${actorName} replied to your comment`;
+  if (type === "post_share" || type === "share") {
+    return `${actorName} shared your post`;
+  }
+
+  return getNotificationTitle(notification).replace(/[.]$/, "");
+}
+
 function getNotificationMeta(notification: NotificationCard) {
   const type = notification.type || "";
 
@@ -391,6 +444,11 @@ export default function NotificationsPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [reelActivityModal, setReelActivityModal] = useState<NotificationCard | null>(null);
+  const [postOverlayNotification, setPostOverlayNotification] = useState<NotificationCard | null>(null);
+  const [postOverlayData, setPostOverlayData] = useState<NotificationPostOverlayData | null>(null);
+  const [postOverlayLoading, setPostOverlayLoading] = useState(false);
+  const [postOverlayError, setPostOverlayError] = useState("");
+  const [postOverlayIsMobile, setPostOverlayIsMobile] = useState(false);
   const realtimeReloadTimerRef = useRef<number | null>(null);
   const reelActivityDialogRef = useRef<HTMLDivElement | null>(null);
   const reelActivityCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -422,6 +480,21 @@ export default function NotificationsPage() {
     if (activeFilter === "activity") return displayNotifications.filter((notification) => !(notification.type || "").includes("friend"));
     return displayNotifications;
   }, [activeFilter, displayNotifications]);
+
+  const postOverlayImageUrls = useMemo(() => {
+    if (!postOverlayData) return [];
+
+    const galleryUrls = [...postOverlayData.images]
+      .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+      .map((image) => image.image_url)
+      .filter((value): value is string => Boolean(value));
+
+    if (galleryUrls.length > 0) return galleryUrls;
+
+    return postOverlayData.post.image_url
+      ? [postOverlayData.post.image_url]
+      : [];
+  }, [postOverlayData]);
 
   const reelActivityPeople = useMemo<ReelActivityPerson[]>(() => {
     if (!reelActivityModal?.reel_id || !reelActivityModal.type) return [];
@@ -502,6 +575,208 @@ export default function NotificationsPage() {
       }
     };
   }, [reelActivityModal]);
+
+  useEffect(() => {
+    const postId = postOverlayNotification?.post_id;
+
+    if (!postId) {
+      setPostOverlayData(null);
+      setPostOverlayLoading(false);
+      setPostOverlayError("");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadPostOverlay() {
+      setPostOverlayLoading(true);
+      setPostOverlayError("");
+      setPostOverlayData(null);
+
+      try {
+        const { data: postData, error: postError } = await supabase
+          .from("posts")
+          .select("id, content, image_url, created_at, user_id")
+          .eq("id", postId)
+          .maybeSingle();
+
+        if (postError) {
+          throw postError;
+        }
+
+        if (!postData) {
+          if (!cancelled) {
+            setPostOverlayError("This post is no longer available.");
+          }
+          return;
+        }
+
+        const post = postData as NotificationPost;
+
+        const [imagesResponse, commentsResponse, likesResponse] = await Promise.all([
+          supabase
+            .from("post_images")
+            .select("id, post_id, user_id, image_url, storage_path, display_order, created_at")
+            .eq("post_id", postId)
+            .order("display_order", { ascending: true }),
+          supabase
+            .from("comments")
+            .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+            .eq("post_id", postId)
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("likes")
+            .select("id", { count: "exact", head: true })
+            .eq("post_id", postId),
+        ]);
+
+        if (commentsResponse.error) {
+          throw commentsResponse.error;
+        }
+
+        if (imagesResponse.error) {
+          console.warn(
+            "Notification post images could not be loaded:",
+            imagesResponse.error.message
+          );
+        }
+
+        if (likesResponse.error) {
+          console.warn(
+            "Notification post like count could not be loaded:",
+            likesResponse.error.message
+          );
+        }
+
+        const comments = ((commentsResponse.data || []) as NotificationPostComment[])
+          .filter((comment) => !comment.is_hidden);
+
+        const images = ((imagesResponse.data || []) as NotificationPostImage[])
+          .filter((image) => Boolean(image.image_url));
+
+        const profileIds = [
+          ...new Set([
+            post.user_id,
+            ...comments.map((comment) => comment.user_id),
+          ].filter(Boolean)),
+        ];
+
+        let profiles: Record<string, ProfilePreview> = {};
+
+        if (profileIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, username, full_name, avatar_url, is_online, last_seen_at")
+            .in("id", profileIds);
+
+          if (profilesError) {
+            console.warn(
+              "Notification post profiles could not be loaded:",
+              profilesError.message
+            );
+          } else {
+            profiles = Object.fromEntries(
+              ((profilesData || []) as ProfilePreview[]).map((profile) => [
+                profile.id,
+                profile,
+              ])
+            );
+          }
+        }
+
+        if (cancelled) return;
+
+        setPostOverlayData({
+          post,
+          author: profiles[post.user_id] || null,
+          images,
+          comments,
+          profiles,
+          likeCount: likesResponse.count || 0,
+        });
+      } catch (error) {
+        if (cancelled) return;
+
+        console.warn("Notification post overlay load failed:", error);
+
+        setPostOverlayError(
+          error instanceof Error
+            ? error.message
+            : "Could not load this post."
+        );
+      } finally {
+        if (!cancelled) {
+          setPostOverlayLoading(false);
+        }
+      }
+    }
+
+    void loadPostOverlay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [postOverlayNotification]);
+
+  useEffect(() => {
+    if (!postOverlayNotification || typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 700px)");
+
+    const syncMobileOverlay = () => {
+      setPostOverlayIsMobile(mediaQuery.matches);
+    };
+
+    syncMobileOverlay();
+    mediaQuery.addEventListener("change", syncMobileOverlay);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncMobileOverlay);
+    };
+  }, [postOverlayNotification]);
+
+  useEffect(() => {
+    if (!postOverlayNotification || typeof document === "undefined") return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPostOverlayNotification(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscroll;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [postOverlayNotification]);
+
+  useEffect(() => {
+    const commentId = postOverlayNotification?.comment_id;
+
+    if (!commentId || !postOverlayData || typeof window === "undefined") return;
+
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(
+        `notification-post-comment-${commentId}`
+      );
+
+      target?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 160);
+
+    return () => window.clearTimeout(timer);
+  }, [postOverlayData, postOverlayNotification]);
 
   const showStatus = useCallback((message: string) => {
     setStatusMessage(message);
@@ -654,7 +929,11 @@ export default function NotificationsPage() {
 
     if (!notification.is_read) {
       setNotifications((prev) =>
-        prev.map((item) => (notificationIds.includes(item.id) ? { ...item, is_read: true } : item))
+        prev.map((item) =>
+          notificationIds.includes(item.id)
+            ? { ...item, is_read: true }
+            : item
+        )
       );
 
       void supabase
@@ -663,9 +942,23 @@ export default function NotificationsPage() {
         .in("id", notificationIds)
         .then(({ error }) => {
           if (error) {
-            console.warn("Could not mark notification read before navigation:", error.message);
+            console.warn(
+              "Could not mark notification read before opening:",
+              error.message
+            );
           }
         });
+    }
+
+    const type = notification.type || "";
+
+    if (notification.post_id && !type.startsWith("reel_")) {
+      setPostOverlayIsMobile(
+        typeof window !== "undefined" &&
+          window.matchMedia("(max-width: 700px)").matches
+      );
+      setPostOverlayNotification(notification);
+      return;
     }
 
     router.push(href);
@@ -729,7 +1022,503 @@ export default function NotificationsPage() {
       <div style={glowTwoStyle} />
       <div style={glowThreeStyle} />
 
+      {postOverlayNotification ? (
+        <div
+          className="notification-post-overlay-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setPostOverlayNotification(null);
+            }
+          }}
+        >
+          <section
+            className="notification-post-overlay-shell"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Post activity"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header
+              style={{
+                minHeight: 66,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 16,
+                padding: "12px 16px",
+                borderBottom: "1px solid rgba(255,255,255,0.10)",
+                background: "rgba(12,14,22,0.98)",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <strong
+                  style={{
+                    display: "block",
+                    color: "#ffffff",
+                    fontSize: 17,
+                    fontWeight: 950,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {postOverlayIsMobile
+                    ? getPostOverlayActivityTitle(postOverlayNotification)
+                    : postOverlayData
+                      ? `${getDisplayName(postOverlayData.author)}'s post`
+                      : "Post"}
+                </strong>
+
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: 3,
+                    color: "#9ca3af",
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  {postOverlayLoading
+                    ? "Loading post..."
+                    : postOverlayData
+                      ? `${postOverlayData.likeCount} ${
+                          postOverlayData.likeCount === 1 ? "Like" : "Likes"
+                        } • ${postOverlayData.comments.length} ${
+                          postOverlayData.comments.length === 1
+                            ? "Comment"
+                            : "Comments"
+                        }`
+                      : "Post activity"}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPostOverlayNotification(null)}
+                aria-label="Close post"
+                style={{
+                  width: 44,
+                  height: 44,
+                  flexShrink: 0,
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.07)",
+                  color: "#ffffff",
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 27,
+                  lineHeight: 1,
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="notification-post-overlay-scroll">
+              {postOverlayLoading ? (
+                <div
+                  style={{
+                    padding: 28,
+                    color: "#c4b5fd",
+                    fontWeight: 800,
+                  }}
+                >
+                  Loading post...
+                </div>
+              ) : postOverlayError ? (
+                <div
+                  style={{
+                    margin: 18,
+                    padding: 18,
+                    borderRadius: 16,
+                    border: "1px solid rgba(248,113,113,0.24)",
+                    background: "rgba(127,29,29,0.18)",
+                    color: "#fecaca",
+                    fontWeight: 800,
+                  }}
+                >
+                  {postOverlayError}
+                </div>
+              ) : postOverlayData ? (
+                <>
+                  <article
+                    style={{
+                      padding: "16px 18px 14px",
+                      borderBottom: "1px solid rgba(255,255,255,0.10)",
+                      background: "rgba(255,255,255,0.018)",
+                    }}
+                  >
+                    {!postOverlayIsMobile ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 999,
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            background: "rgba(139,92,246,0.22)",
+                            display: "grid",
+                            placeItems: "center",
+                            fontWeight: 950,
+                          }}
+                        >
+                          {postOverlayData.author?.avatar_url ? (
+                            <ResponsiveMediaImage
+                              purpose="avatar"
+                              avatarSize={48}
+                              src={postOverlayData.author.avatar_url}
+                              alt=""
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            getInitial(postOverlayData.author)
+                          )}
+                        </div>
+
+                        <div style={{ minWidth: 0 }}>
+                          <Link
+                            href={`/profile/${postOverlayData.post.user_id}`}
+                            style={{
+                              color: "#ffffff",
+                              textDecoration: "none",
+                              fontWeight: 950,
+                              fontSize: 16,
+                            }}
+                          >
+                            {getDisplayName(postOverlayData.author)}
+                          </Link>
+
+                          <div
+                            style={{
+                              marginTop: 3,
+                              color: "#a1a1aa",
+                              fontSize: 13,
+                            }}
+                          >
+                            @{postOverlayData.author?.username || "member"} ·{" "}
+                            {formatRelativeTime(postOverlayData.post.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {postOverlayData.post.content ? (
+                      <div
+                        style={{
+                          marginTop: postOverlayIsMobile ? 4 : 16,
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "anywhere",
+                          color: "#f9fafb",
+                          lineHeight: 1.56,
+                          fontSize: 15.8,
+                          ...(postOverlayIsMobile
+                            ? {
+                                display: "-webkit-box",
+                                WebkitBoxOrient: "vertical",
+                                WebkitLineClamp: 4,
+                                overflow: "hidden",
+                              }
+                            : {}),
+                        }}
+                      >
+                        {postOverlayData.post.content}
+                      </div>
+                    ) : null}
+
+                    {postOverlayImageUrls.length > 0 && !postOverlayIsMobile ? (
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 10,
+                          marginTop: 16,
+                        }}
+                      >
+                        {postOverlayImageUrls.map((url, index) => (
+                          <img
+                            key={`${url}-${index}`}
+                            src={url}
+                            alt="Post image"
+                            loading="lazy"
+                            decoding="async"
+                            style={{
+                              width: "100%",
+                              maxHeight: 680,
+                              objectFit: "cover",
+                              display: "block",
+                              borderRadius: 18,
+                              background: "#05070d",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {postOverlayIsMobile && postOverlayImageUrls.length > 0 ? (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          color: "#c4b5fd",
+                          fontSize: 13,
+                          fontWeight: 900,
+                        }}
+                      >
+                        Photo post
+                      </div>
+                    ) : null}
+
+                    {postOverlayIsMobile ? (
+                      <Link
+                        href={getNotificationHref(postOverlayNotification)}
+                        onClick={() => setPostOverlayNotification(null)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minHeight: 42,
+                          marginTop: 14,
+                          padding: "0 18px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(196,181,253,0.32)",
+                          background: "rgba(139,92,246,0.14)",
+                          color: "#ddd6fe",
+                          textDecoration: "none",
+                          fontSize: 13,
+                          fontWeight: 950,
+                        }}
+                      >
+                        View Post
+                      </Link>
+                    ) : null}
+                  </article>
+
+                  <section style={{ padding: "14px 18px 28px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <strong style={{ color: "#f8fafc" }}>
+                        Comments
+                      </strong>
+
+                      <span
+                        style={{
+                          color: "#9ca3af",
+                          fontSize: 12,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {postOverlayData.comments.length} total
+                      </span>
+                    </div>
+
+                    {postOverlayData.comments.length === 0 ? (
+                      <div
+                        style={{
+                          padding: "20px 4px",
+                          color: "#9ca3af",
+                          fontSize: 14,
+                        }}
+                      >
+                        No comments yet.
+                      </div>
+                    ) : (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {postOverlayData.comments.map((comment) => {
+                          const author =
+                            postOverlayData.profiles[comment.user_id] || null;
+
+                          const isTarget =
+                            postOverlayNotification.comment_id === comment.id;
+
+                          return (
+                            <div
+                              id={`notification-post-comment-${comment.id}`}
+                              key={comment.id}
+                              style={{
+                                display: "flex",
+                                gap: 10,
+                                marginLeft: comment.parent_comment_id ? 34 : 0,
+                                padding: isTarget ? 10 : 0,
+                                borderRadius: 14,
+                                background: isTarget
+                                  ? "rgba(139,92,246,0.16)"
+                                  : "transparent",
+                                outline: isTarget
+                                  ? "1px solid rgba(196,181,253,0.30)"
+                                  : "none",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: comment.parent_comment_id ? 30 : 34,
+                                  height: comment.parent_comment_id ? 30 : 34,
+                                  borderRadius: 999,
+                                  overflow: "hidden",
+                                  flexShrink: 0,
+                                  background: "rgba(139,92,246,0.22)",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  fontSize: 12,
+                                  fontWeight: 950,
+                                }}
+                              >
+                                {author?.avatar_url ? (
+                                  <ResponsiveMediaImage
+                                    purpose="avatar"
+                                    avatarSize={
+                                      comment.parent_comment_id ? 30 : 34
+                                    }
+                                    src={author.avatar_url}
+                                    alt=""
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                    }}
+                                  />
+                                ) : (
+                                  getInitial(author)
+                                )}
+                              </div>
+
+                              <div
+                                style={{
+                                  flex: 1,
+                                  minWidth: 0,
+                                  padding: "10px 12px",
+                                  borderRadius: 14,
+                                  background: "rgba(255,255,255,0.045)",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 10,
+                                  }}
+                                >
+                                  <Link
+                                    href={`/profile/${comment.user_id}`}
+                                    style={{
+                                      color: "#ffffff",
+                                      textDecoration: "none",
+                                      fontSize: 13,
+                                      fontWeight: 950,
+                                    }}
+                                  >
+                                    {getDisplayName(author)}
+                                  </Link>
+
+                                  <span
+                                    style={{
+                                      color: "#8f8f98",
+                                      fontSize: 11,
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {formatRelativeTime(comment.created_at)}
+                                  </span>
+                                </div>
+
+                                <div
+                                  style={{
+                                    marginTop: 5,
+                                    color: "#f3f4f6",
+                                    fontSize: 13,
+                                    lineHeight: 1.45,
+                                    whiteSpace: "pre-wrap",
+                                    overflowWrap: "anywhere",
+                                  }}
+                                >
+                                  {comment.content}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                </>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       <style jsx global>{`
+        .notification-post-overlay-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483000;
+          display: grid;
+          place-items: center;
+          padding: 16px;
+          background: rgba(0, 0, 0, 0.76);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+
+        .notification-post-overlay-shell {
+          width: min(760px, calc(100vw - 32px));
+          height: min(900px, calc(100dvh - 32px));
+          max-height: calc(100dvh - 32px);
+          display: grid;
+          grid-template-rows: auto minmax(0, 1fr);
+          overflow: hidden;
+          border-radius: 22px;
+          border: 1px solid rgba(255,255,255,0.14);
+          background:
+            linear-gradient(
+              180deg,
+              rgba(20,22,31,0.99),
+              rgba(8,10,17,0.995)
+            );
+          box-shadow: 0 28px 90px rgba(0,0,0,0.72);
+          color: #ffffff;
+        }
+
+        .notification-post-overlay-scroll {
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 700px) {
+          .notification-post-overlay-backdrop {
+            padding: 0;
+          }
+
+          .notification-post-overlay-shell {
+            width: 100vw;
+            height: 100dvh;
+            max-height: 100dvh;
+            border-radius: 0;
+            border-left: 0;
+            border-right: 0;
+          }
+        }
+
         .notifications-page-root {
           -webkit-overflow-scrolling: touch;
           scrollbar-width: thin;
