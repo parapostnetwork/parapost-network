@@ -485,6 +485,9 @@ export default function NotificationsPage() {
   const [postOverlayReplyingToId, setPostOverlayReplyingToId] = useState<string | null>(null);
   const [postOverlayReplyDraft, setPostOverlayReplyDraft] = useState("");
   const [postOverlayPostingReplyId, setPostOverlayPostingReplyId] = useState<string | null>(null);
+  const [postOverlayEditingCommentId, setPostOverlayEditingCommentId] = useState<string | null>(null);
+  const [postOverlayEditingCommentDraft, setPostOverlayEditingCommentDraft] = useState("");
+  const [postOverlaySavingCommentId, setPostOverlaySavingCommentId] = useState<string | null>(null);
   const [postOverlayPostLiked, setPostOverlayPostLiked] = useState(false);
   const [postOverlayPostLikeBusy, setPostOverlayPostLikeBusy] = useState(false);
   const [postOverlayShareBusy, setPostOverlayShareBusy] = useState(false);
@@ -969,6 +972,78 @@ export default function NotificationsPage() {
         current === replyToComment.id ? null : current
       );
     }
+  };
+
+  const handleStartEditPostOverlayComment = (
+    comment: NotificationPostComment
+  ) => {
+    if (!currentUserId || comment.user_id !== currentUserId) return;
+
+    setPostOverlayEditingCommentId(comment.id);
+    setPostOverlayEditingCommentDraft(comment.content || "");
+  };
+
+  const handleCancelEditPostOverlayComment = () => {
+    setPostOverlayEditingCommentId(null);
+    setPostOverlayEditingCommentDraft("");
+    setPostOverlaySavingCommentId(null);
+  };
+
+  const handleSavePostOverlayComment = async (
+    comment: NotificationPostComment
+  ) => {
+    if (
+      !currentUserId ||
+      comment.user_id !== currentUserId ||
+      postOverlaySavingCommentId
+    ) {
+      return;
+    }
+
+    const trimmed = postOverlayEditingCommentDraft.trim();
+
+    if (!trimmed) {
+      alert(
+        "A comment needs some text. Delete the comment instead if you want to remove it."
+      );
+      return;
+    }
+
+    setPostOverlaySavingCommentId(comment.id);
+
+    const { data, error } = await supabase
+      .from("comments")
+      .update({ content: trimmed })
+      .eq("id", comment.id)
+      .eq("post_id", comment.post_id)
+      .eq("user_id", currentUserId)
+      .select(
+        "id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
+      )
+      .single();
+
+    if (error) {
+      alert(`Edit comment error: ${error.message}`);
+      setPostOverlaySavingCommentId(null);
+      return;
+    }
+
+    const updatedComment = data as NotificationPostComment;
+
+    setPostOverlayData((current) =>
+      current
+        ? {
+            ...current,
+            comments: current.comments.map((item) =>
+              item.id === updatedComment.id ? updatedComment : item
+            ),
+          }
+        : current
+    );
+
+    setPostOverlayEditingCommentId(null);
+    setPostOverlayEditingCommentDraft("");
+    setPostOverlaySavingCommentId(null);
   };
 
   const handleDeletePostOverlayComment = async (
@@ -2176,6 +2251,10 @@ export default function NotificationsPage() {
                           const isPostingReply =
                             postOverlayPostingReplyId === comment.id;
 
+                          const canEdit =
+                            Boolean(currentUserId) &&
+                            comment.user_id === currentUserId;
+
                           const canDelete =
                             Boolean(currentUserId) &&
                             (comment.user_id === currentUserId ||
@@ -2184,8 +2263,13 @@ export default function NotificationsPage() {
 
                           const canReport =
                             !!currentUserId &&
-                            comment.user_id !== currentUserId &&
-                            !canDelete;
+                            comment.user_id !== currentUserId;
+
+                          const isEditing =
+                            postOverlayEditingCommentId === comment.id;
+
+                          const isSaving =
+                            postOverlaySavingCommentId === comment.id;
 
                           return (
                             <div
@@ -2278,28 +2362,142 @@ export default function NotificationsPage() {
                                   </span>
                                 </div>
 
-                                <div
-                                  style={{
-                                    marginTop: 5,
-                                    color: "#f3f4f6",
-                                    fontSize: 13,
-                                    lineHeight: 1.45,
-                                    whiteSpace: "pre-wrap",
-                                    overflowWrap: "anywhere",
-                                  }}
-                                >
-                                  {comment.content}
-                                </div>
+                                {isEditing ? (
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gap: 8,
+                                      marginTop: 8,
+                                    }}
+                                  >
+                                    <textarea
+                                      value={postOverlayEditingCommentDraft}
+                                      onChange={(event) =>
+                                        setPostOverlayEditingCommentDraft(
+                                          event.target.value
+                                        )
+                                      }
+                                      disabled={isSaving}
+                                      rows={2}
+                                      maxLength={1200}
+                                      autoFocus
+                                      onKeyDown={(event) => {
+                                        if (event.key === "Escape") {
+                                          event.preventDefault();
+                                          handleCancelEditPostOverlayComment();
+                                        }
 
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    flexWrap: "wrap",
-                                    gap: 12,
-                                    marginTop: 8,
-                                  }}
-                                >
+                                        if (
+                                          (event.metaKey || event.ctrlKey) &&
+                                          event.key === "Enter"
+                                        ) {
+                                          event.preventDefault();
+                                          void handleSavePostOverlayComment(
+                                            comment
+                                          );
+                                        }
+                                      }}
+                                      style={{
+                                        width: "100%",
+                                        resize: "vertical",
+                                        borderRadius: 10,
+                                        border:
+                                          "1px solid rgba(255,255,255,0.14)",
+                                        background: "rgba(0,0,0,0.22)",
+                                        color: "#ffffff",
+                                        padding: "9px 10px",
+                                        fontSize: 13,
+                                        lineHeight: 1.45,
+                                        outline: "none",
+                                      }}
+                                    />
+
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        gap: 10,
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !postOverlayEditingCommentDraft.trim() ||
+                                          isSaving
+                                        }
+                                        onClick={() =>
+                                          void handleSavePostOverlayComment(
+                                            comment
+                                          )
+                                        }
+                                        style={{
+                                          border: 0,
+                                          borderRadius: 8,
+                                          padding: "6px 10px",
+                                          background: "#7c3aed",
+                                          color: "#ffffff",
+                                          fontSize: 12,
+                                          fontWeight: 850,
+                                          cursor:
+                                            !postOverlayEditingCommentDraft.trim() ||
+                                            isSaving
+                                              ? "default"
+                                              : "pointer",
+                                          opacity:
+                                            !postOverlayEditingCommentDraft.trim() ||
+                                            isSaving
+                                              ? 0.58
+                                              : 1,
+                                        }}
+                                      >
+                                        {isSaving ? "Saving..." : "Save"}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={isSaving}
+                                        onClick={
+                                          handleCancelEditPostOverlayComment
+                                        }
+                                        style={{
+                                          border: 0,
+                                          padding: 0,
+                                          background: "transparent",
+                                          color: "#a1a1aa",
+                                          fontSize: 12,
+                                          fontWeight: 850,
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div
+                                    style={{
+                                      marginTop: 5,
+                                      color: "#f3f4f6",
+                                      fontSize: 13,
+                                      lineHeight: 1.45,
+                                      whiteSpace: "pre-wrap",
+                                      overflowWrap: "anywhere",
+                                    }}
+                                  >
+                                    {comment.content}
+                                  </div>
+                                )}
+
+                                {!isEditing ? (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      flexWrap: "wrap",
+                                      gap: 12,
+                                      marginTop: 8,
+                                    }}
+                                  >
                                   <button
                                     type="button"
                                     disabled={commentLikeBusy}
@@ -2359,6 +2557,28 @@ export default function NotificationsPage() {
                                     Reply
                                   </button>
 
+                                  {canEdit ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleStartEditPostOverlayComment(
+                                          comment
+                                        )
+                                      }
+                                      style={{
+                                        border: 0,
+                                        padding: 0,
+                                        background: "transparent",
+                                        color: "#a1a1aa",
+                                        fontSize: 12,
+                                        fontWeight: 850,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : null}
+
                                   {canDelete ? (
                                     <button
                                       type="button"
@@ -2403,7 +2623,8 @@ export default function NotificationsPage() {
                                       Report
                                     </button>
                                   ) : null}
-                                </div>
+                                  </div>
+                                ) : null}
 
                                 {isReplying ? (
                                   <div
