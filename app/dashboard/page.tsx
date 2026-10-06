@@ -13638,6 +13638,7 @@ function DashboardCommentsPanel({
     const canDelete =
       !!currentUserId &&
       (comment.user_id === currentUserId || postOwnerId === currentUserId);
+    const canReport = !!currentUserId && comment.user_id !== currentUserId;
     const isEditingComment = editingCommentId === comment.id;
     const isSavingComment = savingCommentId === comment.id;
     const commentLikeCount = commentLikeCounts[comment.id] || 0;
@@ -13725,7 +13726,8 @@ function DashboardCommentsPanel({
               ) : null}
               {canDelete ? (
                 <button type="button" onClick={() => onDeleteComment(comment.id)} style={dashboardCommentDeleteButtonStyle}>Delete</button>
-              ) : currentUserId ? (
+              ) : null}
+              {canReport ? (
                 <button type="button" onClick={() => onReportComment(comment.id, comment.user_id)} style={dashboardCommentDeleteButtonStyle}>Report</button>
               ) : null}
             </div>
