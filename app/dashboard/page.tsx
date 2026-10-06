@@ -144,6 +144,7 @@ type Post = {
 type DashboardComment = {
   id: string;
   post_id: string;
+  share_id?: string | null;
   user_id: string;
   content: string;
   created_at: string;
@@ -152,6 +153,11 @@ type DashboardComment = {
   reply_to_user_id?: string | null;
   reply_to_comment_id?: string | null;
 };
+
+const dashboardCommentContextKey = (
+  postId: string,
+  shareId?: string | null
+) => (shareId ? `share:${shareId}` : postId);
 
 type SharedReelItem = {
   id: string;
@@ -2155,14 +2161,20 @@ export default function DashboardPage() {
     postIds: [] as string[],
     openCommentsPostId: null as string | null,
     commentPostIdsByCommentId: {} as Record<string, string>,
+    commentShareIdsByCommentId: {} as Record<string, string | null>,
     sharedPostIdsByShareId: {} as Record<string, string>,
   });
 
   useEffect(() => {
     const commentPostIdsByCommentId: Record<string, string> = {};
-    for (const [postId, comments] of Object.entries(commentsByPostId)) {
+    const commentShareIdsByCommentId: Record<string, string | null> = {};
+
+    for (const comments of Object.values(commentsByPostId)) {
       for (const comment of comments) {
-        if (comment.id) commentPostIdsByCommentId[comment.id] = postId;
+        if (!comment.id || !comment.post_id) continue;
+
+        commentPostIdsByCommentId[comment.id] = comment.post_id;
+        commentShareIdsByCommentId[comment.id] = comment.share_id || null;
       }
     }
 
@@ -2182,6 +2194,7 @@ export default function DashboardPage() {
       ],
       openCommentsPostId,
       commentPostIdsByCommentId,
+      commentShareIdsByCommentId,
       sharedPostIdsByShareId,
     };
   }, [commentsByPostId, openCommentsPostId, posts, sharedPostItems]);
@@ -2832,7 +2845,7 @@ export default function DashboardPage() {
       supabase.from("likes").select("post_id, user_id").in("post_id", safePostIds),
       supabase
         .from("comments")
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+        .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .in("post_id", safePostIds)
         .order("created_at", { ascending: true }),
       supabase.from("shares").select("post_id, share_destination, deleted_at").in("post_id", safePostIds),
@@ -2863,17 +2876,24 @@ export default function DashboardPage() {
     for (const comment of visibleComments) {
       if (!comment.post_id) continue;
 
-      nextComments[comment.post_id] = (nextComments[comment.post_id] || 0) + 1;
+      const contextKey = dashboardCommentContextKey(
+        comment.post_id,
+        comment.share_id
+      );
 
-      if (!nextCommentPreviews[comment.post_id]) {
-        nextCommentPreviews[comment.post_id] = [];
+      nextComments[contextKey] = (nextComments[contextKey] || 0) + 1;
+
+      if (!nextCommentPreviews[contextKey]) {
+        nextCommentPreviews[contextKey] = [];
       }
 
-      nextCommentPreviews[comment.post_id].push(comment);
+      nextCommentPreviews[contextKey].push(comment);
     }
 
-    Object.keys(nextCommentPreviews).forEach((postId) => {
-      nextCommentPreviews[postId] = nextCommentPreviews[postId].slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT);
+    Object.keys(nextCommentPreviews).forEach((contextKey) => {
+      nextCommentPreviews[contextKey] = nextCommentPreviews[contextKey].slice(
+        -DASHBOARD_COMMENT_PREVIEW_LIMIT
+      );
     });
 
     const commenterIds = [
@@ -2915,15 +2935,20 @@ export default function DashboardPage() {
     setCommentsByPostId((prev) => {
       const next = { ...prev };
 
-      safePostIds.forEach((postId) => {
-        if (!postId || postId === EMPTY_UUID) return;
+      const contextKeys = new Set([
+        ...safePostIds.filter(
+          (postId) => Boolean(postId) && postId !== EMPTY_UUID
+        ),
+        ...Object.keys(nextCommentPreviews),
+      ]);
 
-        const previewComments = nextCommentPreviews[postId] || [];
-        const currentComments = next[postId] || [];
+      contextKeys.forEach((contextKey) => {
+        const previewComments = nextCommentPreviews[contextKey] || [];
+        const currentComments = next[contextKey] || [];
 
         if (currentComments.length > previewComments.length) return;
 
-        next[postId] = previewComments;
+        next[contextKey] = previewComments;
       });
 
       return next;
@@ -2931,17 +2956,35 @@ export default function DashboardPage() {
   }, [blockedUserIds, updateDashboardCommentLikeState, setLikeCounts, setUserLikes]);
 
   const refreshCommentStateForPost = useCallback(
-    async (postId: string, userId?: string) => {
+    async (
+      postId: string,
+      shareId: string | null = null,
+      userId?: string
+    ) => {
       if (!postId) return;
 
-      const { data, error } = await supabase
+      const contextKey = dashboardCommentContextKey(postId, shareId);
+
+      let commentsQuery = supabase
         .from("comments")
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
-        .eq("post_id", postId)
-        .order("created_at", { ascending: true });
+        .select(
+          "id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
+        )
+        .eq("post_id", postId);
+
+      commentsQuery = shareId
+        ? commentsQuery.eq("share_id", shareId)
+        : commentsQuery.is("share_id", null);
+
+      const { data, error } = await commentsQuery.order("created_at", {
+        ascending: true,
+      });
 
       if (error) {
-        logDashboardNetworkIssue("Dashboard realtime comments skipped", error);
+        logDashboardNetworkIssue(
+          "Dashboard realtime comments skipped",
+          error
+        );
         return;
       }
 
@@ -2956,19 +2999,23 @@ export default function DashboardPage() {
         .map((comment) => comment.id)
         .filter(Boolean);
 
-      await updateDashboardCommentLikeState(visibleCommentIds, userId);
+      await updateDashboardCommentLikeState(
+        visibleCommentIds,
+        userId
+      );
 
       setCommentCounts((previous) => ({
         ...previous,
-        [postId]: visibleComments.length,
+        [contextKey]: visibleComments.length,
       }));
 
       const keepFullThread =
-        dashboardRealtimeSnapshotRef.current.openCommentsPostId === postId;
+        dashboardRealtimeSnapshotRef.current.openCommentsPostId ===
+        contextKey;
 
       setCommentsByPostId((previous) => ({
         ...previous,
-        [postId]: keepFullThread
+        [contextKey]: keepFullThread
           ? visibleComments
           : visibleComments.slice(-DASHBOARD_COMMENT_PREVIEW_LIMIT),
       }));
@@ -2982,10 +3029,13 @@ export default function DashboardPage() {
       ];
 
       if (commenterIds.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
-          .in("id", commenterIds);
+        const { data: profilesData, error: profilesError } =
+          await supabase
+            .from("profiles")
+            .select(
+              "id, username, full_name, avatar_url, bio, location, is_online, last_seen_at"
+            )
+            .in("id", commenterIds);
 
         if (!profilesError && profilesData) {
           const nextProfiles: Record<string, ProfilePreview> = {};
@@ -3915,8 +3965,23 @@ export default function DashboardPage() {
         return;
       }
 
-      void refreshCommentStateForPost(postId, currentUserId).catch((error) =>
-        logDashboardNetworkIssue("Dashboard realtime comment refresh skipped", error)
+      const shareId = String(
+        nextRow.share_id ||
+          previousRow.share_id ||
+          dashboardRealtimeSnapshotRef.current
+            .commentShareIdsByCommentId[commentId] ||
+          ""
+      );
+
+      void refreshCommentStateForPost(
+        postId,
+        shareId || null,
+        currentUserId
+      ).catch((error) =>
+        logDashboardNetworkIssue(
+          "Dashboard realtime comment refresh skipped",
+          error
+        )
       );
     };
 
@@ -4932,27 +4997,44 @@ export default function DashboardPage() {
 
 
   const fetchDashboardComments = useCallback(
-    async (postId: string) => {
+    async (postId: string, shareId: string | null = null) => {
       if (!postId) return;
 
-      setCommentsLoadingPostId(postId);
+      const contextKey = dashboardCommentContextKey(postId, shareId);
+
+      setCommentsLoadingPostId(contextKey);
 
       try {
-        const { data, error } = await supabase
+        let commentsQuery = supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
-          .eq("post_id", postId)
+          .select(
+            "id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
+          )
+          .eq("post_id", postId);
+
+        commentsQuery = shareId
+          ? commentsQuery.eq("share_id", shareId)
+          : commentsQuery.is("share_id", null);
+
+        const { data, error } = await commentsQuery
           .order("created_at", { ascending: true })
           .limit(80);
 
         if (error) {
-          console.error("Dashboard comments fetch error:", error.message);
-          alert(error.message || "Could not load comments for this post.");
+          console.error(
+            "Dashboard comments fetch error:",
+            error.message
+          );
+          alert(
+            error.message || "Could not load comments for this post."
+          );
           return;
         }
 
         const nextComments = ((data || []) as DashboardComment[]).filter(
-          (comment) => !comment.is_hidden && !blockedUserIds.includes(comment.user_id)
+          (comment) =>
+            !comment.is_hidden &&
+            !blockedUserIds.includes(comment.user_id)
         );
 
         await updateDashboardCommentLikeState(
@@ -4962,21 +5044,34 @@ export default function DashboardPage() {
 
         setCommentsByPostId((prev) => ({
           ...prev,
-          [postId]: nextComments,
+          [contextKey]: nextComments,
+        }));
+
+        setCommentCounts((prev) => ({
+          ...prev,
+          [contextKey]: nextComments.length,
         }));
 
         const commenterIds = [
-          ...new Set(nextComments.map((comment) => comment.user_id).filter(Boolean)),
+          ...new Set(
+            nextComments
+              .map((comment) => comment.user_id)
+              .filter(Boolean)
+          ),
         ];
 
         if (commenterIds.length > 0) {
-          const { data: profileRows, error: profilesError } = await supabase
-            .from("profiles")
-            .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
-            .in("id", commenterIds);
+          const { data: profileRows, error: profilesError } =
+            await supabase
+              .from("profiles")
+              .select(
+                "id, username, full_name, avatar_url, bio, location, is_online, last_seen_at"
+              )
+              .in("id", commenterIds);
 
           if (!profilesError && profileRows) {
             const nextProfiles: Record<string, ProfilePreview> = {};
+
             for (const profile of profileRows as ProfilePreview[]) {
               if (profile.id) nextProfiles[profile.id] = profile;
             }
@@ -4988,42 +5083,51 @@ export default function DashboardPage() {
           }
         }
       } finally {
-        setCommentsLoadingPostId((current) => (current === postId ? null : current));
+        setCommentsLoadingPostId((current) =>
+          current === contextKey ? null : current
+        );
       }
     },
     [blockedUserIds, currentUserId, updateDashboardCommentLikeState]
   );
 
   const handleToggleDashboardComments = useCallback(
-    async (postId: string) => {
+    async (postId: string, shareId: string | null = null) => {
       if (!postId) return;
+
+      const contextKey = dashboardCommentContextKey(postId, shareId);
 
       setOpenPostMenuId(null);
 
-      if (openCommentsPostId === postId) {
+      if (openCommentsPostId === contextKey) {
         setOpenCommentsPostId(null);
         return;
       }
 
-      setOpenCommentsPostId(postId);
-      await fetchDashboardComments(postId);
+      setOpenCommentsPostId(contextKey);
+      await fetchDashboardComments(postId, shareId);
     },
     [fetchDashboardComments, openCommentsPostId]
   );
 
-  const handleDashboardCommentDraftChange = (postId: string, value: string) => {
+  const handleDashboardCommentDraftChange = (
+    contextKey: string,
+    value: string
+  ) => {
     setCommentDrafts((prev) => ({
       ...prev,
-      [postId]: value,
+      [contextKey]: value,
     }));
   };
 
   const handleAddDashboardComment = async (
     postId: string,
     postOwnerId?: string | null,
+    shareId: string | null = null,
     sharedPostOwnerId?: string | null
   ) => {
-    const trimmed = (commentDrafts[postId] || "").trim();
+    const contextKey = dashboardCommentContextKey(postId, shareId);
+    const trimmed = (commentDrafts[contextKey] || "").trim();
 
     if (!trimmed) return;
 
@@ -5032,7 +5136,7 @@ export default function DashboardPage() {
       return;
     }
 
-    setPostingCommentPostId(postId);
+    setPostingCommentPostId(contextKey);
 
     try {
       const { data, error } = await supabase
@@ -5040,6 +5144,7 @@ export default function DashboardPage() {
         .insert([
           {
             post_id: postId,
+            share_id: shareId || null,
             user_id: currentUserId,
             content: trimmed,
             parent_comment_id: null,
@@ -5047,7 +5152,9 @@ export default function DashboardPage() {
             reply_to_comment_id: null,
           },
         ])
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+        .select(
+          "id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
+        )
         .single();
 
       if (error) {
@@ -5059,12 +5166,15 @@ export default function DashboardPage() {
 
       setCommentDrafts((prev) => ({
         ...prev,
-        [postId]: "",
+        [contextKey]: "",
       }));
 
       setCommentsByPostId((prev) => ({
         ...prev,
-        [postId]: [...(prev[postId] || []), savedComment],
+        [contextKey]: [
+          ...(prev[contextKey] || []),
+          savedComment,
+        ],
       }));
 
       setDashboardCommentLikeCounts((prev) => ({
@@ -5079,7 +5189,7 @@ export default function DashboardPage() {
 
       setCommentCounts((prev) => ({
         ...prev,
-        [postId]: (prev[postId] || 0) + 1,
+        [contextKey]: (prev[contextKey] || 0) + 1,
       }));
 
       if (currentProfile) {
@@ -5089,38 +5199,31 @@ export default function DashboardPage() {
         }));
       }
 
-      const notificationRecipients = new Set<string>();
+      const notificationRecipientId = shareId
+        ? sharedPostOwnerId
+        : postOwnerId;
 
-      if (postOwnerId && postOwnerId !== currentUserId) {
-        notificationRecipients.add(postOwnerId);
-      }
-
-      if (sharedPostOwnerId && sharedPostOwnerId !== currentUserId) {
-        notificationRecipients.add(sharedPostOwnerId);
-      }
-
-      if (notificationRecipients.size > 0) {
-        const notifications = Array.from(notificationRecipients).map(
-          (recipientId) => ({
-            user_id: recipientId,
-            actor_id: currentUserId,
-            type: "post_comment",
-            post_id: postId,
-            comment_id: savedComment.id,
-            friend_request_id: null,
-            message:
-              sharedPostOwnerId &&
-              recipientId === sharedPostOwnerId &&
-              recipientId !== postOwnerId
-                ? "commented on a post you shared."
-                : "commented on your post.",
-            is_read: false,
-          })
-        );
-
+      if (
+        notificationRecipientId &&
+        notificationRecipientId !== currentUserId
+      ) {
         const { error: notificationError } = await supabase
           .from("notifications")
-          .insert(notifications);
+          .insert([
+            {
+              user_id: notificationRecipientId,
+              actor_id: currentUserId,
+              type: "post_comment",
+              post_id: postId,
+              comment_id: savedComment.id,
+              share_id: shareId || null,
+              friend_request_id: null,
+              message: shareId
+                ? "commented on a post you shared."
+                : "commented on your post.",
+              is_read: false,
+            },
+          ]);
 
         if (notificationError) {
           console.warn(
@@ -5130,11 +5233,13 @@ export default function DashboardPage() {
         }
       }
 
-      // After posting, close the full comment composer and leave the newest
-      // comment visible in the automatic preview under the post.
-      setOpenCommentsPostId((current) => (current === postId ? null : current));
+      setOpenCommentsPostId((current) =>
+        current === contextKey ? null : current
+      );
     } finally {
-      setPostingCommentPostId((current) => (current === postId ? null : current));
+      setPostingCommentPostId((current) =>
+        current === contextKey ? null : current
+      );
     }
   };
 
@@ -5152,7 +5257,10 @@ export default function DashboardPage() {
     setSavingCommentId(null);
   };
 
-  const handleSaveDashboardComment = async (postId: string, comment: DashboardComment) => {
+  const handleSaveDashboardComment = async (
+    contextKey: string,
+    comment: DashboardComment
+  ) => {
     const trimmed = editingCommentText.trim();
 
     if (!currentUserId || comment.user_id !== currentUserId) return;
@@ -5170,7 +5278,7 @@ export default function DashboardPage() {
         .update({ content: trimmed })
         .eq("id", comment.id)
         .eq("user_id", currentUserId)
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+        .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {
@@ -5182,7 +5290,7 @@ export default function DashboardPage() {
 
       setCommentsByPostId((prev) => ({
         ...prev,
-        [postId]: (prev[postId] || []).map((item) =>
+        [contextKey]: (prev[contextKey] || []).map((item) =>
           item.id === updatedComment.id ? updatedComment : item
         ),
       }));
@@ -5194,7 +5302,10 @@ export default function DashboardPage() {
     }
   };
 
-  const handleDeleteDashboardComment = async (postId: string, commentId: string) => {
+  const handleDeleteDashboardComment = async (
+    contextKey: string,
+    commentId: string
+  ) => {
     if (!currentUserId) return;
     if (!window.confirm("Delete this comment?")) return;
 
@@ -5212,12 +5323,17 @@ export default function DashboardPage() {
 
     setCommentsByPostId((prev) => ({
       ...prev,
-      [postId]: (prev[postId] || []).filter((comment) => comment.id !== commentId),
+      [contextKey]: (prev[contextKey] || []).filter(
+        (comment) => comment.id !== commentId
+      ),
     }));
 
     setCommentCounts((prev) => ({
       ...prev,
-      [postId]: Math.max((prev[postId] || 1) - 1, 0),
+      [contextKey]: Math.max(
+        (prev[contextKey] || 1) - 1,
+        0
+      ),
     }));
 
     setDashboardCommentLikeCounts((prev) => {
@@ -5761,18 +5877,36 @@ export default function DashboardPage() {
                             profilesMap={profilesMap}
                             isLiked={!!userLikes[item.sharedPost.post_id]}
                             likeCount={likeCounts[item.sharedPost.post_id] || 0}
-                            commentCount={commentCounts[item.sharedPost.post_id] || 0}
+                            commentCount={commentCounts[dashboardCommentContextKey(
+                              item.sharedPost.post_id,
+                              item.sharedPost.id
+                            )] || 0}
                             shareCount={shareCounts[item.sharedPost.post_id] || 0}
                             openPostMenuId={openPostMenuId}
                             editingPostId={editingPostId}
                             editingPostContent={editingPostContent}
                             setEditingPostContent={setEditingPostContent}
                             setOpenPostMenuId={setOpenPostMenuId}
-                            commentsOpen={openCommentsPostId === item.sharedPost.post_id}
-                            comments={commentsByPostId[item.sharedPost.post_id] || []}
-                            commentsLoading={commentsLoadingPostId === item.sharedPost.post_id}
-                            commentDraft={commentDrafts[item.sharedPost.post_id] || ""}
-                            postingComment={postingCommentPostId === item.sharedPost.post_id}
+                            commentsOpen={openCommentsPostId === dashboardCommentContextKey(
+                              item.sharedPost.post_id,
+                              item.sharedPost.id
+                            )}
+                            comments={commentsByPostId[dashboardCommentContextKey(
+                              item.sharedPost.post_id,
+                              item.sharedPost.id
+                            )] || []}
+                            commentsLoading={commentsLoadingPostId === dashboardCommentContextKey(
+                              item.sharedPost.post_id,
+                              item.sharedPost.id
+                            )}
+                            commentDraft={commentDrafts[dashboardCommentContextKey(
+                              item.sharedPost.post_id,
+                              item.sharedPost.id
+                            )] || ""}
+                            postingComment={postingCommentPostId === dashboardCommentContextKey(
+                              item.sharedPost.post_id,
+                              item.sharedPost.id
+                            )}
                             editingCommentId={editingCommentId}
                             editingCommentText={editingCommentText}
                             savingCommentId={savingCommentId}
@@ -5781,21 +5915,51 @@ export default function DashboardPage() {
                             setEditingCommentText={setEditingCommentText}
                             onToggleCommentLike={handleToggleDashboardCommentLike}
                             onStartEditComment={handleStartEditDashboardComment}
-                            onSaveEditComment={(comment) => handleSaveDashboardComment(item.sharedPost.post_id, comment)}
+                            onSaveEditComment={(comment) =>
+                              handleSaveDashboardComment(
+                                dashboardCommentContextKey(
+                                  item.sharedPost.post_id,
+                                  item.sharedPost.id
+                                ),
+                                comment
+                              )
+                            }
                             onCancelEditComment={handleCancelEditDashboardComment}
                             onLikeOriginal={() => handleLikeToggle(item.sharedPost.post_id)}
                             onOpenPostLikes={() => handleOpenDashboardLikeList({ kind: "post", id: item.sharedPost.post_id, title: "Liked by" })}
                             onOpenCommentLikes={(commentId) => handleOpenDashboardLikeList({ kind: "comment", id: commentId, title: "Comment likes" })}
-                            onToggleComments={() => handleToggleDashboardComments(item.sharedPost.post_id)}
-                            onCommentDraftChange={(value) => handleDashboardCommentDraftChange(item.sharedPost.post_id, value)}
+                            onToggleComments={() =>
+                              handleToggleDashboardComments(
+                                item.sharedPost.post_id,
+                                item.sharedPost.id
+                              )
+                            }
+                            onCommentDraftChange={(value) =>
+                              handleDashboardCommentDraftChange(
+                                dashboardCommentContextKey(
+                                  item.sharedPost.post_id,
+                                  item.sharedPost.id
+                                ),
+                                value
+                              )
+                            }
                             onAddComment={() =>
                               handleAddDashboardComment(
                                 item.sharedPost.post_id,
                                 item.sharedPost.original_post.user_id,
+                                item.sharedPost.id,
                                 item.sharedPost.user_id
                               )
                             }
-                            onDeleteComment={(commentId) => handleDeleteDashboardComment(item.sharedPost.post_id, commentId)}
+                            onDeleteComment={(commentId) =>
+                              handleDeleteDashboardComment(
+                                dashboardCommentContextKey(
+                                  item.sharedPost.post_id,
+                                  item.sharedPost.id
+                                ),
+                                commentId
+                              )
+                            }
                             onReportComment={(commentId, commentOwnerId) => handleReportDashboardComment(commentId, commentOwnerId)}
                             onShareOriginal={() => handleShare(item.sharedPost.post_id)}
                             onStartEditOriginal={() => handleStartEditPost(item.sharedPost.original_post)}
@@ -13601,7 +13765,7 @@ function DashboardCommentsPanel({
           reply_to_user_id: replyToComment.user_id,
           reply_to_comment_id: replyToComment.id,
         }])
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+        .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {
