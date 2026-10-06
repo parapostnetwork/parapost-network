@@ -113,6 +113,7 @@ type ProfileSearchResult = {
 type ProfileLikeListTarget = {
   kind: "post" | "comment";
   id: string;
+  shareId?: string | null;
   title: string;
 };
 
@@ -143,6 +144,7 @@ type Post = {
 type ProfileComment = {
   id: string;
   post_id: string;
+  share_id?: string | null;
   user_id: string;
   content: string;
   created_at: string;
@@ -232,6 +234,11 @@ type ProfileFeedItem =
 
 type CountMap = Record<string, number>;
 type ToggleMap = Record<string, boolean>;
+
+const profileEngagementContextKey = (
+  postId: string,
+  shareId?: string | null
+) => (shareId ? `share:${shareId}` : postId);
 
 type FollowRow = {
   follower_id: string;
@@ -4014,6 +4021,12 @@ const closeProfileMobileSearch = useCallback(() => {
       ].filter(Boolean)),
     ];
 
+    const visibleShareIdsForCounts = new Set(
+      mappedSharedPostsForCounts
+        .map((share) => share.id)
+        .filter(Boolean)
+    );
+
     if (countPostIds.length > 0) {
       const [
         { data: likesData },
@@ -4022,11 +4035,11 @@ const closeProfileMobileSearch = useCallback(() => {
       ] = await Promise.all([
         supabase
           .from("likes")
-          .select("post_id, user_id")
+          .select("post_id, share_id, user_id")
           .in("post_id", countPostIds),
         supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+          .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
           .in("post_id", countPostIds)
           .order("created_at", { ascending: true }),
         supabase
@@ -4040,12 +4053,21 @@ const closeProfileMobileSearch = useCallback(() => {
 
       for (const like of likesData || []) {
         const postId = String(like.post_id || "");
-        if (!postId) continue;
+        const shareId =
+          typeof like.share_id === "string" && like.share_id
+            ? like.share_id
+            : null;
 
-        nextLikeCounts[postId] = (nextLikeCounts[postId] || 0) + 1;
+        if (!postId) continue;
+        if (shareId && !visibleShareIdsForCounts.has(shareId)) continue;
+
+        const contextKey = profileEngagementContextKey(postId, shareId);
+
+        nextLikeCounts[contextKey] =
+          (nextLikeCounts[contextKey] || 0) + 1;
 
         if (nextViewerId && like.user_id === nextViewerId) {
-          nextUserLikes[postId] = true;
+          nextUserLikes[contextKey] = true;
         }
       }
 
@@ -4057,8 +4079,10 @@ const closeProfileMobileSearch = useCallback(() => {
         setCommentCounts({});
         setCommentsByPostId({});
       } else {
-        const visibleComments = ((commentsData || []) as ProfileComment[]).filter((comment) =>
-          Boolean(comment.post_id && !comment.is_hidden)
+        const visibleComments = ((commentsData || []) as ProfileComment[]).filter(
+          (comment) =>
+            Boolean(comment.post_id && !comment.is_hidden) &&
+            (!comment.share_id || visibleShareIdsForCounts.has(comment.share_id))
         );
 
         const nextCommentCounts: CountMap = {};
@@ -4067,13 +4091,19 @@ const closeProfileMobileSearch = useCallback(() => {
         for (const comment of visibleComments) {
           if (!comment.post_id) continue;
 
-          nextCommentCounts[comment.post_id] = (nextCommentCounts[comment.post_id] || 0) + 1;
+          const contextKey = profileEngagementContextKey(
+            comment.post_id,
+            comment.share_id || null
+          );
 
-          if (!nextCommentPreviews[comment.post_id]) {
-            nextCommentPreviews[comment.post_id] = [];
+          nextCommentCounts[contextKey] =
+            (nextCommentCounts[contextKey] || 0) + 1;
+
+          if (!nextCommentPreviews[contextKey]) {
+            nextCommentPreviews[contextKey] = [];
           }
 
-          nextCommentPreviews[comment.post_id].push(comment);
+          nextCommentPreviews[contextKey].push(comment);
         }
 
         Object.keys(nextCommentPreviews).forEach((postId) => {
@@ -4929,7 +4959,10 @@ useEffect(() => {
     setEditingPostContent((current) => (editingPostId === post.id ? "" : current));
   };
 
-  const handleLikeToggle = async (postId: string) => {
+  const handleLikeToggle = async (
+    postId: string,
+    shareId: string | null = null
+  ) => {
     const {
       data: { user },
       error,
@@ -4940,39 +4973,55 @@ useEffect(() => {
       return;
     }
 
-    const alreadyLiked = !!userLikes[postId];
+    const contextKey = profileEngagementContextKey(postId, shareId);
+    const alreadyLiked = !!userLikes[contextKey];
 
     if (alreadyLiked) {
-      const { error: unlikeError } = await supabase
+      let unlikeQuery = supabase
         .from("likes")
         .delete()
         .eq("user_id", user.id)
         .eq("post_id", postId);
+
+      unlikeQuery = shareId
+        ? unlikeQuery.eq("share_id", shareId)
+        : unlikeQuery.is("share_id", null);
+
+      const { error: unlikeError } = await unlikeQuery;
 
       if (unlikeError) {
         alert(`Unlike error: ${unlikeError.message}`);
         return;
       }
 
-      setUserLikes((prev) => ({ ...prev, [postId]: false }));
+      setUserLikes((prev) => ({ ...prev, [contextKey]: false }));
       setLikeCounts((prev) => ({
         ...prev,
-        [postId]: Math.max((prev[postId] || 1) - 1, 0),
+        [contextKey]: Math.max((prev[contextKey] || 1) - 1, 0),
       }));
       return;
     }
 
     const { error: likeError } = await supabase
       .from("likes")
-      .insert([{ user_id: user.id, post_id: postId }]);
+      .insert([
+        {
+          user_id: user.id,
+          post_id: postId,
+          share_id: shareId,
+        },
+      ]);
 
     if (likeError) {
       alert(`Like error: ${likeError.message}`);
       return;
     }
 
-    setUserLikes((prev) => ({ ...prev, [postId]: true }));
-    setLikeCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
+    setUserLikes((prev) => ({ ...prev, [contextKey]: true }));
+    setLikeCounts((prev) => ({
+      ...prev,
+      [contextKey]: (prev[contextKey] || 0) + 1,
+    }));
   };
 
   const handleOpenProfileLikeList = useCallback(
@@ -4988,10 +5037,31 @@ useEffect(() => {
         const table = target.kind === "post" ? "likes" : "comment_likes";
         const idColumn = target.kind === "post" ? "post_id" : "comment_id";
 
-        const { data: likeRows, error: likesError } = await supabase
-          .from(table)
-          .select("user_id")
-          .eq(idColumn, target.id);
+        let likeRows: Array<{ user_id: string }> | null = null;
+        let likesError: { message: string } | null = null;
+
+        if (target.kind === "post") {
+          let query = supabase
+            .from("likes")
+            .select("user_id")
+            .eq("post_id", target.id);
+
+          query = target.shareId
+            ? query.eq("share_id", target.shareId)
+            : query.is("share_id", null);
+
+          const result = await query;
+          likeRows = result.data;
+          likesError = result.error;
+        } else {
+          const result = await supabase
+            .from("comment_likes")
+            .select("user_id")
+            .eq("comment_id", target.id);
+
+          likeRows = result.data;
+          likesError = result.error;
+        }
 
         if (likesError) {
           setProfileLikeListError(`Could not load likes: ${likesError.message}`);
@@ -5058,19 +5128,27 @@ useEffect(() => {
   }, []);
 
   const fetchProfilePostComments = useCallback(
-    async (postId: string) => {
+    async (postId: string, shareId: string | null = null) => {
       if (!postId) return;
 
-      setCommentsLoadingPostId(postId);
+      const contextKey = profileEngagementContextKey(postId, shareId);
+
+      setCommentsLoadingPostId(contextKey);
 
       try {
         const { data: authData } = await supabase.auth.getUser();
         const activeViewerId = authData.user?.id || viewerId;
 
-        const { data, error } = await supabase
+        let commentsQuery = supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
-          .eq("post_id", postId)
+          .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+          .eq("post_id", postId);
+
+        commentsQuery = shareId
+          ? commentsQuery.eq("share_id", shareId)
+          : commentsQuery.is("share_id", null);
+
+        const { data, error } = await commentsQuery
           .order("created_at", { ascending: true })
           .limit(80);
 
@@ -5085,20 +5163,24 @@ useEffect(() => {
 
         setCommentsByPostId((prev) => ({
           ...prev,
-          [postId]: nextComments,
+          [contextKey]: nextComments,
         }));
 
         setCommentCounts((prev) => ({
           ...prev,
-          [postId]: nextComments.length,
+          [contextKey]: nextComments.length,
         }));
 
-        const commentIds = nextComments.map((comment) => comment.id).filter(Boolean);
+        const commentIds = nextComments
+          .map((comment) => comment.id)
+          .filter(Boolean);
+
         if (commentIds.length > 0) {
-          const { data: commentLikeRows, error: commentLikesError } = await supabase
-            .from("comment_likes")
-            .select("comment_id, user_id")
-            .in("comment_id", commentIds);
+          const { data: commentLikeRows, error: commentLikesError } =
+            await supabase
+              .from("comment_likes")
+              .select("comment_id, user_id")
+              .in("comment_id", commentIds);
 
           if (!commentLikesError) {
             const nextLikeCounts: CountMap = {};
@@ -5112,30 +5194,48 @@ useEffect(() => {
             for (const like of commentLikeRows || []) {
               const commentId = String(like.comment_id || "");
               if (!commentId) continue;
-              nextLikeCounts[commentId] = (nextLikeCounts[commentId] || 0) + 1;
-              if (activeViewerId && like.user_id === activeViewerId) nextUserLikes[commentId] = true;
+
+              nextLikeCounts[commentId] =
+                (nextLikeCounts[commentId] || 0) + 1;
+
+              if (activeViewerId && like.user_id === activeViewerId) {
+                nextUserLikes[commentId] = true;
+              }
             }
 
-            setProfileCommentLikeCounts((current) => ({ ...current, ...nextLikeCounts }));
-            setProfileCommentUserLikes((current) => ({ ...current, ...nextUserLikes }));
+            setProfileCommentLikeCounts((current) => ({
+              ...current,
+              ...nextLikeCounts,
+            }));
+            setProfileCommentUserLikes((current) => ({
+              ...current,
+              ...nextUserLikes,
+            }));
           }
         }
 
         const commenterIds = [
-          ...new Set(nextComments.map((comment) => comment.user_id).filter(Boolean)),
+          ...new Set(
+            nextComments
+              .map((comment) => comment.user_id)
+              .filter(Boolean)
+          ),
         ];
 
         if (commenterIds.length > 0) {
-          const { data: profileRows, error: profileRowsError } = await supabase
-            .from("profiles")
-            .select("id, username, full_name, bio, avatar_url, is_online, last_seen_at, location")
-            .in("id", commenterIds);
+          const { data: profileRows, error: profileRowsError } =
+            await supabase
+              .from("profiles")
+              .select("id, username, full_name, bio, avatar_url, is_online, last_seen_at, location")
+              .in("id", commenterIds);
 
           if (!profileRowsError && profileRows) {
             const nextProfileMap: Record<string, ProfileRow> = {};
 
             for (const commentProfile of profileRows as ProfileRow[]) {
-              if (commentProfile.id) nextProfileMap[commentProfile.id] = commentProfile;
+              if (commentProfile.id) {
+                nextProfileMap[commentProfile.id] = commentProfile;
+              }
             }
 
             setCommentProfilesMap((prev) => ({
@@ -5145,7 +5245,9 @@ useEffect(() => {
           }
         }
       } finally {
-        setCommentsLoadingPostId((current) => (current === postId ? null : current));
+        setCommentsLoadingPostId((current) =>
+          current === contextKey ? null : current
+        );
       }
     },
     [viewerId]
@@ -5208,32 +5310,42 @@ useEffect(() => {
   );
 
   const handleProfileCommentAction = useCallback(
-    async (postId: string) => {
+    async (postId: string, shareId: string | null = null) => {
       if (!postId) return;
+
+      const contextKey = profileEngagementContextKey(postId, shareId);
 
       setOpenPostMenuId(null);
       setProfilePostMenuAnchor(null);
 
-      if (openCommentsPostId === postId) {
+      if (openCommentsPostId === contextKey) {
         setOpenCommentsPostId(null);
         return;
       }
 
-      setOpenCommentsPostId(postId);
-      await fetchProfilePostComments(postId);
+      setOpenCommentsPostId(contextKey);
+      await fetchProfilePostComments(postId, shareId);
     },
     [fetchProfilePostComments, openCommentsPostId]
   );
 
-  const handleProfileCommentDraftChange = (postId: string, value: string) => {
+  const handleProfileCommentDraftChange = (
+    contextKey: string,
+    value: string
+  ) => {
     setCommentDrafts((prev) => ({
       ...prev,
-      [postId]: value,
+      [contextKey]: value,
     }));
   };
 
-  const handleAddProfileComment = async (postId: string, postOwnerId?: string | null) => {
-    const trimmed = (commentDrafts[postId] || "").trim();
+  const handleAddProfileComment = async (
+    postId: string,
+    _postOwnerId?: string | null,
+    shareId: string | null = null
+  ) => {
+    const contextKey = profileEngagementContextKey(postId, shareId);
+    const trimmed = (commentDrafts[contextKey] || "").trim();
 
     if (!trimmed) return;
 
@@ -5242,7 +5354,7 @@ useEffect(() => {
       return;
     }
 
-    setPostingCommentPostId(postId);
+    setPostingCommentPostId(contextKey);
 
     try {
       const { data, error } = await supabase
@@ -5250,6 +5362,7 @@ useEffect(() => {
         .insert([
           {
             post_id: postId,
+            share_id: shareId,
             user_id: viewerId,
             content: trimmed,
             parent_comment_id: null,
@@ -5257,7 +5370,7 @@ useEffect(() => {
             reply_to_comment_id: null,
           },
         ])
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+        .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {
@@ -5269,17 +5382,17 @@ useEffect(() => {
 
       setCommentDrafts((prev) => ({
         ...prev,
-        [postId]: "",
+        [contextKey]: "",
       }));
 
       setCommentsByPostId((prev) => ({
         ...prev,
-        [postId]: [...(prev[postId] || []), savedComment],
+        [contextKey]: [...(prev[contextKey] || []), savedComment],
       }));
 
       setCommentCounts((prev) => ({
         ...prev,
-        [postId]: (prev[postId] || 0) + 1,
+        [contextKey]: (prev[contextKey] || 0) + 1,
       }));
 
       if (profile && viewerId === profile.id) {
@@ -5289,50 +5402,46 @@ useEffect(() => {
         }));
       }
 
-      if (postOwnerId && postOwnerId !== viewerId) {
-        await supabase.from("notifications").insert([
-          {
-            user_id: postOwnerId,
-            actor_id: viewerId,
-            type: "post_comment",
-            post_id: postId,
-            comment_id: savedComment.id,
-            friend_request_id: null,
-            message: "commented on your post.",
-            is_read: false,
-          },
-        ]);
-      }
-
       setOpenCommentsPostId(null);
     } finally {
-      setPostingCommentPostId((current) => (current === postId ? null : current));
+      setPostingCommentPostId((current) =>
+        current === contextKey ? null : current
+      );
     }
   };
 
   const handleAddProfileCommentReply = async (
     postId: string,
-    postOwnerId: string | null | undefined,
+    _postOwnerId: string | null | undefined,
     rootComment: ProfileComment,
     replyToComment: ProfileComment,
+    shareId: string | null = null,
   ) => {
+    const contextKey = profileEngagementContextKey(postId, shareId);
     const trimmed = (profileReplyDrafts[replyToComment.id] || "").trim();
+
     if (!trimmed || !viewerId || postingProfileReplyId) return;
 
     setPostingProfileReplyId(replyToComment.id);
+
     try {
-      const rootParentId = rootComment.parent_comment_id || rootComment.id;
+      const rootParentId =
+        rootComment.parent_comment_id || rootComment.id;
+
       const { data, error } = await supabase
         .from("comments")
-        .insert([{
-          post_id: postId,
-          user_id: viewerId,
-          content: trimmed,
-          parent_comment_id: rootParentId,
-          reply_to_user_id: replyToComment.user_id,
-          reply_to_comment_id: replyToComment.id,
-        }])
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+        .insert([
+          {
+            post_id: postId,
+            share_id: shareId,
+            user_id: viewerId,
+            content: trimmed,
+            parent_comment_id: rootParentId,
+            reply_to_user_id: replyToComment.user_id,
+            reply_to_comment_id: replyToComment.id,
+          },
+        ])
+        .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {
@@ -5341,15 +5450,27 @@ useEffect(() => {
       }
 
       const savedReply = data as ProfileComment;
+
       setCommentsByPostId((current) => ({
         ...current,
-        [postId]: [...(current[postId] || []), savedReply],
+        [contextKey]: [...(current[contextKey] || []), savedReply],
       }));
-      setCommentCounts((current) => ({ ...current, [postId]: (current[postId] || 0) + 1 }));
-      setExpandedProfileReplyThreadsMap((current) => ({ ...current, [rootParentId]: true }));
-      setReplyingProfileCommentId(null);
-      setProfileReplyDrafts((current) => ({ ...current, [replyToComment.id]: "" }));
 
+      setCommentCounts((current) => ({
+        ...current,
+        [contextKey]: (current[contextKey] || 0) + 1,
+      }));
+
+      setExpandedProfileReplyThreadsMap((current) => ({
+        ...current,
+        [rootParentId]: true,
+      }));
+
+      setReplyingProfileCommentId(null);
+      setProfileReplyDrafts((current) => ({
+        ...current,
+        [replyToComment.id]: "",
+      }));
     } finally {
       setPostingProfileReplyId(null);
     }
@@ -5369,6 +5490,10 @@ useEffect(() => {
   };
 
   const handleSaveProfileComment = async (postId: string, comment: ProfileComment) => {
+    const contextKey = profileEngagementContextKey(
+      postId,
+      comment.share_id || null
+    );
     if (!viewerId || comment.user_id !== viewerId || savingProfileCommentId) return;
 
     const trimmed = editingProfileCommentDraft.trim();
@@ -5386,7 +5511,7 @@ useEffect(() => {
       .eq("id", comment.id)
       .eq("post_id", postId)
       .eq("user_id", viewerId)
-      .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+      .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
       .single();
 
     if (error) {
@@ -5399,7 +5524,7 @@ useEffect(() => {
 
     setCommentsByPostId((prev) => ({
       ...prev,
-      [postId]: (prev[postId] || []).map((item) =>
+      [contextKey]: (prev[contextKey] || []).map((item) =>
         item.id === updatedComment.id ? updatedComment : item
       ),
     }));
@@ -5409,7 +5534,12 @@ useEffect(() => {
     setSavingProfileCommentId(null);
   };
 
-  const handleDeleteProfileComment = async (postId: string, commentId: string) => {
+  const handleDeleteProfileComment = async (
+    postId: string,
+    commentId: string,
+    shareId: string | null = null
+  ) => {
+    const contextKey = profileEngagementContextKey(postId, shareId);
     if (!viewerId) return;
     if (!window.confirm("Delete this comment?")) return;
 
@@ -5426,12 +5556,12 @@ useEffect(() => {
 
     setCommentsByPostId((prev) => ({
       ...prev,
-      [postId]: (prev[postId] || []).filter((comment) => comment.id !== commentId),
+      [contextKey]: (prev[contextKey] || []).filter((comment) => comment.id !== commentId),
     }));
 
     setCommentCounts((prev) => ({
       ...prev,
-      [postId]: Math.max((prev[postId] || 1) - 1, 0),
+      [contextKey]: Math.max((prev[contextKey] || 1) - 1, 0),
     }));
 
     setEditingProfileCommentId((current) => (current === commentId ? null : current));
@@ -5710,7 +5840,13 @@ useEffect(() => {
                 ) : null}
 
                 {canDeleteComment ? (
-                  <button type="button" onClick={() => handleDeleteProfileComment(postId, comment.id)} style={profileCommentDeleteButtonStyle}>
+                  <button type="button" onClick={() =>
+                      handleDeleteProfileComment(
+                        postId,
+                        comment.id,
+                        comment.share_id || null
+                      )
+                    } style={profileCommentDeleteButtonStyle}>
                     Delete
                   </button>
                 ) : null}
@@ -5737,7 +5873,15 @@ useEffect(() => {
                 <div style={profileCommentEditActionsStyle}>
                   <button
                     type="button"
-                    onClick={() => handleAddProfileCommentReply(postId, postOwnerId, rootComment, comment)}
+                    onClick={() =>
+                      handleAddProfileCommentReply(
+                        postId,
+                        postOwnerId,
+                        rootComment,
+                        comment,
+                        comment.share_id || null
+                      )
+                    }
                     disabled={!((profileReplyDrafts[comment.id] || "").trim()) || postingProfileReplyId === comment.id}
                     style={profileCommentEditSaveButtonStyle}
                   >
@@ -5792,12 +5936,14 @@ useEffect(() => {
     likeCount = 0,
     commentCount = 0,
     shareCount = 0,
+    shareId: string | null = null,
   ) => {
     const postId = post.id;
-    const comments = commentsByPostId[postId] || [];
-    const draft = commentDrafts[postId] || "";
-    const isLoadingComments = commentsLoadingPostId === postId;
-    const isPostingComment = postingCommentPostId === postId;
+    const contextKey = profileEngagementContextKey(postId, shareId);
+    const comments = commentsByPostId[contextKey] || [];
+    const draft = commentDrafts[contextKey] || "";
+    const isLoadingComments = commentsLoadingPostId === contextKey;
+    const isPostingComment = postingCommentPostId === contextKey;
     const authorProfile =
       postAuthorProfile ||
       commentProfilesMap[post.user_id] ||
@@ -5902,6 +6048,7 @@ useEffect(() => {
                         handleOpenProfileLikeList({
                           kind: "post",
                           id: postId,
+                          shareId,
                           title: "Liked by",
                         })
                       }
@@ -5923,7 +6070,7 @@ useEffect(() => {
               <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
                 <button
                   className={`profile-post-action-button profile-post-like-button ${isLiked ? "profile-post-like-button-active" : ""}`}
-                  onClick={() => handleLikeToggle(postId)}
+                  onClick={() => handleLikeToggle(postId, shareId)}
                   style={isLiked ? postLikeButtonActiveStyle : actionButtonStyle}
                   aria-pressed={isLiked}
                   type="button"
@@ -6031,7 +6178,7 @@ useEffect(() => {
 
             <textarea
               value={draft}
-              onChange={(event) => handleProfileCommentDraftChange(postId, event.target.value)}
+              onChange={(event) => handleProfileCommentDraftChange(contextKey, event.target.value)}
               placeholder={viewerId ? "Write a comment..." : "Log in to comment"}
               disabled={!viewerId || isPostingComment}
               rows={1}
@@ -6040,14 +6187,14 @@ useEffect(() => {
               onKeyDown={(event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                   event.preventDefault();
-                  handleAddProfileComment(postId, postOwnerId);
+                  handleAddProfileComment(postId, postOwnerId, shareId);
                 }
               }}
             />
 
             <button
               type="button"
-              onClick={() => handleAddProfileComment(postId, postOwnerId)}
+              onClick={() => handleAddProfileComment(postId, postOwnerId, shareId)}
               disabled={!viewerId || !draft.trim() || isPostingComment}
               style={{
                 ...profileCommentSubmitButtonStyle,
@@ -19392,10 +19539,18 @@ return (
                             originalCreator?.username ||
                             "Original creator";
                           const originalHandle = originalCreator?.username || "member";
-                          const originalPostLiked = !!userLikes[originalPost.id];
-                          const originalPostLikeCount = likeCounts[originalPost.id] || 0;
-                          const originalPostCommentCount = commentCounts[originalPost.id] || 0;
-                          const originalPostShareCount = shareCounts[originalPost.id] || 0;
+                          const sharedContextKey =
+                            profileEngagementContextKey(
+                              originalPost.id,
+                              item.id
+                            );
+                          const originalPostLiked =
+                            !!userLikes[sharedContextKey];
+                          const originalPostLikeCount =
+                            likeCounts[sharedContextKey] || 0;
+                          const originalPostCommentCount =
+                            commentCounts[sharedContextKey] || 0;
+                          const originalPostShareCount = 0;
 
                           return (
                             <article
@@ -19492,6 +19647,7 @@ return (
                                         handleOpenProfileLikeList({
                                           kind: "post",
                                           id: originalPost.id,
+                                          shareId: item.id,
                                           title: "Liked by",
                                         })
                                       }
@@ -19506,7 +19662,7 @@ return (
                                     {originalPostCommentCount > 0 ? (
                                       <button
                                         type="button"
-                                        onClick={() => handleProfileCommentAction(originalPost.id)}
+                                        onClick={() => handleProfileCommentAction(originalPost.id, item.id)}
                                         style={profilePostStatsButtonStyle}
                                       >
                                         {originalPostCommentCount} {originalPostCommentCount === 1 ? "Comment" : "Comments"}
@@ -19514,7 +19670,7 @@ return (
                                     ) : null}
                                     {originalPostCommentCount > 0 && originalPostShareCount > 0 ? <span>·</span> : null}
                                     {originalPostShareCount > 0 ? (
-                                      <span>{originalPostShareCount} {originalPostShareCount === 1 ? "Share" : "Shares"}</span>
+                                      <span>{originalPostShareCount} Shares</span>
                                     ) : null}
                                   </span>
                                 </div>
@@ -19523,7 +19679,7 @@ return (
                               <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
                                 <button
                                   className={`profile-post-action-button profile-post-like-button ${originalPostLiked ? "profile-post-like-button-active" : ""}`}
-                                  onClick={() => handleLikeToggle(originalPost.id)}
+                                  onClick={() => handleLikeToggle(originalPost.id, item.id)}
                                   style={originalPostLiked ? postLikeButtonActiveStyle : actionButtonStyle}
                                   aria-pressed={originalPostLiked}
                                   type="button"
@@ -19534,10 +19690,10 @@ return (
 
                                 <button
                                   className="profile-post-action-button"
-                                  onClick={() => handleProfileCommentAction(originalPost.id)}
+                                  onClick={() => handleProfileCommentAction(originalPost.id, item.id)}
                                   style={actionButtonStyle}
                                   type="button"
-                                  aria-expanded={openCommentsPostId === originalPost.id}
+                                  aria-expanded={openCommentsPostId === sharedContextKey}
                                 >
                                   <CommentIcon />
                                   <span>Comment</span>
@@ -19554,15 +19710,16 @@ return (
                                 </button>
                               </div>
 
-                              {openCommentsPostId === originalPost.id
+                              {openCommentsPostId === sharedContextKey
                                 ? renderProfileCommentsPanel(
                                     originalPost,
-                                    originalPost.user_id,
+                                    item.user_id,
                                     originalCreator,
                                     originalPostLiked,
                                     originalPostLikeCount,
                                     originalPostCommentCount,
                                     originalPostShareCount,
+                                    item.id,
                                   )
                                 : null}
                             </article>
