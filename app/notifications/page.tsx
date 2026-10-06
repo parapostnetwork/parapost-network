@@ -14,6 +14,7 @@ type NotificationRow = {
   type: string | null;
   post_id: string | null;
   comment_id: string | null;
+  share_id?: string | null;
   friend_request_id: string | null;
   reel_id?: string | null;
   message: string | null;
@@ -58,6 +59,7 @@ type NotificationPostImage = {
 type NotificationPostComment = {
   id: string;
   post_id: string;
+  share_id?: string | null;
   user_id: string;
   content: string;
   created_at: string;
@@ -306,6 +308,19 @@ function getNotificationTitle(notification: NotificationCard) {
     return `${actorName} ${verb} your Reel.`;
   }
 
+  if (notification.share_id && type === "post_like") {
+    return `${actorName} liked a post you shared.`;
+  }
+  if (notification.share_id && type === "post_comment") {
+    return `${actorName} commented on a post you shared.`;
+  }
+  if (notification.share_id && type === "comment_like") {
+    return `${actorName} liked your comment on a post you shared.`;
+  }
+  if (notification.share_id && type === "comment_reply") {
+    return `${actorName} replied to your comment on a post you shared.`;
+  }
+
   if (notification.message?.trim()) return notification.message.trim();
   if (type === "friend_request") return `${actorName} sent you a friend request.`;
   if (type === "friend_accept") return `${actorName} accepted your friend request.`;
@@ -322,6 +337,19 @@ function getNotificationTitle(notification: NotificationCard) {
 function getPostOverlayActivityTitle(notification: NotificationCard) {
   const actorName = getDisplayName(notification.actor);
   const type = notification.type || "";
+
+  if (notification.share_id && type === "post_like") {
+    return `${actorName} liked a post you shared`;
+  }
+  if (notification.share_id && type === "post_comment") {
+    return `${actorName} commented on a post you shared`;
+  }
+  if (notification.share_id && type === "comment_like") {
+    return `${actorName} liked your comment on a post you shared`;
+  }
+  if (notification.share_id && type === "comment_reply") {
+    return `${actorName} replied to your comment on a post you shared`;
+  }
 
   if (type === "post_like") return `${actorName} liked your post`;
   if (type === "post_comment") return `${actorName} commented on your post`;
@@ -611,6 +639,7 @@ export default function NotificationsPage() {
     if (!postOverlayData || postOverlayPostLikeBusy) return;
 
     const postId = postOverlayData.post.id;
+    const shareId = postOverlayNotification?.share_id || null;
     const alreadyLiked = postOverlayPostLiked;
 
     setPostOverlayPostLikeBusy(true);
@@ -630,11 +659,17 @@ export default function NotificationsPage() {
 
     try {
       if (alreadyLiked) {
-        const { error } = await supabase
+        let deleteQuery = supabase
           .from("likes")
           .delete()
           .eq("post_id", postId)
           .eq("user_id", currentUserId);
+
+        deleteQuery = shareId
+          ? deleteQuery.eq("share_id", shareId)
+          : deleteQuery.is("share_id", null);
+
+        const { error } = await deleteQuery;
 
         if (error) throw error;
 
@@ -644,6 +679,7 @@ export default function NotificationsPage() {
       const { error } = await supabase.from("likes").insert([
         {
           post_id: postId,
+          share_id: shareId,
           user_id: currentUserId,
         },
       ]);
@@ -694,6 +730,7 @@ export default function NotificationsPage() {
         .insert([
           {
             post_id: postOverlayData.post.id,
+            share_id: postOverlayNotification?.share_id || null,
             user_id: currentUserId,
             content: trimmed,
             parent_comment_id: null,
@@ -702,7 +739,7 @@ export default function NotificationsPage() {
           },
         ])
         .select(
-          "id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
+          "id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
         )
         .single();
 
@@ -886,6 +923,7 @@ export default function NotificationsPage() {
         .insert([
           {
             post_id: postOverlayData.post.id,
+            share_id: postOverlayNotification?.share_id || null,
             user_id: currentUserId,
             content: trimmed,
             parent_comment_id: rootParentId,
@@ -894,7 +932,7 @@ export default function NotificationsPage() {
           },
         ])
         .select(
-          "id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
+          "id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
         )
         .single();
 
@@ -1058,6 +1096,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     const postId = postOverlayNotification?.post_id;
+    const shareId = postOverlayNotification?.share_id || null;
 
     if (!postId) {
       setPostOverlayData(null);
@@ -1104,21 +1143,33 @@ export default function NotificationsPage() {
 
         const post = postData as NotificationPost;
 
+        let commentsQuery = supabase
+          .from("comments")
+          .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+          .eq("post_id", postId)
+          .order("created_at", { ascending: true });
+
+        commentsQuery = shareId
+          ? commentsQuery.eq("share_id", shareId)
+          : commentsQuery.is("share_id", null);
+
+        let likesQuery = supabase
+          .from("likes")
+          .select("id", { count: "exact", head: true })
+          .eq("post_id", postId);
+
+        likesQuery = shareId
+          ? likesQuery.eq("share_id", shareId)
+          : likesQuery.is("share_id", null);
+
         const [imagesResponse, commentsResponse, likesResponse] = await Promise.all([
           supabase
             .from("post_images")
             .select("id, post_id, user_id, image_url, storage_path, display_order, created_at")
             .eq("post_id", postId)
             .order("display_order", { ascending: true }),
-          supabase
-            .from("comments")
-            .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
-            .eq("post_id", postId)
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("likes")
-            .select("id", { count: "exact", head: true })
-            .eq("post_id", postId),
+          commentsQuery,
+          likesQuery,
         ]);
 
         if (commentsResponse.error) {
@@ -1142,13 +1193,18 @@ export default function NotificationsPage() {
         let nextPostLiked = false;
 
         if (currentUserId) {
+          let currentUserLikeQuery = supabase
+            .from("likes")
+            .select("id")
+            .eq("post_id", postId)
+            .eq("user_id", currentUserId);
+
+          currentUserLikeQuery = shareId
+            ? currentUserLikeQuery.eq("share_id", shareId)
+            : currentUserLikeQuery.is("share_id", null);
+
           const { data: currentUserLike, error: currentUserLikeError } =
-            await supabase
-              .from("likes")
-              .select("id")
-              .eq("post_id", postId)
-              .eq("user_id", currentUserId)
-              .maybeSingle();
+            await currentUserLikeQuery.maybeSingle();
 
           if (currentUserLikeError) {
             console.warn(
@@ -1340,7 +1396,7 @@ export default function NotificationsPage() {
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, user_id, actor_id, type, post_id, comment_id, friend_request_id, reel_id, message, is_read, created_at")
+        .select("id, user_id, actor_id, type, post_id, comment_id, share_id, friend_request_id, reel_id, message, is_read, created_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(100);
