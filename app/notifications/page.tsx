@@ -457,6 +457,12 @@ export default function NotificationsPage() {
   const [postOverlayReplyingToId, setPostOverlayReplyingToId] = useState<string | null>(null);
   const [postOverlayReplyDraft, setPostOverlayReplyDraft] = useState("");
   const [postOverlayPostingReplyId, setPostOverlayPostingReplyId] = useState<string | null>(null);
+  const [postOverlayPostLiked, setPostOverlayPostLiked] = useState(false);
+  const [postOverlayPostLikeBusy, setPostOverlayPostLikeBusy] = useState(false);
+  const [postOverlayShareBusy, setPostOverlayShareBusy] = useState(false);
+  const [postOverlayCommentDraft, setPostOverlayCommentDraft] = useState("");
+  const [postOverlayPostingComment, setPostOverlayPostingComment] = useState(false);
+  const postOverlayCommentComposerRef = useRef<HTMLTextAreaElement | null>(null);
   const realtimeReloadTimerRef = useRef<number | null>(null);
   const reelActivityDialogRef = useRef<HTMLDivElement | null>(null);
   const reelActivityCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -580,6 +586,204 @@ export default function NotificationsPage() {
 
     return orderedComments;
   }, [postOverlayData]);
+
+  const focusPostOverlayCommentComposer = () => {
+    if (!currentUserId) {
+      alert("You must be logged in to comment.");
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      postOverlayCommentComposerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      postOverlayCommentComposerRef.current?.focus();
+    });
+  };
+
+  const handleTogglePostOverlayPostLike = async () => {
+    if (!currentUserId) {
+      alert("You must be logged in to like posts.");
+      return;
+    }
+
+    if (!postOverlayData || postOverlayPostLikeBusy) return;
+
+    const postId = postOverlayData.post.id;
+    const alreadyLiked = postOverlayPostLiked;
+
+    setPostOverlayPostLikeBusy(true);
+    setPostOverlayPostLiked(!alreadyLiked);
+
+    setPostOverlayData((current) =>
+      current
+        ? {
+            ...current,
+            likeCount: Math.max(
+              current.likeCount + (alreadyLiked ? -1 : 1),
+              0
+            ),
+          }
+        : current
+    );
+
+    try {
+      if (alreadyLiked) {
+        const { error } = await supabase
+          .from("likes")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", currentUserId);
+
+        if (error) throw error;
+
+        return;
+      }
+
+      const { error } = await supabase.from("likes").insert([
+        {
+          post_id: postId,
+          user_id: currentUserId,
+        },
+      ]);
+
+      if (error) throw error;
+    } catch (error) {
+      setPostOverlayPostLiked(alreadyLiked);
+
+      setPostOverlayData((current) =>
+        current
+          ? {
+              ...current,
+              likeCount: Math.max(
+                current.likeCount + (alreadyLiked ? 1 : -1),
+                0
+              ),
+            }
+          : current
+      );
+
+      alert(
+        `Post like error: ${
+          error instanceof Error ? error.message : "Unable to update like."
+        }`
+      );
+    } finally {
+      setPostOverlayPostLikeBusy(false);
+    }
+  };
+
+  const handleSubmitPostOverlayComment = async () => {
+    const trimmed = postOverlayCommentDraft.trim();
+
+    if (
+      !trimmed ||
+      !currentUserId ||
+      !postOverlayData ||
+      postOverlayPostingComment
+    ) {
+      return;
+    }
+
+    setPostOverlayPostingComment(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("comments")
+        .insert([
+          {
+            post_id: postOverlayData.post.id,
+            user_id: currentUserId,
+            content: trimmed,
+            parent_comment_id: null,
+            reply_to_user_id: null,
+            reply_to_comment_id: null,
+          },
+        ])
+        .select(
+          "id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
+        )
+        .single();
+
+      if (error) {
+        alert(`Comment error: ${error.message}`);
+        return;
+      }
+
+      const savedComment = data as NotificationPostComment;
+
+      setPostOverlayData((current) =>
+        current
+          ? {
+              ...current,
+              comments: [...current.comments, savedComment],
+            }
+          : current
+      );
+
+      setPostOverlayCommentLikeCounts((current) => ({
+        ...current,
+        [savedComment.id]: 0,
+      }));
+
+      setPostOverlayCommentUserLikes((current) => ({
+        ...current,
+        [savedComment.id]: false,
+      }));
+
+      setPostOverlayCommentDraft("");
+    } finally {
+      setPostOverlayPostingComment(false);
+    }
+  };
+
+  const handleSharePostOverlayPost = async () => {
+    if (!currentUserId) {
+      alert("Please log in to share posts.");
+      return;
+    }
+
+    if (!postOverlayData || postOverlayShareBusy) return;
+
+    const confirmed = window.confirm(
+      "Share this post to your Parapost feed? It will appear on the dashboard timeline and on your profile."
+    );
+
+    if (!confirmed) return;
+
+    const caption =
+      window.prompt("Add a caption for your share, or leave blank:", "") || "";
+
+    const trimmedCaption = caption.trim();
+
+    setPostOverlayShareBusy(true);
+
+    try {
+      const { error } = await supabase.from("shares").insert([
+        {
+          post_id: postOverlayData.post.id,
+          user_id: currentUserId,
+          caption: trimmedCaption || null,
+          share_destination: "feed",
+        },
+      ]);
+
+      if (error) {
+        if (error.code === "23505") {
+          alert("You already shared this post to your feed.");
+          return;
+        }
+
+        alert(`Share error: ${error.message}`);
+        return;
+      }
+
+      alert("Shared to your feed and profile.");
+    } finally {
+      setPostOverlayShareBusy(false);
+    }
+  };
 
   const handleTogglePostOverlayCommentLike = async (commentId: string) => {
     if (!commentId || postOverlayCommentLikeBusyId) return;
@@ -874,6 +1078,11 @@ export default function NotificationsPage() {
       setPostOverlayReplyDraft("");
       setPostOverlayPostingReplyId(null);
       setPostOverlayCommentLikeBusyId(null);
+      setPostOverlayPostLiked(false);
+      setPostOverlayPostLikeBusy(false);
+      setPostOverlayShareBusy(false);
+      setPostOverlayCommentDraft("");
+      setPostOverlayPostingComment(false);
 
       try {
         const { data: postData, error: postError } = await supabase
@@ -928,6 +1137,27 @@ export default function NotificationsPage() {
             "Notification post like count could not be loaded:",
             likesResponse.error.message
           );
+        }
+
+        let nextPostLiked = false;
+
+        if (currentUserId) {
+          const { data: currentUserLike, error: currentUserLikeError } =
+            await supabase
+              .from("likes")
+              .select("id")
+              .eq("post_id", postId)
+              .eq("user_id", currentUserId)
+              .maybeSingle();
+
+          if (currentUserLikeError) {
+            console.warn(
+              "Notification post current-user like state could not be loaded:",
+              currentUserLikeError.message
+            );
+          } else {
+            nextPostLiked = Boolean(currentUserLike);
+          }
         }
 
         const comments = ((commentsResponse.data || []) as NotificationPostComment[])
@@ -1005,6 +1235,7 @@ export default function NotificationsPage() {
 
         setPostOverlayCommentLikeCounts(nextCommentLikeCounts);
         setPostOverlayCommentUserLikes(nextCommentUserLikes);
+        setPostOverlayPostLiked(nextPostLiked);
 
         setPostOverlayData({
           post,
@@ -1645,6 +1876,84 @@ export default function NotificationsPage() {
                         View Post
                       </button>
                     ) : null}
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                        gap: 8,
+                        marginTop: 16,
+                        paddingTop: 12,
+                        borderTop: "1px solid rgba(255,255,255,0.10)",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        disabled={postOverlayPostLikeBusy}
+                        onClick={() =>
+                          void handleTogglePostOverlayPostLike()
+                        }
+                        style={{
+                          minHeight: 42,
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.10)",
+                          background: postOverlayPostLiked
+                            ? "rgba(139,92,246,0.18)"
+                            : "rgba(255,255,255,0.035)",
+                          color: postOverlayPostLiked
+                            ? "#ddd6fe"
+                            : "#f4f4f5",
+                          fontSize: 13,
+                          fontWeight: 900,
+                          cursor: postOverlayPostLikeBusy
+                            ? "default"
+                            : "pointer",
+                          opacity: postOverlayPostLikeBusy ? 0.6 : 1,
+                        }}
+                      >
+                        {postOverlayPostLiked ? "Liked" : "Like"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={focusPostOverlayCommentComposer}
+                        style={{
+                          minHeight: 42,
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.10)",
+                          background: "rgba(255,255,255,0.035)",
+                          color: "#f4f4f5",
+                          fontSize: 13,
+                          fontWeight: 900,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Comment
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={postOverlayShareBusy}
+                        onClick={() =>
+                          void handleSharePostOverlayPost()
+                        }
+                        style={{
+                          minHeight: 42,
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.10)",
+                          background: "rgba(255,255,255,0.035)",
+                          color: "#f4f4f5",
+                          fontSize: 13,
+                          fontWeight: 900,
+                          cursor: postOverlayShareBusy
+                            ? "default"
+                            : "pointer",
+                          opacity: postOverlayShareBusy ? 0.6 : 1,
+                        }}
+                      >
+                        {postOverlayShareBusy ? "Sharing..." : "Share"}
+                      </button>
+                    </div>
                   </article>
 
                   <section style={{ padding: "14px 18px 28px" }}>
@@ -2012,6 +2321,85 @@ export default function NotificationsPage() {
                         })}
                       </div>
                     )}
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 8,
+                        marginTop: 18,
+                        paddingTop: 16,
+                        borderTop: "1px solid rgba(255,255,255,0.10)",
+                      }}
+                    >
+                      <textarea
+                        ref={postOverlayCommentComposerRef}
+                        value={postOverlayCommentDraft}
+                        onChange={(event) =>
+                          setPostOverlayCommentDraft(event.target.value)
+                        }
+                        disabled={!currentUserId || postOverlayPostingComment}
+                        rows={3}
+                        maxLength={1200}
+                        placeholder={
+                          currentUserId
+                            ? "Write a comment..."
+                            : "Log in to comment."
+                        }
+                        style={{
+                          width: "100%",
+                          resize: "vertical",
+                          minHeight: 72,
+                          borderRadius: 14,
+                          border: "1px solid rgba(255,255,255,0.13)",
+                          background: "rgba(255,255,255,0.055)",
+                          color: "#ffffff",
+                          padding: "10px 12px",
+                          fontSize: 13,
+                          lineHeight: 1.45,
+                          outline: "none",
+                          opacity: currentUserId ? 1 : 0.65,
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        disabled={
+                          !currentUserId ||
+                          !postOverlayCommentDraft.trim() ||
+                          postOverlayPostingComment
+                        }
+                        onClick={() =>
+                          void handleSubmitPostOverlayComment()
+                        }
+                        style={{
+                          justifySelf: "start",
+                          minHeight: 38,
+                          border: 0,
+                          borderRadius: 999,
+                          padding: "0 16px",
+                          background: "#7c3aed",
+                          color: "#ffffff",
+                          fontSize: 13,
+                          fontWeight: 900,
+                          cursor:
+                            !currentUserId ||
+                            !postOverlayCommentDraft.trim() ||
+                            postOverlayPostingComment
+                              ? "default"
+                              : "pointer",
+                          opacity:
+                            !currentUserId ||
+                            !postOverlayCommentDraft.trim() ||
+                            postOverlayPostingComment
+                              ? 0.55
+                              : 1,
+                        }}
+                      >
+                        {postOverlayPostingComment
+                          ? "Posting..."
+                          : "Comment"}
+                      </button>
+                    </div>
                   </section>
                 </>
               ) : null}
