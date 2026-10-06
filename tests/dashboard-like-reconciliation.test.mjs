@@ -45,6 +45,139 @@ test('storm coalesces/deduplicates main and shared originals with a bounded fixe
   assert.equal(h.timers.size, 1); h.tick(); assert.equal(h.requests.length, 1); assert.deepEqual(h.requests[0].ids, ['main', 'shared']);
   await h.finish(0, [{ post_id: 'shared', user_id: 'me' }]); assert.equal(h.liked.shared, true);
 });
+
+test('shared contextId keeps two shares of the same original post independent', async () => {
+  const state = {
+    userId: 'me',
+    postIds: ['share-a', 'share-b'],
+    canRun: true,
+    fullLoad: false,
+  };
+
+  let counts = {
+    'share-a': 4,
+    'share-b': 9,
+  };
+
+  let liked = {
+    'share-a': false,
+    'share-b': true,
+  };
+
+  const timers = new Map();
+  const requests = [];
+  let timerId = 0;
+
+  const controller = createLikeReconciler({
+    snapshot: () => state,
+    contextId: row =>
+      typeof row?.share_id === 'string'
+        ? row.share_id
+        : null,
+    schedule(fn, delay) {
+      assert.equal(delay, 1500);
+      timers.set(++timerId, fn);
+      return timerId;
+    },
+    cancel(id) {
+      timers.delete(id);
+    },
+    read(ids) {
+      return new Promise((resolve, reject) =>
+        requests.push({ ids, resolve, reject })
+      );
+    },
+    readExact() {
+      throw new Error('exact fallback should not run');
+    },
+    apply(nextCounts, nextLiked) {
+      counts = { ...counts, ...nextCounts };
+      liked = { ...liked, ...nextLiked };
+    },
+    onError() {
+      throw new Error('reconciliation should not error');
+    },
+  });
+
+  const sharedLike = (share_id, user_id) => ({
+    post_id: 'same-original-post',
+    share_id,
+    user_id,
+  });
+
+  controller.event({
+    eventType: 'INSERT',
+    new: sharedLike('share-a', 'someone'),
+  });
+
+  assert.equal(timers.size, 1);
+
+  {
+    const callbacks = [...timers.values()];
+    timers.clear();
+    callbacks.forEach(fn => fn());
+  }
+
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].ids, ['share-a']);
+
+  requests[0].resolve({
+    data: [
+      sharedLike('share-a', 'me'),
+      sharedLike('share-a', 'someone'),
+    ],
+    error: null,
+    count: 2,
+  });
+
+  await new Promise(resolve => setImmediate(resolve));
+
+  assert.deepEqual(counts, {
+    'share-a': 2,
+    'share-b': 9,
+  });
+
+  assert.deepEqual(liked, {
+    'share-a': true,
+    'share-b': true,
+  });
+
+  controller.event({
+    eventType: 'INSERT',
+    new: sharedLike('share-b', 'someone-else'),
+  });
+
+  assert.equal(timers.size, 1);
+
+  {
+    const callbacks = [...timers.values()];
+    timers.clear();
+    callbacks.forEach(fn => fn());
+  }
+
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1].ids, ['share-b']);
+
+  requests[1].resolve({
+    data: [
+      sharedLike('share-b', 'someone-else'),
+    ],
+    error: null,
+    count: 1,
+  });
+
+  await new Promise(resolve => setImmediate(resolve));
+
+  assert.deepEqual(counts, {
+    'share-a': 2,
+    'share-b': 1,
+  });
+
+  assert.deepEqual(liked, {
+    'share-a': true,
+    'share-b': false,
+  });
+});
 test('UPDATE accounts for both old and new posts', () => {
   const h = setup(); h.controller.event({ eventType: 'UPDATE', old: { post_id: 'main' }, new: { post_id: 'shared' } });h.tick();assert.deepEqual(h.requests[0].ids, ['main', 'shared']);
 });
@@ -105,9 +238,36 @@ test('removed posts are excluded at application time', async () => {
 });
 test('Dashboard wiring retains non-like routes, fallbacks, notifications and relationship sharing', () => {
   const source=readFileSync(new URL('../app/dashboard/page.tsx',import.meta.url),'utf8');
-  for(const table of ['posts','shares','comments','followers','friend_requests','reel_shares','live_streams','blocked_users'])assert.ok(source.includes(`table: "${table}" }, schedulePulseRefresh)`));
-  assert.ok(source.includes('table: "likes" }, (payload) => likesReconcilerRef.current?.event(payload))'));
-  assert.ok(source.includes('DASHBOARD_BACKGROUND_REFRESH_MS = 120000'));
+
+  assert.ok(source.includes('table: "posts"'));
+  assert.ok(source.includes('refreshPostFromRealtime(payload)'));
+
+  assert.ok(source.includes('table: "shares"'));
+  assert.ok(source.includes('refreshSharesOnly'));
+
+  assert.ok(source.includes('table: "comments"'));
+  assert.ok(source.includes('refreshCommentsOnly'));
+
+  assert.ok(source.includes('table: "followers"'));
+  assert.ok(source.includes('refreshFollowingOnly'));
+
+  assert.ok(source.includes('table: "friend_requests"'));
+  assert.ok(source.includes('refreshFriendshipsOnly'));
+
+  assert.ok(source.includes('table: "reel_shares"'));
+  assert.ok(source.includes('refreshSharedReelsOnly'));
+
+  assert.ok(source.includes('table: "live_streams"'));
+  assert.ok(source.includes('refreshLiveStreamsOnly'));
+
+  assert.ok(source.includes('table: "blocked_users"'));
+  assert.ok(source.includes('schedulePulseRefresh'));
+
+  assert.ok(source.includes('table: "likes"'));
+  assert.ok(source.includes('sharedLikesReconcilerRef.current?.event(payload)'));
+  assert.ok(source.includes('likesReconcilerRef.current?.event(payload)'));
+  assert.ok(source.includes('Object.prototype.hasOwnProperty.call(nextRow, "share_id")'));
+  assert.ok(source.includes('DASHBOARD_BACKGROUND_REFRESH_MS = 30 * 60 * 1000'));
   assert.ok(source.includes('setInterval(refreshNotificationBadges, 720000)'));
   assert.ok(source.includes('() => requestDashboardRefresh(false)'));
   assert.ok(source.includes('fetchPeopleToDiscover(user.id, blockedIds, relationships)'));
@@ -115,8 +275,8 @@ test('Dashboard wiring retains non-like routes, fallbacks, notifications and rel
   assert.ok(source.includes('fetchFriendShowcases(user.id, blockedIds, relationships.friendships)'));
   assert.ok(source.includes('...sharedPostItems.map(share => share.post_id)'));
   assert.ok(source.includes('likesReconcilerRef.current?.fullStart()'));
-  assert.ok(source.includes('reconciler?.beginMutation(postId)'));
-  assert.ok(source.includes('reconciler?.endMutation(postId)'));
+  assert.ok(source.includes('reconciler?.beginMutation(mutationContextId)'));
+  assert.ok(source.includes('reconciler?.endMutation(mutationContextId)'));
 });
 
 for (const total of [0, 1, 3, 999, 1000, 1001, 10000, 100000]) {

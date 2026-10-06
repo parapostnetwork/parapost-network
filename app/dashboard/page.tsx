@@ -8,7 +8,13 @@ import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimi
 // DASHBOARD LOADING PERFORMANCE PASS v1 - page shell, Showcases, and first timeline batch render faster; heavy extras load after first paint.
 
 import { preserveBlockedIds } from "@/lib/dashboard/blocked-ids";
-import { queryDashboardLikes, queryExactPostLikes } from "@/lib/dashboard/like-queries";
+import {
+  dashboardLikeContextKey,
+  queryDashboardLikes,
+  queryDashboardSharedLikes,
+  queryExactPostLikes,
+  queryExactSharedPostLikes,
+} from "@/lib/dashboard/like-queries";
 import { createLikeReconciler } from "@/lib/dashboard/like-reconciliation";
 import { followMember } from "@/lib/followers";
 import LiveStreamViewCount from "@/components/live/LiveStreamViewCount";
@@ -58,6 +64,7 @@ type DashboardLikeListTarget = {
   kind: "post" | "comment";
   id: string;
   title: string;
+  shareId?: string | null;
 };
 
 type DashboardLikeListPerson = {
@@ -2200,13 +2207,19 @@ export default function DashboardPage() {
   }, [commentsByPostId, openCommentsPostId, posts, sharedPostItems]);
 
   const likesReconcilerRef = useRef<ReturnType<typeof createLikeReconciler> | null>(null);
+  const sharedLikesReconcilerRef = useRef<ReturnType<typeof createLikeReconciler> | null>(null);
   const likesSnapshotRef = useRef({ userId: "", postIds: [] as string[] });
+  const sharedLikesSnapshotRef = useRef({ userId: "", postIds: [] as string[] });
+
   const setLikeCounts = useCallback<typeof applyLikeCounts>((value) => {
     likesReconcilerRef.current?.externalWrite();
+    sharedLikesReconcilerRef.current?.externalWrite();
     applyLikeCounts(value);
   }, []);
+
   const setUserLikes = useCallback<typeof applyUserLikes>((value) => {
     likesReconcilerRef.current?.externalWrite();
+    sharedLikesReconcilerRef.current?.externalWrite();
     applyUserLikes(value);
   }, []);
 
@@ -2214,6 +2227,11 @@ export default function DashboardPage() {
     likesSnapshotRef.current = {
       userId: currentUserId,
       postIds: [...new Set([...posts.map(post => post.id), ...sharedPostItems.map(share => share.post_id)])],
+    };
+
+    sharedLikesSnapshotRef.current = {
+      userId: currentUserId,
+      postIds: [...new Set(sharedPostItems.map((share) => share.id).filter(Boolean))],
     };
   }, [currentUserId, posts, sharedPostItems]);
 
@@ -2242,6 +2260,73 @@ export default function DashboardPage() {
     return () => {
       reconciler.dispose();
       if (likesReconcilerRef.current === reconciler) likesReconcilerRef.current = null;
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("pageshow", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const reconciler = createLikeReconciler({
+      snapshot: () => ({
+        ...sharedLikesSnapshotRef.current,
+        canRun: shouldRunDashboardNetworkRefresh(),
+        fullLoad: dashboardRefreshInFlightRef.current,
+      }),
+      contextId: (row) =>
+        typeof row?.share_id === "string" && row.share_id
+          ? row.share_id
+          : null,
+      read: (shareIds) => queryDashboardSharedLikes(supabase, shareIds),
+      readExact: (shareId) =>
+        queryExactSharedPostLikes(supabase, shareId, currentUserId),
+      apply: (counts, liked) => {
+        const contextCounts: CountMap = {};
+        const contextLiked: ToggleMap = {};
+
+        for (const [shareId, count] of Object.entries(counts)) {
+          contextCounts[dashboardLikeContextKey("", shareId)] = count;
+        }
+
+        for (const [shareId, isLiked] of Object.entries(liked)) {
+          contextLiked[dashboardLikeContextKey("", shareId)] = isLiked;
+        }
+
+        applyLikeCounts((previous) => ({
+          ...previous,
+          ...contextCounts,
+        }));
+
+        applyUserLikes((previous) => ({
+          ...previous,
+          ...contextLiked,
+        }));
+      },
+      onError: () =>
+        console.warn(
+          "Dashboard targeted shared likes refresh failed; awaiting recovery"
+        ),
+    });
+
+    sharedLikesReconcilerRef.current = reconciler;
+
+    const resume = () => reconciler.resume();
+
+    window.addEventListener("focus", resume);
+    window.addEventListener("online", resume);
+    window.addEventListener("pageshow", resume);
+    document.addEventListener("visibilitychange", resume);
+
+    return () => {
+      reconciler.dispose();
+
+      if (sharedLikesReconcilerRef.current === reconciler) {
+        sharedLikesReconcilerRef.current = null;
+      }
+
       window.removeEventListener("focus", resume);
       window.removeEventListener("online", resume);
       window.removeEventListener("pageshow", resume);
@@ -2838,26 +2923,80 @@ export default function DashboardPage() {
     [currentUserId, dashboardCommentUserLikes]
   );
 
-  const fetchCounts = useCallback(async (userId: string | undefined, visiblePostIds: string[]) => {
-    const safePostIds = visiblePostIds.length ? visiblePostIds : [EMPTY_UUID];
+  const fetchCounts = useCallback(
+    async (
+      userId: string | undefined,
+      visiblePostIds: string[],
+      visibleShareIds?: string[]
+    ) => {
+      const safePostIds = visiblePostIds.length
+        ? visiblePostIds
+        : [EMPTY_UUID];
 
-    const [{ data: likesData }, { data: commentsData }, { data: sharesData }] = await Promise.all([
-      supabase.from("likes").select("post_id, user_id").in("post_id", safePostIds),
-      supabase
-        .from("comments")
-        .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
-        .in("post_id", safePostIds)
-        .order("created_at", { ascending: true }),
-      supabase.from("shares").select("post_id, share_destination, deleted_at").in("post_id", safePostIds),
-    ]);
+      const shouldRefreshSharedLikes = Array.isArray(visibleShareIds);
 
-    const nextLikes: CountMap = {};
-    const nextUserLikes: ToggleMap = {};
-    for (const like of likesData || []) {
-      if (!like.post_id) continue;
-      nextLikes[like.post_id] = (nextLikes[like.post_id] || 0) + 1;
-      if (userId && like.user_id === userId) nextUserLikes[like.post_id] = true;
-    }
+      const safeShareIds =
+        visibleShareIds && visibleShareIds.length
+          ? visibleShareIds
+          : [EMPTY_UUID];
+
+      const sharedLikesQuery = shouldRefreshSharedLikes
+        ? queryDashboardSharedLikes(supabase, safeShareIds)
+        : Promise.resolve({ data: [] });
+
+      const [
+        { data: likesData },
+        { data: sharedLikesData },
+        { data: commentsData },
+        { data: sharesData },
+      ] = await Promise.all([
+        queryDashboardLikes(supabase, safePostIds),
+        sharedLikesQuery,
+        supabase
+          .from("comments")
+          .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
+          .in("post_id", safePostIds)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("shares")
+          .select("post_id, share_destination, deleted_at")
+          .in("post_id", safePostIds),
+      ]);
+
+      const nextLikes: CountMap = {};
+      const nextUserLikes: ToggleMap = {};
+
+      for (const like of likesData || []) {
+        if (!like.post_id) continue;
+
+        const contextKey = dashboardLikeContextKey(
+          like.post_id,
+          null
+        );
+
+        nextLikes[contextKey] = (nextLikes[contextKey] || 0) + 1;
+
+        if (userId && like.user_id === userId) {
+          nextUserLikes[contextKey] = true;
+        }
+      }
+
+      if (shouldRefreshSharedLikes) {
+        for (const like of sharedLikesData || []) {
+          if (!like.post_id || !like.share_id) continue;
+
+          const contextKey = dashboardLikeContextKey(
+            like.post_id,
+            like.share_id
+          );
+
+          nextLikes[contextKey] = (nextLikes[contextKey] || 0) + 1;
+
+          if (userId && like.user_id === userId) {
+            nextUserLikes[contextKey] = true;
+          }
+        }
+      }
 
     const visibleComments = ((commentsData || []) as DashboardComment[]).filter(
       (comment) =>
@@ -2928,8 +3067,38 @@ export default function DashboardPage() {
       nextShares[share.post_id] = (nextShares[share.post_id] || 0) + 1;
     }
 
-    setLikeCounts(nextLikes);
-    setUserLikes(nextUserLikes);
+      setLikeCounts((previous) => {
+        if (shouldRefreshSharedLikes) {
+          return nextLikes;
+        }
+
+        const next = { ...nextLikes };
+
+        for (const [contextKey, count] of Object.entries(previous)) {
+          if (contextKey.startsWith("share:")) {
+            next[contextKey] = count;
+          }
+        }
+
+        return next;
+      });
+
+      setUserLikes((previous) => {
+        if (shouldRefreshSharedLikes) {
+          return nextUserLikes;
+        }
+
+        const next = { ...nextUserLikes };
+
+        for (const [contextKey, isLiked] of Object.entries(previous)) {
+          if (contextKey.startsWith("share:")) {
+            next[contextKey] = isLiked;
+          }
+        }
+
+        return next;
+      });
+
     setCommentCounts(nextComments);
     setShareCounts(nextShares);
     setCommentsByPostId((prev) => {
@@ -2953,7 +3122,14 @@ export default function DashboardPage() {
 
       return next;
     });
-  }, [blockedUserIds, updateDashboardCommentLikeState, setLikeCounts, setUserLikes]);
+    },
+    [
+      blockedUserIds,
+      updateDashboardCommentLikeState,
+      setLikeCounts,
+      setUserLikes,
+    ]
+  );
 
   const refreshCommentStateForPost = useCallback(
     async (
@@ -3623,6 +3799,7 @@ export default function DashboardPage() {
 
     dashboardRefreshInFlightRef.current = true;
     likesReconcilerRef.current?.fullStart();
+    sharedLikesReconcilerRef.current?.fullStart();
 
     const shouldShowFeedLoading = showFeedLoading || !hasLoadedDashboardOnceRef.current;
     if (shouldShowFeedLoading) setFetchingPosts(true);
@@ -3772,7 +3949,11 @@ export default function DashboardPage() {
 
           return Promise.all([
             fetchProfileMap(profileIds, blockedIds),
-            fetchCounts(userId || undefined, countPostIds),
+            fetchCounts(
+              userId || undefined,
+              countPostIds,
+              visibleSharedPosts.map((share) => share.id)
+            ),
           ]);
         })
         .catch((error) => logDashboardNetworkIssue("Dashboard feed extras skipped", error));
@@ -3786,6 +3967,7 @@ export default function DashboardPage() {
       hasLoadedDashboardOnceRef.current = true;
       dashboardRefreshInFlightRef.current = false;
       likesReconcilerRef.current?.resume();
+      sharedLikesReconcilerRef.current?.resume();
       setFetchingPosts(false);
     }
   }, [fetchCounts, fetchFollowData, fetchFriendShowcases, fetchLiveFeedStreams, fetchNotifications, fetchPeopleToDiscover, fetchProfileMap, fetchRecentlyViewed, fetchSharedPosts, fetchSharedReels]);
@@ -4045,7 +4227,43 @@ export default function DashboardPage() {
         { event: "*", schema: "public", table: "shares" },
         refreshSharesOnly
       )
-      .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, (payload) => likesReconcilerRef.current?.event(payload))
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "likes" },
+        (payload) => {
+          const nextRow = (payload?.new || {}) as {
+            share_id?: unknown;
+          };
+          const previousRow = (payload?.old || {}) as {
+            share_id?: unknown;
+          };
+
+          const shareId = String(
+            nextRow.share_id ||
+              previousRow.share_id ||
+              ""
+          );
+
+          const hasShareContext =
+            Object.prototype.hasOwnProperty.call(nextRow, "share_id") ||
+            Object.prototype.hasOwnProperty.call(previousRow, "share_id");
+
+          if (shareId) {
+            sharedLikesReconcilerRef.current?.event(payload);
+            return;
+          }
+
+          if (hasShareContext) {
+            likesReconcilerRef.current?.event(payload);
+            return;
+          }
+
+          // DELETE payloads may contain only the row id depending on
+          // replica identity. Reconcile both loaded contexts safely.
+          likesReconcilerRef.current?.event(payload);
+          sharedLikesReconcilerRef.current?.event(payload);
+        }
+      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "comments" },
@@ -4786,10 +5004,19 @@ export default function DashboardPage() {
         const table = target.kind === "post" ? "likes" : "comment_likes";
         const idColumn = target.kind === "post" ? "post_id" : "comment_id";
 
-        const { data: likeRows, error: likesError } = await supabase
+        let likesQuery = supabase
           .from(table)
           .select("user_id")
           .eq(idColumn, target.id);
+
+        if (target.kind === "post") {
+          likesQuery = target.shareId
+            ? likesQuery.eq("share_id", target.shareId)
+            : likesQuery.is("share_id", null);
+        }
+
+        const { data: likeRows, error: likesError } =
+          await likesQuery;
 
         if (likesError) {
           setLikeListError(`Could not load likes: ${likesError.message}`);
@@ -4845,9 +5072,19 @@ export default function DashboardPage() {
     setLikeListLoading(false);
   }, []);
 
-  const handleLikeToggle = async (postId: string) => {
-    const reconciler = likesReconcilerRef.current;
-    reconciler?.beginMutation(postId);
+  const handleLikeToggle = async (
+    postId: string,
+    shareId: string | null = null
+  ) => {
+    const contextKey = dashboardLikeContextKey(postId, shareId);
+    const mutationContextId = shareId || postId;
+
+    const reconciler = shareId
+      ? sharedLikesReconcilerRef.current
+      : likesReconcilerRef.current;
+
+    reconciler?.beginMutation(mutationContextId);
+
     try {
       const {
         data: { user },
@@ -4860,29 +5097,70 @@ export default function DashboardPage() {
 
       if (reconciler && !reconciler.isCurrent(user.id)) return;
 
-      const alreadyLiked = !!userLikes[postId];
+      const alreadyLiked = !!userLikes[contextKey];
 
       if (alreadyLiked) {
-        const { error } = await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
+        let deleteQuery = supabase
+          .from("likes")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("post_id", postId);
+
+        deleteQuery = shareId
+          ? deleteQuery.eq("share_id", shareId)
+          : deleteQuery.is("share_id", null);
+
+        const { error } = await deleteQuery;
+
         if (error) {
           alert(`Unlike error: ${error.message}`);
           return;
         }
+
         if (reconciler && !reconciler.isCurrent(user.id)) return;
-        setUserLikes((prev) => ({ ...prev, [postId]: false }));
-        setLikeCounts((prev) => ({ ...prev, [postId]: Math.max((prev[postId] || 1) - 1, 0) }));
+
+        setUserLikes((prev) => ({
+          ...prev,
+          [contextKey]: false,
+        }));
+
+        setLikeCounts((prev) => ({
+          ...prev,
+          [contextKey]: Math.max(
+            (prev[contextKey] || 1) - 1,
+            0
+          ),
+        }));
       } else {
-        const { error } = await supabase.from("likes").insert([{ user_id: user.id, post_id: postId }]);
+        const { error } = await supabase
+          .from("likes")
+          .insert([
+            {
+              user_id: user.id,
+              post_id: postId,
+              share_id: shareId,
+            },
+          ]);
+
         if (error) {
           alert(`Like error: ${error.message}`);
           return;
         }
+
         if (reconciler && !reconciler.isCurrent(user.id)) return;
-        setUserLikes((prev) => ({ ...prev, [postId]: true }));
-        setLikeCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
+
+        setUserLikes((prev) => ({
+          ...prev,
+          [contextKey]: true,
+        }));
+
+        setLikeCounts((prev) => ({
+          ...prev,
+          [contextKey]: (prev[contextKey] || 0) + 1,
+        }));
       }
     } finally {
-      reconciler?.endMutation(postId);
+      reconciler?.endMutation(mutationContextId);
     }
   };
 
@@ -5875,13 +6153,19 @@ export default function DashboardPage() {
                             originalProfile={profilesMap[item.sharedPost.original_post.user_id]}
                             currentUserId={currentUserId}
                             profilesMap={profilesMap}
-                            isLiked={!!userLikes[item.sharedPost.post_id]}
-                            likeCount={likeCounts[item.sharedPost.post_id] || 0}
+                            isLiked={!!userLikes[dashboardLikeContextKey(
+                              item.sharedPost.post_id,
+                              item.sharedPost.id
+                            )]}
+                            likeCount={likeCounts[dashboardLikeContextKey(
+                              item.sharedPost.post_id,
+                              item.sharedPost.id
+                            )] || 0}
                             commentCount={commentCounts[dashboardCommentContextKey(
                               item.sharedPost.post_id,
                               item.sharedPost.id
                             )] || 0}
-                            shareCount={shareCounts[item.sharedPost.post_id] || 0}
+                            shareCount={0}
                             openPostMenuId={openPostMenuId}
                             editingPostId={editingPostId}
                             editingPostContent={editingPostContent}
@@ -5925,8 +6209,20 @@ export default function DashboardPage() {
                               )
                             }
                             onCancelEditComment={handleCancelEditDashboardComment}
-                            onLikeOriginal={() => handleLikeToggle(item.sharedPost.post_id)}
-                            onOpenPostLikes={() => handleOpenDashboardLikeList({ kind: "post", id: item.sharedPost.post_id, title: "Liked by" })}
+                            onLikeOriginal={() =>
+                              handleLikeToggle(
+                                item.sharedPost.post_id,
+                                item.sharedPost.id
+                              )
+                            }
+                            onOpenPostLikes={() =>
+                              handleOpenDashboardLikeList({
+                                kind: "post",
+                                id: item.sharedPost.post_id,
+                                shareId: item.sharedPost.id,
+                                title: "Liked by",
+                              })
+                            }
                             onOpenCommentLikes={(commentId) => handleOpenDashboardLikeList({ kind: "comment", id: commentId, title: "Comment likes" })}
                             onToggleComments={() =>
                               handleToggleDashboardComments(
