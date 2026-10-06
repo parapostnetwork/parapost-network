@@ -4839,8 +4839,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const caption = window.prompt("Add a caption for your share, or leave blank:", "") || "";
-    const trimmedCaption = caption.trim();
+    const trimmedCaption = "";
 
     const { data: insertedShare, error } = await supabase
       .from("shares")
