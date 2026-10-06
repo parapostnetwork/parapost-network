@@ -5216,8 +5216,7 @@ export default function DashboardPage() {
     const { error } = await supabase
       .from("comments")
       .delete()
-      .eq("id", commentId)
-      .eq("user_id", currentUserId);
+      .eq("id", commentId);
 
     if (error) {
       alert(`Delete comment error: ${error.message}`);
@@ -13635,7 +13634,10 @@ function DashboardCommentsPanel({
   ) => {
     const author = profilesMap[comment.user_id];
     const authorName = author?.full_name || author?.username || "Parapost member";
-    const canManage = !!currentUserId && comment.user_id === currentUserId;
+    const canEdit = !!currentUserId && comment.user_id === currentUserId;
+    const canDelete =
+      !!currentUserId &&
+      (comment.user_id === currentUserId || postOwnerId === currentUserId);
     const isEditingComment = editingCommentId === comment.id;
     const isSavingComment = savingCommentId === comment.id;
     const commentLikeCount = commentLikeCounts[comment.id] || 0;
@@ -13718,11 +13720,11 @@ function DashboardCommentsPanel({
                   {commentLikeCount} {commentLikeCount === 1 ? "like" : "likes"}
                 </button>
               ) : null}
-              {canManage ? (
-                <>
-                  <button type="button" onClick={() => onStartEditComment(comment)} style={dashboardCommentEditActionButtonStyle}>Edit</button>
-                  <button type="button" onClick={() => onDeleteComment(comment.id)} style={dashboardCommentDeleteButtonStyle}>Delete</button>
-                </>
+              {canEdit ? (
+                <button type="button" onClick={() => onStartEditComment(comment)} style={dashboardCommentEditActionButtonStyle}>Edit</button>
+              ) : null}
+              {canDelete ? (
+                <button type="button" onClick={() => onDeleteComment(comment.id)} style={dashboardCommentDeleteButtonStyle}>Delete</button>
               ) : currentUserId ? (
                 <button type="button" onClick={() => onReportComment(comment.id, comment.user_id)} style={dashboardCommentDeleteButtonStyle}>Report</button>
               ) : null}
