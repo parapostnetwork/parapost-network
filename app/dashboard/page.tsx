@@ -150,6 +150,7 @@ type DashboardComment = {
   is_hidden?: boolean | null;
   parent_comment_id?: string | null;
   reply_to_user_id?: string | null;
+  reply_to_comment_id?: string | null;
 };
 
 type SharedReelItem = {
@@ -2868,7 +2869,7 @@ export default function DashboardPage() {
       supabase.from("likes").select("post_id, user_id").in("post_id", safePostIds),
       supabase
         .from("comments")
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .in("post_id", safePostIds)
         .order("created_at", { ascending: true }),
       supabase.from("shares").select("post_id, share_destination, deleted_at").in("post_id", safePostIds),
@@ -2972,7 +2973,7 @@ export default function DashboardPage() {
 
       const { data, error } = await supabase
         .from("comments")
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
 
@@ -4982,7 +4983,7 @@ export default function DashboardPage() {
       try {
         const { data, error } = await supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
           .eq("post_id", postId)
           .order("created_at", { ascending: true })
           .limit(80);
@@ -5082,9 +5083,10 @@ export default function DashboardPage() {
             content: trimmed,
             parent_comment_id: null,
             reply_to_user_id: null,
+            reply_to_comment_id: null,
           },
         ])
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {
@@ -5181,7 +5183,7 @@ export default function DashboardPage() {
         .update({ content: trimmed })
         .eq("id", comment.id)
         .eq("user_id", currentUserId)
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {
@@ -13543,8 +13545,52 @@ function DashboardCommentsPanel({
   }, []);
 
   const topLevelComments = threadComments.filter((comment) => !comment.parent_comment_id);
-  const repliesFor = (commentId: string) =>
-    threadComments.filter((comment) => comment.parent_comment_id === commentId);
+  const repliesFor = (commentId: string) => {
+    const replies = threadComments.filter(
+      (comment) => comment.parent_comment_id === commentId
+    );
+
+    const replyIds = new Set(replies.map((reply) => reply.id));
+    const childrenByTarget = new Map<string, DashboardComment[]>();
+    const rootReplies: DashboardComment[] = [];
+
+    for (const reply of replies) {
+      const targetId = reply.reply_to_comment_id;
+
+      if (targetId && targetId !== commentId && replyIds.has(targetId)) {
+        const children = childrenByTarget.get(targetId) || [];
+        children.push(reply);
+        childrenByTarget.set(targetId, children);
+      } else {
+        rootReplies.push(reply);
+      }
+    }
+
+    const orderedReplies: DashboardComment[] = [];
+    const visited = new Set<string>();
+
+    const appendReply = (reply: DashboardComment) => {
+      if (visited.has(reply.id)) return;
+
+      visited.add(reply.id);
+      orderedReplies.push(reply);
+
+      for (const child of childrenByTarget.get(reply.id) || []) {
+        appendReply(child);
+      }
+    };
+
+    for (const reply of rootReplies) {
+      appendReply(reply);
+    }
+
+    // Preserve any malformed or legacy orphaned replies rather than hiding them.
+    for (const reply of replies) {
+      appendReply(reply);
+    }
+
+    return orderedReplies;
+  };
 
   const submitReply = async (parentComment: DashboardComment, replyToComment: DashboardComment) => {
     const trimmed = replyDraft.trim();
@@ -13561,8 +13607,9 @@ function DashboardCommentsPanel({
           content: trimmed,
           parent_comment_id: rootParentId,
           reply_to_user_id: replyToComment.user_id,
+          reply_to_comment_id: replyToComment.id,
         }])
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {

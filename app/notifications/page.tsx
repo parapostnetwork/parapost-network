@@ -64,6 +64,7 @@ type NotificationPostComment = {
   is_hidden?: boolean | null;
   parent_comment_id?: string | null;
   reply_to_user_id?: string | null;
+  reply_to_comment_id?: string | null;
 };
 
 type NotificationPostOverlayData = {
@@ -506,33 +507,78 @@ export default function NotificationsPage() {
   const postOverlayOrderedComments = useMemo(() => {
     if (!postOverlayData) return [];
 
-    const topLevelComments: NotificationPostComment[] = [];
-    const topLevelCommentIds = new Set<string>();
-    const repliesByRoot = new Map<string, NotificationPostComment[]>();
+    const comments = postOverlayData.comments;
+    const topLevelComments = comments.filter(
+      (comment) => !comment.parent_comment_id
+    );
+    const orderedComments: NotificationPostComment[] = [];
+    const visited = new Set<string>();
 
-    for (const comment of postOverlayData.comments) {
-      if (comment.parent_comment_id) {
-        const replies = repliesByRoot.get(comment.parent_comment_id) || [];
-        replies.push(comment);
-        repliesByRoot.set(comment.parent_comment_id, replies);
-      } else {
-        topLevelComments.push(comment);
-        topLevelCommentIds.add(comment.id);
+    const appendReply = (
+      reply: NotificationPostComment,
+      childrenByTarget: Map<string, NotificationPostComment[]>
+    ) => {
+      if (visited.has(reply.id)) return;
+
+      visited.add(reply.id);
+      orderedComments.push(reply);
+
+      for (const child of childrenByTarget.get(reply.id) || []) {
+        appendReply(child, childrenByTarget);
+      }
+    };
+
+    for (const rootComment of topLevelComments) {
+      if (!visited.has(rootComment.id)) {
+        visited.add(rootComment.id);
+        orderedComments.push(rootComment);
+      }
+
+      const replies = comments.filter(
+        (comment) => comment.parent_comment_id === rootComment.id
+      );
+      const replyIds = new Set(replies.map((reply) => reply.id));
+      const childrenByTarget = new Map<
+        string,
+        NotificationPostComment[]
+      >();
+      const rootReplies: NotificationPostComment[] = [];
+
+      for (const reply of replies) {
+        const targetId = reply.reply_to_comment_id;
+
+        if (
+          targetId &&
+          targetId !== rootComment.id &&
+          replyIds.has(targetId)
+        ) {
+          const children = childrenByTarget.get(targetId) || [];
+          children.push(reply);
+          childrenByTarget.set(targetId, children);
+        } else {
+          rootReplies.push(reply);
+        }
+      }
+
+      for (const reply of rootReplies) {
+        appendReply(reply, childrenByTarget);
+      }
+
+      // Preserve malformed or legacy replies rather than hiding them.
+      for (const reply of replies) {
+        appendReply(reply, childrenByTarget);
       }
     }
 
-    const orderedComments = topLevelComments.flatMap((comment) => [
-      comment,
-      ...(repliesByRoot.get(comment.id) || []),
-    ]);
+    // Preserve orphaned comments whose root no longer exists.
+    for (const comment of comments) {
+      if (!visited.has(comment.id)) {
+        visited.add(comment.id);
+        orderedComments.push(comment);
+      }
+    }
 
-    const orphanReplies = postOverlayData.comments.filter(
-      (comment) =>
-        !!comment.parent_comment_id &&
-        !topLevelCommentIds.has(comment.parent_comment_id)
-    );
-
-    return [...orderedComments, ...orphanReplies];
+    return orderedComments;
   }, [postOverlayData]);
 
   const handleTogglePostOverlayCommentLike = async (commentId: string) => {
@@ -640,10 +686,11 @@ export default function NotificationsPage() {
             content: trimmed,
             parent_comment_id: rootParentId,
             reply_to_user_id: replyToComment.user_id,
+            reply_to_comment_id: replyToComment.id,
           },
         ])
         .select(
-          "id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id"
+          "id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
         )
         .single();
 
@@ -856,7 +903,7 @@ export default function NotificationsPage() {
             .order("display_order", { ascending: true }),
           supabase
             .from("comments")
-            .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+            .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
             .eq("post_id", postId)
             .order("created_at", { ascending: true }),
           supabase

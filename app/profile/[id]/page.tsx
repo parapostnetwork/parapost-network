@@ -149,6 +149,7 @@ type ProfileComment = {
   is_hidden?: boolean | null;
   parent_comment_id?: string | null;
   reply_to_user_id?: string | null;
+  reply_to_comment_id?: string | null;
 };
 
 type Reel = {
@@ -4025,7 +4026,7 @@ const closeProfileMobileSearch = useCallback(() => {
           .in("post_id", countPostIds),
         supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
           .in("post_id", countPostIds)
           .order("created_at", { ascending: true }),
         supabase
@@ -5068,7 +5069,7 @@ useEffect(() => {
 
         const { data, error } = await supabase
           .from("comments")
-          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+          .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
           .eq("post_id", postId)
           .order("created_at", { ascending: true })
           .limit(80);
@@ -5253,9 +5254,10 @@ useEffect(() => {
             content: trimmed,
             parent_comment_id: null,
             reply_to_user_id: null,
+            reply_to_comment_id: null,
           },
         ])
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {
@@ -5328,8 +5330,9 @@ useEffect(() => {
           content: trimmed,
           parent_comment_id: rootParentId,
           reply_to_user_id: replyToComment.user_id,
+          reply_to_comment_id: replyToComment.id,
         }])
-        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+        .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
         .single();
 
       if (error) {
@@ -5383,7 +5386,7 @@ useEffect(() => {
       .eq("id", comment.id)
       .eq("post_id", postId)
       .eq("user_id", viewerId)
-      .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id")
+      .select("id, post_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
       .single();
 
     if (error) {
@@ -5479,6 +5482,60 @@ useEffect(() => {
     }
 
     alert("Thanks. This comment has been sent to Parapost moderation.");
+  };
+
+  const orderProfileRepliesForThread = (
+    comments: ProfileComment[],
+    rootCommentId: string,
+  ) => {
+    const replies = comments.filter(
+      (comment) => comment.parent_comment_id === rootCommentId
+    );
+
+    const replyIds = new Set(replies.map((reply) => reply.id));
+    const childrenByTarget = new Map<string, ProfileComment[]>();
+    const rootReplies: ProfileComment[] = [];
+
+    for (const reply of replies) {
+      const targetId = reply.reply_to_comment_id;
+
+      if (
+        targetId &&
+        targetId !== rootCommentId &&
+        replyIds.has(targetId)
+      ) {
+        const children = childrenByTarget.get(targetId) || [];
+        children.push(reply);
+        childrenByTarget.set(targetId, children);
+      } else {
+        rootReplies.push(reply);
+      }
+    }
+
+    const orderedReplies: ProfileComment[] = [];
+    const visited = new Set<string>();
+
+    const appendReply = (reply: ProfileComment) => {
+      if (visited.has(reply.id)) return;
+
+      visited.add(reply.id);
+      orderedReplies.push(reply);
+
+      for (const child of childrenByTarget.get(reply.id) || []) {
+        appendReply(child);
+      }
+    };
+
+    for (const reply of rootReplies) {
+      appendReply(reply);
+    }
+
+    // Preserve malformed or legacy orphaned replies rather than hiding them.
+    for (const reply of replies) {
+      appendReply(reply);
+    }
+
+    return orderedReplies;
   };
 
   const renderProfileCommentRow = (
@@ -5914,7 +5971,7 @@ useEffect(() => {
                   {comments
                     .filter((comment) => !comment.parent_comment_id)
                     .map((comment) => {
-                      const replies = comments.filter((reply) => reply.parent_comment_id === comment.id);
+                      const replies = orderProfileRepliesForThread(comments, comment.id);
                       const repliesExpanded = !!expandedProfileReplyThreadsMap[comment.id];
 
                       return (
