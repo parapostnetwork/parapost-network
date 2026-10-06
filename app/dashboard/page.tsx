@@ -2353,43 +2353,6 @@ export default function DashboardPage() {
     [posts, sharedPostItems]
   );
 
-  const insertDashboardNotification = useCallback(
-    async ({
-      userId,
-      actorId,
-      type,
-      postId,
-      commentId = null,
-      message,
-    }: {
-      userId?: string | null;
-      actorId?: string | null;
-      type: "post_share" | "comment_like";
-      postId?: string | null;
-      commentId?: string | null;
-      message: string;
-    }) => {
-      if (!userId || !actorId || !type || userId === actorId) return;
-
-      const { error } = await supabase.from("notifications").insert([
-        {
-          user_id: userId,
-          actor_id: actorId,
-          type,
-          post_id: postId || null,
-          comment_id: commentId || null,
-          friend_request_id: null,
-          message,
-          is_read: false,
-        },
-      ]);
-
-      if (error) {
-        console.warn("Dashboard notification skipped:", error.message);
-      }
-    },
-    []
-  );
 
   const mixedFeedItems = useMemo<MixedFeedItem[]>(() => {
     const visiblePostsForViewer = posts.filter((post) => !blockedUserIds.includes(post.user_id));
@@ -4893,6 +4856,11 @@ export default function DashboardPage() {
       .single();
 
     if (error) {
+      if (error.code === "23505") {
+        alert("You already shared this post to your feed.");
+        return;
+      }
+
       alert(`Share error: ${error.message}`);
       return;
     }
@@ -4916,16 +4884,6 @@ export default function DashboardPage() {
     }
 
     setShareCounts((prev) => ({ ...prev, [postId]: (prev[postId] || 0) + 1 }));
-
-    if (originalPost?.user_id && originalPost.user_id !== user.id) {
-      await insertDashboardNotification({
-        userId: originalPost.user_id,
-        actorId: user.id,
-        type: "post_share",
-        postId,
-        message: "shared your post.",
-      });
-    }
 
     alert("Shared to your feed and profile.");
   };
