@@ -315,10 +315,10 @@ function getNotificationTitle(notification: NotificationCard) {
     return `${actorName} commented on a post you shared.`;
   }
   if (notification.share_id && type === "comment_like") {
-    return `${actorName} liked your comment on a post you shared.`;
+    return `${actorName} liked your comment on a shared post.`;
   }
   if (notification.share_id && type === "comment_reply") {
-    return `${actorName} replied to your comment on a post you shared.`;
+    return `${actorName} replied to your comment on a shared post.`;
   }
 
   if (notification.message?.trim()) return notification.message.trim();
@@ -345,10 +345,10 @@ function getPostOverlayActivityTitle(notification: NotificationCard) {
     return `${actorName} commented on a post you shared`;
   }
   if (notification.share_id && type === "comment_like") {
-    return `${actorName} liked your comment on a post you shared`;
+    return `${actorName} liked your comment on a shared post`;
   }
   if (notification.share_id && type === "comment_reply") {
-    return `${actorName} replied to your comment on a post you shared`;
+    return `${actorName} replied to your comment on a shared post`;
   }
 
   if (type === "post_like") return `${actorName} liked your post`;
@@ -1688,7 +1688,7 @@ export default function NotificationsPage() {
                     lineHeight: 1.2,
                   }}
                 >
-                  {postOverlayIsMobile && !postOverlayExpanded
+                  {postOverlayNotification.share_id || (postOverlayIsMobile && !postOverlayExpanded)
                     ? getPostOverlayActivityTitle(postOverlayNotification)
                     : postOverlayData
                       ? `${getDisplayName(postOverlayData.author)}'s post`
