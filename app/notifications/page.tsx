@@ -971,6 +971,111 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleDeletePostOverlayComment = async (
+    comment: NotificationPostComment
+  ) => {
+    if (!currentUserId || !postOverlayData) return;
+
+    const canDelete =
+      comment.user_id === currentUserId ||
+      postOverlayData.post.user_id === currentUserId;
+
+    if (!canDelete) return;
+    if (!window.confirm("Delete this comment?")) return;
+
+    await supabase
+      .from("comment_likes")
+      .delete()
+      .eq("comment_id", comment.id);
+
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", comment.id);
+
+    if (error) {
+      alert(`Delete comment error: ${error.message}`);
+      return;
+    }
+
+    const shareId = postOverlayNotification?.share_id || null;
+
+    let commentsQuery = supabase
+      .from("comments")
+      .select(
+        "id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id"
+      )
+      .eq("post_id", postOverlayData.post.id)
+      .order("created_at", { ascending: true });
+
+    commentsQuery = shareId
+      ? commentsQuery.eq("share_id", shareId)
+      : commentsQuery.is("share_id", null);
+
+    const { data: remainingComments, error: reloadError } =
+      await commentsQuery;
+
+    if (reloadError) {
+      console.warn(
+        "Notification overlay comments could not be refreshed after delete:",
+        reloadError.message
+      );
+
+      setPostOverlayData((current) =>
+        current
+          ? {
+              ...current,
+              comments: current.comments.filter(
+                (item) => item.id !== comment.id
+              ),
+            }
+          : current
+      );
+
+      return;
+    }
+
+    const nextComments =
+      (remainingComments || []) as NotificationPostComment[];
+
+    const remainingIds = new Set(
+      nextComments.map((item) => item.id)
+    );
+
+    setPostOverlayData((current) =>
+      current
+        ? {
+            ...current,
+            comments: nextComments,
+          }
+        : current
+    );
+
+    setPostOverlayCommentLikeCounts((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([commentId]) =>
+          remainingIds.has(commentId)
+        )
+      )
+    );
+
+    setPostOverlayCommentUserLikes((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([commentId]) =>
+          remainingIds.has(commentId)
+        )
+      )
+    );
+
+    if (
+      postOverlayReplyingToId &&
+      !remainingIds.has(postOverlayReplyingToId)
+    ) {
+      setPostOverlayReplyingToId(null);
+      setPostOverlayReplyDraft("");
+    }
+  };
+
   const handleReportPostOverlayComment = async (
     commentId: string,
     commentOwnerId?: string | null
@@ -2071,9 +2176,16 @@ export default function NotificationsPage() {
                           const isPostingReply =
                             postOverlayPostingReplyId === comment.id;
 
+                          const canDelete =
+                            Boolean(currentUserId) &&
+                            (comment.user_id === currentUserId ||
+                              postOverlayData.post.user_id ===
+                                currentUserId);
+
                           const canReport =
                             !!currentUserId &&
-                            comment.user_id !== currentUserId;
+                            comment.user_id !== currentUserId &&
+                            !canDelete;
 
                           return (
                             <div
@@ -2246,6 +2358,28 @@ export default function NotificationsPage() {
                                   >
                                     Reply
                                   </button>
+
+                                  {canDelete ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleDeletePostOverlayComment(
+                                          comment
+                                        )
+                                      }
+                                      style={{
+                                        border: 0,
+                                        padding: 0,
+                                        background: "transparent",
+                                        color: "#f87171",
+                                        fontSize: 12,
+                                        fontWeight: 850,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  ) : null}
 
                                   {canReport ? (
                                     <button
