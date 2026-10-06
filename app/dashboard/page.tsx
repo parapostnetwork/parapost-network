@@ -5477,40 +5477,6 @@ export default function DashboardPage() {
         }));
       }
 
-      const notificationRecipientId = shareId
-        ? sharedPostOwnerId
-        : postOwnerId;
-
-      if (
-        notificationRecipientId &&
-        notificationRecipientId !== currentUserId
-      ) {
-        const { error: notificationError } = await supabase
-          .from("notifications")
-          .insert([
-            {
-              user_id: notificationRecipientId,
-              actor_id: currentUserId,
-              type: "post_comment",
-              post_id: postId,
-              comment_id: savedComment.id,
-              share_id: shareId || null,
-              friend_request_id: null,
-              message: shareId
-                ? "commented on a post you shared."
-                : "commented on your post.",
-              is_read: false,
-            },
-          ]);
-
-        if (notificationError) {
-          console.warn(
-            "Dashboard comment notification skipped:",
-            notificationError.message
-          );
-        }
-      }
-
       setOpenCommentsPostId((current) =>
         current === contextKey ? null : current
       );
