@@ -5018,7 +5018,11 @@ export default function DashboardPage() {
     }));
   };
 
-  const handleAddDashboardComment = async (postId: string, postOwnerId?: string | null) => {
+  const handleAddDashboardComment = async (
+    postId: string,
+    postOwnerId?: string | null,
+    sharedPostOwnerId?: string | null
+  ) => {
     const trimmed = (commentDrafts[postId] || "").trim();
 
     if (!trimmed) return;
@@ -5085,19 +5089,45 @@ export default function DashboardPage() {
         }));
       }
 
+      const notificationRecipients = new Set<string>();
+
       if (postOwnerId && postOwnerId !== currentUserId) {
-        await supabase.from("notifications").insert([
-          {
-            user_id: postOwnerId,
+        notificationRecipients.add(postOwnerId);
+      }
+
+      if (sharedPostOwnerId && sharedPostOwnerId !== currentUserId) {
+        notificationRecipients.add(sharedPostOwnerId);
+      }
+
+      if (notificationRecipients.size > 0) {
+        const notifications = Array.from(notificationRecipients).map(
+          (recipientId) => ({
+            user_id: recipientId,
             actor_id: currentUserId,
             type: "post_comment",
             post_id: postId,
             comment_id: savedComment.id,
             friend_request_id: null,
-            message: "commented on your post.",
+            message:
+              sharedPostOwnerId &&
+              recipientId === sharedPostOwnerId &&
+              recipientId !== postOwnerId
+                ? "commented on a post you shared."
+                : "commented on your post.",
             is_read: false,
-          },
-        ]);
+          })
+        );
+
+        const { error: notificationError } = await supabase
+          .from("notifications")
+          .insert(notifications);
+
+        if (notificationError) {
+          console.warn(
+            "Dashboard comment notification skipped:",
+            notificationError.message
+          );
+        }
       }
 
       // After posting, close the full comment composer and leave the newest
@@ -5758,7 +5788,13 @@ export default function DashboardPage() {
                             onOpenCommentLikes={(commentId) => handleOpenDashboardLikeList({ kind: "comment", id: commentId, title: "Comment likes" })}
                             onToggleComments={() => handleToggleDashboardComments(item.sharedPost.post_id)}
                             onCommentDraftChange={(value) => handleDashboardCommentDraftChange(item.sharedPost.post_id, value)}
-                            onAddComment={() => handleAddDashboardComment(item.sharedPost.post_id, item.sharedPost.original_post.user_id)}
+                            onAddComment={() =>
+                              handleAddDashboardComment(
+                                item.sharedPost.post_id,
+                                item.sharedPost.original_post.user_id,
+                                item.sharedPost.user_id
+                              )
+                            }
                             onDeleteComment={(commentId) => handleDeleteDashboardComment(item.sharedPost.post_id, commentId)}
                             onReportComment={(commentId, commentOwnerId) => handleReportDashboardComment(commentId, commentOwnerId)}
                             onShareOriginal={() => handleShare(item.sharedPost.post_id)}
