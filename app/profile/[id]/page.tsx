@@ -16164,7 +16164,7 @@ return (
        * Mobile positioning is intentionally untouched.
        * Tablet + desktop use the single avatar-contained bubble.
        * Match the approved mobile relationship to the avatar:
-       * 14px horizontal gap and top: -18px.
+       * slight horizontal overlap and top: -18px.
        * ========================================================= */
 
       .profile-polish-surface .profile-desktop-thought-anchor,
@@ -16191,6 +16191,7 @@ return (
           height: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
+          border: 0 !important;
           overflow: visible !important;
           pointer-events: none !important;
           z-index: 99998 !important;
@@ -16202,7 +16203,7 @@ return (
           position: absolute !important;
           top: -18px !important;
           right: auto !important;
-          left: calc(100% + 14px) !important;
+          left: calc(100% - 22px) !important;
           pointer-events: auto !important;
           cursor: pointer !important;
           z-index: 99999 !important;
