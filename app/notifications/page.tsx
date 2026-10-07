@@ -71,6 +71,7 @@ type NotificationPostComment = {
 
 type NotificationPostOverlayData = {
   post: NotificationPost;
+  contextOwnerId: string | null;
   author: ProfilePreview | null;
   images: NotificationPostImage[];
   comments: NotificationPostComment[];
@@ -1053,7 +1054,7 @@ export default function NotificationsPage() {
 
     const canDelete =
       comment.user_id === currentUserId ||
-      postOverlayData.post.user_id === currentUserId;
+      postOverlayData.contextOwnerId === currentUserId;
 
     if (!canDelete) return;
     if (!window.confirm("Delete this comment?")) return;
@@ -1323,6 +1324,25 @@ export default function NotificationsPage() {
 
         const post = postData as NotificationPost;
 
+        let contextOwnerId: string | null = post.user_id;
+
+        if (shareId) {
+          const { data: shareData, error: shareError } = await supabase
+            .from("shares")
+            .select("user_id")
+            .eq("id", shareId)
+            .eq("post_id", postId)
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          if (shareError) {
+            throw shareError;
+          }
+
+          contextOwnerId =
+            typeof shareData?.user_id === "string" ? shareData.user_id : null;
+        }
+
         let commentsQuery = supabase
           .from("comments")
           .select("id, post_id, share_id, user_id, content, created_at, is_hidden, parent_comment_id, reply_to_user_id, reply_to_comment_id")
@@ -1475,6 +1495,7 @@ export default function NotificationsPage() {
 
         setPostOverlayData({
           post,
+          contextOwnerId,
           author: profiles[post.user_id] || null,
           images,
           comments,
@@ -2258,7 +2279,7 @@ export default function NotificationsPage() {
                           const canDelete =
                             Boolean(currentUserId) &&
                             (comment.user_id === currentUserId ||
-                              postOverlayData.post.user_id ===
+                              postOverlayData.contextOwnerId ===
                                 currentUserId);
 
                           const canReport =
