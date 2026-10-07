@@ -16201,6 +16201,33 @@ return (
       }
     `}</style>
 
+    <style jsx global>{`
+      /* =========================================================
+       * PROFILE MOBILE BOTTOM SCROLL CLEANUP v43
+       *
+       * Use one bottom clearance for the fixed mobile navigation.
+       * Older cutoff/feed rules were adding clearance at multiple
+       * nested levels, creating a large blank scroll area.
+       * ========================================================= */
+      @media (max-width: 720px) {
+        .profile-polish-surface.profile-tabs-mobile-cutoff-v22
+          .profile-page-shell {
+          padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
+        }
+
+        .profile-polish-surface.profile-tabs-mobile-cutoff-v22
+          .profile-stream-stack {
+          padding-bottom: 0 !important;
+          margin-bottom: 0 !important;
+        }
+
+        .profile-polish-surface.profile-tabs-mobile-cutoff-v22
+          .profile-feed-section-card {
+          margin-bottom: 0 !important;
+        }
+      }
+    `}</style>
+
     {/* Mobile Top Bar */}
     <div className="xl:hidden" style={mobileTopBarStyle}>
       <button
