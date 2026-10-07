@@ -16185,12 +16185,22 @@ return (
         }
 
         .profile-polish-surface .profile-avatar-thought-original {
-          display: contents !important;
+          display: block !important;
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: visible !important;
+          pointer-events: none !important;
+          z-index: 99998 !important;
         }
 
         .profile-polish-surface
           .profile-avatar-thought-original
           > .profile-thought-bubble {
+          position: absolute !important;
           top: -18px !important;
           right: auto !important;
           left: calc(100% + 14px) !important;
