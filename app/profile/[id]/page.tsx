@@ -15562,10 +15562,6 @@ return (
       }
 
       @media (min-width: 1101px) {
-        .profile-polish-surface .profile-avatar-thought-original {
-          display: none !important;
-        }
-
         .profile-polish-surface .profile-desktop-thought-anchor {
           display: block !important;
         }
@@ -16185,6 +16181,7 @@ return (
         }
 
         .profile-polish-surface
+          .profile-hero-content
           .profile-avatar-wrap
           > .profile-avatar-thought-original {
           display: block !important;
