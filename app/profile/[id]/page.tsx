@@ -16208,6 +16208,22 @@ return (
           z-index: 99999 !important;
         }
       }
+
+      /* Desktop: remove wrapper border and match mobile's slight overlap. */
+      @media (min-width: 1101px) {
+        .profile-polish-surface
+          .profile-hero-content
+          .profile-avatar-wrap
+          > .profile-avatar-thought-original {
+          border: 0 !important;
+        }
+
+        .profile-polish-surface
+          .profile-avatar-thought-original
+          > .profile-thought-bubble {
+          left: calc(100% - 10px) !important;
+        }
+      }
     `}</style>
 
     <style jsx global>{`
