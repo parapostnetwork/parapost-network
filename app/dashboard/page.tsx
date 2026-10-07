@@ -14643,7 +14643,7 @@ function SharedPostCard({
           post={originalPost}
           profile={originalProfile}
           postId={originalPost.id}
-          postOwnerId={originalPost.user_id}
+          postOwnerId={sharedPost.user_id}
           comments={comments}
           profilesMap={profilesMap}
           currentUserId={currentUserId}
