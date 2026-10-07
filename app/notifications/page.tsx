@@ -477,6 +477,7 @@ export default function NotificationsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [statusMessage, setStatusMessage] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [reelActivityModal, setReelActivityModal] = useState<NotificationCard | null>(null);
   const [postOverlayNotification, setPostOverlayNotification] = useState<NotificationCard | null>(null);
   const [postOverlayData, setPostOverlayData] = useState<NotificationPostOverlayData | null>(null);
@@ -499,6 +500,8 @@ export default function NotificationsPage() {
   const [postOverlayCommentDraft, setPostOverlayCommentDraft] = useState("");
   const [postOverlayPostingComment, setPostOverlayPostingComment] = useState(false);
   const postOverlayCommentComposerRef = useRef<HTMLTextAreaElement | null>(null);
+  const postOverlayDialogRef = useRef<HTMLElement | null>(null);
+  const postOverlayCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const realtimeReloadTimerRef = useRef<number | null>(null);
   const reelActivityDialogRef = useRef<HTMLDivElement | null>(null);
   const reelActivityCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1232,10 +1235,15 @@ export default function NotificationsPage() {
   }, [notifications, reelActivityModal]);
 
   useEffect(() => {
-    if (!reelActivityModal) return;
+    if (!reelActivityModal || typeof document === "undefined") return;
 
     const previousFocus =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
 
     reelActivityCloseButtonRef.current?.focus({ preventScroll: true });
 
@@ -1272,6 +1280,8 @@ export default function NotificationsPage() {
 
     return () => {
       window.removeEventListener("keydown", handleDialogKeyDown);
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscroll;
 
       if (previousFocus?.isConnected) {
         previousFocus.focus({ preventScroll: true });
@@ -1550,24 +1560,55 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (!postOverlayNotification || typeof document === "undefined") return;
 
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     const previousOverscroll = document.body.style.overscrollBehavior;
 
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
 
-    const handleEscape = (event: KeyboardEvent) => {
+    postOverlayCloseButtonRef.current?.focus({ preventScroll: true });
+
+    const handleDialogKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
         setPostOverlayNotification(null);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const controls = Array.from(
+        postOverlayDialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        ) || []
+      );
+
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
-    window.addEventListener("keydown", handleEscape);
+    window.addEventListener("keydown", handleDialogKeyDown);
 
     return () => {
       document.body.style.overflow = previousOverflow;
       document.body.style.overscrollBehavior = previousOverscroll;
-      window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("keydown", handleDialogKeyDown);
+
+      if (previousFocus?.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
     };
   }, [postOverlayNotification]);
 
@@ -1588,7 +1629,11 @@ export default function NotificationsPage() {
     }, 160);
 
     return () => window.clearTimeout(timer);
-  }, [postOverlayData, postOverlayNotification]);
+  }, [
+    postOverlayData?.post.id,
+    postOverlayNotification?.id,
+    postOverlayNotification?.comment_id,
+  ]);
 
   const showStatus = useCallback((message: string) => {
     setStatusMessage(message);
@@ -1752,6 +1797,32 @@ export default function NotificationsPage() {
     showStatus("All notifications marked as read.");
   };
 
+  const handleDeleteAllNotifications = async () => {
+    if (!currentUserId || notifications.length === 0 || deletingAll) return;
+
+    const confirmed = window.confirm(
+      "Delete all notifications? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setDeletingAll(true);
+
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      alert(`Could not delete all notifications: ${error.message}`);
+      setDeletingAll(false);
+      return;
+    }
+
+    setNotifications([]);
+    setDeletingAll(false);
+    showStatus("All notifications deleted.");
+  };
+
   const handleOpenNotification = (notification: NotificationCard) => {
     const href = getNotificationHref(notification);
     const notificationIds = notification.groupedNotificationIds?.length
@@ -1865,6 +1936,7 @@ export default function NotificationsPage() {
           }}
         >
           <section
+            ref={postOverlayDialogRef}
             className="notification-post-overlay-shell"
             role="dialog"
             aria-modal="true"
@@ -1872,6 +1944,7 @@ export default function NotificationsPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <header
+              className="notification-post-overlay-header"
               style={{
                 minHeight: 66,
                 display: "flex",
@@ -1924,6 +1997,7 @@ export default function NotificationsPage() {
               </div>
 
               <button
+                ref={postOverlayCloseButtonRef}
                 type="button"
                 onClick={() => setPostOverlayNotification(null)}
                 aria-label="Close post"
@@ -2893,9 +2967,21 @@ export default function NotificationsPage() {
             width: 100vw;
             height: 100dvh;
             max-height: 100dvh;
+            box-sizing: border-box;
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
             border-radius: 0;
             border-left: 0;
             border-right: 0;
+          }
+
+          .notification-post-overlay-header {
+            padding-top: max(12px, env(safe-area-inset-top)) !important;
+          }
+
+          .notification-post-overlay-scroll {
+            padding-bottom: env(safe-area-inset-bottom);
+            box-sizing: border-box;
           }
         }
 
@@ -3129,6 +3215,25 @@ export default function NotificationsPage() {
               }}
             >
               Mark all read
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDeleteAllNotifications}
+              disabled={deletingAll || notifications.length === 0}
+              style={{
+                ...secondaryActionStyle,
+                border: "1px solid rgba(248,113,113,0.55)",
+                background: "rgba(239,68,68,0.12)",
+                color: "#fecaca",
+                opacity: deletingAll || notifications.length === 0 ? 0.58 : 1,
+                cursor:
+                  deletingAll || notifications.length === 0
+                    ? "not-allowed"
+                    : "pointer",
+              }}
+            >
+              {deletingAll ? "Deleting..." : "Delete all"}
             </button>
 
             <Link href="/friends/requests" style={secondaryActionStyle}>
