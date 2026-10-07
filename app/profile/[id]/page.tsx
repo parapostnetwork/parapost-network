@@ -16184,7 +16184,9 @@ return (
           overflow: visible !important;
         }
 
-        .profile-polish-surface .profile-avatar-thought-original {
+        .profile-polish-surface
+          .profile-avatar-wrap
+          > .profile-avatar-thought-original {
           display: block !important;
           position: absolute !important;
           inset: 0 !important;
