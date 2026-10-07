@@ -1,21 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-
-type NotificationRow = {
-  id: string;
-  user_id: string;
-  actor_id: string;
-  type: "friend_request" | "friend_accept" | "post_like" | "comment_like" | "comment_reply";
-  post_id: string | null;
-  comment_id: string | null;
-  friend_request_id: string | null;
-  message: string | null;
-  is_read: boolean;
-  created_at: string;
-};
 
 type DashboardNotificationsLinkProps = {
   navItemStyle: React.CSSProperties;
@@ -27,32 +14,27 @@ export default function DashboardNotificationsLink({
   icon,
 }: DashboardNotificationsLinkProps) {
   const [currentUserId, setCurrentUserId] = useState("");
-  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
-  const unreadNotificationCount = useMemo(() => {
-    return notifications.filter((item) => !item.is_read).length;
-  }, [notifications]);
-
-  const fetchNotifications = useCallback(async (userId?: string) => {
+  const fetchUnreadNotificationCount = useCallback(async (userId?: string) => {
     if (!userId) {
-      setNotifications([]);
+      setUnreadNotificationCount(0);
       return;
     }
 
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from("notifications")
-      .select("id, user_id, actor_id, type, post_id, comment_id, friend_request_id, message, is_read, created_at")
+      .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(25);
+      .eq("is_read", false);
 
     if (error) {
-      console.error("Error fetching notifications:", error.message);
-      setNotifications([]);
+      console.error("Error fetching notification count:", error.message);
+      setUnreadNotificationCount(0);
       return;
     }
 
-    setNotifications((data || []) as NotificationRow[]);
+    setUnreadNotificationCount(count ?? 0);
   }, []);
 
   useEffect(() => {
@@ -64,16 +46,16 @@ export default function DashboardNotificationsLink({
 
       if (error || !user) {
         setCurrentUserId("");
-        setNotifications([]);
+        setUnreadNotificationCount(0);
         return;
       }
 
       setCurrentUserId(user.id);
-      await fetchNotifications(user.id);
+      await fetchUnreadNotificationCount(user.id);
     };
 
     initialize();
-  }, [fetchNotifications]);
+  }, [fetchUnreadNotificationCount]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -84,7 +66,7 @@ export default function DashboardNotificationsLink({
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications" },
         async () => {
-          await fetchNotifications(currentUserId);
+          await fetchUnreadNotificationCount(currentUserId);
         }
       )
       .subscribe();
@@ -92,7 +74,7 @@ export default function DashboardNotificationsLink({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, fetchNotifications]);
+  }, [currentUserId, fetchUnreadNotificationCount]);
 
   return (
     <Link

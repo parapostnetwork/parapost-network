@@ -330,6 +330,28 @@ function buildReelItems(rows: ReelDbRow[], profiles: ProfileRow[]): ReelItem[] {
     });
 }
 
+function getStorageObjectPath(
+  publicUrl: string | undefined,
+  bucket: string
+): string | null {
+  if (!publicUrl) return null;
+
+  const marker = `/object/public/${bucket}/`;
+  const markerIndex = publicUrl.indexOf(marker);
+
+  if (markerIndex === -1) return null;
+
+  const encodedPath = publicUrl
+    .slice(markerIndex + marker.length)
+    .split("?")[0];
+
+  try {
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return encodedPath;
+  }
+}
+
 function formatRelativeTime(value?: string | null) {
   if (!value) return "Just now";
 
@@ -449,26 +471,34 @@ async function insertReelNotification({
   userId: string;
   actorId: string;
   reelId: string;
-  type: "reel_like" | "reel_comment" | "reel_share" | "reel_reply";
+  type:
+    | "reel_like"
+    | "reel_comment"
+    | "reel_share"
+    | "reel_reply"
+    | "reel_comment_like";
   message: string;
   commentId?: string | null;
 }) {
   if (!userId || !actorId || !reelId || userId === actorId) return;
 
-  // A Reel can only be actively liked once by the same user.
-  // Avoid accumulating duplicate like notifications in the database.
-  if (type === "reel_like") {
+  // Reel likes and Reel shares keep one active notification
+  // for each exact recipient + actor + Reel.
+  if (type === "reel_like" || type === "reel_share") {
     const { data: existingRows, error: existingError } = await supabase
       .from("notifications")
       .select("id")
       .eq("user_id", userId)
       .eq("actor_id", actorId)
       .eq("reel_id", reelId)
-      .eq("type", "reel_like")
+      .eq("type", type)
       .limit(1);
 
     if (existingError) {
-      console.warn("Reel like notification check skipped:", existingError.message);
+      console.warn(
+        "Reel notification duplicate check skipped:",
+        existingError.message
+      );
     } else if (existingRows && existingRows.length > 0) {
       return;
     }
@@ -1668,6 +1698,7 @@ export default function ReelsPage() {
         reelId: activeReel.id,
         type: "reel_comment",
         message: "commented on your reel.",
+        commentId: insertedComment?.id ?? null,
       });
     }
   };
@@ -1798,6 +1829,25 @@ export default function ReelsPage() {
         console.error("Reel comment like insert error:", error.message);
         alert(error.message || "Could not like comment.");
         await fetchReels();
+        return;
+      }
+
+      if (!error) {
+        const likedComment = comments.find((comment) => comment.id === commentId);
+
+        if (
+          likedComment?.authorUserId &&
+          likedComment.authorUserId !== currentUserId
+        ) {
+          await insertReelNotification({
+            userId: likedComment.authorUserId,
+            actorId: currentUserId,
+            reelId: likedComment.reelId,
+            type: "reel_comment_like",
+            message: "liked your comment on a Reel.",
+            commentId,
+          });
+        }
       }
 
       return;
@@ -1813,6 +1863,7 @@ export default function ReelsPage() {
       console.error("Reel comment like delete error:", error.message);
       alert(error.message || "Could not remove comment like.");
       await fetchReels();
+      return;
     }
   };
 
@@ -1904,7 +1955,7 @@ export default function ReelsPage() {
         reelId: activeReel.id,
         type: "reel_reply",
         message: "replied to your comment on a Reel.",
-        commentId: parentComment.id,
+        commentId: insertedReply?.id ?? null,
       });
     }
 
@@ -1921,7 +1972,7 @@ export default function ReelsPage() {
         reelId: activeReel.id,
         type: "reel_comment",
         message: "replied to a comment on your reel.",
-        commentId: parentComment.id,
+        commentId: insertedReply?.id ?? null,
       });
     }
   };
@@ -2164,17 +2215,6 @@ export default function ReelsPage() {
       return;
     }
 
-    const { error: reelUpdateError } = await supabase
-      .from("reels")
-      .update({
-        shares: activeReel.shares + 1,
-      })
-      .eq("id", activeReel.id);
-
-    if (reelUpdateError) {
-      console.warn("Reel share count update skipped:", reelUpdateError.message);
-    }
-
     const activeReelOwnerId = activeReel.creator_profile_id || activeReel.user_id;
 
     if (activeReelOwnerId && activeReelOwnerId !== currentUserId) {
@@ -2379,6 +2419,10 @@ export default function ReelsPage() {
       return;
     }
 
+    const reelToDelete = reels.find((reel) => reel.id === reelId);
+    const videoPath = getStorageObjectPath(reelToDelete?.video, "reels");
+    const posterPath = getStorageObjectPath(reelToDelete?.poster, "reel-posters");
+
     const confirmDelete = window.confirm("Delete this reel?");
     if (!confirmDelete) return;
 
@@ -2391,6 +2435,32 @@ export default function ReelsPage() {
     if (error) {
       alert(error.message || "Could not delete reel.");
       return;
+    }
+
+    if (videoPath) {
+      const { error: videoDeleteError } = await supabase.storage
+        .from("reels")
+        .remove([videoPath]);
+
+      if (videoDeleteError) {
+        console.warn(
+          "Deleted Reel row, but video cleanup failed:",
+          videoDeleteError.message
+        );
+      }
+    }
+
+    if (posterPath) {
+      const { error: posterDeleteError } = await supabase.storage
+        .from("reel-posters")
+        .remove([posterPath]);
+
+      if (posterDeleteError) {
+        console.warn(
+          "Deleted Reel row, but poster cleanup failed:",
+          posterDeleteError.message
+        );
+      }
     }
 
     const nextReels = reels.filter((reel) => reel.id !== reelId);

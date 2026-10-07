@@ -65,7 +65,7 @@ const preferenceOptions: Array<{
   {
     key: "reels",
     title: "Parapost Reels",
-    description: "Alerts for Reel likes, comments, shares, saves, and creator activity.",
+    description: "Alerts for Reel likes, comments, replies, shares, and comment likes.",
     examples: ["Reel likes", "Reel comments", "Reel shares"],
   },
   {
@@ -199,10 +199,12 @@ export default function NotificationSettingsPage() {
       setUserEmail(user.email || "");
 
       const storedPrefs = safeReadStoredPrefs(user.id);
-      setPrefs(storedPrefs);
-      setSavedPrefs(storedPrefs);
 
-      const [{ data: profileData }, { data: adminData }] = await Promise.all([
+      const [
+        { data: profileData },
+        { data: adminData },
+        { data: notificationPreferenceData, error: notificationPreferenceError },
+      ] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, username, full_name, avatar_url")
@@ -213,10 +215,26 @@ export default function NotificationSettingsPage() {
           .select("user_id, role")
           .eq("user_id", user.id)
           .maybeSingle(),
+        supabase
+          .from("user_preferences")
+          .select("notify_reels")
+          .eq("user_id", user.id)
+          .maybeSingle(),
       ]);
 
       if (cancelled) return;
 
+      const nextPrefs = {
+        ...storedPrefs,
+        reels:
+          !notificationPreferenceError &&
+          typeof notificationPreferenceData?.notify_reels === "boolean"
+            ? notificationPreferenceData.notify_reels
+            : storedPrefs.reels,
+      };
+
+      setPrefs(nextPrefs);
+      setSavedPrefs(nextPrefs);
       setCurrentProfile((profileData as ProfilePreview | null) || null);
 
       const adminRow = adminData as AdminUserRow | null;
@@ -241,7 +259,7 @@ export default function NotificationSettingsPage() {
     setErrorMessage("");
   };
 
-  const handleSavePreferences = () => {
+  const handleSavePreferences = async () => {
     setStatusMessage("");
     setErrorMessage("");
 
@@ -251,6 +269,24 @@ export default function NotificationSettingsPage() {
     }
 
     setSaving(true);
+
+    const { error: preferenceError } = await supabase
+      .from("user_preferences")
+      .upsert(
+        {
+          user_id: currentUserId,
+          notify_reels: prefs.reels,
+        },
+        {
+          onConflict: "user_id",
+        }
+      );
+
+    if (preferenceError) {
+      setErrorMessage("Could not save notification preferences. Please try again.");
+      setSaving(false);
+      return;
+    }
 
     try {
       window.localStorage.setItem(getStorageKey(currentUserId), JSON.stringify(prefs));

@@ -300,6 +300,10 @@ function getNotificationTitle(notification: NotificationCard) {
     return `${actorName} replied to your comment on a Reel.`;
   }
 
+  if (type === "reel_comment_like") {
+    return `${actorName} liked your comment on a Reel.`;
+  }
+
   if (isReelActivityNotificationType(type)) {
     const count = getReelActivityCount(notification);
     const verb = getReelActivityVerb(type);
