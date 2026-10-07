@@ -2139,6 +2139,7 @@ export default function DashboardPage() {
   const [selectedFeelingActivity, setSelectedFeelingActivity] = useState<FeelingActivityOption | null>(null);
   const [visibleFeedLimit, setVisibleFeedLimit] = useState(FEED_INITIAL_BATCH_SIZE);
   const [dashboardPostImageViewer, setDashboardPostImageViewer] = useState<PostMediaViewerState | null>(null);
+  const dashboardPostImageScrollPositionRef = useRef<{ x: number; y: number } | null>(null);
   const [likeListTarget, setLikeListTarget] = useState<DashboardLikeListTarget | null>(null);
   const [likeListPeople, setLikeListPeople] = useState<DashboardLikeListPerson[]>([]);
   const [likeListLoading, setLikeListLoading] = useState(false);
@@ -2157,6 +2158,17 @@ export default function DashboardPage() {
   const mainComposerRef = useRef<HTMLElement | null>(null);
   const feedLoadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedDashboardOnceRef = useRef(false);
+
+  useEffect(() => {
+    if (!dashboardPostImageViewer || typeof document === "undefined") return;
+
+    const root = document.documentElement;
+    root.classList.add("parapost-dashboard-media-open");
+
+    return () => {
+      root.classList.remove("parapost-dashboard-media-open");
+    };
+  }, [dashboardPostImageViewer]);
   const dashboardRefreshInFlightRef = useRef(false);
   const removedSharedPostShareIdsRef = useRef<Set<string>>(new Set());
   const removedSharedPostKeysRef = useRef<Set<string>>(new Set());
@@ -2427,6 +2439,14 @@ export default function DashboardPage() {
 
   const openDashboardPostImageViewer = useCallback<OpenPostMediaViewer>((url, alt, urls, index) => {
     if (!url) return;
+
+    if (typeof window !== "undefined") {
+      dashboardPostImageScrollPositionRef.current = {
+        x: window.scrollX,
+        y: window.scrollY,
+      };
+    }
+
     setDashboardPostImageViewer({
       urls: urls?.length ? urls : [url],
       initialIndex: index ?? Math.max(0, urls?.indexOf(url) ?? 0),
@@ -2435,7 +2455,20 @@ export default function DashboardPage() {
   }, []);
 
   const closeDashboardPostImageViewer = useCallback(() => {
+    const scrollPosition = dashboardPostImageScrollPositionRef.current;
+
     setDashboardPostImageViewer(null);
+    dashboardPostImageScrollPositionRef.current = null;
+
+    if (scrollPosition && typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({
+          left: scrollPosition.x,
+          top: scrollPosition.y,
+          behavior: "auto",
+        });
+      });
+    }
   }, []);
 
   const getDashboardPostForAction = useCallback(
@@ -5477,9 +5510,7 @@ export default function DashboardPage() {
         }));
       }
 
-      setOpenCommentsPostId((current) =>
-        current === contextKey ? null : current
-      );
+      setOpenCommentsPostId(contextKey);
     } finally {
       setPostingCommentPostId((current) =>
         current === contextKey ? null : current
@@ -7346,7 +7377,9 @@ export default function DashboardPage() {
         }
 
         html.parapost-dashboard-menu-open,
-        html.parapost-dashboard-menu-open body {
+        html.parapost-dashboard-menu-open body,
+        html.parapost-dashboard-media-open,
+        html.parapost-dashboard-media-open body {
           overflow: hidden !important;
           overscroll-behavior: none !important;
         }
