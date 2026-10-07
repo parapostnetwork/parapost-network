@@ -16221,7 +16221,7 @@ return (
         .profile-polish-surface
           .profile-avatar-thought-original
           > .profile-thought-bubble {
-          left: calc(100% - 10px) !important;
+          left: calc(100% - 22px) !important;
         }
       }
     `}</style>
