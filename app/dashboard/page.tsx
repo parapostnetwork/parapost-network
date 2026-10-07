@@ -276,6 +276,7 @@ const MAX_POST_IMAGE_MB = IMAGE_SOURCE_MAX_BYTES / (1024 * 1024);
 const MAX_POST_VIDEO_MB = 100;
 const FEED_INITIAL_BATCH_SIZE = 14;
 const FEED_BATCH_INCREMENT = 8;
+const DASHBOARD_FEED_ITEM_LIMIT = 80;
 const DASHBOARD_REALTIME_REFRESH_DELAY_MS = 1500;
 const DASHBOARD_BACKGROUND_REFRESH_MS = 30 * 60 * 1000;
 const DASHBOARD_COMMENT_PREVIEW_LIMIT = 2;
@@ -2553,7 +2554,7 @@ export default function DashboardPage() {
 
         return feedPriority[b.type] - feedPriority[a.type];
       }
-    );
+    ).slice(0, DASHBOARD_FEED_ITEM_LIMIT);
   }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, sharedReelItems]);
 
   const filteredFeedItems = useMemo(() => {
@@ -3615,7 +3616,7 @@ export default function DashboardPage() {
       .from("reel_shares")
       .select("id, reel_id, user_id, caption, created_at")
       .order("created_at", { ascending: false })
-      .limit(60);
+      .limit(DASHBOARD_FEED_ITEM_LIMIT);
 
     if (shareError) {
       console.error("Error fetching reel shares:", shareError.message);
