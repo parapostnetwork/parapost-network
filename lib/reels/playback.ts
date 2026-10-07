@@ -11,6 +11,34 @@ const recoveryStates = new WeakMap<HTMLVideoElement, { time: number; since: numb
 
 const visibleStates = new WeakMap<HTMLVideoElement, boolean>();
 
+const isSufficientlyVisibleNow = (video: HTMLVideoElement) => {
+  if (typeof video.getBoundingClientRect !== "function") return false;
+
+  const rect = video.getBoundingClientRect();
+  const width = Math.max(0, rect.width || rect.right - rect.left);
+  const height = Math.max(0, rect.height || rect.bottom - rect.top);
+
+  if (width <= 0 || height <= 0) return false;
+
+  const viewportWidth =
+    document.documentElement?.clientWidth || window.innerWidth || 0;
+  const viewportHeight =
+    document.documentElement?.clientHeight || window.innerHeight || 0;
+
+  if (viewportWidth <= 0 || viewportHeight <= 0) return false;
+
+  const visibleWidth = Math.max(
+    0,
+    Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0),
+  );
+  const visibleHeight = Math.max(
+    0,
+    Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0),
+  );
+
+  return (visibleWidth * visibleHeight) / (width * height) >= 0.5;
+};
+
 // Reconcile playback without seeking, reloading, or restarting a playing video.
 // Realtime count updates must not disturb the current media element.
 export function attachReelPlayback({
@@ -23,7 +51,11 @@ export function attachReelPlayback({
   );
 
   const activeVideo = videos[activeId];
-  let sufficientlyVisible = activeVideo ? (!activeVideo.paused && visibleStates.get(activeVideo)) || (typeof IntersectionObserver === "undefined") : false;
+  let sufficientlyVisible = activeVideo
+    ? (!activeVideo.paused && visibleStates.get(activeVideo)) ||
+      (typeof IntersectionObserver === "undefined") ||
+      isSufficientlyVisibleNow(activeVideo)
+    : false;
   let watchdog: ReturnType<typeof setTimeout> | undefined;
   const stopWatchdog = () => {
     if (watchdog !== undefined) clearTimeout(watchdog);

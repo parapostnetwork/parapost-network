@@ -234,6 +234,74 @@ test('pending play promises are not duplicated by watchdog or readiness events',
   for(let i=0;i<10;i++){h.videos.b.dispatchEvent(new Event('canplay'));t.mock.timers.tick(2000);await flush();}
   assert.equal(h.videos.b.plays,2);resolve();await flush();
 });
+
+test('visible active Reel can start before the first delayed IntersectionObserver callback', async t => {
+  const oldIntersectionObserver = globalThis.IntersectionObserver;
+  const oldDocument = globalThis.document;
+  const oldWindow = globalThis.window;
+  let callback;
+
+  globalThis.IntersectionObserver = class {
+    constructor(cb, options) {
+      callback = cb;
+      assert.deepEqual(options.threshold, [0, 0.5]);
+    }
+    observe() {}
+    disconnect() {}
+  };
+
+  const document = new EventTarget();
+  document.visibilityState = 'visible';
+  document.documentElement = {
+    clientWidth: 1280,
+    clientHeight: 800,
+  };
+
+  const window = new EventTarget();
+  window.innerWidth = 1280;
+  window.innerHeight = 800;
+
+  globalThis.document = document;
+  globalThis.window = window;
+
+  const video = new Video();
+  video.getBoundingClientRect = () => ({
+    top: 80,
+    bottom: 720,
+    left: 320,
+    right: 680,
+    width: 360,
+    height: 640,
+  });
+
+  const cleanup = attachReelPlayback({
+    videos: { b: video },
+    activeId: 'b',
+    pausedId: null,
+    blocked: false,
+    muted: true,
+  });
+
+  t.after(() => {
+    cleanup();
+    globalThis.IntersectionObserver = oldIntersectionObserver;
+    globalThis.document = oldDocument;
+    globalThis.window = oldWindow;
+  });
+
+  await Promise.resolve();
+
+  // The Reel is already fully within the viewport. Playback must not depend
+  // entirely on a later IntersectionObserver callback arriving.
+  assert.equal(video.plays, 1);
+  assert.equal(video.paused, false);
+
+  // Once the observer reports that the active Reel is mostly offscreen,
+  // the existing visibility safety gate must still pause it.
+  callback([{ isIntersecting: true, intersectionRatio: 0.2 }]);
+  assert.equal(video.paused, true);
+});
+
 test('IntersectionObserver visibility gates recovery independent of device width and disconnects',async t=>{
   clock(t);const old=globalThis.IntersectionObserver;let callback,disconnected=0;
   globalThis.IntersectionObserver=class {constructor(cb,options){callback=cb;assert.deepEqual(options.threshold,[0,0.5]);}observe(){}disconnect(){disconnected++;}};
