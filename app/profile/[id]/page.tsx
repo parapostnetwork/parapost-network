@@ -3012,87 +3012,6 @@ export default function ProfilePage() {
     };
   }, [profileThoughtViewerOpen]);
 
-  /*
-   * v34 DOCUMENT-CAPTURE THOUGHT OPENER
-   *
-   * The visible bubble can extend outside its positioned parent and can be
-   * visually covered by another paint/hit-test layer. Capturing pointerdown at
-   * document level means the page can recognize a click by the bubble's actual
-   * on-screen rectangle even when the nested button never receives the event.
-   *
-   * Mobile <= 720px keeps the existing ProfileThoughtBubble interaction.
-   */
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-
-    const handleThoughtPointerDownCapture = (event: PointerEvent) => {
-      if (desktopThoughtComposerOpen || profileThoughtViewerOpen) return;
-
-      // Keep the owner's existing mobile editor. Visitors use this capture on
-      // every viewport so the read-only viewer works on desktop/tablet/mobile.
-      if (isOwnProfile && window.innerWidth <= 720) return;
-
-      const clientX = event.clientX;
-      const clientY = event.clientY;
-
-      const visibleThoughtBubbles = Array.from(
-        document.querySelectorAll<HTMLElement>(".profile-thought-bubble")
-      ).filter((element) => {
-        const computed = window.getComputedStyle(element);
-        if (
-          computed.display === "none" ||
-          computed.visibility === "hidden" ||
-          Number.parseFloat(computed.opacity || "1") <= 0
-        ) {
-          return false;
-        }
-
-        const rect = element.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) return false;
-
-        return (
-          clientX >= rect.left &&
-          clientX <= rect.right &&
-          clientY >= rect.top &&
-          clientY <= rect.bottom
-        );
-      });
-
-      if (visibleThoughtBubbles.length === 0) return;
-      if (!isOwnProfile && !profileThought?.text) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (isOwnProfile) {
-        void openDesktopThoughtComposer();
-      } else {
-        openReadOnlyProfileThought();
-      }
-    };
-
-    document.addEventListener(
-      "pointerdown",
-      handleThoughtPointerDownCapture,
-      true
-    );
-
-    return () => {
-      document.removeEventListener(
-        "pointerdown",
-        handleThoughtPointerDownCapture,
-        true
-      );
-    };
-  }, [
-    desktopThoughtComposerOpen,
-    profileThoughtViewerOpen,
-    isOwnProfile,
-    profileThought?.text,
-    openDesktopThoughtComposer,
-    openReadOnlyProfileThought,
-  ]);
-
   const profileIsPrivate = Boolean(profile?.is_private);
   const canViewPrivateProfileContent = !profileIsPrivate || isOwnProfile || friendStatus === "friends";
   const isProfileContentLocked = Boolean(profile && profileIsPrivate && !canViewPrivateProfileContent);
@@ -16242,6 +16161,46 @@ return (
   }
 `}</style>
 
+    <style jsx global>{`
+      /* =========================================================
+       * PROFILE THOUGHT BUBBLE INTERACTION CLEANUP v42
+       *
+       * Mobile positioning is intentionally untouched.
+       * Tablet + desktop use the single avatar-contained bubble.
+       * Match the approved mobile relationship to the avatar:
+       * 14px horizontal gap and top: -18px.
+       * ========================================================= */
+
+      .profile-polish-surface .profile-desktop-thought-anchor,
+      .profile-polish-surface .profile-desktop-thought-hit-target,
+      .profile-polish-surface .profile-medium-thought-hit-target {
+        display: none !important;
+        pointer-events: none !important;
+      }
+
+      @media (min-width: 721px) {
+        .profile-polish-surface .profile-avatar-wrap {
+          position: relative !important;
+          overflow: visible !important;
+        }
+
+        .profile-polish-surface .profile-avatar-thought-original {
+          display: contents !important;
+        }
+
+        .profile-polish-surface
+          .profile-avatar-thought-original
+          > .profile-thought-bubble {
+          top: -18px !important;
+          right: auto !important;
+          left: calc(100% + 14px) !important;
+          pointer-events: auto !important;
+          cursor: pointer !important;
+          z-index: 99999 !important;
+        }
+      }
+    `}</style>
+
     {/* Mobile Top Bar */}
     <div className="xl:hidden" style={mobileTopBarStyle}>
       <button
@@ -16609,13 +16568,6 @@ return (
 
                 <div className="profile-mobile-header-real">
                   <div className={`profile-mobile-avatar-shell-real ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`}>
-                    <ProfileThoughtBubble
-                      text={profileThought?.text || undefined}
-                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                      isOwnProfile={isOwnProfile}
-                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                      onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
-                    />
                     {profile?.avatar_url ? (
                       <img
                         src={profile?.avatar_url || ""}
@@ -16794,31 +16746,6 @@ return (
                 </div>
 
                 <div className="profile-hero-content" style={profileHeroContentStyle}>
-                  {/* Desktop thought bubble lives outside the avatar wrapper so it cannot be
-                      clipped or painted underneath the cover/banner stacking context. */}
-                  <div className="profile-desktop-thought-anchor" aria-hidden="false">
-                    <ProfileThoughtBubble
-                      text={profileThought?.text || undefined}
-                      avatarUrl={profile?.avatar_url || viewerAvatarUrl || null}
-                      isOwnProfile={isOwnProfile}
-                      onShare={isOwnProfile ? handleShareProfileThought : undefined}
-                      onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
-                    />
-                    {isOwnProfile ? (
-                      <button
-                        type="button"
-                        className="profile-desktop-thought-hit-target"
-                        aria-label="Create or edit thought"
-                        title="Create or edit thought"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          openDesktopThoughtComposer();
-                        }}
-                      />
-                    ) : null}
-                  </div>
-
                   <div className={`profile-avatar-wrap ${profileIsActuallyOnline ? "profile-avatar-online-ring" : "profile-avatar-offline-ring"}`} style={profileAvatarWrapStyle}>
                     <div className="profile-avatar-thought-original">
                       <ProfileThoughtBubble
@@ -16828,19 +16755,7 @@ return (
                         onShare={isOwnProfile ? handleShareProfileThought : undefined}
                         onOpenReadOnly={!isOwnProfile && profileThought?.text ? openReadOnlyProfileThought : undefined}
                       />
-                      {isOwnProfile ? (
-                        <button
-                          type="button"
-                          className="profile-medium-thought-hit-target"
-                          aria-label="Create or edit thought"
-                          title="Create or edit thought"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            openDesktopThoughtComposer();
-                          }}
-                        />
-                      ) : null}
+
                     </div>
                     {profile?.avatar_url ? (
                       <img src={profile?.avatar_url || ""} alt="Profile" style={profileAvatarStyle} />
