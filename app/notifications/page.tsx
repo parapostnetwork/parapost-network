@@ -172,7 +172,7 @@ function groupParachatNotifications(rows: NotificationCard[]) {
       return;
     }
 
-    const key = `parachat:${notification.actor_id}:${notification.is_read ? "read" : "unread"}`;
+    const key = `parachat:${notification.actor_id}`;
     const currentGroup = grouped.get(key) || [];
     currentGroup.push(notification);
     grouped.set(key, currentGroup);
