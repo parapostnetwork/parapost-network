@@ -652,107 +652,18 @@ function getParachatGroupedNotificationCount(message?: string | null) {
   return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
 }
 
-async function createParachatNotification({
-  recipientUserId,
-  senderUserId,
-  isPhotoMessage,
-}: {
-  recipientUserId: string;
-  senderUserId: string;
-  isPhotoMessage: boolean;
-}) {
-  if (!recipientUserId || !senderUserId || recipientUserId === senderUserId) return;
+async function createParachatNotification(messageId: string) {
+  if (!messageId) return;
 
-  const nextType = isPhotoMessage ? "parachat_photo" : "parachat_message";
-  const fallbackInsert = async () => {
-    const { error: fallbackError } = await supabase.from("notifications").insert({
-      user_id: recipientUserId,
-      actor_id: senderUserId,
-      type: nextType,
-      post_id: null,
-      comment_id: null,
-      friend_request_id: null,
-      message: `${PARACHAT_GROUPED_NOTIFICATION_PREFIX}1`,
-      is_read: false,
-    });
+  const { error } = await supabase.rpc(
+    "parapost_notify_direct_message",
+    { p_message_id: messageId }
+  );
 
-    if (fallbackError) {
-      console.warn("Parachat notification warning:", fallbackError.message);
-    }
-  };
-
-  try {
-    const { data: existingRows, error: existingError } = await supabase
-      .from("notifications")
-      .select("id, type, message, created_at")
-      .eq("user_id", recipientUserId)
-      .eq("actor_id", senderUserId)
-      .in("type", ["parachat_message", "parachat_photo"])
-      .eq("is_read", false)
-      .order("created_at", { ascending: false });
-
-    if (existingError) {
-      await fallbackInsert();
-      return;
-    }
-
-    const rows = ((existingRows || []) as Array<{
-      id: string;
-      type: string | null;
-      message: string | null;
-      created_at: string | null;
-    }>).filter((row) => row.id);
-
-    if (rows.length === 0) {
-      await fallbackInsert();
-      return;
-    }
-
-    const nextCount =
-      rows.reduce((total, row) => {
-        const storedCount = getParachatGroupedNotificationCount(row.message);
-        return total + Math.max(1, storedCount);
-      }, 0) + 1;
-
-    const primaryNotification = rows[0];
-
-    const { error: updateError } = await supabase
-      .from("notifications")
-      .update({
-        type: nextType,
-        message: `${PARACHAT_GROUPED_NOTIFICATION_PREFIX}${nextCount}`,
-        is_read: false,
-        created_at: new Date().toISOString(),
-      })
-      .eq("id", primaryNotification.id);
-
-    if (updateError) {
-      await fallbackInsert();
-      return;
-    }
-
-    const duplicateIds = rows.slice(1).map((row) => row.id).filter(Boolean);
-
-    if (duplicateIds.length > 0) {
-      const { error: deleteDuplicatesError } = await supabase
-        .from("notifications")
-        .delete()
-        .in("id", duplicateIds);
-
-      if (deleteDuplicatesError) {
-        console.warn("Parachat duplicate notification cleanup warning:", deleteDuplicatesError.message);
-      }
-    }
-  } catch (error) {
-    console.warn(
-      "Parachat grouped notification warning:",
-      error instanceof Error ? error.message : String(error)
-    );
-
-    await fallbackInsert();
+  if (error) {
+    console.warn("Parachat notification warning:", error.message);
   }
 }
-
 function MicrophoneIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -2432,11 +2343,7 @@ function MessagesPage() {
 
     const sharedMessage = await attachSignedImageUrlToMessage(data as MessageRow);
 
-    await createParachatNotification({
-      recipientUserId: conversation.otherUserId,
-      senderUserId: viewerId,
-      isPhotoMessage: isPhotoShare,
-    });
+    await createParachatNotification(data.id);
 
     setConversations((prev) =>
       prev
@@ -2757,11 +2664,7 @@ function MessagesPage() {
         null;
 
       if (notificationConversation?.otherUserId) {
-        await createParachatNotification({
-          recipientUserId: notificationConversation.otherUserId,
-          senderUserId: viewerId,
-          isPhotoMessage: Boolean(imageDraft),
-        });
+        await createParachatNotification(data.id);
       }
 
       setMessages((prev) => {
