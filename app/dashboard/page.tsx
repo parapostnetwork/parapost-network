@@ -2174,7 +2174,6 @@ export default function DashboardPage() {
   const removedSharedPostShareIdsRef = useRef<Set<string>>(new Set());
   const removedSharedPostKeysRef = useRef<Set<string>>(new Set());
   const removedReelShareIdsRef = useRef<Set<string>>(new Set());
-  const removedReelShareKeysRef = useRef<Set<string>>(new Set());
   const targetedPostScrollRef = useRef("");
 
   const dashboardRealtimeSnapshotRef = useRef({
@@ -3626,7 +3625,6 @@ export default function DashboardPage() {
 
     const visibleShareRows = (shareRows || [])
       .filter((share) => !removedReelShareIdsRef.current.has(String(share.id)))
-      .filter((share) => !removedReelShareKeysRef.current.has(`${share.user_id}:${share.reel_id}`))
       .filter((share) => !blockedIds.includes(share.user_id));
     const reelIds = [...new Set(visibleShareRows.map((share) => share.reel_id).filter(Boolean))];
 
@@ -5797,35 +5795,20 @@ export default function DashboardPage() {
     if (!currentUserId) return;
     if (!window.confirm("Remove this shared reel from your feed?")) return;
 
-    const targetShare = sharedReelItems.find((item) => item.id === shareId);
-    const reelId = targetShare?.reel_id || "";
-
-    const duplicateShareIds = sharedReelItems
-      .filter((item) => item.user_id === currentUserId && (!reelId || item.reel_id === reelId))
-      .map((item) => item.id);
-
-    const shareIdsToRemove = [...new Set([shareId, ...duplicateShareIds].filter(Boolean))];
-    const removedShareKey = reelId ? `${currentUserId}:${reelId}` : "";
-
-    shareIdsToRemove.forEach((id) => removedReelShareIdsRef.current.add(id));
-    if (removedShareKey) removedReelShareKeysRef.current.add(removedShareKey);
+    removedReelShareIdsRef.current.add(shareId);
 
     setSharedReelItems((prev) =>
-      prev.filter(
-        (item) =>
-          !shareIdsToRemove.includes(item.id) &&
-          !(item.user_id === currentUserId && reelId && item.reel_id === reelId)
-      )
+      prev.filter((item) => item.id !== shareId)
     );
 
-    const deleteQuery = supabase.from("reel_shares").delete().eq("user_id", currentUserId);
-    const { error } = reelId
-      ? await deleteQuery.eq("reel_id", reelId)
-      : await deleteQuery.eq("id", shareId);
+    const { error } = await supabase
+      .from("reel_shares")
+      .delete()
+      .eq("id", shareId)
+      .eq("user_id", currentUserId);
 
     if (error) {
-      shareIdsToRemove.forEach((id) => removedReelShareIdsRef.current.delete(id));
-      if (removedShareKey) removedReelShareKeysRef.current.delete(removedShareKey);
+      removedReelShareIdsRef.current.delete(shareId);
       alert(`Remove shared reel error: ${error.message}`);
       await fetchSharedReels();
     }
