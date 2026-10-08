@@ -353,18 +353,12 @@ export default function ConversationPage() {
       });
     }
 
-    // Notify the recipient so the message shows up in their dashboard notifications
+    // Generate the notification from the verified saved message.
     if (otherProfile?.id && otherProfile.id !== viewerId) {
-      const { error: notifyError } = await supabase.from("notifications").insert({
-        user_id: otherProfile.id,
-        actor_id: viewerId,
-        type: "parachat_message",
-        post_id: null,
-        comment_id: null,
-        friend_request_id: null,
-        message: null,
-        is_read: false,
-      });
+      const { error: notifyError } = await supabase.rpc(
+        "parapost_notify_direct_message",
+        { p_message_id: data.id }
+      );
 
       if (notifyError) {
         console.warn("Parachat notification warning:", notifyError.message);
