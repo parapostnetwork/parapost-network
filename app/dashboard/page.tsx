@@ -6273,6 +6273,8 @@ export default function DashboardPage() {
                             sharerProfile={profilesMap[item.share.user_id]}
                             creatorProfile={profilesMap[item.share.creator_profile_id || ""] || profilesMap[item.share.reel_user_id]}
                             currentUserId={currentUserId}
+                            openPostMenuId={openPostMenuId}
+                            setOpenPostMenuId={setOpenPostMenuId}
                             onDelete={() => handleDeleteReelShare(item.share.id)}
                           />
                         )}
@@ -14720,12 +14722,16 @@ function SharedReelCard({
   sharerProfile,
   creatorProfile,
   currentUserId,
+  openPostMenuId,
+  setOpenPostMenuId,
   onDelete,
 }: {
   shared: SharedReelItem;
   sharerProfile?: ProfilePreview | null;
   creatorProfile?: ProfilePreview | null;
   currentUserId: string;
+  openPostMenuId: string | null;
+  setOpenPostMenuId: (value: string | null | ((prev: string | null) => string | null)) => void;
   onDelete: () => void;
 }) {
   const sharerName = sharerProfile?.full_name || sharerProfile?.username || "Parapost user";
@@ -14735,6 +14741,7 @@ function SharedReelCard({
   const reelCaption = shared.reel_caption?.trim() || "";
   const shareCaption = shared.caption?.trim() || "";
   const reelHref = `/reels?reel=${shared.reel_id}`;
+  const menuId = `shared-reel-menu-${shared.id}`;
 
   return (
     <article className="dashboard-card dashboard-feed-card dashboard-shared-reel-card" style={postCardStyle}>
@@ -14750,9 +14757,36 @@ function SharedReelCard({
         </div>
 
         {shared.user_id === currentUserId ? (
-          <button type="button" onClick={onDelete} style={softDangerButtonStyle}>
-            Remove
-          </button>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setOpenPostMenuId((prev) => (prev === menuId ? null : menuId));
+              }}
+              style={dotsButtonStyle}
+              aria-label="Shared Reel options"
+              aria-expanded={openPostMenuId === menuId}
+            >
+              <DotsIcon />
+            </button>
+
+            {openPostMenuId === menuId ? (
+              <div style={postMenuStyle} onClick={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  style={{ ...menuItemStyle, color: "#fca5a5" }}
+                  onClick={() => {
+                    setOpenPostMenuId(null);
+                    onDelete();
+                  }}
+                >
+                  Remove shared Reel
+                </button>
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -14787,7 +14821,7 @@ function SharedReelCard({
 
         <div className="dashboard-shared-reel-copy" style={sharedReelCopyStyle}>
           <span className="dashboard-shared-reel-network" style={sharedReelNetworkLabelStyle}>
-            Parapost Network
+            Parapost Reel
           </span>
 
           <h3 className="dashboard-shared-reel-title" style={sharedReelTitleStyle}>
