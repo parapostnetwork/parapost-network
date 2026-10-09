@@ -605,12 +605,14 @@ export default function NotificationSettingsPage() {
                     Parapost Push Notifications
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    On by default for your Parapost account. Turn this off to stop
-                    phone push alerts without removing your in-app notifications.
+                    {pushNotificationsEnabled
+                      ? "Push notifications are ON for your Parapost account."
+                      : "Push notifications are OFF. You'll still receive notifications inside Parapost."}
                   </p>
                 </div>
 
-                <button
+                <div className="flex flex-col items-start gap-2 sm:items-end">
+                  <button
                   type="button"
                   aria-label="Parapost push notifications"
                   aria-pressed={pushNotificationsEnabled}
@@ -623,7 +625,16 @@ export default function NotificationSettingsPage() {
                   className="min-h-11 shrink-0 rounded-full border border-purple-200/25 bg-purple-500/20 px-6 py-2 text-sm font-black text-white transition hover:bg-purple-500/30 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {pushNotificationsEnabled ? "ON" : "OFF"}
-                </button>
+                  </button>
+                  {pushNotificationsEnabled !== savedPushNotificationsEnabled ? (
+                    <p
+                      role="status"
+                      className="max-w-xs text-xs font-bold text-amber-200 sm:text-right"
+                    >
+                      Not saved yet. Select Save Changes below to apply this setting.
+                    </p>
+                  ) : null}
+                </div>
                 <PushNotificationSettings
                   currentUserId={currentUserId}
                   accountPushEnabled={

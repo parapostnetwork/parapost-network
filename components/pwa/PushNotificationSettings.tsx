@@ -205,7 +205,7 @@ export default function PushNotificationSettings({
       className="w-full border-t border-purple-200/15 pt-3"
     >
       <p className="text-sm leading-6 text-slate-300">
-        To receive push alerts here, allow Parapost notifications on this device.
+        Device setup required: This device needs permission to receive push alerts.
       </p>
 
       {supportState === "supported" && !blocked ? (
@@ -217,7 +217,7 @@ export default function PushNotificationSettings({
         >
           {busy
             ? "Setting Up..."
-            : "Enable Notifications on This Device"}
+            : "Set Up This Device"}
         </button>
       ) : null}
 
