@@ -599,7 +599,7 @@ export default function NotificationSettingsPage() {
                 </span>
               </div>
 
-              <div className="mb-4 flex flex-col gap-4 rounded-[20px] border border-purple-200/20 bg-purple-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 flex flex-col gap-4 rounded-[20px] border border-purple-200/20 bg-purple-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
                 <div className="min-w-0">
                   <h3 className="m-0 text-lg font-black">
                     Parapost Push Notifications
@@ -624,6 +624,14 @@ export default function NotificationSettingsPage() {
                 >
                   {pushNotificationsEnabled ? "ON" : "OFF"}
                 </button>
+                <PushNotificationSettings
+                  currentUserId={currentUserId}
+                  accountPushEnabled={
+                    accountPrefsLoaded &&
+                    savedPushNotificationsEnabled &&
+                    pushNotificationsEnabled
+                  }
+                />
               </div>
 
               <div className="grid gap-3">
@@ -743,14 +751,6 @@ export default function NotificationSettingsPage() {
               ) : null}
             </section>
 
-            <PushNotificationSettings
-              currentUserId={currentUserId}
-              accountPushEnabled={
-                accountPrefsLoaded &&
-                savedPushNotificationsEnabled &&
-                pushNotificationsEnabled
-              }
-            />
             <section className="rounded-[28px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-5 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:p-6">
               <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-purple-200">
                 Notification Types

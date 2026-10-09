@@ -200,17 +200,12 @@ export default function PushNotificationSettings({
   }
 
   return (
-    <section
+    <div
       id="phone-notifications"
-      className="rounded-[24px] border border-purple-200/15 bg-white/[0.035] p-4 sm:p-6"
+      className="w-full border-t border-purple-200/15 pt-3"
     >
-      <h3 className="text-lg font-black text-white">
-        Set Up Notifications on This Device
-      </h3>
-
-      <p className="mt-2 text-sm leading-6 text-slate-300">
-        Push notifications are enabled for your Parapost account.
-        Allow notifications on this device to receive alerts here.
+      <p className="text-sm leading-6 text-slate-300">
+        To receive push alerts here, allow Parapost notifications on this device.
       </p>
 
       {supportState === "supported" && !blocked ? (
@@ -250,6 +245,6 @@ export default function PushNotificationSettings({
           {errorMessage}
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }
