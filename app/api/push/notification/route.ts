@@ -142,6 +142,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ sent: 0, removed: 0, failed: 0 });
     }
 
+    // Respect the account-wide Parapost push preference.
+    // Check only when this recipient has a registered subscription.
+    const { data: pushPreference, error: pushPreferenceError } =
+      await supabase
+        .from("user_preferences")
+        .select("push_notifications_enabled")
+        .eq("user_id", record.user_id)
+        .maybeSingle();
+
+    if (pushPreferenceError) {
+      console.error(
+        "Push preference lookup failed:",
+        pushPreferenceError.message
+      );
+
+      return NextResponse.json(
+        { error: "Could not verify push notification preferences." },
+        { status: 500 }
+      );
+    }
+
+    // No preference record means the default is ON.
+    if (pushPreference?.push_notifications_enabled === false) {
+      return NextResponse.json({
+        sent: 0,
+        removed: 0,
+        failed: 0,
+        disabled: true,
+      });
+    }
+
     webpush.setVapidDetails(
       "https://parapost.net",
       vapidPublicKey,

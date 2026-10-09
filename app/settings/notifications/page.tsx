@@ -156,6 +156,9 @@ export default function NotificationSettingsPage() {
 
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultPrefs);
   const [savedPrefs, setSavedPrefs] = useState<NotificationPrefs>(defaultPrefs);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
+  const [savedPushNotificationsEnabled, setSavedPushNotificationsEnabled] = useState(true);
+  const [accountPrefsLoaded, setAccountPrefsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -167,8 +170,11 @@ export default function NotificationSettingsPage() {
   }, [prefs]);
 
   const hasUnsavedChanges = useMemo(() => {
-    return JSON.stringify(prefs) !== JSON.stringify(savedPrefs);
-  }, [prefs, savedPrefs]);
+    return (
+      JSON.stringify(prefs) !== JSON.stringify(savedPrefs) ||
+      pushNotificationsEnabled !== savedPushNotificationsEnabled
+    );
+  }, [prefs, savedPrefs, pushNotificationsEnabled, savedPushNotificationsEnabled]);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,6 +197,9 @@ export default function NotificationSettingsPage() {
         setAdminRole("");
         setPrefs(defaultPrefs);
         setSavedPrefs(defaultPrefs);
+        setPushNotificationsEnabled(true);
+        setSavedPushNotificationsEnabled(true);
+        setAccountPrefsLoaded(false);
         setPageLoading(false);
         return;
       }
@@ -217,12 +226,19 @@ export default function NotificationSettingsPage() {
           .maybeSingle(),
         supabase
           .from("user_preferences")
-          .select("notify_reels")
+          .select("notify_reels, push_notifications_enabled")
           .eq("user_id", user.id)
           .maybeSingle(),
       ]);
 
       if (cancelled) return;
+
+      if (notificationPreferenceError) {
+        setAccountPrefsLoaded(false);
+        setErrorMessage("Could not load account notification settings. Reload and try again.");
+        setPageLoading(false);
+        return;
+      }
 
       const nextPrefs = {
         ...storedPrefs,
@@ -235,6 +251,15 @@ export default function NotificationSettingsPage() {
 
       setPrefs(nextPrefs);
       setSavedPrefs(nextPrefs);
+
+      const accountPushEnabled =
+        typeof notificationPreferenceData?.push_notifications_enabled === "boolean"
+          ? notificationPreferenceData.push_notifications_enabled
+          : true;
+
+      setPushNotificationsEnabled(accountPushEnabled);
+      setSavedPushNotificationsEnabled(accountPushEnabled);
+      setAccountPrefsLoaded(true);
       setCurrentProfile((profileData as ProfilePreview | null) || null);
 
       const adminRow = adminData as AdminUserRow | null;
@@ -263,8 +288,8 @@ export default function NotificationSettingsPage() {
     setStatusMessage("");
     setErrorMessage("");
 
-    if (!currentUserId) {
-      setErrorMessage("Please sign in before saving notification preferences.");
+    if (!currentUserId || !accountPrefsLoaded) {
+      setErrorMessage("Account notification settings are unavailable. Reload and try again.");
       return;
     }
 
@@ -276,6 +301,7 @@ export default function NotificationSettingsPage() {
         {
           user_id: currentUserId,
           notify_reels: prefs.reels,
+          push_notifications_enabled: pushNotificationsEnabled,
         },
         {
           onConflict: "user_id",
@@ -297,6 +323,7 @@ export default function NotificationSettingsPage() {
       );
 
       setSavedPrefs(prefs);
+      setSavedPushNotificationsEnabled(pushNotificationsEnabled);
       setStatusMessage("Notification preferences saved.");
     } catch {
       setErrorMessage("Could not save notification preferences in this browser. Please try again.");
@@ -307,6 +334,7 @@ export default function NotificationSettingsPage() {
 
   const handleResetPreferences = () => {
     setPrefs(defaultPrefs);
+    setPushNotificationsEnabled(true);
     setStatusMessage("");
     setErrorMessage("");
   };
@@ -569,6 +597,33 @@ export default function NotificationSettingsPage() {
                 >
                   {hasUnsavedChanges ? "Unsaved" : "Saved"}
                 </span>
+              </div>
+
+              <div className="mb-4 flex flex-col gap-4 rounded-[20px] border border-purple-200/20 bg-purple-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="m-0 text-lg font-black">
+                    Parapost Push Notifications
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    On by default for your Parapost account. Turn this off to stop
+                    phone push alerts without removing your in-app notifications.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="Parapost push notifications"
+                  aria-pressed={pushNotificationsEnabled}
+                  onClick={() => {
+                    setPushNotificationsEnabled((previous) => !previous);
+                    setStatusMessage("");
+                    setErrorMessage("");
+                  }}
+                  disabled={saving || pageLoading || !accountPrefsLoaded}
+                  className="min-h-11 shrink-0 rounded-full border border-purple-200/25 bg-purple-500/20 px-6 py-2 text-sm font-black text-white transition hover:bg-purple-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {pushNotificationsEnabled ? "ON" : "OFF"}
+                </button>
               </div>
 
               <div className="grid gap-3">
