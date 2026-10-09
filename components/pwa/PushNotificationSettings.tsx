@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 
 type PushNotificationSettingsProps = {
   currentUserId: string;
+  accountPushEnabled: boolean;
 };
 
 type SupportState = "checking" | "supported" | "unsupported";
@@ -40,6 +41,7 @@ async function saveSubscription(subscription: PushSubscription) {
 
 export default function PushNotificationSettings({
   currentUserId,
+  accountPushEnabled,
 }: PushNotificationSettingsProps) {
   const [supportState, setSupportState] = useState<SupportState>("checking");
   const [permission, setPermission] = useState<NotificationPermission>("default");
@@ -184,171 +186,65 @@ export default function PushNotificationSettings({
     }
   };
 
-  const handleDisable = async () => {
-    setStatusMessage("");
-    setErrorMessage("");
-
-    if (!currentUserId) {
-      setErrorMessage("Please sign in before changing phone notifications.");
-      return;
-    }
-
-    if (
-      !("serviceWorker" in navigator) ||
-      !("PushManager" in window)
-    ) {
-      setSupportState("unsupported");
-      setEnabled(false);
-      return;
-    }
-
-    setBusy(true);
-
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-
-      if (!subscription) {
-        setEnabled(false);
-        setStatusMessage("Phone notifications are already disabled on this device.");
-        return;
-      }
-
-      const { error } = await supabase.rpc("delete_push_subscription", {
-        p_endpoint: subscription.endpoint,
-      });
-
-      if (error) {
-        throw new Error(error.message || "Could not remove the push subscription.");
-      }
-
-      await subscription.unsubscribe();
-
-      setEnabled(false);
-      setStatusMessage("Phone notifications are disabled on this device.");
-    } catch (error) {
-      console.error("Disable phone notifications error:", error);
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Could not disable phone notifications. Please try again.";
-
-      setErrorMessage(message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const blocked = supportState === "supported" && permission === "denied";
 
-  const buttonLabel =
+  // Device setup appears only when the account allows push
+  // and this device does not already have a subscription.
+  if (
+    !currentUserId ||
+    !accountPushEnabled ||
+    enabled ||
     supportState === "checking"
-      ? "Checking..."
-      : supportState === "unsupported"
-        ? "Not Supported"
-        : busy
-          ? enabled
-            ? "Disabling..."
-            : "Enabling..."
-          : blocked
-            ? "Notifications Blocked"
-            : enabled
-              ? "Disable Phone Notifications"
-              : "Enable Phone Notifications";
+  ) {
+    return null;
+  }
 
   return (
-    <section
+    <div
       id="phone-notifications"
-      className="rounded-[24px] border border-purple-200/15 bg-gradient-to-br from-purple-500/10 via-white/[0.055] to-slate-950/55 p-4 shadow-2xl shadow-purple-950/15 ring-1 ring-white/[0.035] sm:rounded-[28px] sm:p-6"
+      className="w-full border-t border-purple-200/15 pt-3"
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="m-0 text-[1.35rem] font-black tracking-[-0.03em] sm:text-2xl">
-              Phone Notifications
-            </h2>
+      <p className="text-sm leading-6 text-slate-300">
+        Device setup required: This device needs permission to receive push alerts.
+      </p>
 
-            <span
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${
-                enabled
-                  ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
-                  : blocked
-                    ? "border-amber-300/25 bg-amber-400/10 text-amber-100"
-                    : "border-white/10 bg-white/5 text-slate-300"
-              }`}
-            >
-              {enabled ? "On" : blocked ? "Blocked" : "Off"}
-            </span>
-          </div>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Receive Parapost alerts on this device even when you are not
-            actively viewing the site. You stay in control and can disable
-            them here at any time.
-          </p>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-full border border-purple-200/15 bg-black/30 px-3 py-1.5 text-xs font-bold text-slate-300">
-              Friend activity
-            </span>
-            <span className="rounded-full border border-purple-200/15 bg-black/30 px-3 py-1.5 text-xs font-bold text-slate-300">
-              Parachat
-            </span>
-            <span className="rounded-full border border-purple-200/15 bg-black/30 px-3 py-1.5 text-xs font-bold text-slate-300">
-              Post & Reel activity
-            </span>
-          </div>
-        </div>
-
+      {supportState === "supported" && !blocked ? (
         <button
           type="button"
-          onClick={enabled ? handleDisable : handleEnable}
-          disabled={
-            busy ||
-            supportState !== "supported" ||
-            !currentUserId ||
-            blocked
-          }
-          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-4 py-2.5 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50"
-          style={{
-            borderColor: enabled
-              ? "rgba(110,231,183,0.28)"
-              : "var(--parapost-accent-border)",
-            background: enabled
-              ? "rgba(16,185,129,0.12)"
-              : "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2), var(--parapost-accent-3))",
-            color: enabled ? "rgb(209 250 229)" : "var(--parapost-accent-button-text)",
-            boxShadow: enabled ? "none" : "0 10px 24px var(--parapost-accent-glow)",
-          }}
+          onClick={handleEnable}
+          disabled={busy}
+          className="mt-4 min-h-11 rounded-full bg-purple-500 px-5 py-2.5 text-sm font-black text-white transition hover:bg-purple-600 disabled:opacity-50"
         >
-          {buttonLabel}
+          {busy
+            ? "Setting Up..."
+            : "Set Up This Device"}
         </button>
-      </div>
+      ) : null}
 
-      {!currentUserId && supportState !== "checking" ? (
-        <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
-          Sign in is required to enable phone notifications.
-        </div>
+      {blocked ? (
+        <p className="mt-3 text-sm text-amber-200">
+          Notifications are blocked on this device.
+          Allow Parapost notifications in your browser or device settings.
+        </p>
       ) : null}
 
       {supportState === "unsupported" ? (
-        <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
-          This browser or device does not support Parapost phone notifications.
-        </div>
+        <p className="mt-3 text-sm text-slate-400">
+          This device or browser does not support push notifications.
+        </p>
       ) : null}
 
       {statusMessage ? (
-        <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-3 text-sm leading-6 text-emerald-100">
+        <p className="mt-3 text-sm text-emerald-200">
           {statusMessage}
-        </div>
+        </p>
       ) : null}
 
       {errorMessage ? (
-        <div className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-3 text-sm leading-6 text-rose-100">
+        <p className="mt-3 text-sm text-red-200">
           {errorMessage}
-        </div>
+        </p>
       ) : null}
-    </section>
+    </div>
   );
 }
