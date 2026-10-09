@@ -1,5 +1,7 @@
 "use client";
 
+import { useLayoutEffect } from "react";
+
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
 
 import { uploadImageWithVariant } from "@/lib/images/media-variants";
@@ -2597,6 +2599,8 @@ export default function ProfilePage() {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
+  const profileLoadSequenceRef = useRef(0);
+  const lastProfileIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [followLoading, setFollowLoading] = useState(false);
@@ -2612,6 +2616,8 @@ export default function ProfilePage() {
   const [profileActionsOpen, setProfileActionsOpen] = useState(false);
   const [isProfileBlocked, setIsProfileBlocked] = useState(false);
   const [isBlockedByProfile, setIsBlockedByProfile] = useState(false);
+  const [blockStatusCheckedFor, setBlockStatusCheckedFor] = useState<string | null>(null);
+  const [blockStatusErrorFor, setBlockStatusErrorFor] = useState<string | null>(null);
   const [profileBlockLoading, setProfileBlockLoading] = useState(false);
   const [profileMainMenuOpen, setProfileMainMenuOpen] = useState(false);
   const [isClientMounted, setIsClientMounted] = useState(false);
@@ -3014,8 +3020,24 @@ export default function ProfilePage() {
 
   const profileIsPrivate = Boolean(profile?.is_private);
   const canViewPrivateProfileContent = !profileIsPrivate || isOwnProfile || friendStatus === "friends";
-  const isProfileContentLocked = Boolean(profile && profileIsPrivate && !canViewPrivateProfileContent);
-  const profileInteractionBlocked = Boolean(!isOwnProfile && (isProfileBlocked || isBlockedByProfile));
+  const blockStatusReady = Boolean(
+    isOwnProfile ||
+      (viewerId && profileId && blockStatusCheckedFor === `${viewerId}:${profileId}`)
+  );
+
+  // Restrict content until blocked-user access is verified.
+  const profileAccessBlockedOrPending = Boolean(
+    !isOwnProfile &&
+      (!blockStatusReady || isProfileBlocked || isBlockedByProfile)
+  );
+
+  const isProfileContentLocked = Boolean(
+    profile &&
+      ((profileIsPrivate && !canViewPrivateProfileContent) ||
+        profileAccessBlockedOrPending)
+  );
+
+  const profileInteractionBlocked = profileAccessBlockedOrPending;
   const profileBlockedActionLabel = isProfileBlocked ? "Blocked" : "Unavailable";
   const canManageProfileShowcases = Boolean(viewerId && profileId && viewerId === profileId);
 
@@ -3026,6 +3048,9 @@ export default function ProfilePage() {
   }, [isOwnProfile, profileMainMenuOpen]);
 
   useEffect(() => {
+    setBlockStatusCheckedFor(null);
+    setBlockStatusErrorFor(null);
+
     if (!viewerId || !profileId || isOwnProfile) {
       setIsProfileBlocked(false);
       setIsBlockedByProfile(false);
@@ -3047,12 +3072,14 @@ export default function ProfilePage() {
       if (error) {
         console.error("Could not load profile block status:", error.message);
         setIsProfileBlocked(false);
+        setBlockStatusErrorFor(`${viewerId}:${profileId}`);
         return;
       }
 
       const rows = (data || []) as Array<{ blocker_id?: string | null; blocked_id?: string | null }>;
       setIsProfileBlocked(rows.some((row) => row.blocker_id === viewerId && row.blocked_id === profileId));
       setIsBlockedByProfile(rows.some((row) => row.blocker_id === profileId && row.blocked_id === viewerId));
+      setBlockStatusCheckedFor(`${viewerId}:${profileId}`);
     };
 
     loadProfileBlockStatus();
@@ -3488,7 +3515,51 @@ const closeProfileMobileSearch = useCallback(() => {
 }, []);
 
 
+  // Clear previous-member information only when navigating to another profile.
+  useLayoutEffect(() => {
+    const requestedProfileId = profileId || null;
+
+    if (lastProfileIdRef.current === requestedProfileId) return;
+
+    lastProfileIdRef.current = requestedProfileId;
+
+    // Invalidate pending background results from the previous profile.
+    profileLoadSequenceRef.current += 1;
+
+    setLoading(true);
+    setErrorMessage("");
+    setProfile(null);
+    setProfileThought(null);
+
+    setPosts([]);
+    setSharedPostPosts([]);
+    setSharedReelPosts([]);
+    setReels([]);
+    setProfileLiveStreams([]);
+
+    setFriendStatus("none");
+    setIsProfileBlocked(false);
+    setIsBlockedByProfile(false);
+    setIsFollowing(false);
+    setFollowersCount(0);
+    setFollowingCount(0);
+
+    setLikeCounts({});
+    setUserLikes({});
+    setCommentCounts({});
+    setShareCounts({});
+    setCommentsByPostId({});
+    setCommentProfilesMap({});
+
+    setProfileBadges([]);
+    setProfileBadgesLoading(true);
+    setProfileAchievements([]);
+    setProfileAchievementsLoading(true);
+    setProfileAchievementActivity([]);
+  }, [profileId]);
+
   const loadPage = useCallback(async () => {
+    const loadSequence = ++profileLoadSequenceRef.current;
     if (!profileId) {
       setErrorMessage("Profile not found.");
       setProfileBadges([]);
@@ -3511,22 +3582,40 @@ const closeProfileMobileSearch = useCallback(() => {
       data: { user },
     } = await supabase.auth.getUser();
 
+    // Stop if another profile load started while authentication was checked.
+    if (profileLoadSequenceRef.current !== loadSequence) return;
+
     const nextViewerId = user?.id || "";
     setViewerId(nextViewerId);
     setViewerEmail(user?.email || "");
 
     if (nextViewerId) {
-      const { data: viewerProfileData } = await supabase
-        .from("profiles")
-        .select("avatar_url")
-        .eq("id", nextViewerId)
-        .maybeSingle();
+      // Load the viewer avatar without delaying the main profile.
+      void Promise.resolve(
+        supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", nextViewerId)
+          .maybeSingle()
+      )
+        .then(({ data: viewerProfileData, error: avatarError }) => {
+          if (profileLoadSequenceRef.current !== loadSequence) return;
 
-      setViewerAvatarUrl(
-        typeof viewerProfileData?.avatar_url === "string"
-          ? viewerProfileData.avatar_url
-          : ""
-      );
+          if (avatarError) {
+            console.warn("Viewer avatar could not load:", avatarError.message);
+          }
+
+          setViewerAvatarUrl(
+            typeof viewerProfileData?.avatar_url === "string"
+              ? viewerProfileData.avatar_url
+              : ""
+          );
+        })
+        .catch((error) => {
+          if (profileLoadSequenceRef.current !== loadSequence) return;
+          console.warn("Viewer avatar could not load:", error);
+          setViewerAvatarUrl("");
+        });
     } else {
       setViewerAvatarUrl("");
     }
@@ -3536,23 +3625,34 @@ const closeProfileMobileSearch = useCallback(() => {
 
     if (nextViewerId) {
       if (profileId && nextViewerId !== profileId) {
-        const { error: recentlyViewedSaveError } = await supabase
-          .from("recently_viewed_profiles")
-          .upsert(
-            {
-              viewer_id: nextViewerId,
-              profile_id: profileId,
-              viewed_at: new Date().toISOString(),
-            },
-            { onConflict: "viewer_id,profile_id" }
-          );
+        // Save recently viewed information without delaying profile loading.
+        void (async () => {
+          try {
+            const { error: recentlyViewedSaveError } = await supabase
+              .from("recently_viewed_profiles")
+              .upsert(
+                {
+                  viewer_id: nextViewerId,
+                  profile_id: profileId,
+                  viewed_at: new Date().toISOString(),
+                },
+                { onConflict: "viewer_id,profile_id" }
+              );
 
-        if (recentlyViewedSaveError) {
-          console.warn("Recently viewed profile could not be saved:", recentlyViewedSaveError.message);
-        }
+            if (recentlyViewedSaveError) {
+              console.warn("Recently viewed profile could not be saved:", recentlyViewedSaveError.message);
+            }
+          } catch (error) {
+            console.warn("Recently viewed profile could not be saved:", error);
+          }
+
+          if (profileLoadSequenceRef.current === loadSequence) {
+            void loadRecentlyViewedProfiles(nextViewerId);
+          }
+        })();
+      } else {
+        void loadRecentlyViewedProfiles(nextViewerId);
       }
-
-      void loadRecentlyViewedProfiles(nextViewerId);
     } else {
       setRecentlyViewedProfiles([]);
       setRecentlyViewedLoading(false);
@@ -3561,18 +3661,8 @@ const closeProfileMobileSearch = useCallback(() => {
     let loadedProfilePostsForCounts: Post[] = [];
     let mappedSharedPostsForCounts: SharedProfilePost[] = [];
 
-    const [
-      profileResult,
-      postsResult,
-      sharesResult,
-      reelsResult,
-      reelSharesResult,
-      liveStreamsResult,
-      followersResult,
-      outgoingRequestResult,
-      incomingRequestResult,
-      acceptedRequestResult,
-    ] = await Promise.all([
+    // Start the essential profile request only once.
+    const profileRequest = Promise.resolve(
       supabase
         .from("profiles")
        .select(`
@@ -3608,7 +3698,59 @@ const closeProfileMobileSearch = useCallback(() => {
   profile_links
 `) 
         .eq("id", profileId)
-        .maybeSingle(),
+        .maybeSingle()
+    );
+
+    // Display the owner's basic profile as soon as it arrives.
+    // Other members' profiles still wait for relationship checks.
+    void profileRequest
+      .then(({ data: earlyProfile, error: earlyProfileError }) => {
+        if (profileLoadSequenceRef.current !== loadSequence) return;
+        if (!nextViewerId || nextViewerId !== profileId) return;
+        if (earlyProfileError || !earlyProfile) return;
+
+        setProfile(earlyProfile as ProfileRow);
+      })
+      .catch((earlyProfileError) => {
+        if (profileLoadSequenceRef.current !== loadSequence) return;
+        console.warn("Early profile display deferred:", earlyProfileError);
+      });
+
+    // Essential profile and friendship requests.
+    const profileAccessPromise = Promise.all([
+      profileRequest,
+      nextViewerId && profileId && nextViewerId !== profileId
+        ? supabase
+            .from("friend_requests")
+            .select("id")
+            .eq("sender_id", nextViewerId)
+            .eq("receiver_id", profileId)
+            .eq("status", "pending")
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      nextViewerId && profileId && nextViewerId !== profileId
+        ? supabase
+            .from("friend_requests")
+            .select("id")
+            .eq("sender_id", profileId)
+            .eq("receiver_id", nextViewerId)
+            .eq("status", "pending")
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      nextViewerId && profileId && nextViewerId !== profileId
+        ? supabase
+            .from("friend_requests")
+            .select("id")
+            .eq("status", "accepted")
+            .or(
+              `and(sender_id.eq.${nextViewerId},receiver_id.eq.${profileId}),and(sender_id.eq.${profileId},receiver_id.eq.${nextViewerId})`
+            )
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    // Start secondary requests concurrently, without delaying profile display.
+    const profileMediaPromise = Promise.all([
       supabase
         .from("posts")
         .select("id, content, image_url, created_at, user_id")
@@ -3649,64 +3791,58 @@ const closeProfileMobileSearch = useCallback(() => {
         .from("followers")
         .select("follower_id, following_id")
         .or(`follower_id.eq.${profileId},following_id.eq.${profileId}`),
-      nextViewerId && profileId && nextViewerId !== profileId
-        ? supabase
-            .from("friend_requests")
-            .select("id")
-            .eq("sender_id", nextViewerId)
-            .eq("receiver_id", profileId)
-            .eq("status", "pending")
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      nextViewerId && profileId && nextViewerId !== profileId
-        ? supabase
-            .from("friend_requests")
-            .select("id")
-            .eq("sender_id", profileId)
-            .eq("receiver_id", nextViewerId)
-            .eq("status", "pending")
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      nextViewerId && profileId && nextViewerId !== profileId
-        ? supabase
-            .from("friend_requests")
-            .select("id")
-            .eq("status", "accepted")
-            .or(
-              `and(sender_id.eq.${nextViewerId},receiver_id.eq.${profileId}),and(sender_id.eq.${profileId},receiver_id.eq.${nextViewerId})`
-            )
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
     ]);
 
-    const [nextProfileBadges, nextProfileAchievements, nextAchievementActivityRows] = await Promise.all([
+    const [
+      profileResult,
+      outgoingRequestResult,
+      incomingRequestResult,
+      acceptedRequestResult,
+    ] = await profileAccessPromise;
+
+    // Ignore results from an earlier profile-loading request.
+    if (profileLoadSequenceRef.current !== loadSequence) return;
+
+    // Load badges and achievements without holding up the main profile.
+    void Promise.all([
       profileBadgesPromise,
       profileAchievementsPromise,
       profileAchievementActivityPromise,
-    ]);
+    ])
+      .then(([nextProfileBadges, nextProfileAchievements, nextAchievementActivityRows]) => {
+        if (profileLoadSequenceRef.current !== loadSequence || profileResult.error) return;
+        const achievementMap = new Map(
+          nextProfileAchievements.map((achievement) => [achievement.id, achievement])
+        );
 
-    const achievementMap = new Map(
-      nextProfileAchievements.map((achievement) => [achievement.id, achievement])
-    );
+        const nextAchievementActivity = nextAchievementActivityRows
+          .map((activityRow) => ({
+            id: String(activityRow.id),
+            userId: String(activityRow.user_id),
+            achievementId: String(activityRow.achievement_id),
+            userAchievementId: activityRow.user_achievement_id ? String(activityRow.user_achievement_id) : null,
+            activityType: String(activityRow.activity_type || "achievement_unlocked"),
+            message: activityRow.message ? String(activityRow.message) : null,
+            created_at: String(activityRow.created_at),
+            achievement: achievementMap.get(String(activityRow.achievement_id)) || null,
+          }))
+          .filter((activity) => Boolean(activity.achievement));
 
-    const nextAchievementActivity = nextAchievementActivityRows
-      .map((activityRow) => ({
-        id: String(activityRow.id),
-        userId: String(activityRow.user_id),
-        achievementId: String(activityRow.achievement_id),
-        userAchievementId: activityRow.user_achievement_id ? String(activityRow.user_achievement_id) : null,
-        activityType: String(activityRow.activity_type || "achievement_unlocked"),
-        message: activityRow.message ? String(activityRow.message) : null,
-        created_at: String(activityRow.created_at),
-        achievement: achievementMap.get(String(activityRow.achievement_id)) || null,
-      }))
-      .filter((activity) => Boolean(activity.achievement));
-
-    setProfileBadges(nextProfileBadges);
-    setProfileBadgesLoading(false);
-    setProfileAchievements(nextProfileAchievements);
-    setProfileAchievementsLoading(false);
-    setProfileAchievementActivity(nextAchievementActivity);
+        setProfileBadges(nextProfileBadges);
+        setProfileBadgesLoading(false);
+        setProfileAchievements(nextProfileAchievements);
+        setProfileAchievementsLoading(false);
+        setProfileAchievementActivity(nextAchievementActivity);
+      })
+      .catch((error) => {
+        if (profileLoadSequenceRef.current !== loadSequence || profileResult.error) return;
+        console.warn("Profile badges or achievements could not load:", error);
+        setProfileBadges([]);
+        setProfileBadgesLoading(false);
+        setProfileAchievements([]);
+        setProfileAchievementsLoading(false);
+        setProfileAchievementActivity([]);
+      });
 
     if (profileResult.error) {
       setErrorMessage(profileResult.error.message || "Unable to load profile.");
@@ -3726,29 +3862,66 @@ const closeProfileMobileSearch = useCallback(() => {
       return;
     }
 
+    // Resolve friendship before displaying profile information.
+    if (!nextViewerId || nextViewerId === profileId) {
+      setFriendStatus("none");
+    } else if (acceptedRequestResult.data) {
+      setFriendStatus("friends");
+    } else if (outgoingRequestResult.data) {
+      setFriendStatus("outgoing_request");
+    } else if (incomingRequestResult.data) {
+      setFriendStatus("incoming_request");
+    } else {
+      setFriendStatus("none");
+    }
+
+    setProfile((profileResult.data as ProfileRow | null) || null);
+
+    // Load the Thought Bubble without delaying the basic profile.
     const profileThoughtCutoffIso = new Date(
       Date.now() - PROFILE_THOUGHT_LIFETIME_MS
     ).toISOString();
 
-    const { data: profileThoughtData, error: profileThoughtError } = await supabase
-      .from("profile_thoughts")
-      .select("user_id, text, audience, updated_at")
-      .eq("user_id", profileId)
-      .gt("updated_at", profileThoughtCutoffIso)
-      .maybeSingle();
+    void Promise.resolve(
+      supabase
+        .from("profile_thoughts")
+        .select("user_id, text, audience, updated_at")
+        .eq("user_id", profileId)
+        .gt("updated_at", profileThoughtCutoffIso)
+        .maybeSingle()
+    )
+      .then(({ data: profileThoughtData, error: profileThoughtError }) => {
+        if (profileLoadSequenceRef.current !== loadSequence) return;
 
-    if (profileThoughtError) {
-      // A missing migration/RLS issue should never break the rest of Profile.
-      console.warn("Profile thought could not load:", profileThoughtError.message);
-      setProfileThought(null);
-    } else {
-      const loadedThought = (profileThoughtData as ProfileThoughtRow | null) || null;
-      setProfileThought(
-        isProfileThoughtWithinLifetime(loadedThought) ? loadedThought : null
-      );
-    }
+        if (profileThoughtError) {
+          console.warn("Profile thought could not load:", profileThoughtError.message);
+          setProfileThought(null);
+          return;
+        }
 
-    setProfile((profileResult.data as ProfileRow | null) || null);
+        const loadedThought = (profileThoughtData as ProfileThoughtRow | null) || null;
+        setProfileThought(
+          isProfileThoughtWithinLifetime(loadedThought) ? loadedThought : null
+        );
+      })
+      .catch((error) => {
+        if (profileLoadSequenceRef.current !== loadSequence) return;
+        console.warn("Profile thought could not load:", error);
+        setProfileThought(null);
+      });
+
+    // Secondary content finishes after the basic profile is available.
+    const [
+      postsResult,
+      sharesResult,
+      reelsResult,
+      reelSharesResult,
+      liveStreamsResult,
+      followersResult,
+    ] = await profileMediaPromise;
+
+    // Discard content from outdated profile requests.
+    if (profileLoadSequenceRef.current !== loadSequence) return;
 
     if (postsResult.error) {
       setErrorMessage(postsResult.error.message || "Unable to load posts.");
@@ -3756,6 +3929,7 @@ const closeProfileMobileSearch = useCallback(() => {
     } else {
       const loadedPosts = (postsResult.data as Post[]) || [];
       const postImagesMap = await fetchPostImagesMap(loadedPosts.map((post) => post.id));
+      if (profileLoadSequenceRef.current !== loadSequence) return;
       loadedProfilePostsForCounts = attachImagesToPosts(loadedPosts, postImagesMap);
       setPosts(loadedProfilePostsForCounts);
     }
@@ -3782,10 +3956,12 @@ const closeProfileMobileSearch = useCallback(() => {
           .from("posts")
           .select("id, content, image_url, created_at, user_id")
           .in("id", sharedPostIds);
+        if (profileLoadSequenceRef.current !== loadSequence) return;
 
         if (!sharedPostsError) {
           const baseSharedPosts = (sharedPostsData as Post[]) || [];
           const sharedPostImagesMap = await fetchPostImagesMap(baseSharedPosts.map((post) => post.id));
+          if (profileLoadSequenceRef.current !== loadSequence) return;
           sharedOriginalPosts = attachImagesToPosts(baseSharedPosts, sharedPostImagesMap);
         }
       }
@@ -3799,6 +3975,7 @@ const closeProfileMobileSearch = useCallback(() => {
           .from("profiles")
           .select("id, username, full_name, bio, avatar_url, is_online, last_seen_at")
           .in("id", sharedOriginalCreatorIds);
+        if (profileLoadSequenceRef.current !== loadSequence) return;
 
         if (!sharedCreatorError) {
           sharedOriginalCreators = (sharedCreatorData as ProfileRow[]) || [];
@@ -3841,6 +4018,7 @@ const closeProfileMobileSearch = useCallback(() => {
           .from("reel_view_totals")
           .select("reel_id, views")
           .in("reel_id", reelIds);
+        if (profileLoadSequenceRef.current !== loadSequence) return;
 
         if (viewError) {
           console.warn("Profile Reel views fetch skipped:", viewError.message);
@@ -3891,6 +4069,7 @@ const closeProfileMobileSearch = useCallback(() => {
           .from("reels")
           .select("id, title, caption, video_url, poster_url, user_id, creator_profile_id, created_at")
           .in("id", sharedReelIds);
+        if (profileLoadSequenceRef.current !== loadSequence) return;
 
         if (!sharedReelsError) {
           sharedReels = (sharedReelsData as SharedReel[]) || [];
@@ -3910,6 +4089,7 @@ const closeProfileMobileSearch = useCallback(() => {
           .from("profiles")
           .select("id, username, full_name, bio, avatar_url, is_online, last_seen_at")
           .in("id", sharedCreatorIds);
+        if (profileLoadSequenceRef.current !== loadSequence) return;
 
         if (!sharedCreatorError) {
           sharedCreators = (sharedCreatorData as ProfileRow[]) || [];
@@ -3966,6 +4146,7 @@ const closeProfileMobileSearch = useCallback(() => {
           .select("post_id, share_destination, deleted_at")
           .in("post_id", countPostIds),
       ]);
+      if (profileLoadSequenceRef.current !== loadSequence) return;
 
       const nextLikeCounts: CountMap = {};
       const nextUserLikes: ToggleMap = {};
@@ -4044,6 +4225,7 @@ const closeProfileMobileSearch = useCallback(() => {
             .from("profiles")
             .select("id, username, full_name, bio, avatar_url, is_online, last_seen_at, location")
             .in("id", commenterIds);
+          if (profileLoadSequenceRef.current !== loadSequence) return;
 
           if (!profileRowsError && profileRows) {
             const nextCommentProfiles: Record<string, ProfileRow> = {};
@@ -4091,18 +4273,9 @@ const closeProfileMobileSearch = useCallback(() => {
         followerRows.some((row) => row.follower_id === nextViewerId && row.following_id === profileId)
     );
 
-    if (!nextViewerId || nextViewerId === profileId) {
-      setFriendStatus("none");
-    } else if (acceptedRequestResult.data) {
-      setFriendStatus("friends");
-    } else if (outgoingRequestResult.data) {
-      setFriendStatus("outgoing_request");
-    } else if (incomingRequestResult.data) {
-      setFriendStatus("incoming_request");
-    } else {
-      setFriendStatus("none");
-    }
 
+    // Do not let an older request finish a newer profile load.
+    if (profileLoadSequenceRef.current !== loadSequence) return;
     setLoading(false);
   }, [profileId, loadRecentlyViewedProfiles]);
 
@@ -18416,7 +18589,21 @@ return (
                   </section>
                 ) : null}
 
-                {isProfileContentLocked ? renderPrivateProfileNotice() : null}
+                {profile && profileAccessBlockedOrPending ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    style={{ padding: "24px 16px", textAlign: "center" }}
+                  >
+                    {!viewerId
+                      ? "Please sign in to view this profile."
+                      : !blockStatusReady
+                        ? blockStatusErrorFor === `${viewerId}:${profileId}`
+                          ? "Unable to verify profile access. Refresh to try again."
+                          : "Checking profile access..."
+                        : "This profile is unavailable."}
+                  </div>
+                ) : isProfileContentLocked ? renderPrivateProfileNotice() : null}
 
                 {!isProfileContentLocked ? (
                   <div className="profile-tabs-shell" style={profileTabsShellStyle}>
