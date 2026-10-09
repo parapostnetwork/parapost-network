@@ -152,7 +152,7 @@ export async function POST(req: Request) {
       title: getNotificationTitle(record),
       body: getNotificationBody(record),
       icon: "/icons/parapost-192.png",
-      badge: "/icons/parapost-192.png",
+      badge: "/icons/parapost-notification-badge.png",
       url: "/notifications",
     });
 
