@@ -23,8 +23,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body || "You have a new Parapost update.",
-    icon: "/icons/parapost-push-test-v2.png",
-    badge: "/icons/parapost-badge-test-v2.png",
+    icon: data.icon || "/icons/parapost-192.png",
+    badge: data.badge || "/icons/parapost-notification-badge.png",
     data: {
       url: data.url || "/notifications",
     },
