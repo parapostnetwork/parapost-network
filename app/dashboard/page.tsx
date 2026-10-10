@@ -2749,6 +2749,8 @@ export default function DashboardPage() {
     ids: string[];
   } | null>(null);
 
+  const profileBootstrapAttemptedRef = useRef<string | null>(null);
+
   const fetchPeopleToDiscover = useCallback(async (userId?: string, blockedIds: string[] = [], relationships?: DashboardRelationshipQueries) => {
     if (!userId) {
       setDiscoverProfiles([]);
@@ -3961,7 +3963,7 @@ export default function DashboardPage() {
 
         // Presence is handled by the dedicated presence heartbeat below.
 
-        const [{ data: profileData }, { data: blocksData, error: blocksError }] = await Promise.all([
+        const [{ data: profileData, error: profileError }, { data: blocksData, error: blocksError }] = await Promise.all([
           supabase
             .from("profiles")
             .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
@@ -3973,7 +3975,47 @@ export default function DashboardPage() {
             .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`),
         ]);
 
-        setCurrentProfile((profileData as ProfilePreview | null) || null);
+        let resolvedProfile =
+          (profileData as ProfilePreview | null) || null;
+
+        if (
+          !profileError &&
+          !resolvedProfile &&
+          profileBootstrapAttemptedRef.current !== user.id
+        ) {
+          profileBootstrapAttemptedRef.current = user.id;
+
+          const { data: createdProfile, error: creationError } =
+            await supabase
+              .from("profiles")
+              .insert({ id: user.id })
+              .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+              .maybeSingle();
+
+          if (creationError?.code === "23505") {
+            const { data: existingProfile, error: reloadError } =
+              await supabase
+                .from("profiles")
+                .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+                .eq("id", user.id)
+                .maybeSingle();
+
+            if (!reloadError) {
+              resolvedProfile =
+                (existingProfile as ProfilePreview | null) || null;
+            }
+          } else if (creationError) {
+            console.warn(
+              "Could not initialize member profile:",
+              creationError.message
+            );
+          } else {
+            resolvedProfile =
+              (createdProfile as ProfilePreview | null) || null;
+          }
+        }
+
+        setCurrentProfile(resolvedProfile);
 
         if (blocksError) {
           logDashboardNetworkIssue("Dashboard blocked users skipped", blocksError);
