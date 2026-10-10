@@ -1,5 +1,6 @@
 "use client";
 
+import { cleanupPushBeforeLogout } from "@/components/pwa/PushNotificationLogout";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -229,9 +230,25 @@ export default function AccountSecuritySettingsPage() {
     setErrorMessage("");
     setSigningOut(true);
 
-    if (userId) {
-      await supabase.from("profiles").update({ is_online: false }).eq("id", userId);
+    if (!userId) {
+      setSigningOut(false);
+      setErrorMessage("Could not identify your account. Please reload and try again.");
+      return;
     }
+
+    try {
+      await cleanupPushBeforeLogout(userId);
+    } catch (cleanupError) {
+      setSigningOut(false);
+      setErrorMessage(
+        cleanupError instanceof Error
+          ? cleanupError.message
+          : "Could not safely disconnect phone notifications. Please try again."
+      );
+      return;
+    }
+
+    await supabase.from("profiles").update({ is_online: false }).eq("id", userId);
 
     const { error } = await supabase.auth.signOut();
 

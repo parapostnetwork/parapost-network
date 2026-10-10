@@ -101,7 +101,22 @@ export default function PushNotificationSettings({
           subscriptionMatchesVapidKey(subscription, vapidPublicKey)
         );
 
-        setEnabled(usesCurrentKey);
+        // Do not automatically restore a subscription after an opt-out.
+        let deviceOptedOut = true;
+
+        try {
+          deviceOptedOut =
+            window.localStorage.getItem(
+              `parapost-push-device-disabled:${currentUserId}`
+            ) === "1" ||
+            window.localStorage.getItem(
+              `parapost-push-intro-dismissed:${currentUserId}`
+            ) === "1";
+        } catch {
+          // If storage is unavailable, require explicit setup.
+        }
+
+        setEnabled(usesCurrentKey && !deviceOptedOut);
 
         // Keep an existing browser subscription connected to the signed-in
         // Parapost account. This does not ask for permission or create a new
@@ -110,6 +125,8 @@ export default function PushNotificationSettings({
           subscription &&
           usesCurrentKey &&
           currentUserId &&
+          accountPushEnabled &&
+          !deviceOptedOut &&
           Notification.permission === "granted"
         ) {
           try {
@@ -132,7 +149,7 @@ export default function PushNotificationSettings({
     return () => {
       cancelled = true;
     };
-  }, [currentUserId]);
+  }, [currentUserId, accountPushEnabled]);
 
   const handleEnable = async () => {
     setStatusMessage("");
@@ -209,6 +226,18 @@ export default function PushNotificationSettings({
       }
 
       await saveSubscription(subscription);
+
+      // Explicit setup overrides earlier device-level opt-outs.
+      try {
+        window.localStorage.removeItem(
+          `parapost-push-device-disabled:${currentUserId}`
+        );
+        window.localStorage.removeItem(
+          `parapost-push-intro-dismissed:${currentUserId}`
+        );
+      } catch {
+        // Storage cleanup is optional.
+      }
 
       if (oldEndpoint && oldEndpoint !== subscription.endpoint) {
         const { error: deleteError } = await supabase.rpc(

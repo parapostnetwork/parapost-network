@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ParapostPreferencesProvider from "@/components/ParapostPreferencesProvider";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
+import PushNotificationStartup from "@/components/pwa/PushNotificationStartup";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,6 +42,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegistration />
+        <PushNotificationStartup />
         <ParapostPreferencesProvider>{children}</ParapostPreferencesProvider>
       </body>
     </html>

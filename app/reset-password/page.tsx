@@ -3,6 +3,7 @@
 import { CSSProperties, FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { clearLocalAuthSessionWithPushCleanup } from "@/components/pwa/PushNotificationLogout";
 
 function getFriendlyResetError(message: string) {
   const lowerMessage = message.toLowerCase();
@@ -62,9 +63,16 @@ export default function ResetPasswordPage() {
       setStatus(getFriendlyResetError(message));
 
       try {
-        await supabase.auth.signOut({ scope: "local" });
-      } catch {
-        // Ignore cleanup errors. The reset message above is what matters.
+        await clearLocalAuthSessionWithPushCleanup();
+      } catch (cleanupError) {
+        if (!isActive) return;
+        setStatus(
+          `${getFriendlyResetError(message)} ${
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : "Could not complete sign-out cleanup. Please try again."
+          }`
+        );
       }
     };
 
@@ -199,10 +207,22 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      setSessionReady(false);
+
       try {
-        await supabase.auth.signOut({ scope: "local" });
-      } catch {
-        // Keep going. The password was updated successfully.
+        await clearLocalAuthSessionWithPushCleanup();
+      } catch (cleanupError) {
+        setPassword("");
+        setConfirmPassword("");
+        setStatus(
+          `Password updated. ${
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : "Could not complete sign-out cleanup. Please try again."
+          }`
+        );
+        setLoading(false);
+        return;
       }
 
       setPassword("");

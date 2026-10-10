@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { clearLocalAuthSessionWithPushCleanup } from "@/components/pwa/PushNotificationLogout";
 
 type AuthMode = "signin" | "signup";
 
@@ -11,6 +12,13 @@ function getSafeAuthOrigin() {
   if (typeof window === "undefined") return LIVE_SITE_ORIGIN;
 
   const origin = window.location.origin;
+
+  if (
+    window.location.hostname ===
+    "parapost-network-git-staging-parapost-network.vercel.app"
+  ) {
+    return origin;
+  }
 
   if (
     origin.includes("localhost") ||
@@ -23,18 +31,6 @@ function getSafeAuthOrigin() {
   }
 
   return LIVE_SITE_ORIGIN;
-}
-
-async function clearLocalAuthSessionSilently() {
-  try {
-    await supabase.auth.signOut({ scope: "local" });
-  } catch {
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // Ignore cleanup errors. The next auth call will show the real issue.
-    }
-  }
 }
 
 function getFriendlySigninError(message: string, passwordHasEdgeSpaces: boolean) {
@@ -105,6 +101,7 @@ export default function Home() {
   useEffect(() => {
     let isActive = true;
     let redirectStarted = false;
+    let initialSessionCheckPending = true;
 
     const redirectToDashboard = () => {
       if (redirectStarted) return;
@@ -130,7 +127,7 @@ export default function Home() {
           hashParams.get("error");
 
         if (authErrorDescription) {
-          await clearLocalAuthSessionSilently();
+          await clearLocalAuthSessionWithPushCleanup();
 
           if (!isActive) return;
 
@@ -143,7 +140,7 @@ export default function Home() {
         }
 
         if (verifiedFromEmail) {
-          await clearLocalAuthSessionSilently();
+          await clearLocalAuthSessionWithPushCleanup();
 
           if (!isActive) return;
 
@@ -167,11 +164,16 @@ export default function Home() {
         if (data.session?.user) {
           redirectToDashboard();
         }
-      } catch {
+      } catch (error) {
         if (isActive) {
-          setAuthError("We could not check your saved session. Please try again.");
+          setAuthError(
+            error instanceof Error
+              ? error.message
+              : "We could not check your saved session. Please try again."
+          );
         }
       } finally {
+        initialSessionCheckPending = false;
         if (isActive && !redirectStarted) {
           setCheckingSession(false);
         }
@@ -181,7 +183,7 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!isActive) return;
+      if (!isActive || initialSessionCheckPending) return;
 
       if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
         redirectToDashboard();
@@ -248,7 +250,7 @@ export default function Home() {
         return;
       }
 
-      await clearLocalAuthSessionSilently();
+      await clearLocalAuthSessionWithPushCleanup();
 
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -298,7 +300,7 @@ export default function Home() {
 
     try {
       setLoading(true);
-      await clearLocalAuthSessionSilently();
+      await clearLocalAuthSessionWithPushCleanup();
 
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: `${authOrigin}/reset-password`,

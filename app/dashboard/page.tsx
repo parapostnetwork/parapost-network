@@ -40,6 +40,7 @@ import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } 
 import DashboardReelsSection from "./DashboardReelsSection";
 import LiveChatPanel from "@/components/live/LiveChatPanel";
 import { supabase } from "@/lib/supabase";
+import { cleanupPushBeforeLogout } from "@/components/pwa/PushNotificationLogout";
 import { canPlayPublishedStream } from "@/lib/live/playback";
 import { getLiveDisplayLabel, getLiveDisplayStatus, needsLiveRefresh } from "@/lib/live/status";
 import { useLiveRefresh } from "@/lib/live/useLiveRefresh";
@@ -14950,15 +14951,35 @@ function MobileDashboardMenuDrawer({
 
   const handleLogout = async () => {
     try {
-      if (currentUserId) {
-        await supabase
-          .from("profiles")
-          .update({ is_online: false, last_seen_at: new Date().toISOString() })
-          .eq("id", currentUserId);
+      if (!currentUserId) {
+        throw new Error(
+          "Could not identify your account. Please reload and try again."
+        );
       }
-      await supabase.auth.signOut();
-    } finally {
+
+      // Disconnect device push notifications before signing out.
+      await cleanupPushBeforeLogout(currentUserId);
+
+      await supabase
+        .from("profiles")
+        .update({ is_online: false, last_seen_at: new Date().toISOString() })
+        .eq("id", currentUserId);
+
+      const { error: signOutError } = await supabase.auth.signOut();
+
+      if (signOutError) {
+        throw signOutError;
+      }
+
       window.location.href = "/";
+    } catch (error) {
+      console.error("Dashboard logout failed:", error);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Could not safely log out. Please try again."
+      );
     }
   };
 

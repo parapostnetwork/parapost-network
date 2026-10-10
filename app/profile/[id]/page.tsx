@@ -30,6 +30,7 @@ import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { cleanupPushBeforeLogout } from "@/components/pwa/PushNotificationLogout";
 import { canPlayPublishedStream } from "@/lib/live/playback";
 import { getLiveDisplayLabel, getLiveDisplayStatus, needsLiveRefresh } from "@/lib/live/status";
 import { useLiveRefresh } from "@/lib/live/useLiveRefresh";
@@ -3285,22 +3286,38 @@ const handleProfileLogout = async () => {
   const confirmed = window.confirm("Log out of Parapost Network?");
   if (!confirmed) return;
 
-  if (viewerId) {
+  try {
+    if (!viewerId) {
+      throw new Error(
+        "Could not identify your account. Please reload and try again."
+      );
+    }
+
+    // Disconnect device push notifications before signing out.
+    await cleanupPushBeforeLogout(viewerId);
+
     await supabase
       .from("profiles")
       .update({ is_online: false, last_seen_at: new Date().toISOString() })
       .eq("id", viewerId);
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      throw error;
+    }
+
+    setProfileActionsOpen(false);
+    router.push("/");
+  } catch (error) {
+    console.error("Profile logout failed:", error);
+
+    window.alert(
+      error instanceof Error
+        ? error.message
+        : "Could not safely log out. Please try again."
+    );
   }
-
-  const { error } = await supabase.auth.signOut();
-
-  if (error) {
-    alert(`Log out error: ${error.message}`);
-    return;
-  }
-
-  setProfileActionsOpen(false);
-  router.push("/");
 };
 
 const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
