@@ -39,6 +39,22 @@ async function saveSubscription(subscription: PushSubscription) {
   }
 }
 
+function subscriptionMatchesVapidKey(
+  subscription: PushSubscription,
+  publicKey: string
+): boolean {
+  const existingKey = subscription.options.applicationServerKey;
+  if (!existingKey) return false;
+
+  const expectedKey = urlBase64ToUint8Array(publicKey);
+  const actualKey = new Uint8Array(existingKey);
+
+  return (
+    actualKey.length === expectedKey.length &&
+    actualKey.every((byte, index) => byte === expectedKey[index])
+  );
+}
+
 export default function PushNotificationSettings({
   currentUserId,
   accountPushEnabled,
@@ -78,13 +94,21 @@ export default function PushNotificationSettings({
 
         if (cancelled) return;
 
-        setEnabled(Boolean(subscription));
+        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        const usesCurrentKey = Boolean(
+          subscription &&
+          vapidPublicKey &&
+          subscriptionMatchesVapidKey(subscription, vapidPublicKey)
+        );
+
+        setEnabled(usesCurrentKey);
 
         // Keep an existing browser subscription connected to the signed-in
         // Parapost account. This does not ask for permission or create a new
         // subscription; it only refreshes the database record.
         if (
           subscription &&
+          usesCurrentKey &&
           currentUserId &&
           Notification.permission === "granted"
         ) {
@@ -160,6 +184,23 @@ export default function PushNotificationSettings({
 
       let subscription = await registration.pushManager.getSubscription();
 
+      let oldEndpoint: string | null = null;
+
+      if (
+        subscription &&
+        !subscriptionMatchesVapidKey(subscription, vapidPublicKey)
+      ) {
+        oldEndpoint = subscription.endpoint;
+
+        const unsubscribed = await subscription.unsubscribe();
+
+        if (!unsubscribed) {
+          throw new Error("Could not renew the old phone subscription.");
+        }
+
+        subscription = null;
+      }
+
       if (!subscription) {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
@@ -168,6 +209,20 @@ export default function PushNotificationSettings({
       }
 
       await saveSubscription(subscription);
+
+      if (oldEndpoint && oldEndpoint !== subscription.endpoint) {
+        const { error: deleteError } = await supabase.rpc(
+          "delete_push_subscription",
+          { p_endpoint: oldEndpoint }
+        );
+
+        if (deleteError) {
+          console.warn(
+            "Old push subscription cleanup warning:",
+            deleteError.message
+          );
+        }
+      }
 
       setEnabled(true);
       setStatusMessage("Phone notifications are now enabled on this device.");
