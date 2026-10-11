@@ -2742,6 +2742,14 @@ export default function DashboardPage() {
     return buildDashboardTrendingTopics(mixedFeedItems);
   }, [mixedFeedItems]);
 
+  const discoveryVisitRef = useRef<{
+    userId: string;
+    visit: number;
+    ids: string[];
+  } | null>(null);
+
+  const profileBootstrapAttemptedRef = useRef<string | null>(null);
+
   const fetchPeopleToDiscover = useCallback(async (userId?: string, blockedIds: string[] = [], relationships?: DashboardRelationshipQueries) => {
     if (!userId) {
       setDiscoverProfiles([]);
@@ -2785,10 +2793,71 @@ export default function DashboardPage() {
       ...blockedIds,
     ]);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
-      .limit(80);
+    const visibleCount = window.matchMedia("(max-width: 767px)").matches
+      ? 8
+      : 10;
+
+    let visit = discoveryVisitRef.current;
+
+    if (!visit || visit.userId !== userId) {
+      let visitNumber = 0;
+
+      try {
+        const key = `parapost-discover-visit:${userId}`;
+        const previous = window.sessionStorage.getItem(key);
+        const parsed = previous === null ? -1 : Number(previous);
+
+        visitNumber = Number.isSafeInteger(parsed) && parsed >= -1
+          ? parsed + 1
+          : 0;
+
+        window.sessionStorage.setItem(key, String(visitNumber));
+      } catch {
+        // Continue without session storage if unavailable.
+      }
+
+      visit = { userId, visit: visitNumber, ids: [] };
+      discoveryVisitRef.current = visit;
+    }
+
+    const discoveryOffset = visit.visit * 80;
+
+    const loadDiscoveryBatch = (offset: number) =>
+      supabase
+        .from("profiles")
+        .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at, created_at")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(offset, offset + 79);
+
+    let { data, error } = await loadDiscoveryBatch(discoveryOffset);
+
+    if (
+      !error &&
+      discoveryOffset > 0 &&
+      !(data || []).some(
+        (profile) =>
+          profile.id &&
+          !hiddenIds.has(profile.id) &&
+          hasCompletedDiscoveryProfile(profile)
+      )
+    ) {
+      ({ data, error } = await loadDiscoveryBatch(0));
+
+      if (!error) {
+        visit.visit = 0;
+        visit.ids = [];
+
+        try {
+          window.sessionStorage.setItem(
+            `parapost-discover-visit:${userId}`,
+            "0"
+          );
+        } catch {
+          // Session storage unavailable.
+        }
+      }
+    }
 
     if (error) {
       console.error("Error fetching People to Discover:", error.message);
@@ -2798,13 +2867,54 @@ export default function DashboardPage() {
 
     const profilesData = (data || []) as ProfilePreview[];
 
-    const nextProfiles = profilesData
+    if (profilesData.length < 80) {
+      try {
+        window.sessionStorage.setItem(
+          `parapost-discover-visit:${userId}`,
+          "-1"
+        );
+      } catch {
+        // Session storage unavailable.
+      }
+    }
+
+
+    const eligibleProfiles = profilesData
       .filter((profile) => profile.id && !hiddenIds.has(profile.id))
       .filter(hasCompletedDiscoveryProfile)
-      .sort((a, b) => getDiscoverySortTime(b) - getDiscoverySortTime(a))
-      .slice(0, 12);
+      .sort((a, b) => getDiscoverySortTime(b) - getDiscoverySortTime(a));
 
-    setDiscoverProfiles(nextProfiles);
+    const startIndex = eligibleProfiles.length
+      ? (visit.visit * visibleCount) % eligibleProfiles.length
+      : 0;
+
+    const rotatedProfiles = [
+      ...eligibleProfiles.slice(startIndex),
+      ...eligibleProfiles.slice(0, startIndex),
+    ];
+
+    const eligibleById = new Map(
+      eligibleProfiles.map((profile) => [profile.id, profile])
+    );
+
+    const retainedIds = visit.ids
+      .filter((id) => eligibleById.has(id))
+      .slice(0, visibleCount);
+
+    const selectedIds = [
+      ...retainedIds,
+      ...rotatedProfiles
+        .map((profile) => profile.id)
+        .filter((id) => !retainedIds.includes(id)),
+    ].slice(0, visibleCount);
+
+    visit.ids = selectedIds;
+
+    setDiscoverProfiles(
+      selectedIds
+        .map((id) => eligibleById.get(id))
+        .filter((profile): profile is ProfilePreview => Boolean(profile))
+    );
   }, []);
 
   const fetchProfileMap = useCallback(async (userIds: string[], blockedIds: string[] = []) => {
@@ -3852,7 +3962,7 @@ export default function DashboardPage() {
 
         // Presence is handled by the dedicated presence heartbeat below.
 
-        const [{ data: profileData }, { data: blocksData, error: blocksError }] = await Promise.all([
+        const [{ data: profileData, error: profileError }, { data: blocksData, error: blocksError }] = await Promise.all([
           supabase
             .from("profiles")
             .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
@@ -3864,7 +3974,47 @@ export default function DashboardPage() {
             .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`),
         ]);
 
-        setCurrentProfile((profileData as ProfilePreview | null) || null);
+        let resolvedProfile =
+          (profileData as ProfilePreview | null) || null;
+
+        if (
+          !profileError &&
+          !resolvedProfile &&
+          profileBootstrapAttemptedRef.current !== user.id
+        ) {
+          profileBootstrapAttemptedRef.current = user.id;
+
+          const { data: createdProfile, error: creationError } =
+            await supabase
+              .from("profiles")
+              .insert({ id: user.id })
+              .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+              .maybeSingle();
+
+          if (creationError?.code === "23505") {
+            const { data: existingProfile, error: reloadError } =
+              await supabase
+                .from("profiles")
+                .select("id, username, full_name, avatar_url, bio, location, is_online, last_seen_at")
+                .eq("id", user.id)
+                .maybeSingle();
+
+            if (!reloadError) {
+              resolvedProfile =
+                (existingProfile as ProfilePreview | null) || null;
+            }
+          } else if (creationError) {
+            console.warn(
+              "Could not initialize member profile:",
+              creationError.message
+            );
+          } else {
+            resolvedProfile =
+              (createdProfile as ProfilePreview | null) || null;
+          }
+        }
+
+        setCurrentProfile(resolvedProfile);
 
         if (blocksError) {
           logDashboardNetworkIssue("Dashboard blocked users skipped", blocksError);
