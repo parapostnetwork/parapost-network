@@ -751,7 +751,7 @@ async function awardInitialBadge(userId: string): Promise<void> {
   const { data: badge } = await supabase
     .from("badges")
     .select("id, name")
-    .or("slug.ilike.%para-ghost%,name.ilike.%paraghost%,name.ilike.%para ghost%,name.ilike.%para_ghost%")
+    .or("slug.eq.official-parapost-network-member,slug.ilike.%para-ghost%,name.ilike.%paraghost%,name.ilike.%para ghost%,name.ilike.%para_ghost%")
     .limit(1)
     .maybeSingle();
 
