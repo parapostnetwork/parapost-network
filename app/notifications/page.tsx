@@ -334,6 +334,7 @@ function getNotificationTitle(notification: NotificationCard) {
   if (type === "comment_reply") return `${actorName} replied to your comment.`;
   if (type === "post_comment") return `${actorName} commented on your post.`;
   if (type === "badge_award") return "You earned a new badge.";
+  if (type === "achievement_award") return "You unlocked an achievement.";
   if (type === "share") return `${actorName} shared your post.`;
 
   return "You have a new notification.";
@@ -384,6 +385,12 @@ function getNotificationMeta(notification: NotificationCard) {
 
 function getNotificationHref(notification: NotificationCard) {
   const type = notification.type || "";
+
+  if (type === "badge_award" || type === "achievement_award") {
+    return notification.user_id
+      ? `/profile/${notification.user_id}`
+      : "/notifications";
+  }
 
   if (type === "parachat_message" || type === "parachat_photo") {
     return notification.actor_id ? `/messages?user=${notification.actor_id}` : "/messages";

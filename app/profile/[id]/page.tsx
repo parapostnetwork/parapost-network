@@ -233,6 +233,7 @@ type ProfileFeedItem =
   | (ReelShareProfilePost & { feedKind: "reel_share" })
   | (ProfileLiveStream & { feedKind: "live_stream" })
   | (ProfileAchievementActivity & { feedKind: "achievement" })
+  | (ProfileBadge & { id: string; created_at: string; feedKind: "badge" })
   | (ProfileThoughtRow & { id: string; created_at: string; feedKind: "thought" });
 
 type CountMap = Record<string, number>;
@@ -340,6 +341,7 @@ type ProfileBadge = {
   colorName: string;
   accentColor: string;
   awardedAt: string | null;
+  timelineAnnouncedAt?: string | null;
 };
 
 type ProfileAchievement = {
@@ -662,7 +664,16 @@ async function loadEarnedProfileBadges(targetProfileId: string) {
           ? awardRow.badges[0]
           : awardRow.badges;
 
-        return normalizeProfileBadge(awardRow, linkedBadge);
+        const normalized = normalizeProfileBadge(awardRow, linkedBadge);
+        return normalized
+          ? {
+              ...normalized,
+              timelineAnnouncedAt:
+                typeof awardRow.timeline_announced_at === "string"
+                  ? awardRow.timeline_announced_at
+                  : null,
+            }
+          : null;
       })
       .filter(Boolean) as ProfileBadge[];
 
@@ -712,7 +723,19 @@ async function loadEarnedProfileBadges(targetProfileId: string) {
   const mapped = awardRows
     .map((awardRow) => {
       const badgeId = String(awardRow.badge_id || awardRow.badges_id || awardRow.badge || "");
-      return normalizeProfileBadge(awardRow, badgeMap.get(badgeId));
+      const normalized = normalizeProfileBadge(
+        awardRow,
+        badgeMap.get(badgeId)
+      );
+      return normalized
+        ? {
+            ...normalized,
+            timelineAnnouncedAt:
+              typeof awardRow.timeline_announced_at === "string"
+                ? awardRow.timeline_announced_at
+                : null,
+          }
+        : null;
     })
     .filter(Boolean) as ProfileBadge[];
 
@@ -734,15 +757,20 @@ async function awardInitialBadge(userId: string): Promise<void> {
 
   if (!badge?.id) return; // Badge not in DB catalog — nothing to award
 
-  // Check if already awarded (prevents duplicates)
-  const { data: existing } = await supabase
+  // ParaGhost is awarded only when the member has no badges.
+  const { data: existingBadge, error: badgeCheckError } = await supabase
     .from("user_badges")
     .select("id")
     .eq("user_id", userId)
-    .eq("badge_id", badge.id)
+    .limit(1)
     .maybeSingle();
 
-  if (existing) return; // Already has this badge
+  if (badgeCheckError) {
+    console.warn("Could not check existing badges:", badgeCheckError.message);
+    return;
+  }
+
+  if (existingBadge) return; // Member already has a badge
 
   // Award the badge
   const { error: awardError } = await supabase
@@ -754,13 +782,6 @@ async function awardInitialBadge(userId: string): Promise<void> {
     return;
   }
 
-  // Create a badge award notification
-  await supabase.from("notifications").insert([{
-    user_id: userId,
-    type: "badge_award",
-    message: `You earned the ${badge.name} badge.`,
-    is_read: false,
-  }]);
 }
 
 function getAchievementPublicIconUrl(iconPath?: string | null) {
@@ -3332,6 +3353,14 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
           },
         ]
       : []),
+    ...profileBadges
+      .filter((badge) => Boolean(badge.timelineAnnouncedAt))
+      .map((badge) => ({
+        ...badge,
+        id: `profile-badge-${badge.awardId}`,
+        created_at: badge.timelineAnnouncedAt!,
+        feedKind: "badge" as const,
+      })),
     ...profileAchievementActivity.map((activity) => ({
       ...activity,
       feedKind: "achievement" as const,
@@ -3355,7 +3384,7 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
       new Date(b.created_at).getTime() -
       new Date(a.created_at).getTime()
   );
-}, [profileThought, posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileLiveStreams]);
+}, [profileThought, posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileBadges, profileLiveStreams]);
 
 const showFriendStatus = useCallback((message: string) => {
   setFriendStatusMessage(message);
@@ -19529,6 +19558,51 @@ return (
                                   </h4>
                                 </div>
                               </Link>
+                            </article>
+                          );
+                        }
+
+                        if (item.feedKind === "badge") {
+                          return (
+                            <article
+                              key={`badge-activity-${item.awardId}`}
+                              className="profile-feed-card profile-achievement-feed-card"
+                              style={profileAchievementTimelineCardStyle}
+                            >
+                              <header style={postHeaderStyle}>
+                                <div style={postAuthorTextStyle}>
+                                  <strong style={postAuthorNameStyle}>
+                                    {profileDisplayName || "Parapost Member"}
+                                  </strong>
+                                  <span style={postMetaStyle}>
+                                    Earned a badge · {formatTimeAgo(item.created_at)}
+                                  </span>
+                                </div>
+                              </header>
+
+                              <button
+                                type="button"
+                                onClick={() => openProfileBadgesViewer(item)}
+                                style={profileAchievementTimelineBodyStyle}
+                              >
+                                <span style={profileAchievementTimelineIconShellStyle}>
+                                  ★
+                                </span>
+
+                                <span style={profileAchievementTimelineTextStyle}>
+                                  <span style={profileBadgeFeaturedEyebrowStyle}>
+                                    Parapost Network Badge
+                                  </span>
+                                  <strong>{item.name}</strong>
+                                  <small>
+                                    Earned the {item.name} badge on Parapost Network.
+                                  </small>
+                                </span>
+
+                                <span style={profileAchievementUnlockedPillStyle}>
+                                  Earned
+                                </span>
+                              </button>
                             </article>
                           );
                         }
