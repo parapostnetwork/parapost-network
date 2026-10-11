@@ -18545,11 +18545,34 @@ return (
 
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <p style={profileStarterEyebrowStyle}>New profile setup</p>
-                        <h3 style={profileStarterTitleStyle}>Welcome to Parapost Network</h3>
+                        <h3 style={profileStarterTitleStyle}>Welcome to Parapost!</h3>
                         <p style={profileStarterSubtitleStyle}>
-                          Your profile is ready. Edit your profile details, then create your first post so people know this page is active.
+                          Your profile is ready. Complete your details and share your first post to get started.
                         </p>
                       </div>
+
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 10,
+                        marginTop: 14,
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: "#cbd5e1",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        Profile completion
+                      </span>
 
                       <div style={profileStarterScoreStyle}>
                         <strong>{profileStarterPercent}%</strong>
@@ -22192,12 +22215,14 @@ const profileStarterSubtitleStyle: CSSProperties = {
 };
 
 const profileStarterScoreStyle: CSSProperties = {
-  minWidth: "82px",
-  padding: "9px 10px",
-  borderRadius: "16px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  whiteSpace: "nowrap",
+  padding: "7px 11px",
+  borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.12)",
   background: "rgba(255,255,255,0.06)",
-  textAlign: "center",
   flexShrink: 0,
 };
 
