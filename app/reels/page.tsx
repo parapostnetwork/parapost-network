@@ -2756,6 +2756,7 @@ export default function ReelsPage() {
         </div>
       ) : reels.length === 0 ? (
         <div
+          className="parapost-reels-empty-state"
           style={{
             minHeight: "100dvh",
             display: "grid",
@@ -4100,6 +4101,14 @@ export default function ReelsPage() {
           .parapost-reels-modal-action-row button,
           .parapost-reels-modal-action-row a {
             flex: 1 1 100%;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 980px) and (max-height: 500px) and (orientation: landscape) {
+          .parapost-reels-empty-state {
+            place-items: start center !important;
+            padding-top: 128px !important;
+            padding-bottom: 16px !important;
           }
         }
 
