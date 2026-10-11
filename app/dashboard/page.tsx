@@ -1080,7 +1080,7 @@ function DashboardLikesModal({
               color: "#ffffff",
               padding: "0 14px",
               outline: "none",
-              fontSize: 14,
+              fontSize: 16,
             }}
           />
         </div>
@@ -8286,7 +8286,7 @@ export default function DashboardPage() {
             min-height: 48px !important;
             padding: 12px 14px !important;
             border-radius: 18px !important;
-            font-size: 14px !important;
+            font-size: 16px !important;
           }
 
           .dashboard-composer-actions {
@@ -8525,7 +8525,7 @@ export default function DashboardPage() {
           .dashboard-composer-top-row textarea {
             min-height: 64px !important;
             padding: 13px 14px !important;
-            font-size: 14px !important;
+            font-size: 16px !important;
           }
 
           .dashboard-composer-actions {
@@ -8788,7 +8788,7 @@ export default function DashboardPage() {
             min-height: 58px !important;
             padding: 12px 13px !important;
             border-radius: 17px !important;
-            font-size: 13.5px !important;
+            font-size: 16px !important;
           }
 
           .dashboard-composer-actions {
@@ -19111,7 +19111,7 @@ const dashboardCommentTextareaStyle: CSSProperties = {
   outline: "none",
   padding: "11px 13px",
   fontFamily: "inherit",
-  fontSize: "13px",
+  fontSize: "16px",
   lineHeight: 1.45,
 };
 
@@ -19240,7 +19240,7 @@ const dashboardCommentEditTextareaStyle: CSSProperties = {
   ...dashboardCommentTextareaStyle,
   minHeight: "72px",
   borderRadius: "14px",
-  fontSize: "13px",
+  fontSize: "16px",
   padding: "10px 12px",
 };
 
