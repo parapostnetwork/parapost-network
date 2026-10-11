@@ -3063,8 +3063,9 @@ export default function NotificationsPage() {
           }
 
           .notifications-filter-scroller {
-            display: flex !important;
-            overflow-x: auto !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            overflow-x: visible !important;
             gap: 8px !important;
             padding: 2px 2px 8px !important;
             margin-left: -2px !important;
@@ -3072,9 +3073,9 @@ export default function NotificationsPage() {
           }
 
           .notifications-filter-button {
-            flex: 0 0 auto !important;
-            min-width: 112px !important;
-            width: auto !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
             min-height: 44px !important;
           }
 
