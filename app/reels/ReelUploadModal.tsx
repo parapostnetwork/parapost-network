@@ -1399,7 +1399,7 @@ export default function ReelUploadModal({
         >
           <div
             style={{
-              minHeight: viewportType === "tablet" ? "620px" : "660px",
+              minHeight: viewportType === "tablet" ? "min(620px, 88dvh)" : "min(660px, 88dvh)",
               maxHeight: "88dvh",
               borderRight: "1px solid rgba(255,255,255,0.08)",
               background:
@@ -1563,7 +1563,7 @@ export default function ReelUploadModal({
                 placeholder="Write a caption for your reel..."
                 style={{
                   ...textAreaStyle,
-                  minHeight: viewportType === "tablet" ? "150px" : "190px",
+                  minHeight: viewportType === "tablet" ? "150px" : "clamp(120px, 18dvh, 190px)",
                 }}
                 maxLength={REEL_CAPTION_MAX_LENGTH}
               />
