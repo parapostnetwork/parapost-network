@@ -3057,8 +3057,10 @@ function MessagesPage() {
           }
 
           .parachat-mobile-chat-open .parachat-panel {
-            max-width: 820px !important;
-            margin: 0 auto !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            margin: 0 !important;
             border-left: 1px solid rgba(255,255,255,0.08) !important;
             border-right: 1px solid rgba(255,255,255,0.08) !important;
           }
