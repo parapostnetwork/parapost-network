@@ -16572,7 +16572,7 @@ const mobileMenuScrollAreaStyle: CSSProperties = {
   height: "auto",
   overflowY: "auto",
   overflowX: "hidden",
-  padding: "0 max(16px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left))",
+  padding: "0 max(16px, env(safe-area-inset-right)) calc(112px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
   WebkitOverflowScrolling: "touch",
   overscrollBehaviorY: "contain",
   overscrollBehaviorX: "none",
