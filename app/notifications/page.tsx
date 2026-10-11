@@ -3693,9 +3693,8 @@ const summarySmallValueStyle: CSSProperties = {
   fontSize: "clamp(13px, 3vw, 16px)",
   lineHeight: 1.2,
   fontWeight: 950,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
+  whiteSpace: "normal",
+  overflowWrap: "break-word",
 };
 
 const heroActionsRowStyle: CSSProperties = {
