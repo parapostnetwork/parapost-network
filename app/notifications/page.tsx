@@ -3156,6 +3156,12 @@ export default function NotificationsPage() {
           }
         }
 
+        @media (min-width: 761px) and (max-width: 980px) and (orientation: portrait) {
+          .notifications-hero h1 {
+            font-size: clamp(36px, 5.8vw, 50px) !important;
+          }
+        }
+
         @media (min-width: 761px) and (max-width: 1180px) {
           .notifications-page-inner {
             max-width: 980px !important;
