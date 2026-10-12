@@ -604,6 +604,8 @@ export default function ReelsPage() {
   const commentLikeBurstTimeoutRef = useRef<number | null>(null);
   const reelsRealtimeRefreshTimerRef = useRef<number | null>(null);
   const reelFetchLimitRef = useRef(REELS_PAGE_SIZE);
+  const reelsFetchSequenceRef = useRef(0);
+  const reelsDesiredLimitRef = useRef(REELS_PAGE_SIZE);
   const loadingMoreReelsRef = useRef(false);
   const targetReelIdRef = useRef("");
   const activeReelIdRef = useRef("");
@@ -676,7 +678,12 @@ export default function ReelsPage() {
 
   const detailsOpen = Boolean(detailsReelId && detailsReel);
 
-  const loadRelationshipMap = async (viewerId: string, creatorIds: string[]) => {
+  const loadRelationshipMap = async (
+    viewerId: string,
+    creatorIds: string[],
+    isCurrent: () => boolean = () => true
+  ) => {
+    if (!isCurrent()) return;
     const uniqueCreatorIds = Array.from(new Set(creatorIds.filter(Boolean)));
 
     if (!viewerId || uniqueCreatorIds.length === 0) {
@@ -721,6 +728,8 @@ export default function ReelsPage() {
         .eq("following_id", viewerId)
         .in("follower_id", otherCreatorIds),
     ]);
+
+    if (!isCurrent()) return;
 
     if (friendError) {
       console.warn("Reel relationship friend check skipped:", friendError.message);
@@ -788,6 +797,15 @@ export default function ReelsPage() {
     showLoading = true,
     preserveReelId = preferredReelId
   ) => {
+    const fetchSequence = ++reelsFetchSequenceRef.current;
+    const fetchLimit = Math.max(
+      REELS_PAGE_SIZE,
+      requestedLimit,
+      reelFetchLimitRef.current,
+      reelsDesiredLimitRef.current
+    );
+    reelsDesiredLimitRef.current = fetchLimit;
+
     if (showLoading) {
       setIsFetchingReels(true);
     }
@@ -797,9 +815,9 @@ export default function ReelsPage() {
     } = await supabase.auth.getUser();
 
     const nextUserId = user?.id || "";
+    if (fetchSequence !== reelsFetchSequenceRef.current) return;
     setCurrentUserId(nextUserId);
 
-    const fetchLimit = Math.max(REELS_PAGE_SIZE, requestedLimit);
 
     const { data: reelRows, error: reelsError } = await supabase
       .from("reels")
@@ -807,12 +825,12 @@ export default function ReelsPage() {
       .order("created_at", { ascending: false })
       .limit(fetchLimit + 1);
 
+    if (fetchSequence !== reelsFetchSequenceRef.current) return;
+
     if (reelsError) {
       console.error("Error loading reels:", reelsError.message);
       // A failed background refresh must not discard a playing video.
-      if (showLoading) {
-        setIsFetchingReels(false);
-      }
+      setIsFetchingReels(false);
       return;
     }
 
@@ -826,6 +844,8 @@ export default function ReelsPage() {
         .select("*")
         .eq("id", preserveReelId)
         .maybeSingle();
+
+      if (fetchSequence !== reelsFetchSequenceRef.current) return;
 
       if (preservedReelError) {
         console.warn("Could not preserve linked Reel:", preservedReelError.message);
@@ -845,6 +865,8 @@ export default function ReelsPage() {
         .select("id, username, display_name, avatar_url")
         .in("id", profileIds);
 
+      if (fetchSequence !== reelsFetchSequenceRef.current) return;
+
       if (profilesError) {
         console.error("Error loading reel profiles:", profilesError.message);
       } else {
@@ -856,8 +878,10 @@ export default function ReelsPage() {
 
     await loadRelationshipMap(
       nextUserId,
-      mapped.map((reel) => reel.creator_profile_id)
+      mapped.map((reel) => reel.creator_profile_id),
+      () => fetchSequence === reelsFetchSequenceRef.current
     );
+    if (fetchSequence !== reelsFetchSequenceRef.current) return;
 
     const reelIds = mapped.map((reel) => reel.id);
 
@@ -871,6 +895,8 @@ export default function ReelsPage() {
         supabase.from("reel_comments").select("id, reel_id, user_id, content, parent_comment_id, reply_to_author, created_at").in("reel_id", reelIds).order("created_at", { ascending: false }),
         supabase.from("reel_view_totals").select("reel_id, views").in("reel_id", reelIds),
       ]);
+
+      if (fetchSequence !== reelsFetchSequenceRef.current) return;
 
       if (!likesError && likeRows) {
         const likedByCurrentUser: Record<string, boolean> = {};
@@ -928,6 +954,8 @@ export default function ReelsPage() {
             .select("id, username, display_name, avatar_url")
             .in("id", commentUserIds);
 
+          if (fetchSequence !== reelsFetchSequenceRef.current) return;
+
           if (commentProfilesError) {
             console.warn("Error loading reel comment profiles:", commentProfilesError.message);
           } else {
@@ -974,6 +1002,8 @@ export default function ReelsPage() {
             .select("id, comment_id, user_id, created_at")
             .in("comment_id", commentIds);
 
+          if (fetchSequence !== reelsFetchSequenceRef.current) return;
+
           if (!commentLikesError && commentLikeRows) {
             const nextCommentLikeMap: Record<string, number> = {};
             const nextCommentLikedMap: Record<string, boolean> = {};
@@ -1013,6 +1043,8 @@ export default function ReelsPage() {
         .select("reel_id")
         .in("reel_id", reelIds);
 
+      if (fetchSequence !== reelsFetchSequenceRef.current) return;
+
       if (!shareRowsError && shareRows) {
         const shareCountMap: Record<string, number> = {};
 
@@ -1034,14 +1066,17 @@ export default function ReelsPage() {
       setLikedMap({});
     }
 
+    // Older responses must not replace the latest accepted feed.
+    if (fetchSequence !== reelsFetchSequenceRef.current) return;
+
     reelFetchLimitRef.current = fetchLimit;
     setHasMoreReels(nextHasMoreReels);
     setReels((current) => mergeReelRefresh(current, mapped));
-    setActiveReelId((current) => resolveActiveReel(current, mapped, preferredReelId));
+    setActiveReelId((current) =>
+      resolveActiveReel(current, mapped, current ? "" : preferredReelId)
+    );
 
-    if (showLoading) {
-      setIsFetchingReels(false);
-    }
+    setIsFetchingReels(false);
   };
 
   const loadMoreReels = async () => {
