@@ -741,48 +741,6 @@ async function loadEarnedProfileBadges(targetProfileId: string) {
   return sortProfileBadges(mapped);
 }
 
-// Awards the default ParaGhost badge to a user who has none yet.
-// Idempotent — safe to call multiple times; returns early if already awarded.
-async function awardInitialBadge(userId: string): Promise<void> {
-  if (!userId) return;
-
-  // Find the default ParaGhost badge in the catalog
-  const { data: badge } = await supabase
-    .from("badges")
-    .select("id, name")
-    .or("slug.ilike.%para-ghost%,name.ilike.%paraghost%,name.ilike.%para ghost%,name.ilike.%para_ghost%")
-    .limit(1)
-    .maybeSingle();
-
-  if (!badge?.id) return; // Badge not in DB catalog — nothing to award
-
-  // ParaGhost is awarded only when the member has no badges.
-  const { data: existingBadge, error: badgeCheckError } = await supabase
-    .from("user_badges")
-    .select("id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (badgeCheckError) {
-    console.warn("Could not check existing badges:", badgeCheckError.message);
-    return;
-  }
-
-  if (existingBadge) return; // Member already has a badge
-
-  // Award the badge
-  const { error: awardError } = await supabase
-    .from("user_badges")
-    .insert([{ user_id: userId, badge_id: badge.id, awarded_at: new Date().toISOString() }]);
-
-  if (awardError) {
-    console.warn("Could not award initial badge:", awardError.message);
-    return;
-  }
-
-}
-
 function getAchievementPublicIconUrl(iconPath?: string | null) {
   if (!iconPath) return "";
 
@@ -4444,19 +4402,7 @@ useEffect(() => {
   openPostMenuIdRef.current = openPostMenuId;
 }, [openPostMenuId]);
 
-// Award the initial ParaGhost badge to this user if they have none yet.
-// Runs only on the user's own profile, after badges have finished loading.
-useEffect(() => {
-  if (!isOwnProfile || !viewerId) return;
-  if (profileBadgesLoading) return;
-  if (profileBadges.length > 0) return; // already has badges
-  awardInitialBadge(viewerId).then(() => {
-    // Reload the badges display after awarding
-    loadEarnedProfileBadges(viewerId).then((updated) => {
-      if (Array.isArray(updated)) setProfileBadges(updated);
-    });
-  });
-}, [isOwnProfile, viewerId, profileBadgesLoading, profileBadges.length]);
+
 
 useEffect(() => {
   profileActionsOpenRef.current = profileActionsOpen;
