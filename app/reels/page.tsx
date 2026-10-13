@@ -594,6 +594,9 @@ export default function ReelsPage() {
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
+  const reelVideoRefCallbacks = useRef<
+    Record<string, (video: HTMLVideoElement | null) => void>
+  >({});
   const heartTimeoutRef = useRef<number | null>(null);
   const playPauseFeedbackTimeoutRef = useRef<number | null>(null);
   const playPauseFeedbackNonceRef = useRef(0);
@@ -610,6 +613,7 @@ export default function ReelsPage() {
   const targetReelIdRef = useRef("");
   const activeReelIdRef = useRef("");
   const viewportResizeFrameRef = useRef<number | null>(null);
+  const scrollUpdateFrameRef = useRef<number | null>(null);
   const reelViewTimerMapRef = useRef<Record<string, number>>({});
   const recordedReelViewIdsRef = useRef<Set<string>>(new Set());
 
@@ -1181,6 +1185,16 @@ export default function ReelsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const frameRef = scrollUpdateFrameRef;
+    return () => {
+      if (frameRef.current !== null) {
+        window.cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    };
+  }, []);
+
   useLayoutEffect(() => {
     if (!targetReelId || reels.length === 0 || didPositionTargetReelRef.current) {
       return;
@@ -1437,6 +1451,9 @@ export default function ReelsPage() {
   };
 
   const updateActiveFromScroll = () => {
+    if (scrollUpdateFrameRef.current !== null) return;
+    scrollUpdateFrameRef.current = window.requestAnimationFrame(() => {
+      scrollUpdateFrameRef.current = null;
     if (commentsOpen || detailsOpen) return;
 
     const container = scrollContainerRef.current;
@@ -1474,6 +1491,7 @@ export default function ReelsPage() {
     ) {
       void loadMoreReels();
     }
+    });
   };
 
   const showPlayPauseFeedback = (reelId: string, mode: "play" | "pause") => {
@@ -2539,6 +2557,17 @@ export default function ReelsPage() {
 
     reelViewTimerMapRef.current[reel.id] = window.setTimeout(async () => {
       delete reelViewTimerMapRef.current[reel.id];
+
+      const video = videoRefs.current[reel.id];
+      if (
+        activeReelIdRef.current !== reel.id ||
+        !video?.isConnected ||
+        video.paused ||
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+
       recordedReelViewIdsRef.current.add(reel.id);
 
       const { data, error } = await supabase.rpc("record_reel_view", {
@@ -2587,6 +2616,28 @@ export default function ReelsPage() {
   };
 
   const activeReelIndex = reels.findIndex((reel) => reel.id === activeReelId);
+
+  const getReelVideoRef = (reelId: string) => {
+    const callbacks = reelVideoRefCallbacks.current;
+
+    if (!callbacks[reelId]) {
+      callbacks[reelId] = (video: HTMLVideoElement | null) => {
+        if (!video) {
+          videoRefs.current[reelId]?.pause();
+
+          const timerId = reelViewTimerMapRef.current[reelId];
+          if (timerId !== undefined) {
+            window.clearTimeout(timerId);
+            delete reelViewTimerMapRef.current[reelId];
+          }
+        }
+
+        videoRefs.current[reelId] = video;
+      };
+    }
+
+    return callbacks[reelId];
+  };
 
   return (
     <div style={pageStyle}>
@@ -2956,41 +3007,59 @@ export default function ReelsPage() {
                       cursor: commentsOpen || detailsOpen ? "default" : "pointer",
                     }}
                   >
-                    <video
-                      ref={(el) => {
-                        videoRefs.current[reel.id] = el;
-                      }}
-                      src={reel.video}
-                      poster={reel.id === activeReelId ? reel.poster || undefined : undefined}
-                      muted
-                      playsInline
-                      loop
-                      preload={reel.id === activeReelId ? "auto" : "none"}
-                      onLoadedMetadata={(event) => handleVideoLoadedMetadata(reel.id, event)}
-                      onPlaying={() => scheduleReelView(reel)}
-                      onPause={() => cancelScheduledReelView(reel.id)}
-                      onTimeUpdate={(event) => {
-                        const video = event.currentTarget;
-                        const percent = video.duration
-                          ? (video.currentTime / video.duration) * 100
-                          : 0;
+                    {Math.abs(reelIndex - Math.max(activeReelIndex, 0)) === 3 && reel.poster && (
+                      <img
+                        src={reel.poster}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          background: "#000",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    )}
 
-                        setProgressMap((prev) => ({
-                          ...prev,
-                          [reel.id]: percent,
-                        }));
-                      }}
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: videoFitMap[reel.id] || "cover",
-                        objectPosition: "center",
-                        background: "#000",
-                        filter: "contrast(1.04) saturate(1.07)",
-                      }}
-                    />
+                    {Math.abs(reelIndex - Math.max(activeReelIndex, 0)) <= 2 && (
+                      <video
+                        ref={getReelVideoRef(reel.id)}
+                        src={reel.video}
+                        poster={reel.poster || undefined}
+                        muted
+                        playsInline
+                        loop
+                        preload={reel.id === activeReelId ? "auto" : "none"}
+                        onLoadedMetadata={(event) => handleVideoLoadedMetadata(reel.id, event)}
+                        onPlaying={() => scheduleReelView(reel)}
+                        onPause={() => cancelScheduledReelView(reel.id)}
+                        onTimeUpdate={(event) => {
+                          const video = event.currentTarget;
+                          const percent = video.duration
+                            ? (video.currentTime / video.duration) * 100
+                            : 0;
+
+                          setProgressMap((prev) => ({
+                            ...prev,
+                            [reel.id]: percent,
+                          }));
+                        }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: videoFitMap[reel.id] || "cover",
+                          objectPosition: "center",
+                          background: "#000",
+                          filter: "contrast(1.04) saturate(1.07)",
+                        }}
+                      />
+                    )}
 
                     <div
                       style={{
