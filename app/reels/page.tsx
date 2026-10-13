@@ -22,6 +22,7 @@ import ReelCard from "@/components/reels/ReelCard";
 import ReelCommentsPanel from "@/components/reels/ReelCommentsPanel";
 import { supabase } from "@/lib/supabase";
 import useReelPlayback from "@/components/reels/useReelPlayback";
+import { setReelPlaybackIntent } from "@/lib/reels/playback";
 import { mergeReelRefresh, resolveActiveReel } from "@/lib/reels/refresh";
 
 type ReelItem = {
@@ -1253,7 +1254,7 @@ export default function ReelsPage() {
     return () => window.clearTimeout(focusTimer);
   }, [commentsOpen, activeReelId]);
 
-  useReelPlayback({
+  const playbackIssue = useReelPlayback({
     videoRefs,
     reels,
     activeId: activeReelId,
@@ -1523,11 +1524,11 @@ export default function ReelsPage() {
       showPlayPauseFeedback(reelId, "play");
       setHoldPausedId(null);
 
-      void video.play().catch(() => {});
+      setReelPlaybackIntent(video, false, Boolean(playbackIssue));
     } else {
       showPlayPauseFeedback(reelId, "pause");
       setHoldPausedId(reelId);
-      video.pause();
+      setReelPlaybackIntent(video, true);
     }
   };
 
@@ -3059,6 +3060,30 @@ export default function ReelsPage() {
                           filter: "contrast(1.04) saturate(1.07)",
                         }}
                       />
+                    )}
+
+                    {reel.id === activeReelId && playbackIssue && (
+                      <div
+                        role="status"
+                        style={{ position: "absolute", inset: 0, zIndex: 8, display: "grid", placeContent: "center", gap: 12, padding: 24, textAlign: "center", background: "rgba(0,0,0,0.72)" }}
+                        onClick={(event) => event.stopPropagation()}
+                        onDoubleClick={(event) => event.stopPropagation()}
+                      >
+                        <span>{playbackIssue.reason === "unsupported"
+                          ? "This video format cannot play in this browser. Try another Reel."
+                          : playbackIssue.reason === "policy" ? "Tap to start this video."
+                          : "This video couldn't start or stopped playing."}</span>
+                        {playbackIssue.reason !== "unsupported" && (
+                          <button type="button" style={buttonStyle} onClick={() => {
+                            const video = videoRefs.current[reel.id];
+                            if (!video) return;
+                            setHoldPausedId(null);
+                            setReelPlaybackIntent(video, false, true);
+                          }}>
+                            {playbackIssue.reason === "policy" ? "Play video" : "Retry video"}
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     <div
