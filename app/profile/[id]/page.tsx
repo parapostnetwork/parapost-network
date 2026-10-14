@@ -19538,7 +19538,7 @@ return (
                                 style={profileAchievementTimelineBodyStyle}
                               >
                                 <span style={profileAchievementTimelineIconShellStyle}>
-                                  ★
+                                  <ParaGhostBadgeIcon badge={item} size="bubble" />
                                 </span>
 
                                 <span style={profileAchievementTimelineTextStyle}>
