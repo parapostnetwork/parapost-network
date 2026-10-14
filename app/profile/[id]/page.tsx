@@ -2188,11 +2188,12 @@ function ParaGhostBadgeIcon({
   size = "card",
 }: {
   badge: ProfileBadge;
-  size?: "card" | "bubble" | "modal";
+  size?: "card" | "bubble" | "modal" | "timeline";
 }) {
   const isBubble = size === "bubble";
   const isModal = size === "modal";
-  const iconSize = isModal ? 108 : isBubble ? 34 : 48;
+  const isTimeline = size === "timeline";
+  const iconSize = isModal ? 108 : isTimeline ? 74 : isBubble ? 34 : 48;
   const glowColor = badge.accentColor || "var(--parapost-accent-2)";
 
   return (
@@ -19609,7 +19610,7 @@ return (
                                 style={profileAchievementTimelineBodyStyle}
                               >
                                 <span style={profileAchievementTimelineIconShellStyle}>
-                                  <ParaGhostBadgeIcon badge={item} size="bubble" />
+                                  <ParaGhostBadgeIcon badge={item} size="timeline" />
                                 </span>
 
                                 <span style={profileAchievementTimelineTextStyle}>
