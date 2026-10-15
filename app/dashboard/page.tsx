@@ -756,24 +756,44 @@ function ExpandableFeedText({
   className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [shouldOfferToggle, setShouldOfferToggle] = useState(false);
+  const copyRef = useRef<HTMLParagraphElement>(null);
   const normalizedText = text.trim();
 
-  if (!normalizedText) return null;
+  useEffect(() => {
+    const copy = copyRef.current;
 
-  const lineCount = normalizedText.split(/\r?\n/).filter((line) => line.trim()).length;
-  const shouldOfferToggle =
-    normalizedText.length > (hasMedia ? 135 : 280) ||
-    lineCount > (hasMedia ? 2 : 4);
+    if (!copy || !normalizedText) {
+      setShouldOfferToggle(false);
+      return;
+    }
+
+    const checkOverflow = () => {
+      if (expanded) return;
+
+      const isClipped = copy.scrollHeight > copy.clientHeight + 1;
+      setShouldOfferToggle(isClipped);
+    };
+
+    checkOverflow();
+
+    const observer = new ResizeObserver(checkOverflow);
+    observer.observe(copy);
+
+    return () => observer.disconnect();
+  }, [normalizedText, hasMedia, expanded]);
+
+  if (!normalizedText) return null;
 
   return (
     <div
       className={`parapost-expandable-post-text ${hasMedia ? "parapost-expandable-post-text-media" : "parapost-expandable-post-text-only"} ${expanded ? "parapost-expandable-post-text-open" : ""} ${className}`.trim()}
     >
-      <p className="parapost-expandable-post-copy" style={style}>
+      <p ref={copyRef} className="parapost-expandable-post-copy" style={style}>
         {renderLinkedText(normalizedText)}
       </p>
 
-      {shouldOfferToggle ? (
+      {(shouldOfferToggle || expanded) ? (
         <button
           type="button"
           className="parapost-expandable-post-toggle"
