@@ -19531,12 +19531,27 @@ return (
                                     Earned a badge · {formatTimeAgo(item.created_at)}
                                   </span>
                                 </div>
-                              </header>
+
+                                  <span
+                                    style={{
+                                      ...profileAchievementUnlockedPillStyle,
+                                      position: "static",
+                                      top: "auto",
+                                      right: "auto",
+                                      marginLeft: "auto",
+                                      alignSelf: "flex-start",
+                                      flexShrink: 0,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    Earned
+                                  </span>
+                                </header>
 
                               <button
                                 type="button"
                                 onClick={() => openProfileBadgesViewer(item)}
-                                style={profileAchievementTimelineBodyStyle}
+                                style={{ ...profileAchievementTimelineBodyStyle, gridTemplateColumns: "96px minmax(0, 1fr)" }}
                               >
                                 <span style={profileAchievementTimelineIconShellStyle}>
                                   <ParaGhostBadgeIcon badge={item} size="timeline" />
@@ -19552,9 +19567,7 @@ return (
                                   </small>
                                 </span>
 
-                                <span style={profileAchievementUnlockedPillStyle}>
-                                  Earned
-                                </span>
+
                               </button>
                             </article>
                           );
