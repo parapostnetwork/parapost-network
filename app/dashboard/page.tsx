@@ -756,32 +756,23 @@ function ExpandableFeedText({
   className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [shouldOfferToggle, setShouldOfferToggle] = useState(false);
-  const copyRef = useRef<HTMLParagraphElement>(null);
   const normalizedText = text.trim();
 
-  useEffect(() => {
-    const copy = copyRef.current;
+  const previewLimit = hasMedia ? 135 : 200;
+  const previewLineLimit = hasMedia ? 3 : 5;
+  const characterPreview = normalizedText.slice(0, previewLimit);
+  const newlineIndexes = [...characterPreview.matchAll(/\n/g)];
+  const lineCutoff = newlineIndexes[previewLineLimit - 1]?.index;
 
-    if (!copy || !normalizedText) {
-      setShouldOfferToggle(false);
-      return;
-    }
+  const previewText = (
+    lineCutoff === undefined
+      ? characterPreview
+      : characterPreview.slice(0, lineCutoff)
+  ).trimEnd();
 
-    const checkOverflow = () => {
-      if (expanded) return;
-
-      const isClipped = copy.scrollHeight > copy.clientHeight + 1;
-      setShouldOfferToggle(isClipped);
-    };
-
-    checkOverflow();
-
-    const observer = new ResizeObserver(checkOverflow);
-    observer.observe(copy);
-
-    return () => observer.disconnect();
-  }, [normalizedText, hasMedia, expanded]);
+  const canExpand = previewText.length < normalizedText.length;
+  const visibleText =
+    canExpand && !expanded ? `${previewText}…` : normalizedText;
 
   if (!normalizedText) return null;
 
@@ -789,11 +780,14 @@ function ExpandableFeedText({
     <div
       className={`parapost-expandable-post-text ${hasMedia ? "parapost-expandable-post-text-media" : "parapost-expandable-post-text-only"} ${expanded ? "parapost-expandable-post-text-open" : ""} ${className}`.trim()}
     >
-      <p ref={copyRef} className="parapost-expandable-post-copy" style={style}>
-        {renderLinkedText(normalizedText)}
+      <p
+        className="parapost-expandable-post-copy"
+        style={{ ...style, display: "block", WebkitLineClamp: "unset" }}
+      >
+        {renderLinkedText(visibleText)}
       </p>
 
-      {(shouldOfferToggle || expanded) ? (
+      {canExpand ? (
         <button
           type="button"
           className="parapost-expandable-post-toggle"
@@ -810,6 +804,7 @@ function ExpandableFeedText({
     </div>
   );
 }
+
 
 type LinkPreviewData = {
   href: string;
