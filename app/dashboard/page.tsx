@@ -757,22 +757,36 @@ function ExpandableFeedText({
   const [expanded, setExpanded] = useState(false);
   const normalizedText = text.trim();
 
-  if (!normalizedText) return null;
+  const previewLimit = hasMedia ? 135 : 200;
+  const previewLineLimit = hasMedia ? 3 : 5;
+  const characterPreview = normalizedText.slice(0, previewLimit);
+  const newlineIndexes = [...characterPreview.matchAll(/\n/g)];
+  const lineCutoff = newlineIndexes[previewLineLimit - 1]?.index;
 
-  const lineCount = normalizedText.split(/\r?\n/).filter((line) => line.trim()).length;
-  const shouldOfferToggle =
-    normalizedText.length > (hasMedia ? 135 : 280) ||
-    lineCount > (hasMedia ? 2 : 4);
+  const previewText = (
+    lineCutoff === undefined
+      ? characterPreview
+      : characterPreview.slice(0, lineCutoff)
+  ).trimEnd();
+
+  const canExpand = previewText.length < normalizedText.length;
+  const visibleText =
+    canExpand && !expanded ? `${previewText}…` : normalizedText;
+
+  if (!normalizedText) return null;
 
   return (
     <div
       className={`parapost-expandable-post-text ${hasMedia ? "parapost-expandable-post-text-media" : "parapost-expandable-post-text-only"} ${expanded ? "parapost-expandable-post-text-open" : ""} ${className}`.trim()}
     >
-      <p className="parapost-expandable-post-copy" style={style}>
-        {renderLinkedText(normalizedText)}
+      <p
+        className="parapost-expandable-post-copy"
+        style={{ ...style, display: "block", WebkitLineClamp: "unset" }}
+      >
+        {renderLinkedText(visibleText)}
       </p>
 
-      {shouldOfferToggle ? (
+      {canExpand ? (
         <button
           type="button"
           className="parapost-expandable-post-toggle"
@@ -789,6 +803,7 @@ function ExpandableFeedText({
     </div>
   );
 }
+
 
 type LinkPreviewData = {
   href: string;
