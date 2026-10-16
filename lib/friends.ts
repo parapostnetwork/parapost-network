@@ -348,92 +348,51 @@ export async function acceptFriendRequest(
   currentUserId: string,
   senderUserId: string
 ) {
-  if (!currentUserId || !senderUserId) throw new Error("Missing user IDs.");
-  if (currentUserId === senderUserId) throw new Error("You cannot accept your own friend request.");
+  if (!currentUserId || !senderUserId) {
+    throw new Error("Missing user IDs.");
+  }
+
+  if (currentUserId === senderUserId) {
+    throw new Error("You cannot accept your own friend request.");
+  }
 
   await ensureOwnProfileRow(supabase, currentUserId);
   await ensureTargetProfileExists(supabase, senderUserId);
 
-  const { data: request, error } = await supabase
+  const { data: request, error: requestError } = await supabase
     .from("friend_requests")
-    .select("id, sender_id, receiver_id, status")
+    .select("id")
     .eq("sender_id", senderUserId)
     .eq("receiver_id", currentUserId)
     .eq("status", "pending")
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (requestError) {
+    throw new Error(requestError.message);
+  }
 
   if (!request) {
-    if (await friendshipAlreadyExists(supabase, currentUserId, senderUserId)) {
-      return true;
-    }
-
     throw new Error("No pending friend request was found.");
   }
 
-  const { user_one, user_two } = getFriendshipPair(currentUserId, senderUserId);
-  let friendshipCreated = false;
+  const { data: accepted, error: acceptanceError } = await supabase.rpc(
+    "parapost_accept_friend_request_atomic",
+    { p_request_id: request.id }
+  );
 
-  const { error: insertError } = await supabase
-    .from("friendships")
-    .insert([{ user_one, user_two }]);
-
-  if (insertError) {
-    if (!isDuplicateError(insertError)) {
-      throw new Error(insertError.message);
-    }
-  } else {
-    friendshipCreated = true;
+  if (acceptanceError) {
+    throw new Error(acceptanceError.message);
   }
 
-  try {
-    // Create this while the request is still pending. This preserves the
-    // sender/receiver context used by notification security policies and makes
-    // acceptance from every screen follow the same reliable path.
-    await createNotification(
-      supabase,
-      {
-        user_id: senderUserId,
-        actor_id: currentUserId,
-        type: "friend_accept",
-        friend_request_id: request.id,
-        message: "accepted your friend request.",
-      },
-      { required: true }
-    );
-
-    const { error: updateError } = await supabase
-      .from("friend_requests")
-      .update({ status: "accepted" })
-      .eq("id", request.id)
-      .eq("status", "pending");
-
-    if (updateError) throw new Error(updateError.message);
-  } catch (acceptError) {
-    await removeFriendAcceptanceNotification(
-      supabase,
-      request.id,
-      currentUserId,
-      senderUserId
-    );
-
-    if (friendshipCreated) {
-      const { error: rollbackError } = await supabase
-        .from("friendships")
-        .delete()
-        .eq("user_one", user_one)
-        .eq("user_two", user_two);
-
-      if (rollbackError) {
-        console.warn("Friendship rollback warning:", rollbackError.message);
-      }
-    }
-
-    throw acceptError;
+  if (accepted !== true) {
+    throw new Error("Friend request acceptance was not confirmed.");
   }
 
-  await markFriendRequestNotificationsRead(supabase, request.id, currentUserId);
+  await markFriendRequestNotificationsRead(
+    supabase,
+    request.id,
+    currentUserId
+  );
 
   return true;
 }
