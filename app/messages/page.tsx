@@ -190,6 +190,7 @@ const PARACHAT_ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const PARACHAT_SIGNED_IMAGE_URL_SECONDS = 60 * 60;
 const PARACHAT_SIGNED_IMAGE_URL_REUSE_MS = 50 * 60 * 1000;
 const PARACHAT_MESSAGE_PAGE_SIZE = 50;
+const PARACHAT_RECONNECT_RECONCILE_MS = 4000;
 
 type ParachatSignedImageUrlCacheEntry = {
   url: string;
@@ -1578,6 +1579,96 @@ function MessagesPage() {
     [markConversationRead, scrollToBottom]
   );
 
+
+  const parachatReconnectRef = useRef<{
+    id: string;
+    at: number;
+    busy: boolean;
+  }>({ id: "", at: 0, busy: false });
+
+  const reconcileActiveMessages = useCallback(async () => {
+    const conversationId = activeConversationIdRef.current;
+
+    if (!conversationId || !viewerId || document.hidden) return;
+
+    const gate = parachatReconnectRef.current;
+    const now = Date.now();
+
+    if (
+      gate.busy ||
+      (gate.id === conversationId &&
+       now - gate.at < PARACHAT_RECONNECT_RECONCILE_MS)
+    ) return;
+
+    gate.busy = true;
+    gate.id = conversationId;
+    gate.at = now;
+
+    try {
+      const { data, error } = await supabase
+        .from("direct_messages")
+        .select(DIRECT_MESSAGE_SELECT)
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.warn("Parachat reconnect:", error.message);
+        return;
+      }
+
+      const fetched = await attachSignedImageUrls(
+        (data || []) as MessageRow[]
+      );
+
+      if (activeConversationIdRef.current !== conversationId) {
+        return;
+      }
+
+      setMessages(prev => {
+        const byId = new Map(
+          prev.map(message => [message.id, message])
+        );
+
+        for (const message of fetched) {
+          byId.set(message.id, message);
+        }
+
+        return Array.from(byId.values()).sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() -
+            new Date(b.created_at).getTime()
+        );
+      });
+
+      const latest = fetched[0];
+
+      if (latest) {
+        setConversations(prev => prev.map(item =>
+          item.id === conversationId &&
+          (!item.lastMessage ||
+           new Date(item.lastMessage.created_at).getTime() <=
+           new Date(latest.created_at).getTime())
+            ? {
+                ...item,
+                lastMessage: latest,
+                updated_at: latest.created_at
+              }
+            : item
+        ));
+      }
+
+      if (fetched.some(message =>
+        message.sender_id !== viewerId && !message.is_read
+      )) {
+        await markConversationRead(conversationId, viewerId);
+      }
+
+    } finally {
+      gate.busy = false;
+    }
+  }, [viewerId, markConversationRead]);
+
   const loadOlderMessages = useCallback(async () => {
     const conversationId = activeConversationIdRef.current;
     const currentMessages = messagesRef.current;
@@ -1794,7 +1885,7 @@ function MessagesPage() {
           table: "direct_messages",
         },
         async (payload) => {
-          const nextMessage = await attachSignedImageUrlToMessage(payload.new as MessageRow);
+          const nextMessage = payload.new as MessageRow;
 
           const belongsToUser = conversationsRef.current.some(
             (conversation) => conversation.id === nextMessage.conversation_id
@@ -1859,6 +1950,32 @@ function MessagesPage() {
           );
 
           if (nextMessage.conversation_id === activeConversationIdRef.current) {
+            if (nextMessage.image_path) {
+              void attachSignedImageUrlToMessage(nextMessage)
+                .then(resolved => {
+                  if (
+                    activeConversationIdRef.current !==
+                    resolved.conversation_id
+                  ) return;
+
+                  setMessages(prev => prev.map(row =>
+                    row.id === resolved.id ? resolved : row
+                  ));
+
+                  setConversations(prev => prev.map(item =>
+                    item.lastMessage?.id === resolved.id
+                      ? { ...item, lastMessage: resolved }
+                      : item
+                  ));
+                })
+                .catch(error => {
+                  console.warn(
+                    "Parachat photo URL:",
+                    error
+                  );
+                });
+            }
+
             setMessages((prev) => {
               if (prev.some((message) => message.id === nextMessage.id)) return prev;
               return [...prev, nextMessage];
@@ -1967,9 +2084,37 @@ function MessagesPage() {
           await loadInbox();
         }
       )
-      .subscribe();
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") {
+          void reconcileActiveMessages();
+        }
+
+        if (
+          status === "CHANNEL_ERROR" ||
+          status === "TIMED_OUT"
+        ) {
+          console.warn("Parachat Realtime:", status);
+        }
+      });
+
+    const refreshOnReturn = () => {
+      if (!document.hidden) {
+        void reconcileActiveMessages();
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange", refreshOnReturn
+    );
+    window.addEventListener("pageshow", refreshOnReturn);
+    window.addEventListener("online", refreshOnReturn);
 
     return () => {
+      document.removeEventListener(
+        "visibilitychange", refreshOnReturn
+      );
+      window.removeEventListener("pageshow", refreshOnReturn);
+      window.removeEventListener("online", refreshOnReturn);
       supabase.removeChannel(channel);
     };
   }, [
@@ -1977,6 +2122,7 @@ function MessagesPage() {
     blockedUserIds,
     loadInbox,
     loadMessages,
+    reconcileActiveMessages,
     markConversationRead,
     scrollToBottom,
     viewerId,

@@ -37,10 +37,21 @@ function getNotificationBody(record: NotificationRecord) {
   // Handle Parachat before reading record.message because Parachat can store
   // internal grouping values such as "parachat_group_count:1" in that field.
   if (type === "parachat_message") {
-    return "You have a new Parachat message.";
+    return "New Parachat message";
+  }
+
+  if (type === "parachat_photo") {
+    return "New Parachat photo";
   }
 
   const message = record.message?.trim();
+  if (
+    message &&
+    /^parachat_group_count:\d+$/i.test(message)
+  ) {
+    return "New Parachat message";
+  }
+
   if (message) return message;
 
   if (type.includes("friend_request")) {
@@ -73,7 +84,10 @@ function getNotificationBody(record: NotificationRecord) {
 function getNotificationTitle(record: NotificationRecord) {
   const type = (record.type || "").toLowerCase();
 
-  if (type === "parachat_message") return "New Parachat message";
+  if (
+    type === "parachat_message" ||
+    type === "parachat_photo"
+  ) return "Parapost Network";
   if (type.includes("friend_request")) return "New friend request";
   if (type.includes("friend_accept")) return "Friend request accepted";
   if (type.includes("badge")) return "Parapost badge update";
