@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { clearLocalAuthSessionWithPushCleanup } from "@/components/pwa/PushNotificationLogout";
 
 type AuthMode = "signin" | "signup";
 
@@ -130,7 +131,7 @@ export default function Home() {
           hashParams.get("error");
 
         if (authErrorDescription) {
-          await clearLocalAuthSessionSilently();
+          await clearLocalAuthSessionWithPushCleanup();
 
           if (!isActive) return;
 
@@ -143,7 +144,7 @@ export default function Home() {
         }
 
         if (verifiedFromEmail) {
-          await clearLocalAuthSessionSilently();
+          await clearLocalAuthSessionWithPushCleanup();
 
           if (!isActive) return;
 
@@ -234,6 +235,10 @@ export default function Home() {
       setLoading(true);
 
       if (isLogin) {
+        // Disconnect a previous account's device push subscription
+        // before starting a new authenticated session.
+        await clearLocalAuthSessionWithPushCleanup();
+
         const { error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
@@ -248,7 +253,7 @@ export default function Home() {
         return;
       }
 
-      await clearLocalAuthSessionSilently();
+      await clearLocalAuthSessionWithPushCleanup();
 
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -298,7 +303,7 @@ export default function Home() {
 
     try {
       setLoading(true);
-      await clearLocalAuthSessionSilently();
+      await clearLocalAuthSessionWithPushCleanup();
 
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: `${authOrigin}/reset-password`,

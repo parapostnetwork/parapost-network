@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { cleanupPushBeforeLogout } from "@/components/pwa/PushNotificationLogout";
 import BackToPrevious from "@/components/BackToPrevious";
 
 type ProfilePreview = {
@@ -318,11 +319,32 @@ export default function SettingsPage() {
     setLogoutLoading(true);
 
     try {
-      await supabase.auth.signOut();
+      if (!currentUserId) {
+        throw new Error(
+          "Could not identify your account. Please reload and try again."
+        );
+      }
+
+      // Disconnect phone notifications before ending the login session.
+      await cleanupPushBeforeLogout(currentUserId);
+
+      const { error: signOutError } = await supabase.auth.signOut();
+
+      if (signOutError) {
+        throw signOutError;
+      }
+
       router.replace("/");
       router.refresh();
     } catch (error) {
       console.error("Error logging out:", error);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Could not safely log out. Please try again."
+      );
+
       setLogoutLoading(false);
     }
   }

@@ -180,6 +180,7 @@ export async function POST(req: Request) {
     );
 
     const payload = JSON.stringify({
+      recipientUserId: record.user_id,
       title: getNotificationTitle(record),
       body: getNotificationBody(record),
       icon: "/icons/parapost-192.png",

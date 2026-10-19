@@ -1,187 +1,91 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { pushSupported, stopDevicePush, syncDevicePush, pushCompatibilityMessage } from "./push-device";
 
 type PushNotificationSettingsProps = {
   currentUserId: string;
   accountPushEnabled: boolean;
 };
+type SupportState = "checking" | "supported" | "unsupported" | "incompatible";
 
-type SupportState = "checking" | "supported" | "unsupported";
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-
-  return Uint8Array.from(rawData, (character) => character.charCodeAt(0));
-}
-
-async function saveSubscription(subscription: PushSubscription) {
-  const json = subscription.toJSON();
-  const p256dh = json.keys?.p256dh;
-  const authKey = json.keys?.auth;
-
-  if (!p256dh || !authKey) {
-    throw new Error("The push subscription is missing its security keys.");
-  }
-
-  const { error } = await supabase.rpc("save_push_subscription", {
-    p_endpoint: subscription.endpoint,
-    p_p256dh: p256dh,
-    p_auth_key: authKey,
-    p_user_agent: navigator.userAgent || null,
-  });
-
-  if (error) {
-    throw new Error(error.message || "Could not save the push subscription.");
-  }
-}
-
-export default function PushNotificationSettings({
-  currentUserId,
-  accountPushEnabled,
-}: PushNotificationSettingsProps) {
+export default function PushNotificationSettings({ currentUserId, accountPushEnabled }: PushNotificationSettingsProps) {
   const [supportState, setSupportState] = useState<SupportState>("checking");
   const [permission, setPermission] = useState<NotificationPermission>("default");
-  const [enabled, setEnabled] = useState(false);
+  const [enabledFor, setEnabledFor] = useState("");
+  const enabled = enabledFor === currentUserId && accountPushEnabled;
   const [busy, setBusy] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const active = useRef({ userId: "", allowed: false, generation: 0 });
+  const enabling = useRef(false);
+  const previous = useRef({ userId: "", allowed: false });
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadPushState() {
-      if (
-        typeof window === "undefined" ||
-        !("Notification" in window) ||
-        !("serviceWorker" in navigator) ||
-        !("PushManager" in window)
-      ) {
-        if (!cancelled) {
-          setSupportState("unsupported");
-          setEnabled(false);
-        }
-        return;
+    const generation = active.current.generation + 1;
+    active.current = { userId: currentUserId, allowed: accountPushEnabled, generation };
+    const current = () => active.current.generation === generation && active.current.userId === currentUserId && active.current.allowed;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user.id !== currentUserId) {
+        active.current.generation += 1;
+        active.current.allowed = false;
+        setEnabledFor("");
       }
-
-      if (!cancelled) {
-        setSupportState("supported");
-        setPermission(Notification.permission);
-      }
-
+    });
+    const explicitlyDisabled = previous.current.userId === currentUserId && previous.current.allowed && !accountPushEnabled;
+    previous.current = { userId: currentUserId, allowed: accountPushEnabled };
+    async function load() {
+      setEnabledFor("");
+      setErrorMessage("");
+      setStatusMessage("");
+      if (!pushSupported()) { setSupportState("unsupported"); return; }
+      setSupportState("supported");
+      setPermission(Notification.permission);
       try {
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-
-        if (cancelled) return;
-
-        setEnabled(Boolean(subscription));
-
-        // Keep an existing browser subscription connected to the signed-in
-        // Parapost account. This does not ask for permission or create a new
-        // subscription; it only refreshes the database record.
-        if (
-          subscription &&
-          currentUserId &&
-          Notification.permission === "granted"
-        ) {
-          try {
-            await saveSubscription(subscription);
-          } catch (error) {
-            console.warn("Push subscription sync warning:", error);
-          }
+        if (explicitlyDisabled) await stopDevicePush(currentUserId);
+        if (!currentUserId || !accountPushEnabled) return;
+        const result = await syncDevicePush(currentUserId, { isCurrent: current });
+        if (current()) {
+          setEnabledFor(result === "enabled" ? currentUserId : "");
+          if (result === "unsupported") { setSupportState("incompatible"); setErrorMessage(pushCompatibilityMessage); }
+          if (result === "unavailable") setErrorMessage("This device is not verified for your account. Select Set Up This Device to try again.");
         }
       } catch (error) {
-        console.warn("Push notification state check failed:", error);
-
-        if (!cancelled) {
-          setEnabled(false);
-        }
+        if (active.current.generation === generation) setErrorMessage(error instanceof Error ? error.message : "Could not verify phone notifications.");
       }
     }
-
-    void loadPushState();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUserId]);
+    void load();
+    return () => { active.current.generation += 1; subscription.unsubscribe(); };
+  }, [currentUserId, accountPushEnabled]);
 
   const handleEnable = async () => {
+    if (enabling.current || !currentUserId || !accountPushEnabled || !pushSupported()) return;
+    enabling.current = true;
+    const generation = active.current.generation;
+    const current = () => active.current.generation === generation && active.current.userId === currentUserId && active.current.allowed;
     setStatusMessage("");
     setErrorMessage("");
-
-    if (!currentUserId) {
-      setErrorMessage("Please sign in before enabling phone notifications.");
-      return;
-    }
-
-    if (
-      !("Notification" in window) ||
-      !("serviceWorker" in navigator) ||
-      !("PushManager" in window)
-    ) {
-      setSupportState("unsupported");
-      setErrorMessage("Phone notifications are not supported on this device or browser.");
-      return;
-    }
-
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-
-    if (!vapidPublicKey) {
-      setErrorMessage("Phone notifications are not configured for this environment.");
-      return;
-    }
-
     setBusy(true);
-
     try {
-      const nextPermission = await Notification.requestPermission();
+      const nextPermission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+      if (!current()) return;
       setPermission(nextPermission);
-
-      if (nextPermission !== "granted") {
-        setEnabled(false);
-
-        if (nextPermission === "denied") {
-          setErrorMessage(
-            "Notifications are blocked for Parapost on this device. Allow notifications in your browser or app settings, then try again."
-          );
-        } else {
-          setErrorMessage("Notification permission was not granted.");
-        }
-
-        return;
+      if (nextPermission !== "granted") throw new Error("Notification permission was not granted. Check your browser and device notification settings.");
+      const result = await syncDevicePush(currentUserId, { manual: true, isCurrent: current });
+      if (current()) {
+        setEnabledFor(result === "enabled" ? currentUserId : "");
+        if (result === "enabled") setStatusMessage("Phone notifications are now enabled on this device.");
+        else if (result === "unsupported") { setSupportState("incompatible"); setErrorMessage(pushCompatibilityMessage); }
+        else setErrorMessage("Notifications are disabled or the account changed. Check your saved account preferences.");
       }
-
-      const registration = await navigator.serviceWorker.ready;
-
-      let subscription = await registration.pushManager.getSubscription();
-
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        });
-      }
-
-      await saveSubscription(subscription);
-
-      setEnabled(true);
-      setStatusMessage("Phone notifications are now enabled on this device.");
     } catch (error) {
-      console.error("Enable phone notifications error:", error);
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Could not enable phone notifications. Please try again.";
-
-      setErrorMessage(message);
-      setEnabled(false);
+      if (current()) {
+        setEnabledFor("");
+        setErrorMessage(error instanceof Error ? error.message : "Could not enable phone notifications. Please try again.");
+      }
     } finally {
+      enabling.current = false;
       setBusy(false);
     }
   };
@@ -192,7 +96,7 @@ export default function PushNotificationSettings({
   // and this device does not already have a subscription.
   if (
     !currentUserId ||
-    !accountPushEnabled ||
+    (!accountPushEnabled && !errorMessage) ||
     enabled ||
     supportState === "checking"
   ) {
@@ -205,10 +109,12 @@ export default function PushNotificationSettings({
       className="w-full border-t border-purple-200/15 pt-3"
     >
       <p className="text-sm leading-6 text-slate-300">
-        Device setup required: This device needs permission to receive push alerts.
+        {supportState === "incompatible"
+          ? "Phone notifications are paused on this browser."
+          : "Device setup required: This device needs permission to receive push alerts."}
       </p>
 
-      {supportState === "supported" && !blocked ? (
+      {supportState === "supported" && !blocked && accountPushEnabled ? (
         <button
           type="button"
           onClick={handleEnable}
