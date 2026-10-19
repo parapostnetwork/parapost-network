@@ -47,7 +47,7 @@ export default function PushNotificationPrompt({
         </p>
 
         <p className="mt-2 text-xs text-slate-400">
-          Alerts may appear on your phone's lock screen.
+          Alerts may appear on your phone&apos;s lock screen.
         </p>
 
         {errorMessage ? (

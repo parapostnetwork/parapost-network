@@ -236,6 +236,10 @@ export default function Home() {
       setLoading(true);
 
       if (isLogin) {
+        // Disconnect a previous account's device push subscription
+        // before starting a new authenticated session.
+        await clearLocalAuthSessionWithPushCleanup();
+
         const { error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,

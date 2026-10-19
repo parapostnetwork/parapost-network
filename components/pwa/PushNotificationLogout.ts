@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { disconnectBrowserPush, suspendPushForLogout, withPushLock } from "./push-device";
 
 export async function cleanupPushBeforeLogout(
   userId: string,
@@ -12,51 +13,35 @@ export async function cleanupPushBeforeLogout(
     return;
   }
 
-  const registration =
-    await navigator.serviceWorker.getRegistration("/");
+  // Invalidate in-flight registration before waiting for its browser lock.
+  suspendPushForLogout(userId);
+  await withPushLock(async () => {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration) return;
+    const subscription = await registration.pushManager.getSubscription();
 
-  if (!registration) return;
+    // Close the display gate and browser endpoint even with an expired session.
+    // A failure still blocks the caller's sign-in/logout continuation.
+    await disconnectBrowserPush(registration, subscription);
+    if (!subscription) return;
 
-  const subscription =
-    await registration.pushManager.getSubscription();
-
-  if (!subscription) return;
-
-  // Attempt server cleanup before ending authentication.
-  try {
-    const { error } = await supabase.rpc(
-      "delete_push_subscription",
-      { p_endpoint: subscription.endpoint }
-    );
-
-    if (error) {
-      throw new Error(
-        "Could not remove this device's notification registration."
-      );
+    try {
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      const session = data.session;
+      if (sessionError || !session || session.user.id !== userId) throw new Error("No matching session for server push cleanup.");
+      const { error } = await supabase.rpc("delete_push_subscription", {
+        p_endpoint: subscription.endpoint,
+      }).setHeader("Authorization", `Bearer ${session.access_token}`);
+      if (error) throw new Error("Could not remove this device's notification registration.");
+    } catch (error) {
+      if (!options.allowServerCleanupFailure) throw error;
+      // Recovery may have no valid session. The browser is already disconnected.
+      console.warn("Server push cleanup failed; browser push disconnected.");
     }
-  } catch (error) {
-    if (!options.allowServerCleanupFailure) throw error;
-
-    // Recovery may have no valid session. Still disconnect browser push.
-    console.warn("Server push cleanup failed; attempting browser cleanup.");
-  }
-
-  // Stop this browser from receiving further push messages.
-  const removed = await subscription.unsubscribe();
-
-  if (!removed) {
-    throw new Error(
-      "Could not disable this device's push subscription."
-    );
-  }
-
-  try {
-    window.sessionStorage.removeItem(
-      `parapost-push-session-sync:${userId}`
-    );
-  } catch {
-    // Browser storage cleanup is optional.
-  }
+    try {
+      window.sessionStorage.removeItem(`parapost-push-session-sync:${userId}`);
+    } catch { /* Browser storage cleanup is optional. */ }
+  });
 }
 
 export async function clearLocalAuthSessionWithPushCleanup(): Promise<void> {
