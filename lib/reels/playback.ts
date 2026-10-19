@@ -124,7 +124,7 @@ export function attachReelPlayback({
       state.pending = null;
       // Dispatch to the CURRENT attachment, never the activation that called play().
       controllers.get(video)?.settle(failure);
-      if (!controllers.has(video) && video.isConnected === false) video.pause();
+      if (!controllers.has(video)) video.pause();
     };
     try {
       void Promise.resolve(video.play()).then(
@@ -181,6 +181,10 @@ export function attachReelPlayback({
     }, 2000);
   };
   const syncAll = () => {
+    // Pause every outgoing element before starting an earlier item in DOM order.
+    entries.forEach(([id, video]) => {
+      if (!shouldPlay(id) && !video.paused) video.pause();
+    });
     entries.forEach(([id, video]) => {
       const state = stateFor(video);
       const play = shouldPlay(id);
@@ -198,9 +202,22 @@ export function attachReelPlayback({
   };
   const cleanups = entries.map(([id, video]) => {
     const state = stateFor(video);
+    const becameMuted = muted && !video.muted;
     video.muted = muted;
+    // A sound-policy denial no longer describes a newly muted request. Do not
+    // reset other failures or replenish retries on count-only attachments.
+    if (becameMuted && state.issue === "policy") {
+      state.failure = null;
+      report(video, null);
+    }
     const controller = {
       settle: (failure: ReelPlaybackIssue | null) => {
+        // A pending request can succeed after its watchdog timeout, including
+        // while inactive. That timeout must not poison the next activation.
+        if (!failure && state.issue === "loading") {
+          state.failure = null;
+          report(video, null);
+        }
         if (!shouldPlay(id)) { if (!video.paused) video.pause(); return; }
         if (failure) {
           state.failure = failure;
@@ -280,8 +297,15 @@ export function attachReelPlayback({
     };
   });
   const observer = activeVideo && typeof IntersectionObserver !== "undefined"
-    ? new IntersectionObserver(([entry]) => {
-      if (disposed || !entry) return;
+    ? new IntersectionObserver((samples) => {
+      if (disposed) return;
+      // Multiple crossings for the same target can be delivered together.
+      // Reconcile once using the newest sample, not the first queued crossing.
+      const entry = samples.reduce<IntersectionObserverEntry | undefined>(
+        (latest, sample) => !latest || sample.time >= latest.time ? sample : latest,
+        undefined,
+      );
+      if (!entry) return;
       sufficientlyVisible = entry.isIntersecting && entry.intersectionRatio >= 0.5;
       visibleStates.set(activeVideo, sufficientlyVisible);
       syncAll();

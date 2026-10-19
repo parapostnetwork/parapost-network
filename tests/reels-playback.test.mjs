@@ -544,3 +544,109 @@ test('detached video ignores stale readiness, error, and frame events after clea
   assert.equal(video.callbacks.size, 0);
   assert.equal(issues.length, count);
 });
+
+for (const visible of [true, false]) {
+  test(`batched visibility uses latest sample (${visible})`, async t => {
+    const old = globalThis.IntersectionObserver;
+    let callback;
+    globalThis.IntersectionObserver = class {
+      constructor(cb) { callback = cb; }
+      observe() {}
+      disconnect() {}
+    };
+    t.after(() => { globalThis.IntersectionObserver = old; });
+    const h = setup(t);
+    callback([{ time: 1, isIntersecting: true, intersectionRatio: 0.8 }]);
+    await flush();
+    callback([
+      { time: 2, isIntersecting: !visible, intersectionRatio: visible ? 0 : 0.8 },
+      { time: 3, isIntersecting: visible, intersectionRatio: visible ? 0.8 : 0 },
+    ]);
+    await flush();
+    assert.equal(h.videos.b.paused, !visible);
+  });
+}
+
+test('backward navigation pauses the previous video BEFORE starting the next', async t => {
+  const h = setup(t); await flush();
+  h.videos.a.play = function () {
+    assert.equal(h.videos.b.paused, true, 'previous Reel must already be paused');
+    return Video.prototype.play.call(this);
+  };
+  h.update({ activeId: 'a' }); await flush();
+  assert.equal(h.videos.a.paused, false);
+});
+
+test('switching to muted playback clears only an obsolete policy denial', async t => {
+  clock(t);
+  const video = new Video();
+  video.play = function () {
+    if (!this.muted) { this.plays++; return Promise.reject(new DOMException('Denied', 'NotAllowedError')); }
+    return Video.prototype.play.call(this);
+  };
+  const h = setup(t, { videos: { b: video }, muted: false }); await flush();
+  h.update({ muted: true }); await flush();
+  assert.equal(video.paused, false);
+  assert.equal(video.loads, 0);
+});
+
+test('late successful startup clears timeout and allows future foreground resume', async t => {
+  clock(t); const h = setup(t); await flush(); const pending = deferred();
+  h.videos.c.play = () => { h.videos.c.plays++; return pending.promise; };
+  h.update({ activeId: 'c' });
+  await advance(t, 13000);
+  h.videos.c.play = Video.prototype.play;
+  pending.resolve(); await flush(); await advance(t, 400);
+  assert.equal(h.videos.c.paused, false);
+  assert.equal(h.videos.c.loads, 0);
+});
+
+test('late play success after controller disposal pauses even a still-connected node', async t => {
+  const h = setup(t); await flush(); const pending = deferred();
+  h.videos.c.play = () => pending.promise;
+  h.update({ activeId: 'c' }); h.cleanup();
+  h.videos.c.paused = false;
+  pending.resolve(); await flush();
+  assert.equal(h.videos.c.paused, true);
+});
+
+for (const reason of ['NotAllowedError', 'NotSupportedError']) {
+  test(`muted ${reason} stays bounded across count refreshes`, async t => {
+    clock(t); const video = new Video();
+    video.play = () => { video.plays++; return Promise.reject(new DOMException('Denied', reason)); };
+    const h = setup(t, { videos: { b: video } }); await flush();
+    for (let i = 0; i < 5; i++) { h.update(); await advance(t, 4000); }
+    assert.equal(video.plays, 1);
+    assert.equal(video.loads, 0);
+  });
+}
+
+test('successful late startup while inactive removes timeout before returning', async t => {
+  clock(t); const h = setup(t); await flush(); const pending = deferred();
+  h.videos.c.play = () => { h.videos.c.plays++; return pending.promise; };
+  h.update({ activeId: 'c' }); await advance(t, 13000);
+  h.update({ activeId: 'a' });
+  h.videos.c.paused = false; pending.resolve(); await flush();
+  assert.equal(h.videos.c.paused, true);
+  h.videos.c.play = Video.prototype.play;
+  h.update({ activeId: 'c' }); await flush();
+  assert.equal(h.videos.c.paused, false);
+  assert.equal(h.videos.c.loads, 0);
+});
+
+test('newest visibility is selected by timestamp even for an unordered batch', async t => {
+  const old = globalThis.IntersectionObserver; let callback;
+  globalThis.IntersectionObserver = class {
+    constructor(cb) { callback = cb; }
+    observe() {}
+    disconnect() {}
+  };
+  t.after(() => { globalThis.IntersectionObserver = old; });
+  const h = setup(t);
+  callback([
+    { time: 30, isIntersecting: true, intersectionRatio: 0.8 },
+    { time: 10, isIntersecting: false, intersectionRatio: 0 },
+    { time: 20, isIntersecting: false, intersectionRatio: 0 },
+  ]);
+  await flush(); assert.equal(h.videos.b.paused, false);
+});

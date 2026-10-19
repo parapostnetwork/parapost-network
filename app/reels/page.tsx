@@ -3070,7 +3070,7 @@ export default function ReelsPage() {
                         onDoubleClick={(event) => event.stopPropagation()}
                       >
                         <span>{playbackIssue.reason === "unsupported"
-                          ? "This video format cannot play in this browser. Try another Reel."
+                          ? "This video could not be loaded or is not supported by this browser. Try another Reel."
                           : playbackIssue.reason === "policy" ? "Tap to start this video."
                           : "This video couldn't start or stopped playing."}</span>
                         {playbackIssue.reason !== "unsupported" && (
