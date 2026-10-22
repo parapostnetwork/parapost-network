@@ -1,5 +1,7 @@
 "use client";
 
+import { groupsNavigationEnabled } from "@/lib/groups/config";
+
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
 
 import { uploadImageWithVariant } from "@/lib/images/media-variants";
@@ -6080,7 +6082,7 @@ export default function DashboardPage() {
               <SidebarLink href="/friends" label="Friends" badge={pendingFriendRequestCount || undefined} />
               <SidebarLink href={currentUserId ? `/profile/${currentUserId}/followers` : "/dashboard"} label="Followers" />
               <SidebarLink href={currentUserId ? `/profile/${currentUserId}/following` : "/dashboard"} label="Following" />
-              <SidebarButton label="Groups" muted />
+              {groupsNavigationEnabled() ? <SidebarLink href="/groups" label="Groups" /> : <SidebarButton label="Groups" muted />}
               <SidebarLink href="/messages" label="Parachat" badge={parachatUnreadCount || undefined} />
               <SidebarLink href="/notifications" label="Notifications" badge={notificationsCount || undefined} />
               <SidebarButton label="Bookmarks" muted />
@@ -15201,6 +15203,7 @@ function MobileDashboardMenuDrawer({
             <MobileMenuLink href="/friends" label="Friends" badge={pendingFriendRequestCount || undefined} />
             <MobileMenuLink href={currentUserId ? `/profile/${currentUserId}/followers` : "/dashboard"} label="Followers" />
             <MobileMenuLink href={currentUserId ? `/profile/${currentUserId}/following` : "/dashboard"} label="Following" />
+            {groupsNavigationEnabled() ? <MobileMenuLink href="/groups" label="Groups" /> : <MobileMenuMutedRow label="Groups" />}
             <MobileMenuButton label="Discover" onClick={() => setActiveSection("discover")} />
             <MobileMenuButton label="Parapost Hub" onClick={() => setActiveSection("hub")} />
             <MobileMenuButton label="Creator Tools" onClick={() => setActiveSection("creator")} />
@@ -15305,7 +15308,6 @@ function MobileDashboardMenuDrawer({
             <MobileMenuMutedRow label="Evidence Collections" />
             <MobileMenuMutedRow label="Case Files" />
             <MobileMenuMutedRow label="Events" />
-            <MobileMenuMutedRow label="Groups" />
 
             <div style={mobileMenuInfoCardStyle}>
               Future community areas will live here so the mobile dashboard stays clean and focused.
