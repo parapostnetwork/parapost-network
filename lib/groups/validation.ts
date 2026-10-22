@@ -15,6 +15,20 @@ export function matchesSignature(type: string, bytes: Uint8Array): boolean {
   if (type === 'video/webm') return [26,69,223,163].every((v,i) => bytes[i] === v);
   return false;
 }
+/** Validate authorized download bytes independently of a generic transport MIME.
+ * Upload validation remains strict; only missing/octet-stream download types are inferred.
+ */
+export async function validateDownloadedMedia(data: Blob, cover = false): Promise<string> {
+  if (!Number.isFinite(data.size) || data.size <= 0 || data.size > VIDEO_LIMIT) throw new Error('Invalid media size');
+  const bytes = new Uint8Array(await data.slice(0, 16).arrayBuffer());
+  const declared = data.type.split(';', 1)[0].trim().toLowerCase();
+  const type = declared === '' || declared === 'application/octet-stream'
+    ? MEDIA_TYPES.find(candidate => matchesSignature(candidate, bytes)) ?? ''
+    : declared;
+  validateUpload(type, data.size, cover);
+  if (!matchesSignature(type, bytes)) throw new Error('Invalid media signature');
+  return type;
+}
 export function validateGroupFields(name: unknown, description: unknown, visibility: unknown): void {
   if (typeof name !== 'string' || name.trim().length < 3 || name.trim().length > 100) throw new Error('Group names must be 3–100 characters.');
   if (typeof description !== 'string' || description.length > 5000) throw new Error('Descriptions must be at most 5,000 characters.');
