@@ -4,9 +4,9 @@
 
 .post{position:relative;overflow:visible}
 .post:has(.postMenu){z-index:5}
-.postHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.postHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-right:44px;min-height:40px}
 .postHeader>p{margin:0;min-width:0}
-.postMenuWrap{position:relative;flex-shrink:0}
+.postMenuWrap{position:absolute;top:8px;right:8px;z-index:1}
 .page .postDots{display:grid;place-items:center;width:40px;height:40px;min-height:40px;padding:0;background:transparent;border:0;color:#eef1fc}
 .page .postDots:hover,.page .postDots[aria-expanded=true]{background:#30364a}
 .postMenu{position:absolute;right:0;top:100%;z-index:20;min-width:170px;display:flex;flex-direction:column;background:#22283b;border:1px solid #48516b;border-radius:10px;padding:5px;box-shadow:0 10px 25px #0008}
