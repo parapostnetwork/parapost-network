@@ -1,5 +1,6 @@
 "use client";
 
+import { HeartIcon, CommentIcon, ShareIcon } from "@/components/PostActionIcons";
 import { useLayoutEffect } from "react";
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
@@ -1225,46 +1226,8 @@ function getProfileLiveChatStatus(status?: string | null): "draft" | "upcoming" 
 
 
 
-function HeartIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} aria-hidden="true">
-      <path
-        d="M12 20.35C11.736 20.35 11.482 20.256 11.282 20.084C9.47 18.526 7.97 17.165 6.78 15.999C5.59 14.834 4.699 13.742 4.108 12.724C3.516 11.707 3.22 10.666 3.22 9.602C3.22 8.211 3.689 7.046 4.626 6.108C5.564 5.169 6.728 4.7 8.12 4.7C8.912 4.7 9.662 4.879 10.369 5.238C11.076 5.597 11.62 6.081 12 6.69C12.38 6.081 12.924 5.597 13.631 5.238C14.338 4.879 15.088 4.7 15.88 4.7C17.272 4.7 18.436 5.169 19.374 6.108C20.311 7.046 20.78 8.211 20.78 9.602C20.78 10.666 20.484 11.707 19.892 12.724C19.301 13.742 18.41 14.834 17.22 15.999C16.03 17.165 14.53 18.526 12.718 20.084C12.518 20.256 12.264 20.35 12 20.35Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
-function CommentIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M7 17L4 20V6C4 4.895 4.895 4 6 4H18C19.105 4 20 4.895 20 6V15C20 16.105 19.105 17 18 17H7Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
-function ShareIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M20.7 3.4L3.9 10.7C3.05 11.07 3.08 12.29 3.96 12.6L10.12 14.76L12.28 20.92C12.59 21.8 13.81 21.83 14.18 20.98L20.7 3.4Z"
-        stroke="currentColor"
-        strokeWidth="1.85"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 function FeelingActivityMiniIcon({ icon }: { icon: FeelingActivityIconKey }) {
   const common = {

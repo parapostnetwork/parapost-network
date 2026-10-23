@@ -1,4 +1,5 @@
 'use client';
+import { DotsIcon } from "@/components/PostActionIcons";
 /* eslint-disable @next/next/no-img-element -- private media uses authenticated blob URLs */
 import { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -67,12 +68,29 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const [create,setCreate]=useState(false);const [settings,setSettings]=useState(false);const [management,setManagement]=useState(false);
   const [content,setContent]=useState('');const [files,setFiles]=useState<File[]>([]);const [inputKey,setInputKey]=useState(0);
   const [editPost,setEditPost]=useState<string>(); const [editContent,setEditContent]=useState('');
+const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
   const [deleteName,setDeleteName]=useState('');const requestNumber=useRef(0);const mutationLock=useRef(false);
   const group=groupId?groups[0]:undefined;
   const approved=group?.membership_status==='approved';const owner=approved&&group?.membership_role==='owner';
   const admin=approved&&['owner','admin'].includes(group?.membership_role ?? '');
   const moderator=approved&&['owner','admin','moderator'].includes(group?.membership_role ?? '');
   const canRead=!!group && (approved || (group.visibility==='public' && !['rejected','removed','banned'].includes(group.membership_status ?? '')));
+  useEffect(()=>{
+    if(!openPostMenuId)return;
+    const outside=(event:PointerEvent)=>{
+      const menu=document.getElementById(`group-post-menu-${openPostMenuId}`);
+      if(!menu?.contains(event.target as Node))setOpenPostMenuId(null);
+    };
+    const escape=(event:KeyboardEvent)=>{
+      if(event.key==='Escape')setOpenPostMenuId(null);
+    };
+    document.addEventListener('pointerdown',outside);
+    document.addEventListener('keydown',escape);
+    return ()=>{
+      document.removeEventListener('pointerdown',outside);
+      document.removeEventListener('keydown',escape);
+    };
+  },[openPostMenuId]);
   useEffect(()=>{
     let active=true;let authEvent=false;let currentUser='';const sequence=requestNumber;
     const acceptUser=(id:string)=>{
@@ -161,9 +179,30 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
         {owner&&['rejected','removed','banned'].includes(m.status)&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('restore',group.id,{user_id:m.user_id});})}>Restore to pending</button>}
       </div>}</article>)}{!members.length&&!loading&&<p>No members on this page.</p>}<div className={styles.controls}><button disabled={!memberOffset||loading} onClick={()=>setMemberOffset(Math.max(0,memberOffset-50))}>Previous members</button><button disabled={members.length<50||loading} onClick={()=>setMemberOffset(memberOffset+50)}>More members</button></div></section>}
       {approved&&<form className={styles.form} onSubmit={e=>{e.preventDefault();void perform(publish);}}><h2>Share with your Group</h2><label>Post<textarea maxLength={10000} value={content} onChange={e=>setContent(e.target.value)} rows={4}/></label><label>Images or videos<input key={inputKey} type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" onChange={e=>{const selected=Array.from(e.target.files??[]);try{if(selected.length>4)throw new Error('Choose up to four files.');selected.forEach(f=>validateUpload(f.type,f.size));setFiles(selected);setError('');}catch(err){setFiles([]);setError(err instanceof Error?err.message:'Invalid media');}}}/></label>{files.map((file,index)=><SelectedMedia key={index} file={file}/>)}<p className={styles.muted}>Up to 4 files. Images: 8 MB. Videos: 32 MB. Posts stay inside this Group.</p><button disabled={busy||(!content.trim()&&!files.length)}>{busy?'Publishing…':'Publish post'}</button></form>}
-      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article className={styles.post} key={post.id}><p><Link href={`/profile/${post.author_id}`}>{post.author_id===userId?'You':'Member profile'}</Link> · <time dateTime={post.created_at}>{new Date(post.created_at).toLocaleString()}</time></p>{editPost===post.id?<form className={styles.form} onSubmit={e=>{e.preventDefault();void perform(async()=>{await groupAction('edit_post',group.id,{post_id:post.id,content:editContent});setEditPost(undefined);});}}><label>Edit post<textarea maxLength={10000} value={editContent} onChange={e=>setEditContent(e.target.value)}/></label><button disabled={busy}>Save post</button><button type="button" onClick={()=>setEditPost(undefined)}>Cancel</button></form>:<p className={styles.text}>{post.content}</p>}
+      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article className={styles.post} key={post.id}><div className={styles.postHeader}><p><Link href={`/profile/${post.author_id}`}>{post.author_id===userId?'You':'Member profile'}</Link> · <time dateTime={post.created_at}>{new Date(post.created_at).toLocaleString()}</time></p>{approved&&(post.author_id===userId||moderator)&&(
+<div className={styles.postMenuWrap} id={`group-post-menu-${post.id}`}>
+  <button type="button" className={styles.postDots}
+    aria-label="Post options" aria-expanded={openPostMenuId===post.id}
+    onClick={()=>setOpenPostMenuId(v=>v===post.id?null:post.id)}>
+    <DotsIcon/>
+  </button>
+  {openPostMenuId===post.id&&<div className={styles.postMenu}>
+    {post.author_id===userId&&
+      <button type="button" className={styles.postMenuItem} disabled={busy}
+        onClick={()=>{setOpenPostMenuId(null);setEditPost(post.id);setEditContent(post.content);}}>
+        Edit post
+      </button>}
+    <button type="button" className={`${styles.postMenuItem} ${styles.postMenuDanger}`}
+      disabled={busy} onClick={()=>{
+        setOpenPostMenuId(null);
+        if(window.confirm('Delete this Group post and its media?'))
+          void perform(async()=>{await groupAction('delete_post',group.id,{post_id:post.id});});
+      }}>Delete post</button>
+  </div>}
+</div>
+)}</div>{editPost===post.id?<form className={styles.form} onSubmit={e=>{e.preventDefault();void perform(async()=>{await groupAction('edit_post',group.id,{post_id:post.id,content:editContent});setEditPost(undefined);});}}><label>Edit post<textarea maxLength={10000} value={editContent} onChange={e=>setEditContent(e.target.value)}/></label><button disabled={busy}>Save post</button><button type="button" onClick={()=>setEditPost(undefined)}>Cancel</button></form>:<p className={styles.text}>{post.content}</p>}
         {post.group_post_media.sort((a,b)=>a.display_order-b.display_order).map(media=><PrivateMedia key={media.id} path={media.storage_path} video={media.media_type==='video'}/>)}
-        {approved&&(post.author_id===userId||moderator)&&<div className={styles.controls}>{post.author_id===userId&&<button disabled={busy} onClick={()=>{setEditPost(post.id);setEditContent(post.content);}}>Edit text</button>}<button disabled={busy} onClick={()=>{if(window.confirm('Delete this Group post and its media?'))void perform(async()=>{await groupAction('delete_post',group.id,{post_id:post.id});});}}>Delete post</button></div>}
+
       </article>)}{!posts.length&&!loading&&<p className={styles.empty}>No posts on this page yet.</p>}<div className={styles.controls}><button disabled={!feedOffset||loading} onClick={()=>setFeedOffset(Math.max(0,feedOffset-20))}>Newer posts</button><button disabled={posts.length<20||loading} onClick={()=>setFeedOffset(feedOffset+20)}>Older posts</button></div></section>}
     </>:!loading&&<p className={styles.empty}>This Group is unavailable.</p>}
   </div></main>;
