@@ -1,5 +1,7 @@
 'use client';
 import { DotsIcon } from "@/components/PostActionIcons";
+import ResponsiveMediaImage from '@/components/ResponsiveMediaImage';
+import { supabase } from '@/lib/supabase';
 /* eslint-disable @next/next/no-img-element -- private media uses authenticated blob URLs */
 import { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -9,6 +11,7 @@ import { validateGroupFields, validateUpload } from '@/lib/groups/validation';
 import type { Group, GroupMember, GroupPost } from '@/lib/groups/types';
 import styles from './groups.module.css';
 import GroupCover from './GroupCover';
+import GroupPostActions from './GroupPostActions';
 
 const TransportContext=createContext<GroupsTransport>(liveGroupsTransport);
 
@@ -16,6 +19,7 @@ function PrivateMedia({path,video=false,alt='Group image'}:{path:string;video?:b
   const {read:groupsFetch}=useContext(TransportContext);
   const [src,setSrc] = useState('');
   const [failed,setFailed] = useState(false);
+  const dialogRef=useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const controller = new AbortController(); let url = '';
     groupsFetch(`/api/groups/media?path=${encodeURIComponent(path)}`,{signal:controller.signal})
@@ -25,7 +29,21 @@ function PrivateMedia({path,video=false,alt='Group image'}:{path:string;video?:b
   },[path,groupsFetch]);
   if (failed) return <p>Media unavailable. Refresh to check access.</p>;
   if (!src) return <p role="status">Loading media…</p>;
-  return video ? <video className={styles.media} src={src} controls preload="metadata" playsInline /> : <img className={styles.media} src={src} alt={alt} />;
+  return video
+    ? <video className={styles.postMediaVideo} src={src}
+        controls preload="metadata" playsInline />
+    : <>
+        <button type="button" className={styles.postMediaOpen}
+          aria-label="View full-size Group image"
+          onClick={()=>dialogRef.current?.showModal()}>
+          <img className={styles.postMediaThumb} src={src} alt={alt}/>
+        </button>
+        <dialog ref={dialogRef} className={styles.postMediaDialog}>
+          <button type="button"
+            onClick={()=>dialogRef.current?.close()}>Close</button>
+          <img src={src} alt={alt}/>
+        </dialog>
+      </>;
 }
 function SelectedMedia({file}:{file:File}) {
   const [src,setSrc]=useState('');
@@ -61,7 +79,17 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const transport=useContext(TransportContext);
   const {read:groupsFetch,action:groupAction,upload:groupUpload}=transport;
   const router=useRouter();
-  const [userId,setUserId]=useState(''); const [authReady,setAuthReady]=useState(false);
+  const [userId,setUserId]=useState('');
+  const [viewerProfile,setViewerProfile]=useState<{
+    full_name:string|null;
+    username:string|null;
+    avatar_url:string|null;
+  }|null>(null); const [authReady,setAuthReady]=useState(false);
+  const [authorProfiles,setAuthorProfiles]=useState<Record<string,{
+    full_name:string|null;
+    username:string|null;
+    avatar_url:string|null;
+  }>>({});
   const [groups,setGroups]=useState<Group[]>([]); const [posts,setPosts]=useState<GroupPost[]>([]); const [members,setMembers]=useState<GroupMember[]>([]);
   const [search,setSearch]=useState('');const [filter,setFilter]=useState('all');const [offset,setOffset]=useState(0);const [feedOffset,setFeedOffset]=useState(0);const [memberOffset,setMemberOffset]=useState(0);
   const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
@@ -75,6 +103,20 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
   const admin=approved&&['owner','admin'].includes(group?.membership_role ?? '');
   const moderator=approved&&['owner','admin','moderator'].includes(group?.membership_role ?? '');
   const canRead=!!group && (approved || (group.visibility==='public' && !['rejected','removed','banned'].includes(group.membership_status ?? '')));
+  useEffect(()=>{
+    let active=true;
+    setViewerProfile(null);
+    if(userId){
+      void supabase.from('profiles')
+        .select('full_name,username,avatar_url')
+        .eq('id',userId).maybeSingle()
+        .then(({data,error})=>{
+          if(active && !error)setViewerProfile(data);
+        });
+    }
+    return ()=>{active=false;};
+  },[userId]);
+
   useEffect(()=>{
     if(!openPostMenuId)return;
     const outside=(event:PointerEvent)=>{
@@ -106,6 +148,27 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
     transport.getUser().then(id=>{if(!authEvent)acceptUser(id);if(active&&new URLSearchParams(window.location.search).get('cover')==='retry')setNotice('Your Group was created, but its cover upload failed. Open Group settings to retry.');}).catch(()=>{if(!authEvent)acceptUser('');});
     return ()=>{active=false;sequence.current++;unsubscribe();};
   },[transport]);
+  useEffect(()=>{
+    let active=true;
+    const ids=[...new Set(posts.map(p=>p.author_id))].filter(Boolean);
+    if(ids.length){
+      void supabase.from('profiles')
+        .select('id,full_name,username,avatar_url')
+        .in('id',ids)
+        .then(({data,error})=>{
+          if(!active)return;
+          if(error){
+            console.warn('Group author profiles:',error.message);
+            return;
+          }
+          setAuthorProfiles(Object.fromEntries(
+            (data??[]).map(profile=>[profile.id,profile])
+          ));
+        });
+    }
+    return ()=>{active=false;};
+  },[posts]);
+
   const refresh=useCallback(async()=>{
     const number=++requestNumber.current;setLoading(true);
     try {
@@ -178,8 +241,106 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
         {m.status!=='banned'&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('ban',group.id,{user_id:m.user_id});})}>Ban</button>}
         {owner&&['rejected','removed','banned'].includes(m.status)&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('restore',group.id,{user_id:m.user_id});})}>Restore to pending</button>}
       </div>}</article>)}{!members.length&&!loading&&<p>No members on this page.</p>}<div className={styles.controls}><button disabled={!memberOffset||loading} onClick={()=>setMemberOffset(Math.max(0,memberOffset-50))}>Previous members</button><button disabled={members.length<50||loading} onClick={()=>setMemberOffset(memberOffset+50)}>More members</button></div></section>}
-      {approved&&<form className={styles.form} onSubmit={e=>{e.preventDefault();void perform(publish);}}><h2>Share with your Group</h2><label>Post<textarea maxLength={10000} value={content} onChange={e=>setContent(e.target.value)} rows={4}/></label><label>Images or videos<input key={inputKey} type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" onChange={e=>{const selected=Array.from(e.target.files??[]);try{if(selected.length>4)throw new Error('Choose up to four files.');selected.forEach(f=>validateUpload(f.type,f.size));setFiles(selected);setError('');}catch(err){setFiles([]);setError(err instanceof Error?err.message:'Invalid media');}}}/></label>{files.map((file,index)=><SelectedMedia key={index} file={file}/>)}<p className={styles.muted}>Up to 4 files. Images: 8 MB. Videos: 32 MB. Posts stay inside this Group.</p><button disabled={busy||(!content.trim()&&!files.length)}>{busy?'Publishing…':'Publish post'}</button></form>}
-      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article className={styles.post} key={post.id}><div className={styles.postHeader}><p><Link href={`/profile/${post.author_id}`}>{post.author_id===userId?'You':'Member profile'}</Link> · <time dateTime={post.created_at}>{new Date(post.created_at).toLocaleString()}</time></p>{approved&&(post.author_id===userId||moderator)&&(
+      {approved&&<form className={styles.postComposer} onSubmit={e=>{e.preventDefault();void perform(publish);}}>
+  <div className={styles.postComposerTop}>
+    <Link href={`/profile/${userId}`} className={styles.postComposerAvatar}>
+  {viewerProfile?.avatar_url
+    ? <ResponsiveMediaImage
+        purpose="avatar"
+        avatarSize={48}
+        src={viewerProfile.avatar_url}
+        alt="Your profile photo"
+        style={{width:'100%',height:'100%',objectFit:'cover'}}
+      />
+    : (viewerProfile?.full_name||viewerProfile?.username||'You')
+        .trim().charAt(0).toUpperCase()}
+</Link>
+    <textarea
+      maxLength={10000}
+      value={content}
+      onChange={e=>setContent(e.target.value)}
+      placeholder="What's on your mind?"
+      rows={2}
+      aria-label="Write a Group post"
+    />
+    <label htmlFor={`group-post-files-${groupId}`} className={styles.postComposerMediaIcon} aria-label="Add photos or videos">▣</label>
+  </div>
+  <input
+    id={`group-post-files-${groupId}`}
+    className={styles.postComposerHiddenInput}
+    key={inputKey}
+    type="file"
+    multiple
+    accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+    onChange={e=>{
+      const selected=Array.from(e.target.files??[]);
+      try {
+        if(selected.length>4)throw new Error('Choose up to four files.');
+        selected.forEach(f=>validateUpload(f.type,f.size));
+        setFiles(selected);
+        setError('');
+      } catch(err) {
+        setFiles([]);
+        setError(err instanceof Error?err.message:'Invalid media');
+      }
+    }}
+  />
+  {files.length>0&&<div className={styles.postComposerMediaGrid}>
+    {files.map((file,index)=>(
+  <div
+    key={`${file.name}-${file.lastModified}-${index}`}
+    className={styles.postComposerSelectedMedia}
+  >
+    <SelectedMedia file={file}/>
+    <button
+      type="button"
+      className={styles.postComposerRemoveMedia}
+      aria-label={`Remove ${file.name}`}
+      onClick={()=>{
+        setFiles(current=>current.filter((_,i)=>i!==index));
+        setInputKey(k=>k+1);
+      }}
+    >
+      ×
+    </button>
+  </div>
+))}
+  </div>}
+  <div className={styles.postComposerActions}>
+    <label htmlFor={`group-post-files-${groupId}`} className={styles.postComposerPhotos}>▣ Photos / Videos</label>
+    <span>Up to 4 files · Images 8 MB · Videos 32 MB</span>
+  </div>
+  <div className={styles.postComposerFooter}>
+    <button type="submit" disabled={busy||(!content.trim()&&!files.length)}>
+      {busy?'Publishing…':'Publish post'}
+    </button>
+  </div>
+</form>}
+      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article className={styles.post} key={post.id}><div className={styles.postHeader}>
+  <div className={styles.postAuthor}>
+    <Link href={`/profile/${post.author_id}`} className={styles.postAuthorAvatar}>
+      {authorProfiles[post.author_id]?.avatar_url
+        ? <ResponsiveMediaImage
+            purpose="avatar"
+            avatarSize={44}
+            src={authorProfiles[post.author_id].avatar_url!}
+            alt="Post author"
+            style={{width:'100%',height:'100%',objectFit:'cover'}}
+          />
+        : (authorProfiles[post.author_id]?.full_name||
+           authorProfiles[post.author_id]?.username||
+           'M').trim().charAt(0).toUpperCase()}
+    </Link>
+    <div className={styles.postAuthorMeta}>
+      <Link href={`/profile/${post.author_id}`} className={styles.postAuthorName}>
+        {authorProfiles[post.author_id]?.full_name?.trim()||
+         authorProfiles[post.author_id]?.username?.trim()||'Member'}
+      </Link>
+      <time dateTime={post.created_at}>
+        {new Date(post.created_at).toLocaleString()}
+      </time>
+    </div>
+  </div>{approved&&(post.author_id===userId||moderator)&&(
 <div className={styles.postMenuWrap} id={`group-post-menu-${post.id}`}>
   <button type="button" className={styles.postDots}
     aria-label="Post options" aria-expanded={openPostMenuId===post.id}
@@ -201,9 +362,27 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
   </div>}
 </div>
 )}</div>{editPost===post.id?<form className={styles.form} onSubmit={e=>{e.preventDefault();void perform(async()=>{await groupAction('edit_post',group.id,{post_id:post.id,content:editContent});setEditPost(undefined);});}}><label>Edit post<textarea maxLength={10000} value={editContent} onChange={e=>setEditContent(e.target.value)}/></label><button disabled={busy}>Save post</button><button type="button" onClick={()=>setEditPost(undefined)}>Cancel</button></form>:<p className={styles.text}>{post.content}</p>}
-        {post.group_post_media.sort((a,b)=>a.display_order-b.display_order).map(media=><PrivateMedia key={media.id} path={media.storage_path} video={media.media_type==='video'}/>)}
+        {post.group_post_media.length>0&&
+  <div className={styles.postMediaGrid}>
+    {post.group_post_media.slice()
+      .sort((a,b)=>a.display_order-b.display_order)
+      .map(media=><div key={media.id} className={styles.postMediaItem}>
+        <PrivateMedia
+          path={media.storage_path}
+          video={media.media_type==='video'}
+        />
+      </div>)}
+  </div>}
 
-      </article>)}{!posts.length&&!loading&&<p className={styles.empty}>No posts on this page yet.</p>}<div className={styles.controls}><button disabled={!feedOffset||loading} onClick={()=>setFeedOffset(Math.max(0,feedOffset-20))}>Newer posts</button><button disabled={posts.length<20||loading} onClick={()=>setFeedOffset(feedOffset+20)}>Older posts</button></div></section>}
+      <GroupPostActions
+  groupId={group.id}
+  postId={post.id}
+  canInteract={approved}
+  canShare={approved && group.visibility === 'public'}
+  read={groupsFetch}
+  action={groupAction}
+/>
+</article>)}{!posts.length&&!loading&&<p className={styles.empty}>No posts on this page yet.</p>}<div className={styles.controls}><button disabled={!feedOffset||loading} onClick={()=>setFeedOffset(Math.max(0,feedOffset-20))}>Newer posts</button><button disabled={posts.length<20||loading} onClick={()=>setFeedOffset(feedOffset+20)}>Older posts</button></div></section>}
     </>:!loading&&<p className={styles.empty}>This Group is unavailable.</p>}
   </div></main>;
 }

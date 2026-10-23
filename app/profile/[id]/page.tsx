@@ -30,6 +30,7 @@ import { createPortal } from "react-dom";
 import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } from "@/components/PostMediaViewer";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
 import { supabase } from "@/lib/supabase";
 import { cleanupPushBeforeLogout } from "@/components/pwa/PushNotificationLogout";
 import { canPlayPublishedStream } from "@/lib/live/playback";
@@ -231,6 +232,7 @@ const PROFILE_LIVE_SELECT =
 type ProfileFeedItem =
   | (Post & { feedKind: "post" })
   | (SharedProfilePost & { feedKind: "shared_post" })
+  | (SharedGroupPost & { feedKind: "group_shared_post"; id: string; created_at: string })
   | (ReelShareProfilePost & { feedKind: "reel_share" })
   | (ProfileLiveStream & { feedKind: "live_stream" })
   | (ProfileAchievementActivity & { feedKind: "achievement" })
@@ -2570,6 +2572,7 @@ export default function ProfilePage() {
   const [profilePostLoading, setProfilePostLoading] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostPosts, setSharedPostPosts] = useState<SharedProfilePost[]>([]);
+  const [groupSharedPostPosts, setGroupSharedPostPosts] = useState<SharedGroupPost[]>([]);
   const [sharedReelPosts, setSharedReelPosts] = useState<ReelShareProfilePost[]>([]);
   const [profileLiveStreams, setProfileLiveStreams] = useState<ProfileLiveStream[]>([]);
   const [reels, setReels] = useState<Reel[]>([]);
@@ -3349,6 +3352,12 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
       ...share,
       feedKind: "shared_post" as const,
     })),
+    ...groupSharedPostPosts.map((share) => ({
+      ...share,
+      id: `group-share-${share.share_id}`,
+      created_at: share.shared_at,
+      feedKind: "group_shared_post" as const,
+    })),
     ...sharedReelPosts.map((share) => ({
       ...share,
       feedKind: "reel_share" as const,
@@ -3363,7 +3372,97 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
       new Date(b.created_at).getTime() -
       new Date(a.created_at).getTime()
   );
-}, [profileThought, posts, sharedPostPosts, sharedReelPosts, profileAchievementActivity, profileBadges, profileLiveStreams]);
+}, [profileThought, posts, sharedPostPosts, groupSharedPostPosts, sharedReelPosts, profileAchievementActivity, profileBadges, profileLiveStreams]);
+
+useEffect(() => {
+  if (!profileId || !viewerId) {
+    setGroupSharedPostPosts([]);
+    return;
+  }
+
+  let active = true;
+  let sequence = 0;
+
+  const clearShares = () => {
+    sequence += 1;
+    setGroupSharedPostPosts([]);
+  };
+
+  const refreshShares = () => {
+    if (document.visibilityState === "hidden") {
+      clearShares();
+      return;
+    }
+
+    const request = ++sequence;
+    setGroupSharedPostPosts([]);
+
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc(
+          "groups_shared_feed",
+          {
+            p_sharer_id: profileId,
+            p_limit: 60,
+            p_offset: 0,
+          }
+        );
+
+        if (!active || request !== sequence) return;
+
+        if (error) {
+          console.error("Profile Group share refresh:", error.message);
+          return;
+        }
+
+        const rows = Array.isArray(data)
+          ? (data as SharedGroupPost[])
+          : [];
+
+        setGroupSharedPostPosts(
+          rows.filter(
+            (share) =>
+              Boolean(share.share_id && share.post_id) &&
+              share.sharer_id === profileId
+          )
+        );
+      } catch (error) {
+        if (active && request === sequence) {
+          console.error("Profile Group share refresh failed:", error);
+          setGroupSharedPostPosts([]);
+        }
+      }
+    })();
+  };
+
+  const handleVisibility = () => {
+    if (document.visibilityState === "visible") {
+      refreshShares();
+    } else {
+      clearShares();
+    }
+  };
+
+  const handleFocus = () => {
+    if (document.visibilityState === "visible") {
+      refreshShares();
+    }
+  };
+
+  refreshShares();
+
+  window.addEventListener("focus", handleFocus);
+  document.addEventListener("visibilitychange", handleVisibility);
+  window.addEventListener("pagehide", clearShares);
+
+  return () => {
+    active = false;
+    sequence += 1;
+    window.removeEventListener("focus", handleFocus);
+    document.removeEventListener("visibilitychange", handleVisibility);
+    window.removeEventListener("pagehide", clearShares);
+  };
+}, [profileId, viewerId]);
 
 const showFriendStatus = useCallback((message: string) => {
   setFriendStatusMessage(message);
@@ -19763,6 +19862,21 @@ return (
                                 </div>
                               ) : null}
                             </article>
+                          );
+                        }
+
+                        if (item.feedKind === "group_shared_post") {
+                          return (
+                            <SharedGroupPostCard
+                              key={item.id}
+                              share={item}
+                              sharerName={profileDisplayName || "Member"}
+                              authorName={
+                                item.original_author_id === profileId
+                                  ? (profileDisplayName || "Member")
+                                  : "Original author"
+                              }
+                            />
                           );
                         }
 

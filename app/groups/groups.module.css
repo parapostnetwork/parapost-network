@@ -13,3 +13,103 @@
 .page .postMenuItem{display:block;text-align:left;width:100%;min-height:40px;padding:9px 12px;background:transparent;color:#eef1fc;border:0}
 .page .postMenuItem:hover{background:#373e53}
 .page .postMenuDanger{color:#fca5a5}
+
+.postComposer{display:flex;flex-direction:column;gap:14px;padding:18px;background:#22283b;border:1px solid #424b62;border-radius:16px}
+.postComposerTop{display:grid;grid-template-columns:48px minmax(0,1fr) 44px;align-items:start;gap:12px}
+.postComposerAvatar{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:#394366;color:#fff;text-decoration:none;font-size:13px;font-weight:700}
+.page .postComposer textarea{width:100%;min-width:0;min-height:72px;padding:12px 14px;background:#171d2d;color:#f5f7ff;border:1px solid #414a62;border-radius:12px;resize:vertical;font-size:16px}
+.postComposerMediaIcon{display:grid;place-items:center;width:44px;height:44px;border-radius:10px;background:#343e55;color:#d9f6e4;font-size:23px;cursor:pointer}
+.postComposerHiddenInput{display:none}
+.postComposerMediaGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:10px}
+.postComposerMediaGrid figure{min-width:0;margin:0;overflow:hidden;border-radius:12px;background:#171d2d}
+.postComposerMediaGrid figcaption{padding:8px;overflow-wrap:anywhere;font-size:12px}
+.postComposerMediaGrid .media{display:block;width:100%;max-height:260px;object-fit:contain}
+.postComposerActions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.postComposerActions span{color:#aebbd1;font-size:12px}
+.postComposerPhotos{padding:10px 15px;border-radius:10px;background:#303e39;color:#b9efd0;font-weight:600;cursor:pointer}
+.postComposerFooter{display:flex;justify-content:flex-end}
+.page .postComposerFooter button{min-height:44px;padding:10px 22px;border:0;border-radius:10px;background:#596bd8;color:#fff;font-weight:700;cursor:pointer}
+.page .postComposerFooter button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:600px){.postComposer{padding:12px}.postComposerTop{grid-template-columns:40px minmax(0,1fr) 40px;gap:8px}.postComposerAvatar{width:40px;height:40px}.postComposerMediaIcon{width:40px;height:40px}.postComposerFooter button{width:100%}}
+
+.postComposerSelectedMedia{position:relative;min-width:0}
+.page .postComposerRemoveMedia{position:absolute;top:8px;right:8px;z-index:2;display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid #ffffff66;border-radius:50%;background:#172033ee;color:#fff;font-size:23px;cursor:pointer}
+.page .postComposerRemoveMedia:hover{background:#a52b3d}
+.page .postComposerRemoveMedia:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+.postAuthor{display:flex;align-items:center;gap:11px;min-width:0}
+.postAuthorAvatar{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;overflow:hidden;border-radius:50%;background:#394366;color:#fff;text-decoration:none;font-weight:700}
+.postAuthorMeta{display:flex;flex-direction:column;gap:3px;min-width:0}
+.postAuthorName{font-weight:700;color:#f5f7ff;text-decoration:none;overflow-wrap:anywhere}
+.postAuthorName:hover{text-decoration:underline}
+.postAuthorMeta time{color:#aebbd1;font-size:12px}
+
+.postMediaGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:12px;overflow:hidden;border-radius:12px}
+.postMediaGrid:has(> :only-child){grid-template-columns:1fr}
+.page .postMediaOpen{display:block;width:100%;padding:0;border:0;background:#171d2d;cursor:zoom-in}
+.postMediaThumb{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover}
+.postMediaVideo{display:block;width:100%;max-height:450px;background:#111;object-fit:contain}
+.postMediaDialog{max-width:95vw;max-height:95vh;padding:12px;border:1px solid #505a75;border-radius:12px;background:#141b2b;color:white}
+.postMediaDialog::backdrop{background:#000d}
+.postMediaDialog img{display:block;max-width:90vw;max-height:83vh;width:auto;height:auto;object-fit:contain}
+.postMediaDialog button{display:block;margin:0 0 10px auto;padding:8px 14px;border:0;border-radius:8px;background:#394866;color:white;cursor:pointer}
+@media(max-width:600px){.postMediaGrid{gap:3px}.postMediaThumb{aspect-ratio:1/1}}
+
+.postMediaItem{min-width:0;overflow:hidden;border-radius:8px;background:#171d2d}
+
+.groupPostActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid #424b62}
+.groupActionButton{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 14px;border:1px solid #424b62;border-radius:10px;background:#2b344b;color:#f5f7ff;cursor:pointer}
+.groupActionButton svg{width:19px;height:19px}
+.groupActionButton[aria-pressed="true"]{color:#ff9faf;border-color:#805067}
+.groupActionButton:disabled{opacity:.55;cursor:not-allowed}
+.groupCommentsPanel{width:100%;padding-top:12px;border-top:1px solid #384057}
+.groupCommentThread{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.groupComment{padding:12px;border-radius:10px;background:#20283a}
+.groupReply{margin:10px 0 0 18px;padding:10px;border-left:2px solid #6577a6;background:#273046;border-radius:6px}
+.groupCommentsPanel p{white-space:pre-wrap;overflow-wrap:anywhere}
+.groupCommentsPanel time{display:block;margin:5px 0;color:#aebbd1;font-size:12px}
+.groupCommentsPanel form{display:flex;flex-direction:column;gap:9px}
+.groupCommentsPanel textarea{width:100%;min-height:72px;padding:11px;background:#171d2d;color:#fff;border:1px solid #4a5470;border-radius:10px;font-size:16px}
+.groupCommentsPanel button{cursor:pointer}
+.groupCommentsPanel form>button{align-self:flex-start;padding:9px 15px;border:0;border-radius:9px;background:#596bd8;color:#fff}
+.groupCommentsPanel button:disabled{opacity:.55;cursor:not-allowed}
+
+.groupCommentsPanel .groupCommentAction{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  min-height:28px;
+  margin-right:6px;
+  padding:4px 8px;
+  border:1px solid transparent;
+  border-radius:7px;
+  background:transparent;
+  color:#c6d0e2;
+  font-size:12px;
+  font-weight:600;
+  line-height:1.3;
+  vertical-align:middle;
+  cursor:pointer;
+}
+.groupCommentsPanel .groupCommentAction svg{
+  width:14px;
+  height:14px;
+}
+.groupCommentsPanel .groupCommentAction[aria-pressed="true"]{
+  color:#ff9faf;
+}
+.groupCommentsPanel .groupCommentAction:hover:not(:disabled){
+  background:#35415a;
+  color:#fff;
+}
+.groupCommentsPanel .groupCommentAction:focus-visible{
+  outline:2px solid #a5b8ff;
+  outline-offset:2px;
+}
+
+.groupShareNotice{
+  width:100%;
+  margin:0;
+  font-size:13px;
+  color:#b9efd0;
+}

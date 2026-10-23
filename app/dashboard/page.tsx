@@ -2,6 +2,7 @@
 
 import { DotsIcon, HeartIcon, CommentIcon, ShareIcon } from "@/components/PostActionIcons";
 import { groupsNavigationEnabled } from "@/lib/groups/config";
+import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
 
@@ -224,6 +225,7 @@ const DASHBOARD_LIVE_SELECT =
 type MixedFeedItem =
   | { type: "post"; id: string; created_at: string; post: Post }
   | { type: "shared_post"; id: string; created_at: string; sharedPost: SharedPostItem }
+  | { type: "group_shared_post"; id: string; created_at: string; share: SharedGroupPost }
   | { type: "reel_share"; id: string; created_at: string; share: SharedReelItem }
   | { type: "live_stream"; id: string; created_at: string; liveStream: DashboardLiveStreamItem };
 
@@ -1507,7 +1509,13 @@ function buildDashboardTrendingTopics(items: MixedFeedItem[]) {
           ? [item.sharedPost.caption, item.sharedPost.original_post.content].filter(Boolean).join(" ")
           : item.type === "reel_share"
             ? [item.share.caption, item.share.reel_title, item.share.reel_caption].filter(Boolean).join(" ")
-            : [item.liveStream.title, item.liveStream.description].filter(Boolean).join(" ");
+            : item.type === "group_shared_post"
+              ? [
+                  item.share.caption,
+                  item.share.original_content,
+                  item.share.group_name
+                ].filter(Boolean).join(" ")
+              : [item.liveStream.title, item.liveStream.description].filter(Boolean).join(" ");
 
     const hashtags = text.match(/#[a-zA-Z0-9_]{3,}/g) || [];
     hashtags.forEach((tag) => addTrendCandidate(trendMap, tag, latestTime, "hashtag"));
@@ -2056,6 +2064,8 @@ export default function DashboardPage() {
   const [postImagePreviewUrls, setPostImagePreviewUrls] = useState<string[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostItems, setSharedPostItems] = useState<SharedPostItem[]>([]);
+  const [groupSharedPostItems, setGroupSharedPostItems] = useState<SharedGroupPost[]>([]);
+  const groupSharedRequestRef = useRef(0);
   const [sharedReelItems, setSharedReelItems] = useState<SharedReelItem[]>([]);
   const [liveFeedStreams, setLiveFeedStreams] = useState<DashboardLiveStreamItem[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
@@ -2494,6 +2504,19 @@ export default function DashboardPage() {
       sharedPost,
     }));
 
+    const groupShareItems = groupSharedPostItems
+      .filter(
+        (share) =>
+          !blockedUserIds.includes(share.sharer_id) &&
+          !blockedUserIds.includes(share.original_author_id)
+      )
+      .map((share) => ({
+        type: "group_shared_post" as const,
+        id: `group-share-${share.share_id}`,
+        created_at: share.shared_at,
+        share,
+      }));
+
     const reelShareItems = visibleSharedReelItemsForViewer.map((share) => ({
       type: "reel_share" as const,
       id: share.id,
@@ -2508,7 +2531,7 @@ export default function DashboardPage() {
       liveStream,
     }));
 
-    return [...postItems, ...sharedPostFeedItems, ...reelShareItems, ...liveStreamItems].sort(
+    return [...postItems, ...sharedPostFeedItems, ...groupShareItems, ...reelShareItems, ...liveStreamItems].sort(
       (a, b) => {
         const timeDifference =
           getDashboardFeedSortTime(b.created_at) -
@@ -2519,6 +2542,7 @@ export default function DashboardPage() {
         // If two activities have the exact same timestamp, keep fresh shares
         // ahead of ordinary posts so the action the user just completed is visible.
         const feedPriority: Record<MixedFeedItem["type"], number> = {
+          group_shared_post: 5,
           reel_share: 4,
           shared_post: 3,
           live_stream: 2,
@@ -2528,7 +2552,7 @@ export default function DashboardPage() {
         return feedPriority[b.type] - feedPriority[a.type];
       }
     ).slice(0, DASHBOARD_FEED_ITEM_LIMIT);
-  }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, sharedReelItems]);
+  }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, groupSharedPostItems, sharedReelItems]);
 
   const filteredFeedItems = useMemo(() => {
     if (feedMode === "live") {
@@ -2554,7 +2578,9 @@ export default function DashboardPage() {
               ? item.sharedPost.user_id
               : item.type === "reel_share"
                 ? item.share.user_id
-                : item.liveStream.user_id;
+                : item.type === "group_shared_post"
+                  ? item.share.sharer_id
+                  : item.liveStream.user_id;
         return acceptedFriendUserIds.includes(authorId);
       });
     }
@@ -2568,7 +2594,9 @@ export default function DashboardPage() {
               ? item.sharedPost.user_id
               : item.type === "reel_share"
                 ? item.share.user_id
-                : item.liveStream.user_id;
+                : item.type === "group_shared_post"
+                  ? item.share.sharer_id
+                  : item.liveStream.user_id;
         return followedUserIds.includes(authorId);
       });
     }
@@ -3694,6 +3722,39 @@ export default function DashboardPage() {
     return nextSharedPosts;
   }, []);
 
+  const fetchSharedGroupPosts = useCallback(async (blockedIds: string[] = []) => {
+    const requestId = ++groupSharedRequestRef.current;
+    const { data, error } = await supabase.rpc("groups_shared_feed", {
+      p_sharer_id: null,
+      p_limit: DASHBOARD_FEED_ITEM_LIMIT,
+      p_offset: 0,
+    });
+
+    if (requestId !== groupSharedRequestRef.current) {
+      return [] as SharedGroupPost[];
+    }
+
+    if (error) {
+      console.error("Unable to load Group shares:", error.message);
+      setGroupSharedPostItems([]);
+      return [] as SharedGroupPost[];
+    }
+
+    const rows = Array.isArray(data)
+      ? (data as SharedGroupPost[])
+      : [];
+
+    const visible = rows.filter(
+      (share) =>
+        Boolean(share.share_id && share.sharer_id && share.original_author_id) &&
+        !blockedIds.includes(share.sharer_id) &&
+        !blockedIds.includes(share.original_author_id)
+    );
+
+    setGroupSharedPostItems(visible);
+    return visible;
+  }, []);
+
   const fetchSharedReels = useCallback(async (blockedIds: string[] = []) => {
     const { data: shareRows, error: shareError } = await supabase
       .from("reel_shares")
@@ -4014,6 +4075,8 @@ export default function DashboardPage() {
         void fetchFriendShowcases(user.id, blockedIds, relationships.friendships).catch((error) => logDashboardNetworkIssue("Dashboard showcases skipped", error));
       } else {
         setCurrentUserId("");
+        groupSharedRequestRef.current += 1;
+        setGroupSharedPostItems([]);
         setUserEmail("");
         setCurrentProfile(null);
         setBlockedUserIds(previous => preserveBlockedIds(previous, []));
@@ -4083,13 +4146,16 @@ export default function DashboardPage() {
         fetchSharedPosts(blockedIds),
         fetchSharedReels(blockedIds),
         fetchLiveFeedStreams(blockedIds),
+          fetchSharedGroupPosts(blockedIds),
       ])
-        .then(([visibleSharedPosts, visibleShared, visibleLiveStreams]) => {
+        .then(([visibleSharedPosts, visibleShared, visibleLiveStreams, visibleGroupShares]) => {
           const profileIds = [
             userId,
             ...visiblePostsBase.map((post) => post.user_id),
             ...visibleSharedPosts.map((share) => share.user_id),
             ...visibleSharedPosts.map((share) => share.original_post.user_id),
+              ...visibleGroupShares.map((share) => share.sharer_id),
+              ...visibleGroupShares.map((share) => share.original_author_id),
             ...visibleShared.map((share) => share.user_id),
             ...visibleShared.map((share) => share.reel_user_id),
             ...visibleShared.map((share) => share.creator_profile_id || ""),
@@ -4485,10 +4551,14 @@ export default function DashboardPage() {
     );
 
     const handleFocusRefresh = () => {
+      groupSharedRequestRef.current += 1;
+      setGroupSharedPostItems([]);
       schedulePulseRefresh();
     };
 
     const handleVisibilityRefresh = () => {
+      groupSharedRequestRef.current += 1;
+      setGroupSharedPostItems([]);
       if (document.visibilityState === "visible") {
         schedulePulseRefresh();
       }
@@ -6251,7 +6321,21 @@ export default function DashboardPage() {
                             onReport={() => handleReportPost(item.post.id, item.post.user_id)}
                             onOpenImage={openDashboardPostImageViewer}
                           />
-                        ) : item.type === "shared_post" ? (
+                        ) : item.type === "group_shared_post" ? (
+                            <SharedGroupPostCard
+                              share={item.share}
+                              sharerName={
+                                profilesMap[item.share.sharer_id]?.full_name ||
+                                profilesMap[item.share.sharer_id]?.username ||
+                                "Member"
+                              }
+                              authorName={
+                                profilesMap[item.share.original_author_id]?.full_name ||
+                                profilesMap[item.share.original_author_id]?.username ||
+                                "Original author"
+                              }
+                            />
+                          ) : item.type === "shared_post" ? (
                           <SharedPostCard
                             sharedPost={item.sharedPost}
                             sharerProfile={profilesMap[item.sharedPost.user_id]}
