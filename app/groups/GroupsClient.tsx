@@ -1,6 +1,10 @@
 'use client';
 import { DotsIcon } from "@/components/PostActionIcons";
 import ResponsiveMediaImage from '@/components/ResponsiveMediaImage';
+import GroupPostComposer from './GroupPostComposer';
+import GroupPostMedia from './GroupPostMedia';
+import posting from './groupPosting.module.css';
+import { postCardStyle, postHeaderStyle, postAuthorStyle, postContentStyle, dotsButtonStyle, postMenuStyle, menuItemStyle } from '@/components/postPresentation';
 import { supabase } from '@/lib/supabase';
 /* eslint-disable @next/next/no-img-element -- private media uses authenticated blob URLs */
 import { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
@@ -15,46 +19,6 @@ import GroupPostActions from './GroupPostActions';
 
 const TransportContext=createContext<GroupsTransport>(liveGroupsTransport);
 
-function PrivateMedia({path,video=false,alt='Group image'}:{path:string;video?:boolean;alt?:string}) {
-  const {read:groupsFetch}=useContext(TransportContext);
-  const [src,setSrc] = useState('');
-  const [failed,setFailed] = useState(false);
-  const dialogRef=useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const controller = new AbortController(); let url = '';
-    groupsFetch(`/api/groups/media?path=${encodeURIComponent(path)}`,{signal:controller.signal})
-      .then(r => r.blob()).then(blob => { if (!controller.signal.aborted) { url=URL.createObjectURL(blob); setSrc(url); } })
-      .catch(() => { if (!controller.signal.aborted) setFailed(true); });
-    return () => { controller.abort(); if(url) URL.revokeObjectURL(url); };
-  },[path,groupsFetch]);
-  if (failed) return <p>Media unavailable. Refresh to check access.</p>;
-  if (!src) return <p role="status">Loading media…</p>;
-  return video
-    ? <video className={styles.postMediaVideo} src={src}
-        controls preload="metadata" playsInline />
-    : <>
-        <button type="button" className={styles.postMediaOpen}
-          aria-label="View full-size Group image"
-          onClick={()=>dialogRef.current?.showModal()}>
-          <img className={styles.postMediaThumb} src={src} alt={alt}/>
-        </button>
-        <dialog ref={dialogRef} className={styles.postMediaDialog}>
-          <button type="button"
-            onClick={()=>dialogRef.current?.close()}>Close</button>
-          <img src={src} alt={alt}/>
-        </dialog>
-      </>;
-}
-function SelectedMedia({file}:{file:File}) {
-  const [src,setSrc]=useState('');
-  useEffect(()=>{
-    const url=URL.createObjectURL(file);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize a browser-owned object URL, revoked on cleanup
-    setSrc(url);
-    return ()=>URL.revokeObjectURL(url);
-  },[file]);
-  return <figure><figcaption>{file.name} · {(file.size/1024/1024).toFixed(1)} MB · not uploaded yet</figcaption>{src&&(file.type.startsWith('video/')?<video className={styles.media} src={src} controls playsInline preload="metadata"/>:<img className={styles.media} src={src} alt="Selected upload preview"/>)}</figure>;
-}
 function GroupForm({group,onSubmit,busy}:{group?:Group;onSubmit:(name:string,description:string,visibility:string,file?:File)=>Promise<void>;busy:boolean}) {
   const {read}=useContext(TransportContext);
   const [name,setName]=useState(group?.name ?? '');
@@ -94,7 +58,7 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const [search,setSearch]=useState('');const [filter,setFilter]=useState('all');const [offset,setOffset]=useState(0);const [feedOffset,setFeedOffset]=useState(0);const [memberOffset,setMemberOffset]=useState(0);
   const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
   const [create,setCreate]=useState(false);const [settings,setSettings]=useState(false);const [management,setManagement]=useState(false);
-  const [content,setContent]=useState('');const [files,setFiles]=useState<File[]>([]);const [inputKey,setInputKey]=useState(0);
+  const [content,setContent]=useState('');const [files,setFiles]=useState<File[]>([]);
   const [editPost,setEditPost]=useState<string>(); const [editContent,setEditContent]=useState('');
 const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
   const [deleteName,setDeleteName]=useState('');const requestNumber=useRef(0);const mutationLock=useRef(false);
@@ -139,7 +103,7 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
       if(!active)return;
       if(id!==currentUser){
         currentUser=id;requestNumber.current++;
-        setGroups([]);setPosts([]);setMembers([]);setContent('');setFiles([]);setInputKey(k=>k+1);
+        setGroups([]);setPosts([]);setMembers([]);setContent('');setFiles([]);
         setSettings(false);setManagement(false);setEditPost(undefined);setCreate(false);
       }
       setUserId(id);setAuthReady(true);
@@ -211,7 +175,7 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
     const draft=await groupAction('draft',groupId,{content});
     try{for(const file of files)await groupUpload(groupId,file,draft.id);await groupAction('publish',groupId,{post_id:draft.id});}
     catch(e){try{await groupAction('delete_post',groupId,{post_id:draft.id});}catch{/* Durable cleanup runbook handles abandoned drafts. */}throw e;}
-    setContent('');setFiles([]);setInputKey(k=>k+1);setFeedOffset(0);setNotice('Post published.');
+    setContent('');setFiles([]);setFeedOffset(0);setNotice('Post published.');
   }
   if(!authReady)return <main className={styles.page}><p role="status">Checking your session…</p></main>;
   if(!userId)return <main className={styles.page}><h1>Groups</h1><p>Sign in to discover and participate in Groups.</p><Link href="/">Sign in</Link></main>;
@@ -241,84 +205,12 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
         {m.status!=='banned'&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('ban',group.id,{user_id:m.user_id});})}>Ban</button>}
         {owner&&['rejected','removed','banned'].includes(m.status)&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('restore',group.id,{user_id:m.user_id});})}>Restore to pending</button>}
       </div>}</article>)}{!members.length&&!loading&&<p>No members on this page.</p>}<div className={styles.controls}><button disabled={!memberOffset||loading} onClick={()=>setMemberOffset(Math.max(0,memberOffset-50))}>Previous members</button><button disabled={members.length<50||loading} onClick={()=>setMemberOffset(memberOffset+50)}>More members</button></div></section>}
-      {approved&&<form className={styles.postComposer} onSubmit={e=>{e.preventDefault();void perform(publish);}}>
-  <div className={styles.postComposerTop}>
-    <Link href={`/profile/${userId}`} className={styles.postComposerAvatar}>
-  {viewerProfile?.avatar_url
-    ? <ResponsiveMediaImage
-        purpose="avatar"
-        avatarSize={48}
-        src={viewerProfile.avatar_url}
-        alt="Your profile photo"
-        style={{width:'100%',height:'100%',objectFit:'cover'}}
-      />
-    : (viewerProfile?.full_name||viewerProfile?.username||'You')
-        .trim().charAt(0).toUpperCase()}
-</Link>
-    <textarea
-      maxLength={10000}
-      value={content}
-      onChange={e=>setContent(e.target.value)}
-      placeholder="What's on your mind?"
-      rows={2}
-      aria-label="Write a Group post"
-    />
-    <label htmlFor={`group-post-files-${groupId}`} className={styles.postComposerMediaIcon} aria-label="Add photos or videos">▣</label>
-  </div>
-  <input
-    id={`group-post-files-${groupId}`}
-    className={styles.postComposerHiddenInput}
-    key={inputKey}
-    type="file"
-    multiple
-    accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-    onChange={e=>{
-      const selected=Array.from(e.target.files??[]);
-      try {
-        if(selected.length>4)throw new Error('Choose up to four files.');
-        selected.forEach(f=>validateUpload(f.type,f.size));
-        setFiles(selected);
-        setError('');
-      } catch(err) {
-        setFiles([]);
-        setError(err instanceof Error?err.message:'Invalid media');
-      }
-    }}
-  />
-  {files.length>0&&<div className={styles.postComposerMediaGrid}>
-    {files.map((file,index)=>(
-  <div
-    key={`${file.name}-${file.lastModified}-${index}`}
-    className={styles.postComposerSelectedMedia}
-  >
-    <SelectedMedia file={file}/>
-    <button
-      type="button"
-      className={styles.postComposerRemoveMedia}
-      aria-label={`Remove ${file.name}`}
-      onClick={()=>{
-        setFiles(current=>current.filter((_,i)=>i!==index));
-        setInputKey(k=>k+1);
-      }}
-    >
-      ×
-    </button>
-  </div>
-))}
-  </div>}
-  <div className={styles.postComposerActions}>
-    <label htmlFor={`group-post-files-${groupId}`} className={styles.postComposerPhotos}>▣ Photos / Videos</label>
-    <span>Up to 4 files · Images 8 MB · Videos 32 MB</span>
-  </div>
-  <div className={styles.postComposerFooter}>
-    <button type="submit" disabled={busy||(!content.trim()&&!files.length)}>
-      {busy?'Publishing…':'Publish post'}
-    </button>
-  </div>
-</form>}
-      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article className={styles.post} key={post.id}><div className={styles.postHeader}>
-  <div className={styles.postAuthor}>
-    <Link href={`/profile/${post.author_id}`} className={styles.postAuthorAvatar}>
+      {approved && <GroupPostComposer userId={userId} profile={viewerProfile} content={content}
+        setContent={setContent} files={files} setFiles={setFiles} busy={busy} onPublish={() => void perform(publish)} />}
+
+      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article data-posting className={`${posting.posting} ${posting.post}`} style={postCardStyle} key={post.id}><div className={posting.postHeader} style={postHeaderStyle}>
+  <div style={postAuthorStyle}>
+    <Link href={`/profile/${post.author_id}`} className={posting.avatar} style={{width:48,height:48}}>
       {authorProfiles[post.author_id]?.avatar_url
         ? <ResponsiveMediaImage
             purpose="avatar"
@@ -331,8 +223,8 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
            authorProfiles[post.author_id]?.username||
            'M').trim().charAt(0).toUpperCase()}
     </Link>
-    <div className={styles.postAuthorMeta}>
-      <Link href={`/profile/${post.author_id}`} className={styles.postAuthorName}>
+    <div className={posting.authorMeta}>
+      <Link href={`/profile/${post.author_id}`} className={posting.authorName}>
         {authorProfiles[post.author_id]?.full_name?.trim()||
          authorProfiles[post.author_id]?.username?.trim()||'Member'}
       </Link>
@@ -341,19 +233,19 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
       </time>
     </div>
   </div>{approved&&(post.author_id===userId||moderator)&&(
-<div className={styles.postMenuWrap} id={`group-post-menu-${post.id}`}>
-  <button type="button" className={styles.postDots}
+<div className={posting.menuWrap} id={`group-post-menu-${post.id}`}>
+  <button type="button" style={dotsButtonStyle}
     aria-label="Post options" aria-expanded={openPostMenuId===post.id}
     onClick={()=>setOpenPostMenuId(v=>v===post.id?null:post.id)}>
     <DotsIcon/>
   </button>
-  {openPostMenuId===post.id&&<div className={styles.postMenu}>
+  {openPostMenuId===post.id&&<div role="menu" style={postMenuStyle}>
     {post.author_id===userId&&
-      <button type="button" className={styles.postMenuItem} disabled={busy}
+      <button type="button" role="menuitem" style={menuItemStyle} disabled={busy}
         onClick={()=>{setOpenPostMenuId(null);setEditPost(post.id);setEditContent(post.content);}}>
         Edit post
       </button>}
-    <button type="button" className={`${styles.postMenuItem} ${styles.postMenuDanger}`}
+    <button type="button" role="menuitem" style={{...menuItemStyle,color:"#fca5a5"}}
       disabled={busy} onClick={()=>{
         setOpenPostMenuId(null);
         if(window.confirm('Delete this Group post and its media?'))
@@ -361,18 +253,8 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
       }}>Delete post</button>
   </div>}
 </div>
-)}</div>{editPost===post.id?<form className={styles.form} onSubmit={e=>{e.preventDefault();void perform(async()=>{await groupAction('edit_post',group.id,{post_id:post.id,content:editContent});setEditPost(undefined);});}}><label>Edit post<textarea maxLength={10000} value={editContent} onChange={e=>setEditContent(e.target.value)}/></label><button disabled={busy}>Save post</button><button type="button" onClick={()=>setEditPost(undefined)}>Cancel</button></form>:<p className={styles.text}>{post.content}</p>}
-        {post.group_post_media.length>0&&
-  <div className={styles.postMediaGrid}>
-    {post.group_post_media.slice()
-      .sort((a,b)=>a.display_order-b.display_order)
-      .map(media=><div key={media.id} className={styles.postMediaItem}>
-        <PrivateMedia
-          path={media.storage_path}
-          video={media.media_type==='video'}
-        />
-      </div>)}
-  </div>}
+)}</div>{editPost===post.id?<form className={posting.editForm} onSubmit={e=>{e.preventDefault();void perform(async()=>{await groupAction('edit_post',group.id,{post_id:post.id,content:editContent});setEditPost(undefined);});}}><label>Edit post<textarea maxLength={10000} value={editContent} onChange={e=>setEditContent(e.target.value)}/></label><button disabled={busy}>Save post</button><button type="button" onClick={()=>setEditPost(undefined)}>Cancel</button></form>:<p style={postContentStyle}>{post.content}</p>}
+        <GroupPostMedia groupId={group.id} postId={post.id} media={post.group_post_media} read={groupsFetch} />
 
       <GroupPostActions
   groupId={group.id}

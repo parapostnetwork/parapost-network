@@ -1,5 +1,7 @@
 "use client";
 
+import { composerCardStyle, composerTopRowStyle, composerInputStyle, composerImageButtonStyle, composerActionPillStyle, composerFooterStyle, publishButtonStyle, imagePreviewWrapStyle, composerPreviewGridStyle, composerPreviewSingleGridStyle, composerPreviewTileStyle, composerPreviewSingleTileStyle, composerPreviewImageStyle, composerPreviewCounterStyle, postCardStyle, postHeaderStyle, postAuthorStyle, postAuthorNameStyle, postMetaStyle, postContentStyle, postImageStyle, postImageGridStyle, postImageGridTileStyle, postImageGridLargeTileStyle, postImageGridImageStyle, dotsButtonStyle, postMenuStyle, menuItemStyle, postStatsSummaryStyle, postActionsStyle, dashboardCommentTextareaStyle, dashboardCommentSubmitButtonStyle, dashboardCommentRowStyle, dashboardCommentBubbleStyle, dashboardCommentTopLineStyle, dashboardCommentAuthorStyle, dashboardCommentTimeStyle, dashboardCommentTextStyle, dashboardCommentActionRowStyle, sharedPostFrameStyle } from "@/components/postPresentation";
+import PostComposerInput from "@/components/PostComposerInput";
 import { DotsIcon, HeartIcon, CommentIcon, ShareIcon } from "@/components/PostActionIcons";
 import { groupsNavigationEnabled } from "@/lib/groups/config";
 import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
@@ -12946,24 +12948,14 @@ function ComposerCard({
 
   return (
     <section id="dashboard-create-post" ref={composerRef} className="dashboard-card dashboard-composer-card" style={composerCardStyle}>
-      <div className="dashboard-composer-top-row" style={composerTopRowStyle}>
-        <Avatar profile={currentProfile} size={48} />
-        <textarea
-          id="dashboard-create-post-input"
-          value={content}
-          onChange={(event) => setContent(event.target.value.slice(0, POST_CHARACTER_LIMIT))}
-          placeholder={`What's on your mind, ${firstName}?`}
-          rows={2}
-          maxLength={POST_CHARACTER_LIMIT}
-          style={composerInputStyle}
-        />
-        <button type="button" onClick={() => fileInputRef.current?.click()} style={composerImageButtonStyle} aria-label="Upload photos">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 17L8.5 12.5L11 15L15.5 10.5L20 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <rect x="3" y="5" width="18" height="15" rx="3" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </button>
-      </div>
+      <PostComposerInput
+        className="dashboard-composer-top-row"
+        avatar={<Avatar profile={currentProfile} size={48} />}
+        inputProps={{ id: "dashboard-create-post-input", value: content,
+          onChange: (event) => setContent(event.target.value.slice(0, POST_CHARACTER_LIMIT)),
+          placeholder: `What's on your mind, ${firstName}?`, maxLength: POST_CHARACTER_LIMIT }}
+        onSelectMedia={() => fileInputRef.current?.click()}
+      />
 
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={onImageChange} style={{ display: "none" }} />
 
@@ -18677,70 +18669,12 @@ const profileShowcaseCreateButtonStyle: CSSProperties = {
   boxShadow: "0 20px 38px color-mix(in srgb, var(--parapost-accent-1) 34%, transparent)",
 };
 
-const composerCardStyle: CSSProperties = {
-  borderRadius: 22,
-  border: "1px solid rgba(255,255,255,0.105)",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.060), rgba(255,255,255,0.032))",
-  padding: 16,
-  marginBottom: 16,
-  boxShadow: "0 16px 34px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.035)",
-  overflow: "hidden",
-  scrollMarginTop: 96,
-};
 const composerHeaderStyle: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 14 };
 const composerIdentityStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 12, minWidth: 0 };
 const composerTitleStyle: CSSProperties = { margin: 0, color: "#fff", fontSize: 17, fontWeight: 950, letterSpacing: "-0.02em" };
 const composerSubtitleStyle: CSSProperties = { margin: "3px 0 0", color: "#9ca3af", fontSize: 12.5, lineHeight: 1.35 };
 const composerDestinationBadgeStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 30, borderRadius: 999, padding: "0 11px", color: "var(--parapost-accent-readable-text)", fontSize: 11, fontWeight: 950, whiteSpace: "nowrap", background: "var(--parapost-accent-active-bg)", border: "1px solid color-mix(in srgb, var(--parapost-accent-2) 35%, transparent)", boxShadow: "0 10px 24px var(--parapost-accent-active-bg)" };
-const composerTopRowStyle: CSSProperties = { display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", gap: 12, alignItems: "center" };
-const composerInputStyle: CSSProperties = {
-  width: "100%",
-  minHeight: 60,
-  maxHeight: 190,
-  resize: "none",
-  overflowY: "auto",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: 18,
-  background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.032))",
-  color: "#fff",
-  outline: 0,
-  padding: "15px 17px",
-  fontSize: 15,
-  lineHeight: 1.45,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.030)",
-};
-const composerImageButtonStyle: CSSProperties = {
-  width: 44,
-  height: 44,
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.040)",
-  color: "#fff",
-  display: "grid",
-  placeItems: "center",
-  cursor: "pointer",
-  flexShrink: 0,
-};
 const composerActionGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 9, alignItems: "center", marginTop: 13 };
-const composerActionPillStyle: CSSProperties = {
-  minHeight: 38,
-  borderRadius: 13,
-  border: "1px solid rgba(255,255,255,0.085)",
-  background: "rgba(255,255,255,0.035)",
-  color: "#fff",
-  padding: "0 12px",
-  fontWeight: 850,
-  cursor: "pointer",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  textDecoration: "none",
-  whiteSpace: "nowrap",
-  fontSize: 12.5,
-  transition: "border-color 160ms ease, background 160ms ease, transform 160ms ease",
-};
 const composerActionPillActiveStyle: CSSProperties = {
   border: "1px solid color-mix(in srgb, var(--parapost-accent-text) 26%, transparent)",
   background: "color-mix(in srgb, var(--parapost-accent-2) 10%, transparent)",
@@ -18755,49 +18689,9 @@ const composerActionToneStyles: Record<"green" | "pink" | "red" | "gold", CSSPro
   red: { background: "rgba(239,68,68,0.18)", color: "#fca5a5" },
   gold: { background: "var(--parapost-accent-muted-bg)", color: "var(--parapost-accent-readable-text)" },
 };
-const composerFooterStyle: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 13, flexWrap: "wrap" };
 const composerHelperTextStyle: CSSProperties = { color: "#6b7280", fontSize: 11.5, lineHeight: 1.35 };
-const publishButtonStyle: CSSProperties = { marginLeft: "auto", minHeight: 35, borderRadius: 14, border: 0, background: "linear-gradient(135deg, #ffffff, var(--parapost-accent-readable-text))", color: "#111827", fontWeight: 900, padding: "0 15px", cursor: "pointer", boxShadow: "0 10px 20px color-mix(in srgb, var(--parapost-accent-2) 18%, transparent)", whiteSpace: "nowrap", fontSize: 12.5 };
 
-const imagePreviewWrapStyle: CSSProperties = {
-  width: "min(100%, 560px)",
-  margin: "12px auto 0",
-  borderRadius: 20,
-  border: "1px solid rgba(255,255,255,0.10)",
-  overflow: "hidden",
-  background: "rgba(0,0,0,0.22)",
-  position: "relative",
-};
 const imagePreviewStyle: CSSProperties = { width: "100%", maxHeight: 360, objectFit: "cover", display: "block" };
-const composerPreviewGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 6,
-  padding: 8,
-  maxHeight: 292,
-  overflow: "hidden",
-};
-const composerPreviewSingleGridStyle: CSSProperties = {
-  gridTemplateColumns: "1fr",
-  maxHeight: 260,
-};
-const composerPreviewTileStyle: CSSProperties = {
-  position: "relative",
-  minHeight: 132,
-  height: 132,
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: 16,
-  overflow: "hidden",
-  padding: 0,
-  background: "rgba(255,255,255,0.04)",
-  cursor: "pointer",
-};
-const composerPreviewSingleTileStyle: CSSProperties = {
-  minHeight: 246,
-  height: 246,
-};
-const composerPreviewImageStyle: CSSProperties = { width: "100%", height: "100%", minHeight: "100%", objectFit: "cover", display: "block" };
-const composerPreviewCounterStyle: CSSProperties = { position: "absolute", right: 10, top: 10, borderRadius: 999, padding: "5px 9px", background: "rgba(0,0,0,0.72)", color: "#fff", fontSize: 12, fontWeight: 950, lineHeight: 1, border: "1px solid rgba(255,255,255,0.16)", boxShadow: "0 8px 18px rgba(0,0,0,0.28)" };
 const composerPreviewTypeBadgeStyle: CSSProperties = { position: "absolute", left: 10, top: 10, borderRadius: 999, padding: "5px 9px", background: "var(--parapost-accent-active-bg)", color: "var(--parapost-accent-readable-text)", fontSize: 12, fontWeight: 950, lineHeight: 1, border: "1px solid var(--parapost-accent-active-border)" };
 const composerPreviewOverlayStyle: CSSProperties = { position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(0,0,0,0.55)", color: "#ffffff", fontWeight: 950, fontSize: 30 };
 const imagePreviewMetaRowStyle: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: 12, flexWrap: "wrap" };
@@ -18908,23 +18802,8 @@ const linkPreviewEyebrowStyle: CSSProperties = { color: "#9ca3af", fontSize: 11,
 const linkPreviewTitleStyle: CSSProperties = { color: "#fff", fontSize: 15, fontWeight: 950, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 const linkPreviewDomainStyle: CSSProperties = { color: "#93c5fd", fontSize: 13, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 
-const postCardStyle: CSSProperties = {
-  borderRadius: 22,
-  border: "1px solid rgba(255,255,255,0.105)",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.058), rgba(255,255,255,0.030))",
-  padding: 18,
-  position: "relative",
-  zIndex: 0,
-  boxShadow: "0 15px 34px rgba(0,0,0,0.23), inset 0 1px 0 rgba(255,255,255,0.030)",
-};
-const postHeaderStyle: CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 13 };
-const postAuthorStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 12, minWidth: 0 };
 const postAuthorNameLineStyle: CSSProperties = { display: "flex", alignItems: "baseline", gap: 5, flexWrap: "wrap", minWidth: 0 };
-const postAuthorNameStyle: CSSProperties = { display: "block", color: "#fff", textDecoration: "none", fontWeight: 950, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 const postAuthorActivityTextStyle: CSSProperties = { color: "var(--parapost-accent-readable-text)", fontWeight: 900, fontSize: 16, lineHeight: 1.25 };
-const postMetaStyle: CSSProperties = { color: "#a1a1aa", fontSize: 13, marginTop: 3 };
-const postContentStyle: CSSProperties = { color: "#f9fafb", lineHeight: 1.56, fontSize: 15.8, whiteSpace: "pre-wrap", margin: "10px 0 0", overflowWrap: "anywhere" };
 const postTextLinkStyle: CSSProperties = {
   position: "relative",
   zIndex: 4,
@@ -18937,33 +18816,13 @@ const postTextLinkStyle: CSSProperties = {
   pointerEvents: "auto",
   touchAction: "manipulation",
 };
-const postImageStyle: CSSProperties = { width: "100%", maxHeight: 680, objectFit: "cover", display: "block", borderRadius: 20, border: "1px solid rgba(255,255,255,0.10)", marginTop: 14, background: "#05070d", boxShadow: "0 18px 38px rgba(0,0,0,0.32)" };
-const postImageGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 14, borderRadius: 22, overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(0,0,0,0.26)", boxShadow: "0 18px 38px rgba(0,0,0,0.32)" };
-const postImageGridTileStyle: CSSProperties = { position: "relative", minHeight: 230, overflow: "hidden", background: "rgba(255,255,255,0.04)" };
-const postImageGridLargeTileStyle: CSSProperties = { gridRow: "span 2", minHeight: 468 };
-const postImageGridImageStyle: CSSProperties = { width: "100%", height: "100%", minHeight: "inherit", objectFit: "cover", display: "block", background: "#000" };
 const postVideoBadgeStyle: CSSProperties = { position: "absolute", left: 10, top: 10, borderRadius: 999, padding: "6px 9px", background: "rgba(0,0,0,0.70)", color: "#fff", fontSize: 12, fontWeight: 950, border: "1px solid rgba(255,255,255,0.18)" };
 const postImageGridOverlayStyle: CSSProperties = { position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(0,0,0,0.58)", color: "#ffffff", fontSize: 42, fontWeight: 950, letterSpacing: "-0.04em" };
-const dotsButtonStyle: CSSProperties = { width: 38, height: 38, borderRadius: 999, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer" };
-const postMenuStyle: CSSProperties = { position: "absolute", right: 0, top: 45, minWidth: 170, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(8,10,18,0.96)", zIndex: 30, boxShadow: "0 20px 50px rgba(0,0,0,0.5)" };
-const menuItemStyle: CSSProperties = { width: "100%", textAlign: "left", border: 0, background: "transparent", color: "#fff", padding: "12px 14px", cursor: "pointer", fontWeight: 850 };
 const followButtonStyle: CSSProperties = { border: 0, borderRadius: 999, background: "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-3))", color: "#fff", minHeight: 36, padding: "0 14px", fontWeight: 950, cursor: "pointer" };
 const followingButtonStyle: CSSProperties = { ...followButtonStyle, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#e5e7eb" };
 const editTextareaStyle: CSSProperties = { width: "100%", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 18, background: "rgba(255,255,255,0.04)", color: "#fff", outline: 0, padding: 14, resize: "vertical" };
 const softButtonStyle: CSSProperties = { border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, background: "rgba(255,255,255,0.06)", color: "#fff", minHeight: 38, padding: "0 16px", fontWeight: 850, cursor: "pointer" };
 const softDangerButtonStyle: CSSProperties = { ...softButtonStyle, color: "#fecaca", border: "1px solid rgba(248,113,113,0.24)" };
-const postStatsSummaryStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  flexWrap: "wrap",
-  gap: 12,
-  alignItems: "center",
-  color: "#d1d5db",
-  fontSize: 13,
-  borderBottom: "1px solid rgba(255,255,255,0.10)",
-  paddingBottom: 11,
-  marginTop: 13,
-};
 
 const postStatsRightStyle: CSSProperties = {
   display: "inline-flex",
@@ -18986,15 +18845,6 @@ const postStatsLinkButtonStyle: CSSProperties = {
   touchAction: "manipulation",
 };
 const postStatusLinkStyle: CSSProperties = { color: "var(--parapost-accent-readable-text)", fontWeight: 900, textDecoration: "none" };
-const postActionsStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 8,
-  marginTop: 12,
-  paddingTop: 10,
-  borderTop: "1px solid rgba(255,255,255,0.08)",
-  background: "transparent",
-};
 
 const dashboardCommentsOverlayBackdropStyle: CSSProperties = {
   position: "fixed",
@@ -19156,33 +19006,7 @@ const dashboardCommentComposerStyle: CSSProperties = {
   borderBottom: "1px solid rgba(255,255,255,0.065)",
 };
 
-const dashboardCommentTextareaStyle: CSSProperties = {
-  width: "100%",
-  minHeight: "46px",
-  maxHeight: "120px",
-  resize: "vertical",
-  borderRadius: "17px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(6,8,15,0.78)",
-  color: "#fff",
-  outline: "none",
-  padding: "11px 13px",
-  fontFamily: "inherit",
-  fontSize: "16px",
-  lineHeight: 1.45,
-};
 
-const dashboardCommentSubmitButtonStyle: CSSProperties = {
-  minHeight: "42px",
-  borderRadius: "999px",
-  border: "1px solid color-mix(in srgb, var(--parapost-accent-1) 38%, rgba(255,255,255,0.12))",
-  background:
-    "linear-gradient(135deg, var(--parapost-accent-1), var(--parapost-accent-2))",
-  color: "#fff",
-  fontWeight: 900,
-  padding: "0 16px",
-  boxShadow: "0 10px 22px color-mix(in srgb, var(--parapost-accent-2) 20%, transparent)",
-};
 
 const dashboardCommentsEmptyStyle: CSSProperties = {
   padding: "14px 4px 4px",
@@ -19198,53 +19022,11 @@ const dashboardCommentsListStyle: CSSProperties = {
   overflowY: "auto",
 };
 
-const dashboardCommentRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: "9px",
-};
 
-const dashboardCommentBubbleStyle: CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  borderRadius: "14px",
-  background: "rgba(255,255,255,0.035)",
-  border: "none",
-  padding: "9px 11px",
-};
 
-const dashboardCommentTopLineStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "10px",
-  marginBottom: "4px",
-};
 
-const dashboardCommentAuthorStyle: CSSProperties = {
-  color: "#fff",
-  fontWeight: 900,
-  fontSize: "13px",
-  textDecoration: "none",
-  minWidth: 0,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
 
-const dashboardCommentTimeStyle: CSSProperties = {
-  color: "#9ca3af",
-  fontSize: "11px",
-  flexShrink: 0,
-};
 
-const dashboardCommentTextStyle: CSSProperties = {
-  color: "#e5e7eb",
-  fontSize: "13px",
-  lineHeight: 1.45,
-  whiteSpace: "pre-wrap",
-  overflowWrap: "anywhere",
-};
 
 const dashboardCommentInlineActionButtonStyle: CSSProperties = {
   appearance: "none",
@@ -19270,13 +19052,6 @@ const dashboardCommentDeleteButtonStyle: CSSProperties = {
   color: "#ffffff",
 };
 
-const dashboardCommentActionRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  marginTop: "7px",
-  flexWrap: "wrap",
-};
 
 const dashboardCommentLikeCountStyle: CSSProperties = {
   color: "#94a3b8",
@@ -19346,14 +19121,6 @@ const activeActionButtonStyle: CSSProperties = {
 };
 
 
-const sharedPostFrameStyle: CSSProperties = {
-  marginTop: "14px",
-  border: "1px solid var(--parapost-accent-border)",
-  borderRadius: "24px",
-  padding: "14px",
-  background:
-    "linear-gradient(135deg, var(--parapost-accent-muted-bg), rgba(255,255,255,0.045), rgba(15,23,42,0.50))",
-};
 
 const sharedPostOriginalHeaderStyle: CSSProperties = {
   display: "flex",

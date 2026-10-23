@@ -1,5 +1,6 @@
 "use client";
 
+import PostComposerInput from "@/components/PostComposerInput";
 import { HeartIcon, CommentIcon, ShareIcon } from "@/components/PostActionIcons";
 import { useLayoutEffect } from "react";
 
@@ -18941,8 +18942,12 @@ return (
                     paddingBottom: "16px",
                   }}
                 >
-                  <div className="profile-dashboard-composer-top-row" style={profileDashboardComposerTopRowStyle}>
-                    <div
+                  <PostComposerInput
+                    className="profile-dashboard-composer-top-row"
+                    rowStyle={profileDashboardComposerTopRowStyle}
+                    inputStyle={profileDashboardComposerInputStyle}
+                    mediaStyle={profileDashboardComposerImageButtonStyle}
+                    avatar={<div
                       style={{
                         ...profileComposerAvatarStyle,
                         ...(profileIsActuallyOnline ? profileComposerAvatarOnlineStyle : {}),
@@ -18954,30 +18959,16 @@ return (
                         <span style={postAuthorFallbackStyle}>{profileDisplayInitial || "P"}</span>
                       )}
                       {profileIsActuallyOnline ? <span style={postAuthorOnlineDotStyle} /> : null}
-                    </div>
-
-                    <textarea
-                      className="profile-dashboard-composer-input profile-composer-textarea"
-                      value={profilePostContent}
-                      onChange={(event) => setProfilePostContent(event.target.value.slice(0, POST_CHARACTER_LIMIT))}
-                      placeholder={`What's on your mind, ${profileDisplayName?.split(" ")[0] || "there"}?`}
-                      rows={2}
-                      maxLength={POST_CHARACTER_LIMIT}
-                      style={profileDashboardComposerInputStyle}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => profilePostFileInputRef.current?.click()}
-                      style={profileDashboardComposerImageButtonStyle}
-                      aria-label="Upload photos"
-                    >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M4 17L8.5 12.5L11 15L15.5 10.5L20 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <rect x="3" y="5" width="18" height="15" rx="3" stroke="currentColor" strokeWidth="2" />
-                      </svg>
-                    </button>
-                  </div>
+                    </div>}
+                    inputProps={{
+                      className: "profile-dashboard-composer-input profile-composer-textarea",
+                      value: profilePostContent,
+                      onChange: (event) => setProfilePostContent(event.target.value.slice(0, POST_CHARACTER_LIMIT)),
+                      placeholder: `What's on your mind, ${profileDisplayName?.split(" ")[0] || "there"}?`,
+                      maxLength: POST_CHARACTER_LIMIT,
+                    }}
+                    onSelectMedia={() => profilePostFileInputRef.current?.click()}
+                  />
 
                   <input
                     ref={profilePostFileInputRef}
