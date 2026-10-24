@@ -147,3 +147,21 @@
     gap: 18px;
   }
 }
+
+
+/* Full uploaded cover preview in directory cards */
+.grid .card .cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1640 / 856;
+  flex-shrink: 0;
+}
+
+.grid .card .coverImage {
+  object-fit: contain;
+  object-position: center;
+}
+
+.grid .card .cover:has(.coverImage) {
+  background: var(--background, #07090d);
+}
