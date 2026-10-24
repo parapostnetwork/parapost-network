@@ -37,7 +37,7 @@ function GroupForm({group,onSubmit,busy}:{group?:Group;onSubmit:(name:string,des
   </form>;
 }
 export default function GroupsClient({groupId,transport=liveGroupsTransport,routeBase='/groups'}:{groupId?:string;transport?:GroupsTransport;routeBase?:string}) {
-  return <TransportContext.Provider value={transport}><GroupsView groupId={groupId} routeBase={routeBase}/></TransportContext.Provider>;
+  return <TransportContext.Provider value={transport}><GroupsView key={groupId ?? "directory"} groupId={groupId} routeBase={routeBase}/></TransportContext.Provider>;
 }
 function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const transport=useContext(TransportContext);
@@ -113,7 +113,7 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
     return ()=>document.removeEventListener('keydown',onKeyDown);
   },[settings,busy]);
 const requestNumber=useRef(0);const mutationLock=useRef(false);
-  const group=groupId?groups[0]:undefined;
+  const group=groupId?groups.find(g=>g.id===groupId):undefined;
   const approved=group?.membership_status==='approved';const owner=approved&&group?.membership_role==='owner';
   const admin=approved&&['owner','admin'].includes(group?.membership_role ?? '');
   const moderator=approved&&['owner','admin','moderator'].includes(group?.membership_role ?? '');
