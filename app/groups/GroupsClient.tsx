@@ -347,7 +347,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
 )}</div>{editPost===post.id?<form className={posting.editForm} onSubmit={e=>{e.preventDefault();void perform(async()=>{await groupAction('edit_post',group.id,{post_id:post.id,content:editContent});setEditPost(undefined);});}}><label>Edit post<textarea maxLength={10000} value={editContent} onChange={e=>setEditContent(e.target.value)}/></label><button disabled={busy}>Save post</button><button type="button" onClick={()=>setEditPost(undefined)}>Cancel</button></form>:<p style={postContentStyle}>{post.content}</p>}
         <GroupPostMedia groupId={group.id} postId={post.id} media={post.group_post_media} read={groupsFetch} />
 
-      <GroupPostActions
+      <GroupPostActions viewerId={userId} ownerId={group.owner_id}
   groupId={group.id}
   postId={post.id}
   canInteract={approved}

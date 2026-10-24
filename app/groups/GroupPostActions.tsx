@@ -15,6 +15,7 @@ type GroupComment = {
   parent_id: string | null;
   content: string;
   created_at: string;
+  updated_at?: string | null;
   like_count: number;
   liked: boolean;
 };
@@ -30,6 +31,8 @@ type Stats = {
 type Props = {
   groupId: string;
   postId: string;
+  viewerId: string;
+  ownerId: string;
   canInteract: boolean;
   canShare: boolean;
   read: GroupsTransport['read'];
@@ -37,7 +40,7 @@ type Props = {
 };
 
 export default function GroupPostActions({
-  groupId, postId, canInteract, canShare, read, action
+  groupId, postId, viewerId, ownerId, canInteract, canShare, read, action
 }: Props) {
   const marker = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -46,6 +49,8 @@ export default function GroupPostActions({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
   const [shareNotice, setShareNotice] = useState('');
   const [profiles, setProfiles] = useState<Record<string,PostProfile>>({});
   const [shareOpen, setShareOpen] = useState(false);
@@ -176,6 +181,65 @@ export default function GroupPostActions({
     }
   }
 
+  async function manageComment(
+    comment: GroupComment,
+    mode: 'edit_comment' | 'delete_comment'
+  ) {
+    if (!canInteract || busy) return;
+
+    const isAuthor = comment.author_id === viewerId;
+    const isOwner = viewerId === ownerId;
+
+    if (mode === 'edit_comment' && !isAuthor) return;
+    if (mode === 'delete_comment' && !isAuthor && !isOwner) return;
+
+    const content = editDraft.trim();
+
+    if (mode === 'edit_comment' &&
+        (!content || content.length > 1200)) {
+      setError('Comments must contain 1 to 1200 characters.');
+      return;
+    }
+
+    if (mode === 'delete_comment') {
+      const message = comment.parent_id
+        ? 'Delete this reply permanently?'
+        : 'Delete this comment and all its replies permanently?';
+
+      if (!window.confirm(message)) return;
+    }
+
+    setBusy(true);
+    setError('');
+
+    try {
+      await action(mode, groupId, {
+        post_id: postId,
+        comment_id: comment.id,
+        ...(mode === 'edit_comment' ? { content } : {})
+      });
+
+      setEditingId(null);
+      setEditDraft('');
+
+      if (mode === 'delete_comment' &&
+          replyTo === comment.id) {
+        setReplyTo(null);
+        setDraft('');
+      }
+
+      await reload();
+    } catch {
+      setError(
+        mode === 'edit_comment'
+          ? 'Unable to edit comment.'
+          : 'Unable to delete comment.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const commentForm = (parentId: string | null) => (
     <form className={styles.commentForm} onSubmit={submitComment}>
       <textarea id={`group-comment-input-${postId}-${parentId || 'new'}`}
@@ -196,7 +260,41 @@ export default function GroupPostActions({
             <Link href={`/profile/${comment.author_id}`} style={dashboardCommentAuthorStyle}>{profileName(profiles[comment.author_id])}</Link>
             <time dateTime={comment.created_at} style={dashboardCommentTimeStyle}>{new Date(comment.created_at).toLocaleString()}</time>
           </div>
-          <div style={dashboardCommentTextStyle}>{comment.content}</div>
+          {editingId === comment.id ? (
+              <form className={styles.editForm}
+                onSubmit={event => {
+                  event.preventDefault();
+                  void manageComment(comment, 'edit_comment');
+                }}>
+                <textarea
+                  aria-label="Edit comment"
+                  value={editDraft}
+                  maxLength={1200}
+                  rows={2}
+                  disabled={busy}
+                  onChange={event => setEditDraft(event.target.value)}
+                />
+                <button type="submit"
+                  disabled={busy || !editDraft.trim()}>
+                  Save
+                </button>
+                <button type="button" disabled={busy}
+                  onClick={() => {
+                    setEditingId(null);
+                    setEditDraft('');
+                  }}>
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <div style={dashboardCommentTextStyle}>
+                {comment.content}
+                {comment.updated_at &&
+                  new Date(comment.updated_at).getTime() >
+                  new Date(comment.created_at).getTime() + 1500 &&
+                  <small> · Edited</small>}
+              </div>
+            )}
         </div>
         <div className={styles.commentActions}>
           <button type="button" className={styles.commentAction} disabled={!canInteract || busy}
@@ -206,6 +304,22 @@ export default function GroupPostActions({
           </button>
           {!comment.parent_id && canInteract && <button type="button" className={styles.commentAction} disabled={busy}
             onClick={() => { setReplyTo(comment.id); setDraft(''); }}>Reply</button>}
+            {canInteract && comment.author_id === viewerId &&
+              <button type="button" className={styles.commentAction}
+                disabled={busy}
+                onClick={() => {
+                  setEditingId(comment.id);
+                  setEditDraft(comment.content);
+                }}>
+                Edit
+              </button>}
+            {canInteract &&
+              (comment.author_id === viewerId || viewerId === ownerId) &&
+              <button type="button" className={styles.commentAction}
+                disabled={busy}
+                onClick={() => void manageComment(comment, 'delete_comment')}>
+                Delete
+              </button>}
         </div>
       </div>
     </div>

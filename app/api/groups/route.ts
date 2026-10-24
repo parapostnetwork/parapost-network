@@ -2,7 +2,7 @@ import { groupClient, groupError, privateHeaders } from '@/lib/groups/server';
 import { groupFeedCursor } from '@/lib/groups/feed';
 import { UUID, validateGroupFields } from '@/lib/groups/validation';
 export const dynamic = 'force-dynamic';
-const actions = new Set(['create','join','leave','approve','reject','remove','ban','role','restore','edit','delete','draft','publish','edit_post','delete_post','reserve_media','reserve_cover','set_cover','remove_cover','like','unlike','comment','reply','like_comment','unlike_comment','share_post']);
+const actions = new Set(['create','join','leave','approve','reject','remove','ban','role','restore','edit','delete','draft','publish','edit_post','delete_post','reserve_media','reserve_cover','set_cover','remove_cover','like','unlike','comment','reply','like_comment','unlike_comment','share_post','edit_comment','delete_comment']);
 export async function GET(request: Request) {
   try {
     const client = await groupClient(request);
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
           .eq('user_id',viewer.data.user.id)
           .maybeSingle(),
         client.from('group_post_comments')
-          .select('id,post_id,author_id,parent_id,content,created_at',
+          .select('id,post_id,author_id,parent_id,content,created_at,updated_at',
             {count:'exact'})
           .eq('post_id',postId)
           .order('created_at',{ascending:true})
@@ -133,6 +133,22 @@ export async function POST(request: Request) {
         throw new Error('Invalid reply');
     }
 
+    const manageComment = ['edit_comment','delete_comment'].includes(action);
+
+    if (manageComment) {
+      if (!UUID.test(payload?.post_id ?? '') ||
+          !UUID.test(payload?.comment_id ?? '')) {
+        throw new Error('Invalid comment identifier');
+      }
+
+      if (action === 'edit_comment' &&
+          (typeof payload.content !== 'string' ||
+           !payload.content.trim() ||
+           payload.content.trim().length > 1200)) {
+        throw new Error('Invalid comment');
+      }
+    }
+
     const sharePost = action === 'share_post';
 
       if (sharePost) {
@@ -159,6 +175,14 @@ export async function POST(request: Request) {
             p_group_id: groupId,
             p_post_id: payload.post_id,
             p_caption: payload.caption ?? null
+          })
+        : manageComment
+        ? await client.rpc('groups_manage_comment',{
+            p_group_id:groupId,
+            p_post_id:payload.post_id,
+            p_comment_id:payload.comment_id,
+            p_action:action,
+            p_content:action==='edit_comment'?payload.content:null
           })
         : interaction
       ? await client.rpc('groups_interact',{
