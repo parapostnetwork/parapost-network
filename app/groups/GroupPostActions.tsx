@@ -49,6 +49,7 @@ export default function GroupPostActions({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyingToAuthorId, setReplyingToAuthorId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [shareNotice, setShareNotice] = useState('');
@@ -173,6 +174,7 @@ export default function GroupPostActions({
       });
       setDraft('');
       setReplyTo(null);
+      setReplyingToAuthorId(null);
       await reload();
     } catch {
       setError('Unable to post your comment. Please try again.');
@@ -302,8 +304,8 @@ export default function GroupPostActions({
             onClick={() => void toggleCommentLike(comment)}>
             <HeartIcon filled={comment.liked} /> {comment.liked ? 'Liked' : 'Like'}{comment.like_count > 0 ? ` · ${comment.like_count}` : ''}
           </button>
-          {!comment.parent_id && canInteract && <button type="button" className={styles.commentAction} disabled={busy}
-            onClick={() => { setReplyTo(comment.id); setDraft(''); }}>Reply</button>}
+          {canInteract && <button type="button" className={styles.commentAction} disabled={busy}
+            onClick={() => { setReplyTo(comment.parent_id ?? comment.id); setReplyingToAuthorId(comment.author_id); setDraft(''); }}>Reply</button>}
             {canInteract && comment.author_id === viewerId &&
               <button type="button" className={styles.commentAction}
                 disabled={busy}
@@ -368,8 +370,8 @@ export default function GroupPostActions({
           <div className={styles.replies}>
             {stats.comments.filter(comment => comment.parent_id === parent.id).map(reply => <div key={reply.id}>{renderComment(reply)}</div>)}
             {replyTo === parent.id && <div>
-              <div className={styles.replyLabel}>Replying to {profileName(profiles[parent.author_id])}
-                <button type="button" className={styles.textButton} disabled={busy} onClick={() => { setReplyTo(null); setDraft(''); }}>Cancel</button></div>
+              <div className={styles.replyLabel}>Replying to {profileName(profiles[replyingToAuthorId ?? parent.author_id])}
+                <button type="button" className={styles.textButton} disabled={busy} onClick={() => { setReplyTo(null); setReplyingToAuthorId(null); setDraft(''); }}>Cancel</button></div>
               {commentForm(parent.id)}
             </div>}
           </div>
