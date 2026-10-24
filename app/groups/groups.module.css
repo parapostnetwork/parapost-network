@@ -21,3 +21,85 @@
 @media(max-width:900px){.page{padding:0 20px 40px}.groupIdentity{padding:24px}.discussionColumn{max-width:100%}}
 @media(max-width:600px){.page{padding:0 12px 32px}.grid{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column;padding:24px 0}.topbar{font-size:11px;min-height:64px;gap:10px;flex-wrap:wrap;padding:14px 0}.card,.form{border-radius:18px}.groupHeader{margin-top:18px}.body,.post,.form,.groupIdentity{padding:18px}.groupIdentity h1{font-size:30px}.controls>label{width:100%}.controls{align-items:flex-start}.groupIdentity>.controls{gap:8px}.groupIdentity>.controls>span{width:100%;font-size:13px;color:#d0c5dc}.page h1{overflow-wrap:anywhere}.discussionColumn{margin-top:24px}.banner .mascot{width:120px}}
 @media(prefers-reduced-motion:reduce){.page button{transition:none}}
+
+/* Group Settings popup — independent of the Group timeline */
+.settingsOverlay{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  background:rgba(0,0,0,.82);
+}
+
+.settingsModal{
+  width:min(700px,100%);
+  max-height:90vh;
+  max-height:90dvh;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  box-sizing:border-box;
+  padding:24px;
+  border:1px solid var(--parapost-accent-border,#8b5cf655);
+  border-radius:20px;
+  background:var(--background,#07090d);
+  color:#fff;
+  box-shadow:0 25px 90px #000a;
+}
+
+.settingsModalHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:20px;
+}
+
+.settingsModalHeader h2{
+  margin:0;
+  font-size:22px;
+}
+
+.settingsModal .form{
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  overflow:visible;
+}
+
+.settingsModal .cover{
+  width:100%;
+  max-width:100%;
+  aspect-ratio:2.7/1;
+  border-radius:12px;
+  margin:0 0 20px;
+}
+
+.settingsModal .form label{
+  display:block;
+  margin:14px 0;
+}
+
+.settingsModal .settingsDanger{
+  margin-top:28px;
+  padding-top:22px;
+  border-top:1px solid #9f394b;
+}
+
+.settingsDanger h2{
+  color:#fca5a5;
+}
+
+@media(max-width:600px){
+  .settingsOverlay{padding:8px;}
+  .settingsModal{
+    max-height:94dvh;
+    padding:16px;
+    border-radius:14px;
+  }
+  .settingsModalHeader h2{font-size:19px;}
+}

@@ -27,7 +27,7 @@ function GroupForm({group,onSubmit,busy}:{group?:Group;onSubmit:(name:string,des
   const [file,setFile]=useState<File>();
   const [error,setError]=useState('');
   return <form className={styles.form} onSubmit={async event => {event.preventDefault();setError('');try {validateGroupFields(name,description,visibility);if(file)validateUpload(file.type,file.size,true);await onSubmit(name,description,visibility,file);}catch(e){setError(e instanceof Error?e.message:'Unable to save.');}}}>
-    <h2>{group?'Group settings':'Create a Group'}</h2><GroupCover path={group?.cover_storage_path} file={file} load={read} name={name||'New Group'}/>
+    {!group&&<h2>Create a Group</h2>}<GroupCover path={group?.cover_storage_path} file={file} load={read} name={name||'New Group'}/>
     <label>Name<input required minLength={3} maxLength={100} value={name} onChange={e=>setName(e.target.value)} /></label>
     <label>Description<textarea maxLength={5000} value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></label>
     <label>Visibility<select value={visibility} disabled={!!group && group.membership_role!=='owner'} onChange={e=>setVisibility(e.target.value as 'public'|'private')}><option value="public">Public — authenticated users can read; members can post</option><option value="private">Private — approval required to read or post</option></select></label>
@@ -63,7 +63,24 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const [content,setContent]=useState('');const [files,setFiles]=useState<File[]>([]);
   const [editPost,setEditPost]=useState<string>(); const [editContent,setEditContent]=useState('');
 const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
-  const [deleteName,setDeleteName]=useState('');const requestNumber=useRef(0);const mutationLock=useRef(false);
+  const [deleteName,setDeleteName]=useState('');
+  useEffect(()=>{
+    if(!settings)return;
+    const previousOverflow=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'&&!busy){
+        setSettings(false);
+        setDeleteName('');
+      }
+    };
+    document.addEventListener('keydown',onKeyDown);
+    return ()=>{
+      document.body.style.overflow=previousOverflow;
+      document.removeEventListener('keydown',onKeyDown);
+    };
+  },[settings,busy]);
+const requestNumber=useRef(0);const mutationLock=useRef(false);
   const group=groupId?groups[0]:undefined;
   const approved=group?.membership_status==='approved';const owner=approved&&group?.membership_role==='owner';
   const admin=approved&&['owner','admin'].includes(group?.membership_role ?? '');
@@ -219,7 +236,27 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
       <div className={styles.controls}><button disabled={offset===0||loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button><button disabled={groups.length<24||loading} onClick={()=>setOffset(offset+24)}>Next</button></div>
     </>:group?<>
       <section className={`${styles.card} ${styles.groupHeader}`}><GroupCover banner path={group.cover_storage_path} name={group.name} load={groupsFetch}/><div className={`${styles.body} ${styles.groupIdentity}`}><p className={styles.eyebrow}>{group.visibility} Group</p><h1>{group.name}</h1><p className={styles.text}>{group.description}</p><p>{group.member_count} {group.member_count===1?'member':'members'} · Owner: <Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></p><div className={styles.controls}>{membership(group)}{admin&&<><button onClick={()=>setSettings(v=>!v)} aria-expanded={settings}>Group settings</button><button onClick={()=>setManagement(v=>!v)} aria-expanded={management}>Manage members</button></>}</div></div></section>
-      {admin&&settings&&<>{group.cover_storage_path&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove_cover',group.id);setNotice('Custom cover removed. ParaGhost is restored.');})}>Remove cover and restore ParaGhost</button>}<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} busy={busy} onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');});}}/>{owner&&<section className={styles.form}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</>}
+      {admin&&settings&&
+        <div className={styles.settingsOverlay}
+          onMouseDown={event=>{
+            if(event.target===event.currentTarget&&!busy){
+              setSettings(false);
+              setDeleteName('');
+            }
+          }}>
+          <div className={styles.settingsModal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="group-settings-heading">
+            <header className={styles.settingsModalHeader}>
+              <h2 id="group-settings-heading">Group settings</h2>
+              <button type="button" autoFocus disabled={busy}
+                onClick={()=>{
+                  setSettings(false);
+                  setDeleteName('');
+                }}>Close</button>
+            </header>
+{group.cover_storage_path&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove_cover',group.id);setNotice('Custom cover removed. ParaGhost is restored.');})}>Remove cover and restore ParaGhost</button>}<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} busy={busy} onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');setSettings(false);setDeleteName('');});}}/>{owner&&<section className={`${styles.form} ${styles.settingsDanger}`}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</div></div>}
       {admin&&management&&<section className={styles.form}><h2>Member management</h2><p>Admins manage ordinary members. Only the owner assigns roles or restores rejected, removed or banned members to pending.</p>{members.map(m=><article className={styles.member} key={m.user_id}><div><Link href={`/profile/${m.user_id}`}>{m.display_name}</Link><p>{m.role} · {m.status}</p></div>{m.user_id!==userId&&m.role!=='owner'&&(owner||m.role==='member')&&<div className={styles.controls}>
         {m.status==='pending'&&['approve','reject'].map(action=><button key={action} disabled={busy} onClick={()=>void perform(async()=>{await groupAction(action,group.id,{user_id:m.user_id});})}>{action==='approve'?'Approve':'Reject'}</button>)}
         {m.status==='approved'&&<><button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove',group.id,{user_id:m.user_id});})}>Remove</button>{owner&&<label>Role<select value={m.role} disabled={busy} onChange={e=>void perform(async()=>{await groupAction('role',group.id,{user_id:m.user_id,role:e.target.value});})}><option value="member">Member</option><option value="moderator">Moderator</option><option value="admin">Administrator</option></select></label>}</>}
