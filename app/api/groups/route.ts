@@ -1,4 +1,5 @@
 import { groupClient, groupError, privateHeaders } from '@/lib/groups/server';
+import { groupFeedCursor } from '@/lib/groups/feed';
 import { UUID, validateGroupFields } from '@/lib/groups/validation';
 export const dynamic = 'force-dynamic';
 const actions = new Set(['create','join','leave','approve','reject','remove','ban','role','restore','edit','delete','draft','publish','edit_post','delete_post','reserve_media','reserve_cover','set_cover','remove_cover','like','unlike','comment','reply','like_comment','unlike_comment','share_post']);
@@ -16,8 +17,12 @@ export async function GET(request: Request) {
     } else if (kind === 'members' && groupId) {
       result = await client.rpc('groups_members', { p_group_id: groupId, p_offset: offset });
     } else if (kind === 'feed' && groupId) {
-      result = await client.from('group_posts').select('id,group_id,author_id,content,created_at,updated_at,group_post_media(id,storage_path,media_type,mime_type,display_order)')
-        .eq('group_id',groupId).eq('published',true).eq('is_deleted',false).order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+19);
+      let query = client.from('group_posts').select('id,group_id,author_id,content,created_at,updated_at,group_post_media(id,storage_path,media_type,mime_type,display_order)')
+        .eq('group_id',groupId).eq('published',true).eq('is_deleted',false);
+      const afterCreated=params.get('afterCreated');const afterId=params.get('afterId');
+      const cursor=groupFeedCursor(afterCreated,afterId);
+      if(cursor)query=query.or(cursor);
+      result=await query.order('created_at',{ascending:false}).order('id',{ascending:false}).range(afterId?0:offset,afterId?19:offset+19);
     } else if (kind === 'interactions' && groupId) {
       const postId=params.get('post');
       if(!postId || !UUID.test(postId))

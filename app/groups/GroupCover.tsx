@@ -5,10 +5,10 @@ import type {GroupsTransport} from '@/lib/groups/transport';
 import styles from './groups.module.css';
 // Exact artwork used by the desktop and mobile dashboard ParaGhostLogoIcon.
 export const OFFICIAL_PARAGHOST='/parapost-icon-white.png';
-type Props={path?:string|null;file?:File;load:GroupsTransport['read'];name:string};
+type Props={path?:string|null;file?:File;load:GroupsTransport['read'];name:string;banner?:boolean};
 export default function GroupCover(props:Props){
   const key=props.file?`${props.file.name}:${props.file.size}:${props.file.lastModified}`:props.path??'default';
-  return <div className={styles.cover}><CoverImage key={key} {...props}/></div>;
+  return <div className={`${styles.cover} ${props.banner?styles.banner:''}`}><CoverImage key={key} {...props}/></div>;
 }
 function CoverImage({path,file,load,name}:Props){
  const [src,setSrc]=useState(OFFICIAL_PARAGHOST);

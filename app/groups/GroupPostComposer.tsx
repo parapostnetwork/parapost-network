@@ -72,7 +72,6 @@ export default function GroupPostComposer({ userId, profile, content, setContent
       <button type="button" style={composerActionPillStyle} disabled={busy} onClick={() => input.current?.click()}>
         <PhotoIcon /> Photos / Videos
       </button>
-      <span>Up to 4 files · Images 8 MB · Videos 32 MB</span>
     </div>
     {error && <p role="alert">{error}</p>}
     <div className={styles.composerFooter} style={composerFooterStyle}>

@@ -86,3 +86,13 @@
   .commentForm button { justify-self: end; }
   .replies { margin-left: 16px; }
 }
+
+/* Group surfaces keep the shared Dashboard geometry and the platform accent preference. */
+.composer, .post { background: color-mix(in srgb,var(--background,#07090d) 92%,var(--parapost-accent-1)) !important; border-color: var(--parapost-accent-border) !important; box-shadow: 0 12px 38px #0003 !important; }
+.comments { background: color-mix(in srgb,var(--background,#07090d) 85%,transparent); border-radius: 16px; padding: 16px 12px 8px; }
+.commentActions { gap: 8px 16px; }
+.commentAction, .textButton { min-height: 44px; }
+.commentTop time { overflow-wrap: anywhere; }
+.commentBody { overflow-wrap: anywhere; }
+.notice { color: #d6c0f5; }
+@media(max-width:600px){.comments{padding:12px 8px 4px}.commentActions{margin-left:2px;gap:6px 12px}.replies{margin-left:12px;border-left:1px solid #b487e62b;padding-left:10px}.commentTop{gap:4px!important}}

@@ -220,16 +220,16 @@ export default function GroupPostActions({
     </div>
     <div className={styles.actions} data-private={!canShare}>
       <button type="button" className={styles.action} disabled={!canInteract || !stats || busy}
-        aria-pressed={stats?.liked ?? false} onClick={() => void toggleLike()}>
-        <HeartIcon filled={stats?.liked ?? false} /> Like
+        aria-label={stats?.liked ? 'Unlike post' : 'Like post'} aria-pressed={stats?.liked ?? false} onClick={() => void toggleLike()}>
+        <HeartIcon filled={stats?.liked ?? false} />
       </button>
       <button type="button" className={styles.action} disabled={!stats} aria-expanded={commentsOpen}
-        aria-controls={`group-comments-${postId}`} onClick={() => setCommentsOpen(open => !open)}>
-        <CommentIcon /> Comment
+        aria-label={commentsOpen ? 'Hide comments' : 'Show comments'} aria-controls={`group-comments-${postId}`} onClick={() => setCommentsOpen(open => !open)}>
+        <CommentIcon />
       </button>
       {canShare && <button type="button" className={styles.action} disabled={busy} aria-expanded={shareOpen}
         onClick={() => setShareOpen(open => !open)} aria-label="Share Group post to Dashboard and your Profile">
-        <ShareIcon /> Share
+        <ShareIcon />
       </button>}
     </div>
     {canShare && shareOpen && <section className={styles.comments} aria-label="Share Group post">
@@ -245,7 +245,7 @@ export default function GroupPostActions({
     {shareNotice && <p role="status" className={styles.notice}>{shareNotice}</p>}
     {commentsOpen && <section className={styles.comments} id={`group-comments-${postId}`} aria-label="Group post comments">
       <div className={styles.commentsHeader}><h3>Comments</h3>
-        <button type="button" className={styles.textButton} onClick={() => setCommentsOpen(false)}>Close</button></div>
+        <button type="button" className={styles.textButton} onClick={() => setCommentsOpen(false)}>Hide</button></div>
       {canInteract ? !replyTo && commentForm(null) : <p className={styles.empty}>Join this Group to comment.</p>}
       <div className={styles.thread}>
         {!stats?.comments.length && <p className={styles.empty}>No comments yet. Start the conversation.</p>}

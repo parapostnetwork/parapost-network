@@ -6,12 +6,12 @@ import GroupPostMedia from './GroupPostMedia';
 import posting from './groupPosting.module.css';
 import { postCardStyle, postHeaderStyle, postAuthorStyle, postContentStyle, dotsButtonStyle, postMenuStyle, menuItemStyle } from '@/components/postPresentation';
 import { supabase } from '@/lib/supabase';
-/* eslint-disable @next/next/no-img-element -- private media uses authenticated blob URLs */
 import { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { liveGroupsTransport, type GroupsTransport } from '@/lib/groups/transport';
 import { validateGroupFields, validateUpload } from '@/lib/groups/validation';
+import { appendGroupPosts } from '@/lib/groups/feed';
 import type { Group, GroupMember, GroupPost } from '@/lib/groups/types';
 import styles from './groups.module.css';
 import GroupCover from './GroupCover';
@@ -32,7 +32,7 @@ function GroupForm({group,onSubmit,busy}:{group?:Group;onSubmit:(name:string,des
     <label>Description<textarea maxLength={5000} value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></label>
     <label>Visibility<select value={visibility} disabled={!!group && group.membership_role!=='owner'} onChange={e=>setVisibility(e.target.value as 'public'|'private')}><option value="public">Public — authenticated users can read; members can post</option><option value="private">Private — approval required to read or post</option></select></label>
     <label>Cover image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const selected=e.target.files?.[0];try{if(selected)validateUpload(selected.type,selected.size,true);setFile(selected);setError('');}catch(err){setFile(undefined);setError(err instanceof Error?err.message:'Invalid cover');}}}/></label>{file&&<p className={styles.muted}>{file.name} · selected cover preview</p>}
-    <p className={styles.muted}>The name, description, cover, owner and member count appear in the directory, including for private Groups. Images: up to 8 MB. Changing a private Group to public makes its existing discussions visible to eligible authenticated users.</p>
+    <p className={styles.muted}>The name, description, cover, owner and member count appear in the directory, including for private Groups. Recommended cover: 1640 × 856 pixels (1.91:1). Existing images are supported and cropped to fit. Images: up to 8 MB. Changing a private Group to public makes its existing discussions visible to eligible authenticated users.</p>
     {error && <p role="alert">{error}</p>}<button disabled={busy} type="submit">{busy?'Saving…':group?'Save changes':'Create Group'}</button>
   </form>;
 }
@@ -55,7 +55,9 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
     avatar_url:string|null;
   }>>({});
   const [groups,setGroups]=useState<Group[]>([]); const [posts,setPosts]=useState<GroupPost[]>([]); const [members,setMembers]=useState<GroupMember[]>([]);
-  const [search,setSearch]=useState('');const [filter,setFilter]=useState('all');const [offset,setOffset]=useState(0);const [feedOffset,setFeedOffset]=useState(0);const [memberOffset,setMemberOffset]=useState(0);
+  const [search,setSearch]=useState('');const [filter,setFilter]=useState('all');const [offset,setOffset]=useState(0);const [memberOffset,setMemberOffset]=useState(0);
+  const feedEnd=useRef<HTMLDivElement>(null);const moreLock=useRef(false);
+  const [hasMore,setHasMore]=useState(false);const [loadingMore,setLoadingMore]=useState(false);const [moreError,setMoreError]=useState('');
   const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
   const [create,setCreate]=useState(false);const [settings,setSettings]=useState(false);const [management,setManagement]=useState(false);
   const [content,setContent]=useState('');const [files,setFiles]=useState<File[]>([]);
@@ -139,12 +141,12 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
       const params=new URLSearchParams({search,filter,offset:String(offset)});if(groupId)params.set('group',groupId);
       const list:Group[]=await (await groupsFetch(`/api/groups?${params}`)).json();
       if(number!==requestNumber.current)return;
-      setGroups(list);setPosts([]);setMembers([]);
+      setGroups(list);setPosts([]);setMembers([]);setHasMore(false);setMoreError('');
       if(groupId&&list[0]) {
         const current=list[0];
         const allowed=current.membership_status==='approved'||(current.visibility==='public'&&!['rejected','removed','banned'].includes(current.membership_status ?? ''));
-        const feed:GroupPost[]=allowed?await(await groupsFetch(`/api/groups?kind=feed&group=${groupId}&offset=${feedOffset}`)).json():[];
-        if(number!==requestNumber.current)return;setPosts(feed);
+        const feed:GroupPost[]=allowed?await(await groupsFetch(`/api/groups?kind=feed&group=${groupId}&offset=0`)).json():[];
+        if(number!==requestNumber.current)return;setPosts(feed);setHasMore(feed.length===20);
         if(management&&current.membership_status==='approved'&&['owner','admin'].includes(current.membership_role ?? '')) {
           const roster=await(await groupsFetch(`/api/groups?kind=members&group=${groupId}&offset=${memberOffset}`)).json();
           if(number===requestNumber.current)setMembers(roster);
@@ -152,10 +154,29 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
       }
     } catch(e) {if(number===requestNumber.current){setGroups([]);setPosts([]);setMembers([]);setError(e instanceof Error?e.message:'Unable to load Groups.');}}
     finally {if(number===requestNumber.current)setLoading(false);}
-  },[groupId,search,filter,offset,feedOffset,memberOffset,management,groupsFetch]);
+  },[groupId,search,filter,offset,memberOffset,management,groupsFetch]);
   useEffect(()=>{if(!authReady||!userId)return;const sequence=requestNumber;const timer=setTimeout(()=>{setError('');void refresh();},200);return()=>{clearTimeout(timer);sequence.current++;};},[refresh,userId,authReady]);
   // Clear restricted content before revalidating on tab focus. Already downloaded bytes cannot be revoked.
   useEffect(()=>{const focus=()=>{setPosts([]);setMembers([]);if(userId)void refresh();};window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus);},[refresh,userId]);
+  const loadMore=useCallback(async()=>{
+    if(!groupId||!hasMore||loading||moreLock.current||!posts.length)return;
+    moreLock.current=true;setLoadingMore(true);setMoreError('');
+    const version=requestNumber.current;const last=posts[posts.length-1];
+    try{
+      const params=new URLSearchParams({kind:'feed',group:groupId,afterCreated:last.created_at,afterId:last.id});
+      const next:GroupPost[]=await(await groupsFetch(`/api/groups?${params}`)).json();
+      if(version!==requestNumber.current)return;
+      setPosts(current=>appendGroupPosts(current,next));
+      setHasMore(next.length===20);
+    }catch{if(version===requestNumber.current)setMoreError('Unable to load more posts. Please try again.');}
+    finally{moreLock.current=false;setLoadingMore(false);}
+  },[groupId,hasMore,loading,posts,groupsFetch]);
+  useEffect(()=>{
+    const target=feedEnd.current;
+    if(!target||!hasMore||loading||loadingMore||moreError)return;
+    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))void loadMore();},{rootMargin:'300px'});
+    observer.observe(target);return()=>observer.disconnect();
+  },[loadMore,hasMore,loading,loadingMore,moreError]);
   async function perform(fn:()=>Promise<void>) {
     if(mutationLock.current)return;mutationLock.current=true;setBusy(true);setError('');setNotice('');
     try{await fn();await refresh();}catch(e){setError(e instanceof Error?e.message:'Action failed.');}finally{mutationLock.current=false;setBusy(false);}
@@ -175,7 +196,7 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
     const draft=await groupAction('draft',groupId,{content});
     try{for(const file of files)await groupUpload(groupId,file,draft.id);await groupAction('publish',groupId,{post_id:draft.id});}
     catch(e){try{await groupAction('delete_post',groupId,{post_id:draft.id});}catch{/* Durable cleanup runbook handles abandoned drafts. */}throw e;}
-    setContent('');setFiles([]);setFeedOffset(0);setNotice('Post published.');
+    setContent('');setFiles([]);setNotice('Post published.');
   }
   if(!authReady)return <main className={styles.page}><p role="status">Checking your session…</p></main>;
   if(!userId)return <main className={styles.page}><h1>Groups</h1><p>Sign in to discover and participate in Groups.</p><Link href="/">Sign in</Link></main>;
@@ -197,7 +218,7 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
       {!loading&&!groups.length&&<p className={styles.empty}>No Groups found. Try another filter or create a community.</p>}
       <div className={styles.controls}><button disabled={offset===0||loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button><button disabled={groups.length<24||loading} onClick={()=>setOffset(offset+24)}>Next</button></div>
     </>:group?<>
-      <section className={styles.card}><GroupCover path={group.cover_storage_path} name={group.name} load={groupsFetch}/><div className={styles.body}><p className={styles.eyebrow}>{group.visibility} Group</p><h1>{group.name}</h1><p className={styles.text}>{group.description}</p><p>{group.member_count} {group.member_count===1?'member':'members'} · Owner: <Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></p><div className={styles.controls}>{membership(group)}{admin&&<><button onClick={()=>setSettings(v=>!v)} aria-expanded={settings}>Group settings</button><button onClick={()=>setManagement(v=>!v)} aria-expanded={management}>Manage members</button></>}</div></div></section>
+      <section className={`${styles.card} ${styles.groupHeader}`}><GroupCover banner path={group.cover_storage_path} name={group.name} load={groupsFetch}/><div className={`${styles.body} ${styles.groupIdentity}`}><p className={styles.eyebrow}>{group.visibility} Group</p><h1>{group.name}</h1><p className={styles.text}>{group.description}</p><p>{group.member_count} {group.member_count===1?'member':'members'} · Owner: <Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></p><div className={styles.controls}>{membership(group)}{admin&&<><button onClick={()=>setSettings(v=>!v)} aria-expanded={settings}>Group settings</button><button onClick={()=>setManagement(v=>!v)} aria-expanded={management}>Manage members</button></>}</div></div></section>
       {admin&&settings&&<>{group.cover_storage_path&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove_cover',group.id);setNotice('Custom cover removed. ParaGhost is restored.');})}>Remove cover and restore ParaGhost</button>}<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} busy={busy} onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');});}}/>{owner&&<section className={styles.form}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</>}
       {admin&&management&&<section className={styles.form}><h2>Member management</h2><p>Admins manage ordinary members. Only the owner assigns roles or restores rejected, removed or banned members to pending.</p>{members.map(m=><article className={styles.member} key={m.user_id}><div><Link href={`/profile/${m.user_id}`}>{m.display_name}</Link><p>{m.role} · {m.status}</p></div>{m.user_id!==userId&&m.role!=='owner'&&(owner||m.role==='member')&&<div className={styles.controls}>
         {m.status==='pending'&&['approve','reject'].map(action=><button key={action} disabled={busy} onClick={()=>void perform(async()=>{await groupAction(action,group.id,{user_id:m.user_id});})}>{action==='approve'?'Approve':'Reject'}</button>)}
@@ -205,6 +226,7 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
         {m.status!=='banned'&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('ban',group.id,{user_id:m.user_id});})}>Ban</button>}
         {owner&&['rejected','removed','banned'].includes(m.status)&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('restore',group.id,{user_id:m.user_id});})}>Restore to pending</button>}
       </div>}</article>)}{!members.length&&!loading&&<p>No members on this page.</p>}<div className={styles.controls}><button disabled={!memberOffset||loading} onClick={()=>setMemberOffset(Math.max(0,memberOffset-50))}>Previous members</button><button disabled={members.length<50||loading} onClick={()=>setMemberOffset(memberOffset+50)}>More members</button></div></section>}
+      <div className={styles.discussionColumn}>
       {approved && <GroupPostComposer userId={userId} profile={viewerProfile} content={content}
         setContent={setContent} files={files} setFiles={setFiles} busy={busy} onPublish={() => void perform(publish)} />}
 
@@ -264,7 +286,8 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
   read={groupsFetch}
   action={groupAction}
 />
-</article>)}{!posts.length&&!loading&&<p className={styles.empty}>No posts on this page yet.</p>}<div className={styles.controls}><button disabled={!feedOffset||loading} onClick={()=>setFeedOffset(Math.max(0,feedOffset-20))}>Newer posts</button><button disabled={posts.length<20||loading} onClick={()=>setFeedOffset(feedOffset+20)}>Older posts</button></div></section>}
+</article>)}{!posts.length&&!loading&&<p className={styles.empty}>No posts on this page yet.</p>}<div ref={feedEnd} className={styles.feedEnd} role="status">{loadingMore?'Loading more posts…':!hasMore&&posts.length>0?'You’re all caught up.':''}</div>{moreError&&<div role="alert" className={styles.alert}>{moreError} <button disabled={loadingMore} onClick={()=>void loadMore()}>Try again</button></div>}</section>}
+      </div>
     </>:!loading&&<p className={styles.empty}>This Group is unavailable.</p>}
   </div></main>;
 }
