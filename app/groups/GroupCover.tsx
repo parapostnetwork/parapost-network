@@ -12,12 +12,12 @@ export default function GroupCover(props:Props){
 }
 function CoverImage({path,file,load,name}:Props){
   const [src,setSrc]=useState<string|null>(
-    path || file ? null : OFFICIAL_PARAGHOST
+    file || path !== null ? null : OFFICIAL_PARAGHOST
   );
 
   useEffect(()=>{
     if(!path&&!file){
-      setSrc(OFFICIAL_PARAGHOST);
+      setSrc(path === null ? OFFICIAL_PARAGHOST : null);
       return;
     }
 
@@ -62,7 +62,7 @@ function CoverImage({path,file,load,name}:Props){
 
       preloader.onerror=()=>{
         if(active&&!controller.signal.aborted){
-          setSrc(OFFICIAL_PARAGHOST);
+          setSrc(null);
         }
       };
 
@@ -71,7 +71,7 @@ function CoverImage({path,file,load,name}:Props){
 
     void resolve().catch(()=>{
       if(active&&!controller.signal.aborted){
-        setSrc(OFFICIAL_PARAGHOST);
+        setSrc(null);
       }
     });
 
@@ -97,7 +97,7 @@ function CoverImage({path,file,load,name}:Props){
       ?'ParaGhost — official Parapost Network mascot'
       :`${name} cover`}
     onError={()=>{
-      if(!fallback)setSrc(OFFICIAL_PARAGHOST);
+      if(!fallback)setSrc(null);
     }}
   />;
 }

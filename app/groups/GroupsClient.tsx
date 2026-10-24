@@ -27,7 +27,7 @@ function GroupForm({group,onSubmit,busy}:{group?:Group;onSubmit:(name:string,des
   const [file,setFile]=useState<File>();
   const [error,setError]=useState('');
   return <form className={styles.form} onSubmit={async event => {event.preventDefault();setError('');try {validateGroupFields(name,description,visibility);if(file)validateUpload(file.type,file.size,true);await onSubmit(name,description,visibility,file);}catch(e){setError(e instanceof Error?e.message:'Unable to save.');}}}>
-    {!group&&<h2>Create a Group</h2>}<GroupCover path={group?.cover_storage_path} file={file} load={read} name={name||'New Group'}/>
+    {!group&&<h2>Create a Group</h2>}<GroupCover path={group ? group.cover_storage_path : null} file={file} load={read} name={name||'New Group'}/>
     <label>Name<input required minLength={3} maxLength={100} value={name} onChange={e=>setName(e.target.value)} /></label>
     <label>Description<textarea maxLength={5000} value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></label>
     <label>Visibility<select value={visibility} disabled={!!group && group.membership_role!=='owner'} onChange={e=>setVisibility(e.target.value as 'public'|'private')}><option value="public">Public — authenticated users can read; members can post</option><option value="private">Private — approval required to read or post</option></select></label>
