@@ -17,6 +17,20 @@ import styles from './groups.module.css';
 import GroupCover from './GroupCover';
 import GroupPostActions from './GroupPostActions';
 
+type GroupTab = 'discussion' | 'about' | 'members' | 'media';
+
+function GroupAbout({group}:{group:Group}) {
+  return <>
+    <h2>About this Group</h2>
+    <p className={styles.text}>{group.description || 'A place for the community to connect and share.'}</p>
+    <dl className={styles.details}>
+      <div><dt>Privacy</dt><dd>{group.visibility==='public'?'Public Group':'Private Group'}<span>{group.visibility==='public'?'Eligible signed-in visitors can read discussions. Join to participate.':'Only approved members can read discussions and media.'}</span></dd></div>
+      <div><dt>Community</dt><dd>{group.member_count} {group.member_count===1?'member':'members'}</dd></div>
+      <div><dt>Group owner</dt><dd><Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></dd></div>
+    </dl>
+  </>;
+}
+
 const TransportContext=createContext<GroupsTransport>(liveGroupsTransport);
 
 function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:(name:string,description:string,visibility:string,file?:File)=>Promise<void>;busy:boolean;viewerId?:string}) {
@@ -32,7 +46,7 @@ function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:(name:s
     <label>Description<textarea maxLength={5000} value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></label>
     <label>Visibility<select value={visibility} disabled={!!group && group.membership_role!=='owner'} onChange={e=>setVisibility(e.target.value as 'public'|'private')}><option value="public">Public — authenticated users can read; members can post</option><option value="private">Private — approval required to read or post</option></select></label>
     <label>Cover image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const selected=e.target.files?.[0];try{if(selected)validateUpload(selected.type,selected.size,true);setFile(selected);setError('');}catch(err){setFile(undefined);setError(err instanceof Error?err.message:'Invalid cover');}}}/></label>{file&&<p className={styles.muted}>{file.name} · selected cover preview</p>}
-    <p className={styles.muted}>The name, description, cover, owner and member count appear in the directory, including for private Groups. Recommended cover: 1640 × 856 pixels (1.91:1). Existing images are supported and cropped to fit. Images: up to 8 MB. Changing a private Group to public makes its existing discussions visible to eligible authenticated users.</p>
+    <p className={styles.muted}>The name, description, cover, owner and member count appear in the directory, including for private Groups. Recommended cover: 1640 × 856 pixels (1.91:1). Directory previews show the full image; the wide Group banner crops to fit. Images: up to 8 MB. Changing a private Group to public makes its existing discussions visible to eligible authenticated users.</p>
     {error && <p role="alert">{error}</p>}<button disabled={busy} type="submit">{busy?'Saving…':group?'Save changes':'Create Group'}</button>
   </form>;
 }
@@ -59,6 +73,7 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const feedEnd=useRef<HTMLDivElement>(null);const moreLock=useRef(false);
   const [hasMore,setHasMore]=useState(false);const [loadingMore,setLoadingMore]=useState(false);const [moreError,setMoreError]=useState('');
   const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
+  const [activeTab,setActiveTab]=useState<GroupTab>('discussion');
   const [create,setCreate]=useState(false);const [settings,setSettings]=useState(false);const [management,setManagement]=useState(false);
   const [content,setContent]=useState('');const [files,setFiles]=useState<File[]>([]);
   const [editPost,setEditPost]=useState<string>(); const [editContent,setEditContent]=useState('');
@@ -104,6 +119,13 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
   useEffect(()=>{
     if(!settings)return;
     const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key==='Tab'){
+        const modal=document.querySelector('[aria-labelledby="group-settings-heading"]');
+        const controls=Array.from(modal?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)')??[]);
+        const first=controls[0],last=controls[controls.length-1];
+        if(first&&last&&event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+        else if(first&&last&&!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+      }
       if(event.key==='Escape'&&!busy){
         setSettings(false);
         setDeleteName('');
@@ -118,6 +140,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   const admin=approved&&['owner','admin'].includes(group?.membership_role ?? '');
   const moderator=approved&&['owner','admin','moderator'].includes(group?.membership_role ?? '');
   const canRead=!!group && (approved || (group.visibility==='public' && !['rejected','removed','banned'].includes(group.membership_status ?? '')));
+  const selectedTab=(activeTab==='members'&&!admin)||(activeTab==='media'&&!canRead)?'discussion':activeTab;
   useEffect(()=>{
     let active=true;
     setViewerProfile(null);
@@ -222,18 +245,18 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   },[groupId,hasMore,loading,posts,groupsFetch]);
   useEffect(()=>{
     const target=feedEnd.current;
-    if(!target||!hasMore||loading||loadingMore||moreError)return;
+    if(selectedTab!=='discussion'||!target||!hasMore||loading||loadingMore||moreError)return;
     const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))void loadMore();},{rootMargin:'300px'});
     observer.observe(target);return()=>observer.disconnect();
-  },[loadMore,hasMore,loading,loadingMore,moreError]);
+  },[selectedTab,loadMore,hasMore,loading,loadingMore,moreError]);
   async function perform(fn:()=>Promise<void>) {
     if(mutationLock.current)return;mutationLock.current=true;setBusy(true);setError('');setNotice('');
     try{await fn();await refresh();}catch(e){setError(e instanceof Error?e.message:'Action failed.');}finally{mutationLock.current=false;setBusy(false);}
   }
   function membership(g:Group) {
     const status=g.membership_status;
-    if(status==='approved')return <><span>Joined · {g.membership_role}</span>{g.membership_role!=='owner'&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('leave',g.id);})}>Leave Group</button>}</>;
-    if(status==='pending')return <><span>Request pending</span><button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('leave',g.id);})}>Cancel request</button></>;
+    if(status==='approved')return <><span className={styles.membershipStatus}>✓ Joined · {g.membership_role}</span>{g.membership_role!=='owner'&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('leave',g.id);})}>Leave Group</button>}</>;
+    if(status==='pending')return <><span className={styles.membershipStatus}>Request pending</span><button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('leave',g.id);})}>Cancel request</button></>;
     if(status)return <span>Membership {status}. Contact the owner to request review.</span>;
     return <button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('join',g.id);})}>{g.visibility==='private'?'Request to join':'Join Group'}</button>;
   }
@@ -254,7 +277,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
     {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
     {loading&&<p role="status">Loading Groups…</p>}
     {!groupId?<>
-      <section className={styles.hero}><div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>Discover Groups</h1><p>Find your paranormal community. Share experiences and explore together.</p></div><button onClick={()=>setCreate(v=>!v)} aria-expanded={create}>{create?'Close form':'+ Create Group'}</button></section>
+      <section className={styles.hero}><div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>{create?'Create a Group':'Discover Groups'}</h1><p>{create?'Bring your community together. Give your Group a name and a place to call home.':'Find your paranormal community. Share experiences and explore together.'}</p></div><button onClick={()=>setCreate(v=>!v)} aria-expanded={create}>{create?'Cancel':'+ Create Group'}</button></section>
       {create&&<GroupForm busy={busy} onSubmit={async(name,description,visibility,file)=>{
         if(mutationLock.current)return;mutationLock.current=true;setBusy(true);
         try{const created=await groupAction('create',undefined,{name,description,visibility});
@@ -262,12 +285,54 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
           router.push(`${routeBase}/${created.id}`);
         }finally{mutationLock.current=false;setBusy(false);}
       }}/>}
-      <div className={styles.controls}><div className={styles.tabs}>{[['all','Discover'],['public','Public'],['private','Private'],['mine','My Groups']].map(([value,label])=><button key={value} aria-pressed={filter===value} onClick={()=>{setFilter(value);setOffset(0);}}>{label}</button>)}</div><label>Search Groups<input type="search" maxLength={100} value={search} onChange={e=>{setSearch(e.target.value);setOffset(0);}}/></label></div>
-      <div className={styles.grid}>{groups.map(g=><article key={g.id} className={styles.card}><GroupCover path={g.cover_storage_path} name={g.name} load={groupsFetch} viewerId={userId} cacheable={g.visibility==='public'}/><div className={styles.body}><p className={styles.eyebrow}>{g.visibility} Group</p><h2><Link href={`${routeBase}/${g.id}`}>{g.name}</Link></h2><p>{g.description}</p><p className={styles.muted}>{g.member_count} {g.member_count===1?'member':'members'} · Owner: {g.owner_name}</p><div className={styles.controls}>{membership(g)}</div></div></article>)}</div>
+      {!create&&<>
+      <div className={styles.directoryControls}><div className={styles.tabs} aria-label="Filter Groups">{[['all','Discover'],['public','Public'],['private','Private'],['mine','My Groups']].map(([value,label])=><button key={value} aria-pressed={filter===value} onClick={()=>{setFilter(value);setOffset(0);}}>{label}</button>)}</div><label className={styles.search}>Search Groups<input placeholder="Search by name or description" type="search" maxLength={100} value={search} onChange={e=>{setSearch(e.target.value);setOffset(0);}}/></label></div>
+      <div className={styles.grid}>{groups.map(g=><article key={g.id} className={styles.card}><GroupCover path={g.cover_storage_path} name={g.name} load={groupsFetch} viewerId={userId} cacheable={g.visibility==='public'}/><div className={styles.body}><p className={styles.eyebrow}>{g.visibility} Group</p><h2><Link href={`${routeBase}/${g.id}`}>{g.name}</Link></h2><p className={styles.cardDescription}>{g.description || "Connect with this community."}</p><p className={styles.muted}>{g.member_count} {g.member_count===1?'member':'members'} · Owner: {g.owner_name}</p><div className={styles.cardActions}><Link className={styles.openGroup} href={`${routeBase}/${g.id}`}>View Group →</Link>{membership(g)}</div></div></article>)}</div>
       {!loading&&!groups.length&&<p className={styles.empty}>No Groups found. Try another filter or create a community.</p>}
-      <div className={styles.controls}><button disabled={offset===0||loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button><button disabled={groups.length<24||loading} onClick={()=>setOffset(offset+24)}>Next</button></div>
+      <nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>
+      </>}
     </>:group?<>
-      <section className={`${styles.card} ${styles.groupHeader}`}><GroupCover banner path={group.cover_storage_path} name={group.name} load={groupsFetch} viewerId={userId} cacheable={group.visibility==='public'}/><div className={`${styles.body} ${styles.groupIdentity}`}><p className={styles.eyebrow}>{group.visibility} Group</p><h1>{group.name}</h1><p className={styles.text}>{group.description}</p><p>{group.member_count} {group.member_count===1?'member':'members'} · Owner: <Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></p><div className={styles.controls}>{membership(group)}{admin&&<><button onClick={()=>setSettings(v=>!v)} aria-expanded={settings}>Group settings</button><button onClick={()=>setManagement(v=>!v)} aria-expanded={management}>Manage members</button></>}</div></div></section>
+      <section className={`${styles.card} ${styles.groupHeader}`}>
+        <GroupCover banner path={group.cover_storage_path} name={group.name} load={groupsFetch} viewerId={userId} cacheable={group.visibility==='public'}/>
+        <div className={styles.groupIdentity}>
+          <div className={styles.identityText}>
+            <p className={styles.eyebrow}>{group.visibility} Group</p>
+            <h1>{group.name}</h1>
+            <p className={styles.headerDescription}>{group.description}</p>
+            <p className={styles.identityMeta}>{group.member_count} {group.member_count===1?'member':'members'} <span aria-hidden="true">·</span> Owner: <Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></p>
+          </div>
+          <div className={styles.identityActions}>
+            <div className={styles.membershipActions}>{membership(group)}</div>
+            {admin&&<button className={styles.secondaryButton} onClick={()=>setSettings(true)} aria-haspopup="dialog">Group settings</button>}
+          </div>
+        </div>
+        <div className={styles.groupTabs} role="tablist" aria-label="Group sections">
+          {(['discussion','about',...(admin?['members']:[]),...(canRead?['media']:[])] as GroupTab[]).map(tab=><button
+            key={tab} id={`group-tab-${tab}`} role="tab" aria-selected={selectedTab===tab}
+            aria-controls={`group-panel-${tab}`} tabIndex={selectedTab===tab?0:-1}
+            onClick={()=>{setActiveTab(tab);setManagement(tab==='members');}}
+            onKeyDown={event=>{
+              if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+              event.preventDefault();
+              const tabs=Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+              const index=tabs.indexOf(event.currentTarget);
+              const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+              tabs[next].focus();tabs[next].click();
+            }}>{tab==='members'?'Members':tab.charAt(0).toUpperCase()+tab.slice(1)}</button>)}
+        </div>
+      </section>
+      {selectedTab==='about'&&<section className={styles.aboutPanel} id="group-panel-about" role="tabpanel" aria-labelledby="group-tab-about" tabIndex={0}><GroupAbout group={group}/></section>}
+      {selectedTab==='media'&&canRead&&<section className={styles.mediaPanel} id="group-panel-media" role="tabpanel" aria-labelledby="group-tab-media" tabIndex={0}>
+        <h2>Photos & videos</h2><p className={styles.muted}>Media from the discussions you can access. Load older posts to explore more.</p>
+        <div className={styles.mediaGallery}>{posts.filter(post=>post.group_post_media.some(item=>['image','video'].includes(item.media_type))).map(post=><article data-posting key={post.id} className={`${posting.posting} ${styles.mediaCard}`}>
+          <GroupPostMedia groupId={group.id} postId={post.id} media={post.group_post_media} read={groupsFetch}/>
+          <p className={styles.muted}><time dateTime={post.created_at}>{new Date(post.created_at).toLocaleDateString()}</time></p>
+          <button className={styles.secondaryButton} onClick={()=>{setActiveTab('discussion');requestAnimationFrame(()=>document.getElementById(`group-post-${post.id}`)?.scrollIntoView({block:'start'}));}}>View discussion</button>
+        </article>)}</div>
+        {!loading&&!posts.some(post=>post.group_post_media.some(item=>['image','video'].includes(item.media_type)))&&<p className={styles.empty}>No photos or videos in the loaded posts.</p>}
+        {hasMore&&<button disabled={loadingMore} onClick={()=>void loadMore()}>{loadingMore?'Loading…':'Load older posts'}</button>}
+        {moreError&&<p role="alert" className={styles.alert}>{moreError}</p>}
+      </section>}
       {admin&&settings&&
         <div className={styles.settingsOverlay}
           onMouseDown={event=>{
@@ -289,17 +354,20 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
                 }}>Close</button>
             </header>
 {group.cover_storage_path&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove_cover',group.id);setNotice('Custom cover removed. ParaGhost is restored.');})}>Remove cover and restore ParaGhost</button>}<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} viewerId={userId} busy={busy} onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');setSettings(false);setDeleteName('');});}}/>{owner&&<section className={`${styles.form} ${styles.settingsDanger}`}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</div></div>}
-      {admin&&management&&<section className={styles.form}><h2>Member management</h2><p>Admins manage ordinary members. Only the owner assigns roles or restores rejected, removed or banned members to pending.</p>{members.map(m=><article className={styles.member} key={m.user_id}><div><Link href={`/profile/${m.user_id}`}>{m.display_name}</Link><p>{m.role} · {m.status}</p></div>{m.user_id!==userId&&m.role!=='owner'&&(owner||m.role==='member')&&<div className={styles.controls}>
+      {admin&&management&&<section className={styles.form} id="group-panel-members" role="tabpanel" aria-labelledby="group-tab-members" tabIndex={0}><h2>Member management</h2><p>Admins manage ordinary members. Only the owner assigns roles or restores rejected, removed or banned members to pending.</p>{members.map(m=><article className={styles.member} key={m.user_id}><div><Link href={`/profile/${m.user_id}`}>{m.display_name}</Link><p>{m.role} · {m.status}</p></div>{m.user_id!==userId&&m.role!=='owner'&&(owner||m.role==='member')&&<div className={styles.controls}>
         {m.status==='pending'&&['approve','reject'].map(action=><button key={action} disabled={busy} onClick={()=>void perform(async()=>{await groupAction(action,group.id,{user_id:m.user_id});})}>{action==='approve'?'Approve':'Reject'}</button>)}
         {m.status==='approved'&&<><button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove',group.id,{user_id:m.user_id});})}>Remove</button>{owner&&<label>Role<select value={m.role} disabled={busy} onChange={e=>void perform(async()=>{await groupAction('role',group.id,{user_id:m.user_id,role:e.target.value});})}><option value="member">Member</option><option value="moderator">Moderator</option><option value="admin">Administrator</option></select></label>}</>}
         {m.status!=='banned'&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('ban',group.id,{user_id:m.user_id});})}>Ban</button>}
         {owner&&['rejected','removed','banned'].includes(m.status)&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('restore',group.id,{user_id:m.user_id});})}>Restore to pending</button>}
-      </div>}</article>)}{!members.length&&!loading&&<p>No members on this page.</p>}<div className={styles.controls}><button disabled={!memberOffset||loading} onClick={()=>setMemberOffset(Math.max(0,memberOffset-50))}>Previous members</button><button disabled={members.length<50||loading} onClick={()=>setMemberOffset(memberOffset+50)}>More members</button></div></section>}
+      </div>}</article>)}{!members.length&&!loading&&<p>No members on this page.</p>}<div className={styles.controls}>{memberOffset>0&&<button disabled={loading} onClick={()=>setMemberOffset(Math.max(0,memberOffset-50))}>Previous members</button>}{members.length===50&&<button disabled={loading} onClick={()=>setMemberOffset(memberOffset+50)}>More members</button>}</div></section>}
+      <div hidden={selectedTab!=='discussion'} className={styles.discussionLayout} id="group-panel-discussion" role="tabpanel" aria-labelledby="group-tab-discussion" tabIndex={0}>
+      <aside className={styles.aboutSidebar}><GroupAbout group={group}/></aside>
       <div className={styles.discussionColumn}>
+      {canRead&&!approved&&<p className={styles.readingNotice}>You’re viewing a public discussion. Join this Group to participate.</p>}
       {approved && <GroupPostComposer userId={userId} profile={viewerProfile} content={content}
         setContent={setContent} files={files} setFiles={setFiles} busy={busy} onPublish={() => void perform(publish)} />}
 
-      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article data-posting className={`${posting.posting} ${posting.post}`} style={postCardStyle} key={post.id}><div className={posting.postHeader} style={postHeaderStyle}>
+      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article data-posting className={`${posting.posting} ${posting.post}`} id={`group-post-${post.id}`} style={postCardStyle} key={post.id}><div className={posting.postHeader} style={postHeaderStyle}>
   <div style={postAuthorStyle}>
     <Link href={`/profile/${post.author_id}`} className={posting.avatar} style={{width:48,height:48}}>
       {authorProfiles[post.author_id]?.avatar_url
@@ -356,7 +424,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   action={groupAction}
 />
 </article>)}{!posts.length&&!loading&&<p className={styles.empty}>No posts on this page yet.</p>}<div ref={feedEnd} className={styles.feedEnd} role="status">{loadingMore?'Loading more posts…':!hasMore&&posts.length>0?'You’re all caught up.':''}</div>{moreError&&<div role="alert" className={styles.alert}>{moreError} <button disabled={loadingMore} onClick={()=>void loadMore()}>Try again</button></div>}</section>}
-      </div>
+      </div></div>
     </>:!loading&&<p className={styles.empty}>This Group is unavailable.</p>}
   </div></main>;
 }
