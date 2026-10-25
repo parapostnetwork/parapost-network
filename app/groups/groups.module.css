@@ -19,7 +19,9 @@
 .card, .form, .aboutPanel, .aboutSidebar, .mediaPanel { background:color-mix(in srgb,var(--background,#07090d) 92%,var(--parapost-accent-1)); border:1px solid var(--parapost-accent-border,#ae7ce526); border-radius:22px; min-width:0; }
 .card { overflow:hidden; }
 .grid .card { width:100%; max-width:330px; display:flex; flex-direction:column; }
-.cover { aspect-ratio:1.91; min-width:0; position:relative; background:linear-gradient(115deg,var(--parapost-accent-1,#8b5cf6),var(--parapost-accent-2,#a855f7)); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.cover { aspect-ratio:1.91; min-width:0; position:relative; background:var(--background,#07090d); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+/* Pending custom covers stay dark; only a confirmed no-cover mascot gets the branded gradient. */
+.cover:has(.mascot) { background:linear-gradient(115deg,var(--parapost-accent-1,#8b5cf6),var(--parapost-accent-2,#a855f7)); }
 .banner { width:100%; height:auto; aspect-ratio:2.7/1; }
 .coverImage { display:block; width:100%; height:100%; position:absolute; inset:0; object-fit:cover; object-position:center; }
 .mascot { display:block; width:clamp(100px,22vw,160px); height:auto; max-height:65%; object-fit:contain; filter:drop-shadow(0 6px 24px #af72ff55); }
