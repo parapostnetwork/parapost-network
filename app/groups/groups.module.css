@@ -1,5 +1,5 @@
 /* Group surfaces use the same accent preferences and dark surfaces as the feed. */
-.page { min-height:100vh; background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--parapost-accent-1) 14%,transparent),transparent 680px),var(--background,#07090d); color:#f5f1fc; font-family:var(--parapost-user-font,Arial,Helvetica,sans-serif); padding:0 28px calc(48px + env(safe-area-inset-bottom)); }
+.page { min-height:100vh; background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--parapost-accent-1) 14%,transparent),transparent 680px),var(--background,#07090d); color:#f5f1fc; font-family:var(--parapost-user-font,Arial,Helvetica,sans-serif); padding:0 max(28px,env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left)); }
 .page *, .page *::before, .page *::after { box-sizing:border-box; }
 .shell { max-width:1180px; margin:auto; min-width:0; }
 .page a { color:var(--parapost-accent-readable-text,#d1b6ff); text-decoration:none; }
@@ -90,14 +90,14 @@
 .pagination { display:flex; justify-content:center; gap:12px; margin-top:24px; }
 .pagination:empty { display:none; }
 @media(max-width:900px) {
-  .page { padding-inline:20px; }
+  .page { padding-left:max(20px,env(safe-area-inset-left)); padding-right:max(20px,env(safe-area-inset-right)); }
   .discussionLayout { grid-template-columns:minmax(0,1fr); max-width:760px; margin-inline:auto; }
   .aboutSidebar { display:none; }
   .directoryControls { gap:16px; flex-wrap:wrap; }
   .search { flex:1; min-width:220px; }
 }
 @media(max-width:600px) {
-  .page { padding-inline:10px; }
+  .page { padding-left:max(10px,env(safe-area-inset-left)); padding-right:max(10px,env(safe-area-inset-right)); }
   .topbar { font-size:10px; min-height:56px; gap:8px; }
   .hero { align-items:flex-start; flex-direction:column; gap:12px; padding:22px 2px 18px; }
   .hero p { font-size:13px; }
@@ -106,7 +106,7 @@
   .tabs { width:100%; }
   .page .tabs > button { padding-inline:12px; }
   .search { width:100%; min-width:0; }
-  .grid { grid-template-columns:minmax(0,330px); justify-content:center; gap:16px; }
+  .grid { grid-template-columns:minmax(0,1fr); gap:16px; }
   .card, .form, .aboutPanel, .mediaPanel { border-radius:16px; }
   .body { padding:16px; }
   .groupHeader { margin-top:14px; }
@@ -216,3 +216,85 @@
 .discussionColumn textarea { box-sizing:border-box; }
 
 .mediaCard > button { background:#ffffff06; border:1px solid var(--parapost-accent-border); border-radius:12px; color:#fff; padding:10px 15px; min-height:44px; font-size:13px; }
+
+/* Fluid phone/tablet cards; retain the approved compact desktop directory. */
+@media (min-width:601px) and (max-width:1024px) {
+  .grid { grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+}
+@media (max-width:1024px) { .grid .card { max-width:none; } }
+.page button.leaveButton { background:transparent; color:#d0c5dc; border:1px solid var(--parapost-accent-border,#614775); padding:8px 12px; font-size:12px; min-height:44px; width:auto; }
+.membershipActions:has(.leaveButton) { flex-direction:row; flex-wrap:wrap; justify-content:flex-start; }
+.cardActions:has(.leaveButton) { align-items:center; }
+.page button { overflow-wrap:anywhere; }
+@media (max-width:600px) {
+  .hero { gap:10px; padding-block:18px 14px; }
+  .hero h1 { font-size:clamp(26px,7vw,30px); }
+  .groupIdentity { padding:14px; gap:10px; }
+  .groupIdentity h1 { font-size:clamp(24px,6.8vw,28px); }
+  .identityActions { gap:8px 12px; }
+  .page .groupTabs > button { padding-inline:12px; white-space:nowrap; }
+  .settingsModalHeader { align-items:flex-start; }
+  .settingsModalHeader button { flex-shrink:0; }
+}
+@media (max-height:500px) {
+  .settingsOverlay { padding:8px; }
+  .settingsModal { max-height:calc(100dvh - 16px); }
+}
+
+
+/* Compact Group Settings header pill */
+.page .identityActions > button.secondaryButton {
+  box-sizing: border-box;
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(191,179,204,.18);
+  background: transparent;
+  color: #bfb3cc;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.page .identityActions > button.secondaryButton:hover:not(:disabled) {
+  background: rgba(255,255,255,.035);
+  border-color: rgba(191,179,204,.35);
+}
+
+@media (max-width:600px) {
+  .page .identityActions > button.secondaryButton {
+    font-size: 12px;
+    padding: 8px 11px;
+  }
+}
+
+
+/* Responsive Group cover banner refinements */
+@media (max-width:600px) {
+  .banner {
+    width:100%;
+    height:clamp(150px,45vw,220px);
+    aspect-ratio:auto;
+  }
+
+  .banner .mascot {
+    width:clamp(115px,32vw,150px);
+    max-height:70%;
+  }
+}
+
+@media (max-width:1024px) and (max-height:500px)
+       and (orientation:landscape) {
+  .banner {
+    height:clamp(135px,40dvh,185px);
+    aspect-ratio:auto;
+  }
+
+  .banner .mascot {
+    max-height:70%;
+  }
+}

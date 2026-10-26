@@ -31,6 +31,7 @@ import { createPortal } from "react-dom";
 import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } from "@/components/PostMediaViewer";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import {fetchGroupShares} from '@/lib/groups/sharedFeed';
 import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
 import { supabase } from "@/lib/supabase";
 import { cleanupPushBeforeLogout } from "@/components/pwa/PushNotificationLogout";
@@ -3400,14 +3401,7 @@ useEffect(() => {
 
     void (async () => {
       try {
-        const { data, error } = await supabase.rpc(
-          "groups_shared_feed",
-          {
-            p_sharer_id: profileId,
-            p_limit: 60,
-            p_offset: 0,
-          }
-        );
+        const { data, error } = await fetchGroupShares(profileId, 60);
 
         if (!active || request !== sequence) return;
 
@@ -3423,7 +3417,7 @@ useEffect(() => {
         setGroupSharedPostPosts(
           rows.filter(
             (share) =>
-              Boolean(share.share_id && share.post_id) &&
+              Boolean(share.share_id && (share.post_id || share.promotion)) &&
               share.sharer_id === profileId
           )
         );
@@ -3455,6 +3449,7 @@ useEffect(() => {
   window.addEventListener("focus", handleFocus);
   document.addEventListener("visibilitychange", handleVisibility);
   window.addEventListener("pagehide", clearShares);
+  window.addEventListener("parapost-group-shared", refreshShares);
 
   return () => {
     active = false;
@@ -3462,6 +3457,7 @@ useEffect(() => {
     window.removeEventListener("focus", handleFocus);
     document.removeEventListener("visibilitychange", handleVisibility);
     window.removeEventListener("pagehide", clearShares);
+    window.removeEventListener("parapost-group-shared", refreshShares);
   };
 }, [profileId, viewerId]);
 

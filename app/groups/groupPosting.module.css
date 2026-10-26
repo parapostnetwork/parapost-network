@@ -96,3 +96,23 @@
 .commentBody { overflow-wrap: anywhere; }
 .notice { color: #d6c0f5; }
 @media(max-width:600px){.comments{padding:12px 8px 4px}.commentActions{margin-left:2px;gap:6px 12px}.replies{margin-left:12px;border-left:1px solid #b487e62b;padding-left:10px}.commentTop{gap:4px!important}}
+
+/* Group-only responsive refinements; Dashboard/Profile shared primitives remain intact. */
+.composerHint { color:#a1a1aa; font-size:12px; line-height:1.5; }
+.composerTop textarea { font-size:16px!important; }
+.editForm textarea { box-sizing:border-box; font-size:16px; min-width:0; }
+.postHeader > div:first-child { min-width:0; }
+@media(max-width:760px) {
+  .composerTop { grid-template-columns:40px minmax(0,1fr) 44px!important; gap:8px!important; }
+  .composerTop > button { width:44px!important; height:44px!important; }
+  .composerFooter { gap:8px!important; margin-top:10px!important; }
+  .composerFooter button { min-height:44px!important; }
+  .postHeader { gap:8px!important; margin-bottom:10px!important; }
+  .postHeader > div:first-child { gap:8px!important; }
+  .postHeader .avatar { width:40px!important; height:40px!important; }
+  .authorName { line-height:1.35; }
+  .authorMeta time { font-size:12px; line-height:1.4; }
+  .menuWrap > button { width:44px!important; height:44px!important; }
+  .commentForm textarea { font-size:16px!important; }
+  .actions { gap:4px; }
+}

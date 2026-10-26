@@ -4,6 +4,7 @@ import { composerCardStyle, composerTopRowStyle, composerInputStyle, composerIma
 import PostComposerInput from "@/components/PostComposerInput";
 import { DotsIcon, HeartIcon, CommentIcon, ShareIcon } from "@/components/PostActionIcons";
 import { groupsNavigationEnabled } from "@/lib/groups/config";
+import {fetchGroupShares} from '@/lib/groups/sharedFeed';
 import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
@@ -2510,7 +2511,7 @@ export default function DashboardPage() {
       .filter(
         (share) =>
           !blockedUserIds.includes(share.sharer_id) &&
-          !blockedUserIds.includes(share.original_author_id)
+          (!share.original_author_id || !blockedUserIds.includes(share.original_author_id))
       )
       .map((share) => ({
         type: "group_shared_post" as const,
@@ -3726,11 +3727,7 @@ export default function DashboardPage() {
 
   const fetchSharedGroupPosts = useCallback(async (blockedIds: string[] = []) => {
     const requestId = ++groupSharedRequestRef.current;
-    const { data, error } = await supabase.rpc("groups_shared_feed", {
-      p_sharer_id: null,
-      p_limit: DASHBOARD_FEED_ITEM_LIMIT,
-      p_offset: 0,
-    });
+    const { data, error } = await fetchGroupShares(null, DASHBOARD_FEED_ITEM_LIMIT);
 
     if (requestId !== groupSharedRequestRef.current) {
       return [] as SharedGroupPost[];
@@ -3748,9 +3745,9 @@ export default function DashboardPage() {
 
     const visible = rows.filter(
       (share) =>
-        Boolean(share.share_id && share.sharer_id && share.original_author_id) &&
+        Boolean(share.share_id && share.sharer_id && (share.original_author_id || share.promotion)) &&
         !blockedIds.includes(share.sharer_id) &&
-        !blockedIds.includes(share.original_author_id)
+        (!share.original_author_id || !blockedIds.includes(share.original_author_id))
     );
 
     setGroupSharedPostItems(visible);
@@ -4157,7 +4154,7 @@ export default function DashboardPage() {
             ...visibleSharedPosts.map((share) => share.user_id),
             ...visibleSharedPosts.map((share) => share.original_post.user_id),
               ...visibleGroupShares.map((share) => share.sharer_id),
-              ...visibleGroupShares.map((share) => share.original_author_id),
+              ...visibleGroupShares.flatMap((share) => share.original_author_id ? [share.original_author_id] : []),
             ...visibleShared.map((share) => share.user_id),
             ...visibleShared.map((share) => share.reel_user_id),
             ...visibleShared.map((share) => share.creator_profile_id || ""),
@@ -4172,7 +4169,12 @@ export default function DashboardPage() {
           ];
 
           return Promise.all([
-            fetchProfileMap(profileIds, blockedIds),
+            fetchProfileMap(
+              profileIds.filter(
+                (id): id is string => typeof id === "string" && id.length > 0
+              ),
+              blockedIds
+            ),
             fetchCounts(
               userId || undefined,
               countPostIds,
@@ -4194,7 +4196,7 @@ export default function DashboardPage() {
       sharedLikesReconcilerRef.current?.resume();
       setFetchingPosts(false);
     }
-  }, [fetchCounts, fetchFollowData, fetchFriendShowcases, fetchLiveFeedStreams, fetchNotifications, fetchPeopleToDiscover, fetchProfileMap, fetchRecentlyViewed, fetchSharedPosts, fetchSharedReels]);
+  }, [fetchCounts, fetchFollowData, fetchFriendShowcases, fetchLiveFeedStreams, fetchNotifications, fetchPeopleToDiscover, fetchProfileMap, fetchRecentlyViewed, fetchSharedGroupPosts, fetchSharedPosts, fetchSharedReels]);
 
   useEffect(() => {
     void fetchDashboardData(true);
@@ -4567,12 +4569,14 @@ export default function DashboardPage() {
     };
 
     window.addEventListener("focus", handleFocusRefresh);
+    window.addEventListener("parapost-group-shared", handleFocusRefresh);
     document.addEventListener("visibilitychange", handleVisibilityRefresh);
 
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
       window.clearInterval(intervalId);
       window.removeEventListener("focus", handleFocusRefresh);
+      window.removeEventListener("parapost-group-shared", handleFocusRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityRefresh);
       void supabase.removeChannel(channel);
     };
@@ -6332,8 +6336,8 @@ export default function DashboardPage() {
                                 "Member"
                               }
                               authorName={
-                                profilesMap[item.share.original_author_id]?.full_name ||
-                                profilesMap[item.share.original_author_id]?.username ||
+                                profilesMap[item.share.original_author_id ?? ""]?.full_name ||
+                                profilesMap[item.share.original_author_id ?? ""]?.username ||
                                 "Original author"
                               }
                             />

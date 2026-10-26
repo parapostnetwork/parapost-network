@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import PostComposerInput, { PhotoIcon } from '@/components/PostComposerInput';
-import { composerCardStyle, composerActionPillStyle, composerFooterStyle, publishButtonStyle,
+import PostComposerInput from '@/components/PostComposerInput';
+import { composerCardStyle, composerFooterStyle, publishButtonStyle,
   imagePreviewWrapStyle, composerPreviewGridStyle, composerPreviewSingleGridStyle,
   composerPreviewTileStyle, composerPreviewSingleTileStyle, composerPreviewImageStyle,
   composerPreviewCounterStyle } from '@/components/postPresentation';
@@ -68,14 +68,22 @@ export default function GroupPostComposer({ userId, profile, content, setContent
       <div className={styles.previewMeta}><span>{files.length} of 4 selected</span>
         <button type="button" disabled={busy} onClick={() => setFiles([])}>Remove media</button></div>
     </div>}
-    <div className={styles.composerActions}>
-      <button type="button" style={composerActionPillStyle} disabled={busy} onClick={() => input.current?.click()}>
-        <PhotoIcon /> Photos / Videos
-      </button>
-    </div>
     {error && <p role="alert">{error}</p>}
     <div className={styles.composerFooter} style={composerFooterStyle}>
-      <button type="submit" style={publishButtonStyle} disabled={busy || (!content.trim() && !files.length)}>
+      <span className={styles.composerHint}>{files.length?`${files.length} of 4 attachments`:"Text, photos or videos"}</span>
+      <button type="submit" style={{
+        ...publishButtonStyle,
+        padding: '8px 12px',
+        minHeight: 44,
+        width: 'auto',
+        maxWidth: '100%',
+        flexShrink: 0,
+        borderRadius: 999,
+        fontSize: 'clamp(12px, 1vw + 8px, 13px)',
+        fontWeight: 600,
+        lineHeight: 1.2,
+        whiteSpace: 'nowrap'
+      }} disabled={busy || (!content.trim() && !files.length)}>
         {busy ? 'Publishing…' : 'Publish post'}
       </button>
     </div>

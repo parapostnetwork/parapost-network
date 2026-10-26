@@ -3,6 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
 import Link from 'next/link';
+import GroupShareButton from './GroupShareButton';
 import { supabase } from '@/lib/supabase';
 import styles from './groupPosting.module.css';
 import { PostAvatar, profileName, type PostProfile } from './PostIdentity';
@@ -32,15 +33,16 @@ type Props = {
   groupId: string;
   postId: string;
   viewerId: string;
-  ownerId: string;
+  ownerId: string | null;
   canInteract: boolean;
   canShare: boolean;
+  privateSharing?: boolean;
   read: GroupsTransport['read'];
   action: GroupsTransport['action'];
 };
 
 export default function GroupPostActions({
-  groupId, postId, viewerId, ownerId, canInteract, canShare, read, action
+  groupId, postId, viewerId, ownerId, canInteract, canShare, privateSharing=false, read, action
 }: Props) {
   const marker = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -334,7 +336,7 @@ export default function GroupPostActions({
         {stats ? `${stats.comment_count} ${stats.comment_count === 1 ? 'Comment' : 'Comments'}` : 'Comments'}
       </button>
     </div>
-    <div className={styles.actions} data-private={!canShare}>
+    <div className={styles.actions} data-private={!canShare&&!privateSharing}>
       <button type="button" className={styles.action} disabled={!canInteract || !stats || busy}
         aria-label={stats?.liked ? 'Unlike post' : 'Like post'} aria-pressed={stats?.liked ?? false} onClick={() => void toggleLike()}>
         <HeartIcon filled={stats?.liked ?? false} />
@@ -347,6 +349,7 @@ export default function GroupPostActions({
         onClick={() => setShareOpen(open => !open)} aria-label="Share Group post to Dashboard and your Profile">
         <ShareIcon />
       </button>}
+      {privateSharing&&<GroupShareButton groupId={groupId} postId={postId} read={read} iconOnly/>}
     </div>
     {canShare && shareOpen && <section className={styles.comments} aria-label="Share Group post">
       <div className={styles.commentsHeader}><h3>Share to Dashboard and your Profile</h3>
