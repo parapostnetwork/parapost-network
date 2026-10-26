@@ -29,3 +29,59 @@ export async function POST(request:Request){
     return Response.json(data,{headers:privateHeaders});
   }catch(error){return groupError(error);}
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const client = await groupClient(request);
+
+    const reader = request.body?.getReader();
+    if (!reader) throw new Error("Missing body");
+
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      size += value.byteLength;
+      if (size > 2000) {
+        await reader.cancel();
+        throw new Error("Request too large");
+      }
+
+      chunks.push(value);
+    }
+
+    const input = JSON.parse(
+      new TextDecoder().decode(Buffer.concat(chunks))
+    );
+
+    const shareId = input?.shareId;
+    const kind = input?.kind;
+
+    if (
+      typeof shareId !== "string" ||
+      !UUID.test(shareId) ||
+      (kind !== "post" && kind !== "promotion")
+    ) {
+      throw new Error("Invalid share");
+    }
+
+    const { data, error } = await client.rpc(
+      "groups_remove_share",
+      {
+        p_share_id: shareId,
+        p_kind: kind,
+      }
+    );
+
+    if (error) throw error;
+
+    return Response.json(data, {
+      headers: privateHeaders,
+    });
+  } catch (error) {
+    return groupError(error);
+  }
+}

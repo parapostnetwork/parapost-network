@@ -9,6 +9,7 @@ import {PostAvatar,profileName,type PostProfile} from './PostIdentity';
 import type {SharedGroupPost} from './SharedGroupPostCard';
 import GroupPromotionPreview from './GroupPromotionPreview';
 import GroupShareButton from './GroupShareButton';
+import SharedGroupDeleteMenu from './SharedGroupDeleteMenu';
 import posting from './groupPosting.module.css';
 import styles from './groupSharing.module.css';
 
@@ -36,7 +37,7 @@ export default function SharedGroupPromotionCard({share}:{share:SharedGroupPost}
       <Link href={`/profile/${share.sharer_id}`}>{profileName(profile)}</Link>
       <div className={posting.sharedContext}>{preview.kind==='invitation'?'shared a Group invitation':'shared a Group'}</div>
       <time dateTime={share.shared_at}>{new Date(share.shared_at).toLocaleString()}</time>
-    </div></div>
+    </div><SharedGroupDeleteMenu ownerId={share.sharer_id} shareId={share.share_id} kind="promotion" onDeleted={() => window.location.reload()} /></div>
     {share.caption&&<p style={postContentStyle}>{share.caption}</p>}
     <div style={{marginTop:14}}><GroupPromotionPreview preview={preview} shareId={share.share_id} linked/></div>
     <div className={styles.cardFooter}><Link className={styles.button} href={promotionHref(preview)}>{preview.visibility==='private'&&!preview.approved?'Request to Join':'View Group'}</Link>

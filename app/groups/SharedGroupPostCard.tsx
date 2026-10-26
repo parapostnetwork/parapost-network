@@ -9,6 +9,7 @@ import SharedGroupPromotionCard from './SharedGroupPromotionCard';
 import type {GroupPromotion} from '@/lib/groups/sharing';
 import GroupPostMedia from './GroupPostMedia';
 import SharedGroupPostEngagement from './SharedGroupPostEngagement';
+import SharedGroupDeleteMenu from './SharedGroupDeleteMenu';
 import styles from './groupPosting.module.css';
 
 export type SharedGroupPost = {
@@ -58,6 +59,7 @@ function OriginalGroupPostCard({ share, sharerName, authorName }: {
         <div className={styles.sharedContext}>shared a post from <Link href={`/groups/${share.group_id}`}>{share.group_name}</Link></div>
         <time dateTime={share.shared_at}>{new Date(share.shared_at).toLocaleString()}</time>
       </div>
+    <SharedGroupDeleteMenu ownerId={share.sharer_id} shareId={share.share_id} kind="post" onDeleted={() => window.location.reload()} />
     </div>
     {share.caption && <p style={postContentStyle}>{share.caption}</p>}
     <div className={styles.sharedOriginal} style={sharedPostFrameStyle}>
