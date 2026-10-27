@@ -1,3 +1,4 @@
+import { shareErrorResponse } from '@/lib/groups/shareErrorResponse';
 import {groupClient,groupError,privateHeaders} from '@/lib/groups/server';
 import {UUID} from '@/lib/groups/validation';
 import {sharingInput} from '@/lib/groups/sharing';
@@ -25,7 +26,11 @@ export async function POST(request:Request){
     const {data,error}=input.action==='settings'
       ?await client.rpc('groups_promotion_settings',{p_group_id:input.groupId,p_settings:input.settings})
       :await client.rpc('groups_promote',{p_group_id:input.groupId,p_post_id:input.postId??null,p_share_id:input.shareId??null,p_caption:input.caption??null});
-    if(error)throw error;
+    if(error){
+      const failure=input.action==='share'?shareErrorResponse(error):null;
+      if(failure)return failure;
+      throw error;
+    }
     return Response.json(data,{headers:privateHeaders});
   }catch(error){return groupError(error);}
 }

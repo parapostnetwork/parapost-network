@@ -11,6 +11,7 @@ type Props = {
   liked: boolean;
   commentsOpen: boolean;
   busy?: boolean;
+  canShare?: boolean;
   onLike: () => void;
   onComment: () => void;
   onShare: () => void;
@@ -31,7 +32,7 @@ const buttonStyle: CSSProperties = {
   flex: 1,
   justifyContent: "center",
   alignItems: "center",
-  minHeight: 42,
+  minHeight: 44,
   border: 0,
   borderRadius: 8,
   background: "transparent",
@@ -43,6 +44,7 @@ export default function SharedGroupPostActions({
   liked,
   commentsOpen,
   busy = false,
+  canShare = true,
   onLike,
   onComment,
   onShare
@@ -77,7 +79,7 @@ export default function SharedGroupPostActions({
       <button
         type="button"
         aria-label="Share"
-        disabled={busy}
+        disabled={busy || !canShare}
         onClick={onShare}
         style={buttonStyle}
       >

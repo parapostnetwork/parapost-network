@@ -1,3 +1,4 @@
+import { shareErrorFromResponse } from './shareErrors';
 import { supabase } from '@/lib/supabase';
 import { matchesSignature, validateUpload } from './validation';
 export async function groupsFetch(path:string, init:RequestInit = {}) {
@@ -5,6 +6,10 @@ export async function groupsFetch(path:string, init:RequestInit = {}) {
   if (!data.session) throw new Error('Sign in to use Groups.');
   const response = await fetch(path,{...init,cache:'no-store',headers:{...init.headers,Authorization:`Bearer ${data.session.access_token}`}});
   if (!response.ok) {
+    if (response.status === 409 || response.status === 403) {
+      const shareError = shareErrorFromResponse(await response.clone().json().catch(() => null));
+      if (shareError) throw shareError;
+    }
     if (response.status===401) throw new Error('Your session expired. Sign in again.');
     if (response.status===404) throw new Error('Groups is not enabled for this environment.');
     throw new Error('Unable to complete the request. Your access may have changed. Refresh and try again.');

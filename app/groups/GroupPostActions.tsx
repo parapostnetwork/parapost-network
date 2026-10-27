@@ -1,5 +1,6 @@
 'use client';
 
+import { shareErrorMessage } from '@/lib/groups/shareErrors';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
 import Link from 'next/link';
@@ -58,6 +59,14 @@ export default function GroupPostActions({
   const [profiles, setProfiles] = useState<Record<string,PostProfile>>({});
   const [shareOpen, setShareOpen] = useState(false);
   const [caption, setCaption] = useState('');
+  const [shareError, setShareError] = useState('');
+
+  function closeShare() {
+    setShareOpen(false);
+    setShareError('');
+    setShareNotice('');
+    setCaption('');
+  }
 
 
   const reload = useCallback(async () => {
@@ -143,6 +152,7 @@ export default function GroupPostActions({
     setBusy(true);
     setError('');
     setShareNotice('');
+    setShareError('');
 
     try {
       const result = await action('share_post', groupId, {
@@ -155,8 +165,8 @@ export default function GroupPostActions({
 
       setShareNotice('Shared to Dashboard and your Profile.');
       setShareOpen(false); setCaption('');
-    } catch {
-      setError('Unable to share this Group post. Please try again.');
+    } catch (error) {
+      setShareError(shareErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -346,14 +356,15 @@ export default function GroupPostActions({
         <CommentIcon />
       </button>
       {canShare && <button type="button" className={styles.action} disabled={busy} aria-expanded={shareOpen}
-        onClick={() => setShareOpen(open => !open)} aria-label="Share Group post to Dashboard and your Profile">
+        onClick={() => { if (shareOpen) closeShare(); else { setShareError(''); setShareNotice(''); setCaption(''); setShareOpen(true); } }} aria-label="Share Group post to Dashboard and your Profile">
         <ShareIcon />
       </button>}
       {privateSharing&&<GroupShareButton groupId={groupId} postId={postId} read={read} iconOnly/>}
     </div>
     {canShare && shareOpen && <section className={styles.comments} aria-label="Share Group post">
       <div className={styles.commentsHeader}><h3>Share to Dashboard and your Profile</h3>
-        <button type="button" className={styles.textButton} disabled={busy} onClick={() => setShareOpen(false)}>Cancel</button></div>
+        <button type="button" className={styles.textButton} disabled={busy} onClick={closeShare}>Cancel</button></div>
+      {shareError && <p role="alert" className={styles.error}>{shareError}</p>}
       <form className={styles.commentForm} onSubmit={event => { event.preventDefault(); void submitShare(); }}>
         <textarea aria-label="Share caption" placeholder="Say something about this..." value={caption}
           onChange={event => setCaption(event.target.value)} maxLength={1000} rows={2}

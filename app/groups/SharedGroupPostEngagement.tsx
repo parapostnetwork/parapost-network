@@ -1,9 +1,15 @@
 "use client";
 
+import { shareErrorMessage } from '@/lib/groups/shareErrors';
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { groupsFetch, groupAction } from "@/lib/groups/client";
 import { supabase } from "@/lib/supabase";
 import SharedGroupPostActions from "./SharedGroupPostActions";
+import { createPortal } from "react-dom";
+import { ShareDialog } from "./GroupShareButton";
+import { PostAvatar, type PostProfile } from './PostIdentity';
+import { dashboardCommentTextareaStyle, dashboardCommentSubmitButtonStyle } from '@/components/postPresentation';
+import styles from './groupPosting.module.css';
 
 type Comment = {
   id: string;
@@ -23,18 +29,16 @@ type Stats = {
   comments: Comment[];
 };
 
-type Profile = {
-  id: string;
-  full_name: string | null;
-  username: string | null;
-};
+type Profile = PostProfile & { id: string };
 
 export default function SharedGroupPostEngagement({
-  shareId, groupId, postId
+  shareId, groupId, postId, kind = "post", canShare = true
 }: {
   shareId: string;
   groupId: string;
-  postId: string;
+  postId?: string;
+  kind?: "post" | "promotion";
+  canShare?: boolean;
 }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [viewerId, setViewerId] = useState("");
@@ -49,10 +53,18 @@ export default function SharedGroupPostEngagement({
   const [editDraft, setEditDraft] = useState("");
   const [sharing, setSharing] = useState(false);
   const [caption, setCaption] = useState("");
+  const [shareError, setShareError] = useState("");
+
+  function closeShare() {
+    setSharing(false);
+    setShareError("");
+    setCaption("");
+    setNotice("");
+  }
 
   const reload = useCallback(async () => {
     const response = await groupsFetch(
-      `/api/groups/sharing/interactions?share=${encodeURIComponent(shareId)}`
+      `/api/groups/sharing/interactions?share=${encodeURIComponent(shareId)}&kind=${kind}`
     );
     const result = await response.json() as Stats;
     if (!Array.isArray(result.comments) ||
@@ -61,7 +73,7 @@ export default function SharedGroupPostEngagement({
       throw new Error("Invalid reactions");
     }
     setStats(result);
-  }, [shareId]);
+  }, [shareId, kind]);
 
   useEffect(() => {
     let active = true;
@@ -75,11 +87,11 @@ export default function SharedGroupPostEngagement({
   }, [reload]);
 
   useEffect(() => {
-    const ids = [...new Set(stats?.comments.map(c => c.author_id) ?? [])];
+    const ids = [...new Set([viewerId, ...(stats?.comments.map(c => c.author_id) ?? [])].filter(Boolean))];
     if (!ids.length) return;
     let active = true;
     void supabase.from("profiles")
-      .select("id,full_name,username")
+      .select("id,full_name,username,avatar_url")
       .in("id", ids)
       .then(({ data, error }) => {
         if (active && !error) {
@@ -89,7 +101,7 @@ export default function SharedGroupPostEngagement({
         }
       });
     return () => { active = false; };
-  }, [stats]);
+  }, [stats, viewerId]);
 
   async function interact(
     action: string,
@@ -105,6 +117,7 @@ export default function SharedGroupPostEngagement({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           shareId,
+          kind,
           action,
           content: content ?? null,
           parentId: parentId ?? null
@@ -133,20 +146,22 @@ export default function SharedGroupPostEngagement({
 
   async function submitShare(event: FormEvent) {
     event.preventDefault();
-    if (busy || caption.length > 1000) return;
+    if (busy || !canShare || !postId || caption.length > 1000) return;
     setBusy(true);
-    setError("");
+    setShareError("");
+    setNotice("");
     try {
-      await groupAction("share_post", groupId, {
+      const result = await groupAction("share_post", groupId, {
         post_id: postId,
         caption: caption.trim() || null
       });
+      if (typeof result?.id !== "string") throw new Error("Share was not confirmed");
       setSharing(false);
       setCaption("");
       setNotice("Shared to Dashboard and your Profile.");
       window.dispatchEvent(new Event("parapost-group-shared"));
-    } catch {
-      setError("Unable to share. Check your Group membership and access.");
+    } catch (error) {
+      setShareError(shareErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -159,15 +174,15 @@ export default function SharedGroupPostEngagement({
   }
 
   return (
-    <section aria-label="Shared Group post interactions">
+    <section className={styles.sharedEngagement} aria-label="Shared Group post interactions">
       <div style={{
         display: "flex", justifyContent: "space-between",
         padding: "12px 4px 0", fontSize: 13, opacity: 0.8
       }}>
-        <span>{stats.like_count} Likes</span>
+        <span>{stats.like_count} {stats.like_count === 1 ? "Like" : "Likes"}</span>
         <button type="button" onClick={() => setCommentsOpen(v => !v)}
           style={{ background: "none", border: 0, color: "inherit" }}>
-          {stats.comment_count} Comments
+          {stats.comment_count} {stats.comment_count === 1 ? "Comment" : "Comments"}
         </button>
       </div>
 
@@ -175,42 +190,50 @@ export default function SharedGroupPostEngagement({
         liked={stats.liked}
         commentsOpen={commentsOpen}
         busy={busy}
+        canShare={canShare}
         onLike={() => {
           void interact(stats.liked ? "unlike" : "like");
         }}
         onComment={() => setCommentsOpen(v => !v)}
-        onShare={() => setSharing(v => !v)}
+        onShare={() => { if (sharing) closeShare(); else { setShareError(""); setNotice(""); setCaption(""); setSharing(true); } }}
       />
 
       {notice && <p role="status">{notice}</p>}
       {error && <p role="alert">{error}</p>}
 
-      {sharing && (
-        <form onSubmit={submitShare} style={{ padding: 12 }}>
+      {sharing && kind === "promotion" && createPortal(
+        <ShareDialog groupId={groupId} shareId={shareId} read={groupsFetch}
+          onClose={closeShare} onShared={() => {
+            closeShare();
+            setNotice("Shared to Dashboard and your Profile.");
+            window.dispatchEvent(new Event("parapost-group-shared"));
+          }} />, document.body
+      )}
+      {sharing && kind === "post" && (
+        <form aria-label="Share Group post" onSubmit={submitShare} style={{ padding: 12 }}>
+          {shareError && <p role="alert">{shareError}</p>}
           <label>
             Add a caption (optional)
             <textarea value={caption} maxLength={1000}
               onChange={e => setCaption(e.target.value)}
-              rows={2} style={{ width: "100%", fontSize: 16 }} />
+              rows={2} style={dashboardCommentTextareaStyle} />
           </label>
           <button type="submit" disabled={busy}>Share post</button>
-          <button type="button" onClick={() => setSharing(false)}>
+          <button type="button" disabled={busy} onClick={closeShare}>
             Cancel
           </button>
         </form>
       )}
 
       {commentsOpen && (
-        <div style={{ padding: "12px 4px" }}>
-          {stats.comments.map(comment => {
+        <div className={styles.engagementThread}>
+          {stats.comments.filter(comment => !comment.parent_id).flatMap(parent => [parent, ...stats.comments.filter(reply => reply.parent_id === parent.id)]).map(comment => {
             const own = comment.author_id === viewerId;
             const author = profiles[comment.author_id];
             return (
-              <div key={comment.id} style={{
-                marginLeft: comment.parent_id ? 24 : 0,
-                padding: "12px 0",
-                borderBottom: "1px solid rgba(255,255,255,.1)"
-              }}>
+              <div key={comment.id} className={styles.engagementComment} data-reply={Boolean(comment.parent_id)}>
+                <PostAvatar id={comment.author_id} profile={author} size={32}/>
+                <div className={styles.commentBody}>
                 <div style={{ fontSize: 13, opacity: 0.8 }}>
                   {author?.full_name || author?.username || "Member"}
                 </div>
@@ -225,16 +248,16 @@ export default function SharedGroupPostEngagement({
                   }}>
                     <textarea value={editDraft} maxLength={1200}
                       onChange={e => setEditDraft(e.target.value)}
-                      style={{ width: "100%", fontSize: 16 }} />
+                      style={dashboardCommentTextareaStyle} />
                     <button type="submit" disabled={busy || !editDraft.trim()}>
                       Save
                     </button>
                     <button type="button"
                       onClick={() => setEditingId(null)}>Cancel</button>
                   </form>
-                ) : <p style={{ whiteSpace: "pre-wrap" }}>{comment.content}</p>}
+                ) : <p className={styles.engagementText}>{comment.content}</p>}
 
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className={styles.commentActions}>
                   <button type="button" disabled={busy}
                     onClick={() => void interact(
                       comment.liked ? "unlike_comment" : "like_comment",
@@ -272,6 +295,7 @@ export default function SharedGroupPostEngagement({
                     </>
                   )}
                 </div>
+                </div>
               </div>
             );
           })}
@@ -280,15 +304,15 @@ export default function SharedGroupPostEngagement({
             <p>Showing the first 150 comments.</p>
           )}
 
-          <form onSubmit={submitComment}
-            style={{ marginTop: 14 }}>
+          <form onSubmit={submitComment} className={styles.engagementComposer}>
             {replyTo && (
-              <p>
+              <p className={styles.engagementReplyLabel}>
                 Writing a reply
                 <button type="button"
-                  onClick={() => setReplyTo(null)}>Cancel reply</button>
+                  onClick={() => { setReplyTo(null); setDraft(""); }}>Cancel reply</button>
               </p>
             )}
+            {viewerId && <PostAvatar id={viewerId} profile={profiles[viewerId]} size={32}/>}
             <textarea
               aria-label={replyTo ? "Write a reply" : "Write a comment"}
               placeholder={replyTo ? "Write a reply..." : "Write a comment..."}
@@ -296,9 +320,9 @@ export default function SharedGroupPostEngagement({
               maxLength={1200}
               rows={2}
               onChange={e => setDraft(e.target.value)}
-              style={{ width: "100%", fontSize: 16 }}
+              style={dashboardCommentTextareaStyle}
             />
-            <button type="submit" disabled={busy || !draft.trim()}>
+            <button type="submit" style={dashboardCommentSubmitButtonStyle} disabled={busy || !draft.trim()}>
               {replyTo ? "Post reply" : "Post comment"}
             </button>
           </form>

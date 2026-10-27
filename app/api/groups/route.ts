@@ -1,3 +1,4 @@
+import { shareErrorResponse } from '@/lib/groups/shareErrorResponse';
 import { groupClient, groupError, privateHeaders } from '@/lib/groups/server';
 import { groupFeedCursor } from '@/lib/groups/feed';
 import { UUID, validateGroupFields } from '@/lib/groups/validation';
@@ -195,7 +196,11 @@ export async function POST(request: Request) {
       : await client.rpc('groups_command',{
           p_action:action,p_group_id:groupId ?? null,p_payload:payload
         });
-    if (error) throw error;
+    if (error) {
+      const failure = sharePost ? shareErrorResponse(error) : null;
+      if (failure) return failure;
+      throw error;
+    }
     return Response.json(data,{headers:privateHeaders});
   } catch (error) { return groupError(error); }
 }

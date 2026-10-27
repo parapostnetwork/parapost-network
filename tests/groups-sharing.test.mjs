@@ -16,7 +16,7 @@ const {sharingInput,promotionHref}=moduleAt('../lib/groups/sharing.ts',{'./valid
 function route({denied=false,result={id:share},failure=null}={}){
  const calls=[];const headers={'Cache-Control':'private, no-store, max-age=0',Vary:'Authorization'};
  const server={privateHeaders:headers,groupError:()=>Response.json({error:'Unavailable'},{status:400,headers}),groupClient:async()=>{if(denied)throw Error('Not authorized');return {rpc:async(name,args)=>{calls.push({name,args});return {data:result,error:failure};}};}};
- return {...moduleAt('../app/api/groups/sharing/route.ts',{'@/lib/groups/server':server,'@/lib/groups/validation':{UUID:/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i},'@/lib/groups/sharing':{sharingInput}}),calls};
+ return {...moduleAt('../app/api/groups/sharing/route.ts',{'@/lib/groups/shareErrorResponse':{shareErrorResponse:()=>null},'@/lib/groups/server':server,'@/lib/groups/validation':{UUID:/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i},'@/lib/groups/sharing':{sharingInput}}),calls};
 }
 const req=body=>new Request('http://localhost/api/groups/sharing',{method:'POST',body:JSON.stringify(body)});
 test('share inputs reject malformed targets, oversized captions and nonboolean owner controls',()=>{
@@ -65,4 +65,20 @@ test('local SQL draft contains live authorization, revocation, safe projections 
  const projection=sql.slice(sql.indexOf('RETURN jsonb_build_object('),sql.indexOf('END;\n$$;',sql.indexOf('RETURN jsonb_build_object(')));
  for(const forbidden of ["'original_content'","'media'","'owner_id'","'author_id'","'cover_storage_path'"])assert.ok(!projection.includes(forbidden),forbidden);
  assert.match(sql,/'original_author_id',NULL,'original_content',NULL/);
+});
+
+
+test('Delete Share preserves the committed RPC and sends no client-supplied owner identity',async()=>{
+ const h=route({result:{deleted:true}});
+ for(const kind of ['post','promotion']){
+  const response=await h.DELETE(new Request('http://localhost/api/groups/sharing',{method:'DELETE',body:JSON.stringify({shareId:share,kind,user_id:'attacker'})}));
+  assert.equal(response.status,200);
+ }
+ assert.deepEqual(h.calls.map(call=>call.name),['groups_remove_share','groups_remove_share']);
+ assert.equal(JSON.stringify(h.calls).includes('attacker'),false);
+ const denied=route({failure:{code:'42501'}});
+ assert.equal((await denied.DELETE(new Request('http://localhost/api/groups/sharing',{method:'DELETE',body:JSON.stringify({shareId:share,kind:'promotion'})}))).status,400);
+ const invalid=route();
+ assert.equal((await invalid.DELETE(new Request('http://localhost/api/groups/sharing',{method:'DELETE',body:JSON.stringify({shareId:share,kind:'group'})}))).status,400);
+ assert.equal(invalid.calls.length,0);
 });

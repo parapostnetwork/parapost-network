@@ -21,14 +21,16 @@ const actions = new Set([
 export async function GET(request: Request) {
   try {
     const client = await groupClient(request);
-    const shareId = new URL(request.url)
-      .searchParams.get('share');
+    const params = new URL(request.url).searchParams;
+    const shareId = params.get('share');
+    const kind = params.get('kind') ?? 'post';
+    if (kind !== 'post' && kind !== 'promotion') throw new Error('Invalid share kind');
 
     if (!shareId || !UUID.test(shareId))
       throw new Error('Invalid share');
 
     const { data, error } = await client.rpc(
-      'groups_shared_post_stats',
+      kind === 'promotion' ? 'groups_promotion_stats' : 'groups_shared_post_stats',
       { p_share_id: shareId }
     );
 
@@ -75,6 +77,8 @@ export async function POST(request: Request) {
       throw new Error('Invalid request');
 
     const { shareId, action, content, parentId } = input;
+    const kind = input.kind ?? 'post';
+    if (kind !== 'post' && kind !== 'promotion') throw new Error('Invalid share kind');
 
     if (typeof shareId !== 'string'
       || !UUID.test(shareId)
@@ -93,7 +97,7 @@ export async function POST(request: Request) {
       throw new Error('Invalid comment');
 
     const { data, error } = await client.rpc(
-      'groups_shared_post_interact',
+      kind === 'promotion' ? 'groups_promotion_interact' : 'groups_shared_post_interact',
       {
         p_share_id: shareId,
         p_action: action,

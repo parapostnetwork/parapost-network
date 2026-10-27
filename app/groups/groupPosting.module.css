@@ -116,3 +116,19 @@
   .commentForm textarea { font-size:16px!important; }
   .actions { gap:4px; }
 }
+
+/* Shared-card comments: avatars occupy their own grid cell, never the input. */
+.sharedEngagement { min-width:0; }
+.sharedEngagement textarea { box-sizing:border-box; min-width:0; max-width:100%; }
+.engagementThread { padding:12px 0; min-width:0; }
+.engagementComment { display:grid; grid-template-columns:32px minmax(0,1fr); align-items:start; gap:9px; padding:12px 0; border-bottom:1px solid #ffffff1a; }
+.engagementComment[data-reply=true] { margin-left:24px; }
+.engagementText { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.5; font-size:14px; margin:6px 0; }
+.sharedEngagement .commentActions { margin-left:0; gap:4px 12px; }
+.sharedEngagement .commentActions button, .engagementReplyLabel button { min-height:44px; border:0; padding:4px 0; background:transparent; color:var(--parapost-accent-readable-text,#d1b6ff); font:inherit; font-size:12px; font-weight:700; }
+.engagementComposer { display:grid; grid-template-columns:32px minmax(0,1fr); align-items:start; gap:8px 9px; margin-top:14px; }
+.engagementComposer > .avatar { grid-column:1; position:static; margin-top:7px; }
+.engagementComposer > textarea { grid-column:2; width:100%; }
+.engagementComposer > button { grid-column:2; justify-self:end; min-height:44px!important; max-width:100%; }
+.engagementReplyLabel { grid-column:1 / -1; margin:0; display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:13px; }
+@media(max-width:600px) { .engagementComment[data-reply=true] { margin-left:12px; } .sharedEngagement .commentActions { gap:2px 10px; } }
