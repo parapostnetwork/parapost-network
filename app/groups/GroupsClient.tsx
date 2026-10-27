@@ -278,7 +278,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   }
   if(!authReady)return <main className={styles.page}><p role="status">Checking your session…</p></main>;
   if(!userId)return <main className={styles.page}><h1>Groups</h1><p>Sign in to discover and participate in Groups.</p><Link href="/">Sign in</Link></main>;
-  return <main className={`${styles.page} ${groupId?styles.individualGroup:""}`}><div className={styles.shell}>
+  return <main className={styles.page}><div className={styles.shell}>
     <header className={styles.topbar}><Link href="/dashboard">PARAPOST NETWORK</Link><Link href={routeBase}>Groups</Link><Link href="/dashboard">← Dashboard</Link></header>
     {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
     {loading&&<p role="status">Loading Groups…</p>}
@@ -306,10 +306,10 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
             <h1>{group.name}</h1>
             <p className={styles.headerDescription}>{group.description}</p>
             <p className={styles.identityMeta}>{group.member_count!==null&&<>{group.member_count} {group.member_count===1?'member':'members'}</>}{group.owner_id&&<> <span aria-hidden="true">·</span> Owner: <Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></>}</p>
+            {(group.visibility==='public'?canRead:approved)&&<GroupShareButton header groupId={group.id} read={groupsFetch}/>}
           </div>
           <div className={styles.identityActions}>
             <div className={styles.membershipActions}>{membership(group)}</div>
-            {approved&&<GroupShareButton header groupId={group.id} read={groupsFetch}/>}
             {admin&&<button className={styles.secondaryButton} onClick={()=>setSettings(true)} aria-haspopup="dialog">Group settings</button>}
           </div>
         </div>
@@ -368,13 +368,13 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         {owner&&['rejected','removed','banned'].includes(m.status)&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('restore',group.id,{user_id:m.user_id});})}>Restore to pending</button>}
       </div>}</article>)}{!members.length&&!loading&&<p>No members on this page.</p>}<div className={styles.controls}>{memberOffset>0&&<button disabled={loading} onClick={()=>setMemberOffset(Math.max(0,memberOffset-50))}>Previous members</button>}{members.length===50&&<button disabled={loading} onClick={()=>setMemberOffset(memberOffset+50)}>More members</button>}</div></section>}
       <div hidden={selectedTab!=='discussion'} className={styles.discussionLayout} id="group-panel-discussion" role="tabpanel" aria-labelledby="group-tab-discussion" tabIndex={0}>
-      <aside className={styles.aboutSidebar}><GroupAbout group={group}/><button className={styles.secondaryButton} onClick={()=>{setActiveTab('about');requestAnimationFrame(()=>document.getElementById('group-panel-about')?.focus());}}>View Group details →</button></aside>
+      <aside className={styles.aboutSidebar}><GroupAbout group={group}/></aside>
       <div className={styles.discussionColumn}>
       {canRead&&!approved&&<p className={styles.readingNotice}>You’re viewing a public discussion. Join this Group to participate.</p>}
       {approved && <GroupPostComposer userId={userId} profile={viewerProfile} content={content}
         setContent={setContent} files={files} setFiles={setFiles} busy={busy} onPublish={() => void perform(publish)} />}
 
-      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><div className={styles.discussionHeading}><div><p className={styles.eyebrow}>COMMUNITY CONVERSATIONS</p><h2>Discussion</h2></div><span className={styles.discussionPrivacy}>{group.visibility==='private'?'Members only':'Public discussion'}</span></div>{posts.map(post=><article data-posting className={`${posting.posting} ${posting.post}`} id={`group-post-${post.id}`} style={postCardStyle} key={post.id}><div className={posting.postHeader} style={postHeaderStyle}>
+      {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article data-posting className={`${posting.posting} ${posting.post}`} id={`group-post-${post.id}`} style={postCardStyle} key={post.id}><div className={posting.postHeader} style={postHeaderStyle}>
   <div style={postAuthorStyle}>
     <Link href={`/profile/${post.author_id}`} className={posting.avatar} style={{width:48,height:48}}>
       {authorProfiles[post.author_id]?.avatar_url
