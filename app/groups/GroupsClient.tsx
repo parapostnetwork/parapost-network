@@ -319,7 +319,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       </Link>
     </header>
     {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-    {loading&&<p role="status">Loading Groups…</p>}
+    {loading&&groupId&&<p role="status">Loading Groups…</p>}
     {!groupId?<>
       <DirectoryHeading mine={filter==='mine'} create={create} onCreate={()=>setCreate(value=>!value)}/>
       {create&&<GroupForm busy={busy} onSubmit={async(name,description,visibility,file)=>{
@@ -332,7 +332,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       {!create&&<>
 
       <GroupsDirectory groups={groups} viewerId={userId} tab={filter}
-        onTab={value=>{setFilter(value);setOffset(0);setSearch('');}}
+        onTab={value=>{if(value===filter)return;setLoading(true);setFilter(value);setOffset(0);setSearch('');}}
         search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={loading}
         {...groupPreferences} renderMembership={membership} routeBase={routeBase}
         renderCover={g=><GroupCover path={g.cover_storage_path} name={g.name} load={groupsFetch} viewerId={userId} cacheable={g.visibility==='public'}/>}/>

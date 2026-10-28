@@ -29,6 +29,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
   const [mineView, setMineView] = useState<MineFilter>('all');
   const [sort, setSort] = useState<DirectorySort>('name');
   const results = useRef<HTMLDivElement>(null);
+  const [heldHeight, setHeldHeight] = useState(0);
   const mine = tab === 'mine';
   const owned = (group: Group) => ownsGroup(group, viewerId);
   const select = (filter: MineFilter, query = search) => selectMyGroups(groups, viewerId, preferences, filter, query, sort);
@@ -42,7 +43,12 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
   return <div className={styles.directoryBrowser}>
     <div className={styles.directoryControls}>
       <nav className={styles.tabs} aria-label="Filter Groups">{([['all', 'Discover'], ['public', 'Public'], ['private', 'Private'], ['mine', 'My Groups']] as const).map(([value, label]) =>
-        <button key={value} aria-pressed={tab === value} onClick={() => { onTab(value); setMineView('all'); }}>{label}</button>)}</nav>
+        <button key={value} aria-pressed={tab === value} onClick={() => {
+      if (value === tab) return;
+      setHeldHeight(Math.ceil(results.current?.getBoundingClientRect().height ?? 0));
+      setMineView('all');
+      onTab(value);
+    }}>{label}</button>)}</nav>
       <label className={styles.search}>{mine ? 'Search My Groups' : 'Search Groups'}<span className={styles.directorySearchInput}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg>
         <input type="search" maxLength={100} placeholder={mine ? 'Search your groups…' : 'Search by name or description'} value={search} onChange={event => onSearch(event.target.value)}/>
@@ -55,8 +61,17 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
       </div>
       <p className={styles.directoryLocalNote}>{storageError || 'Favorites and visits are saved for this account in this browser.'}</p>
     </>}
-    <div ref={results} tabIndex={-1} aria-busy={loading}>
-      {loading ? <p className={styles.directoryLoading} role="status">Loading your communities…</p> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
+    <div ref={results} tabIndex={-1} aria-busy={loading}
+      className={styles.directoryResults}
+      style={loading && heldHeight > 0 ? { minHeight: heldHeight } : undefined}>
+      {loading ? <div className={styles.directoryLoading} role="status">
+        <span>Loading your communities…</span>
+        <div className={styles.directorySkeleton} aria-hidden="true">
+          {[0, 1, 2].map(index =>
+            <div key={index} className={styles.directorySkeletonCard} />
+          )}
+        </div>
+      </div> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
         {section.title && <div className={styles.directorySectionHeading}><h2>{section.title} <span>({section.items.length})</span></h2>
           {mineView === 'all' && section.items.length > 0 && <button className={styles.viewAll} onClick={() => viewAll(section.key as MineFilter)} aria-label={`View all ${section.title.toLowerCase()}`}>View All <span aria-hidden="true">→</span></button>}
           {mineView !== 'all' && <button className={styles.viewAll} onClick={() => setMineView('all')}>← Back to All My Groups</button>}
