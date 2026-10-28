@@ -1,6 +1,6 @@
 'use client';
 import { shareErrorMessage } from '@/lib/groups/shareErrors';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {ShareIcon} from '@/components/PostActionIcons';
 import {groupsFetch} from '@/lib/groups/client';
@@ -20,11 +20,13 @@ export default function GroupShareButton({groupId,postId,shareId,iconOnly=false,
 export function ShareDialog({groupId,postId,shareId,read,onClose,onShared}:{groupId:string;postId?:string;shareId?:string;read:GroupsTransport['read'];onClose:()=>void;onShared:()=>void}){
   const dialog=useRef<HTMLDialogElement>(null);const lock=useRef(false);
   const [preview,setPreview]=useState<GroupPromotion|null>(null);const [loading,setLoading]=useState(true);const [caption,setCaption]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
-  useEffect(()=>{
-    // Wait until the complete sharing preview is ready.
-    // This prevents the small loading dialog from flashing.
+  useLayoutEffect(()=>{
+    // Open only when the complete preview is available.
     if(loading)return;
+
     const element=dialog.current;
+    if(!element)return;
+
     const trigger=document.activeElement as HTMLElement|null;
     const body=document.body;
     const root=document.documentElement;
@@ -38,10 +40,11 @@ export function ShareDialog({groupId,postId,shareId,read,onClose,onShared}:{grou
       left:body.style.left,
       width:body.style.width,
       overflow:body.style.overflow,
-      rootOverflow:root.style.overflow
+      rootOverflow:root.style.overflow,
+      rootScrollBehavior:root.style.scrollBehavior,
+      bodyScrollBehavior:body.style.scrollBehavior
     };
 
-    // Freeze the exact page position while the sharing modal is open.
     body.style.position='fixed';
     body.style.top=`-${scrollY}px`;
     body.style.left=`-${scrollX}px`;
@@ -49,10 +52,14 @@ export function ShareDialog({groupId,postId,shareId,read,onClose,onShared}:{grou
     body.style.overflow='hidden';
     root.style.overflow='hidden';
 
-    element?.showModal();
+    element.showModal();
 
     return ()=>{
-      element?.close();
+      // Restore everything before the next browser paint.
+      root.style.scrollBehavior='auto';
+      body.style.scrollBehavior='auto';
+
+      element.close();
 
       body.style.position=previous.position;
       body.style.top=previous.top;
@@ -61,8 +68,11 @@ export function ShareDialog({groupId,postId,shareId,read,onClose,onShared}:{grou
       body.style.overflow=previous.overflow;
       root.style.overflow=previous.rootOverflow;
 
-      window.scrollTo(scrollX,scrollY);
       if(trigger?.isConnected)trigger.focus({preventScroll:true});
+      window.scrollTo(scrollX,scrollY);
+
+      root.style.scrollBehavior=previous.rootScrollBehavior;
+      body.style.scrollBehavior=previous.bodyScrollBehavior;
     };
   },[loading]);
   useEffect(()=>{

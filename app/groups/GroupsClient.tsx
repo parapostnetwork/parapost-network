@@ -6,7 +6,7 @@ import GroupPostMedia from './GroupPostMedia';
 import posting from './groupPosting.module.css';
 import { postCardStyle, postHeaderStyle, postAuthorStyle, postContentStyle, dotsButtonStyle, postMenuStyle, menuItemStyle } from '@/components/postPresentation';
 import { supabase } from '@/lib/supabase';
-import { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { liveGroupsTransport, type GroupsTransport } from '@/lib/groups/transport';
@@ -81,44 +81,61 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
   const [activeTab,setActiveTab]=useState<GroupTab>('discussion');
   const [create,setCreate]=useState(false);const [settings,setSettings]=useState(false);const [management,setManagement]=useState(false);
+  const settingsCloseRef=useRef<HTMLButtonElement>(null);
   const [content,setContent]=useState('');const [files,setFiles]=useState<File[]>([]);
   const [editPost,setEditPost]=useState<string>(); const [editContent,setEditContent]=useState('');
 const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
   const [deleteName,setDeleteName]=useState('');
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     if(!settings)return;
 
-    const html=document.documentElement;
+    const root=document.documentElement;
     const body=document.body;
+    const trigger=document.activeElement as HTMLElement|null;
+    const scrollX=window.scrollX;
     const scrollY=window.scrollY;
+    const gutter=Math.max(0,window.innerWidth-root.clientWidth);
 
     const previous={
-      htmlOverflow:html.style.overflow,
-      overflow:body.style.overflow,
+      rootOverflow:root.style.overflow,
+      bodyOverflow:body.style.overflow,
       position:body.style.position,
       top:body.style.top,
       left:body.style.left,
       right:body.style.right,
-      width:body.style.width
+      width:body.style.width,
+      rootScrollBehavior:root.style.scrollBehavior,
+      bodyScrollBehavior:body.style.scrollBehavior
     };
 
-    html.style.overflow='hidden';
+    root.style.overflow='hidden';
     body.style.overflow='hidden';
     body.style.position='fixed';
     body.style.top=`-${scrollY}px`;
-    body.style.left='0';
-    body.style.right='0';
-    body.style.width='100%';
+    body.style.left=`-${scrollX}px`;
+    body.style.right='auto';
+    body.style.width=gutter ? `calc(100% - ${gutter}px)` : '100%';
+
+    // Focus the Settings close control without moving the page.
+    settingsCloseRef.current?.focus({preventScroll:true});
 
     return ()=>{
-      html.style.overflow=previous.htmlOverflow;
-      body.style.overflow=previous.overflow;
+      root.style.scrollBehavior='auto';
+      body.style.scrollBehavior='auto';
+
+      root.style.overflow=previous.rootOverflow;
+      body.style.overflow=previous.bodyOverflow;
       body.style.position=previous.position;
       body.style.top=previous.top;
       body.style.left=previous.left;
       body.style.right=previous.right;
       body.style.width=previous.width;
-      window.scrollTo(0,scrollY);
+
+      if(trigger?.isConnected)trigger.focus({preventScroll:true});
+      window.scrollTo(scrollX,scrollY);
+
+      root.style.scrollBehavior=previous.rootScrollBehavior;
+      body.style.scrollBehavior=previous.bodyScrollBehavior;
     };
   },[settings]);
 
@@ -414,7 +431,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
             aria-labelledby="group-settings-heading">
             <header className={styles.settingsModalHeader}>
               <h2 id="group-settings-heading">Group settings</h2>
-              <button type="button" autoFocus disabled={busy}
+              <button type="button" ref={settingsCloseRef} disabled={busy}
                 onClick={()=>{
                   setSettings(false);
                   setDeleteName('');
