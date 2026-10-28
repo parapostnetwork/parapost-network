@@ -314,3 +314,26 @@
     font-size: 14px;
   }
 }
+
+
+/* RESPONSIVE MEMBER ACTION MENU POSITIONING */
+.moreButton {
+  padding: 0 !important;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.moreButton svg {
+  display: block;
+  flex: none;
+}
+
+.menuAbove {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.menu {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}

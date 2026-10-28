@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { GroupMember } from '@/lib/groups/types';
 import styles from './groupMembers.module.css';
@@ -50,6 +50,9 @@ export default function GroupMembersPanel({
 }: Props) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const activeMenuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuAbove, setMenuAbove] = useState(false);
+  const [menuMaxHeight, setMenuMaxHeight] = useState<number | null>(null);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -79,6 +82,53 @@ export default function GroupMembersPanel({
   useEffect(() => {
     setOpenMenu(null);
   }, [members]);
+
+  // Reposition the menu before the browser paints it.
+  useLayoutEffect(() => {
+    if (!openMenu) return;
+
+    const updatePosition = () => {
+      const anchor = activeMenuRef.current;
+      const menu = menuRef.current;
+      if (!anchor || !menu) return;
+
+      const viewport = window.visualViewport;
+      const top = viewport?.offsetTop ?? 0;
+      const height = viewport?.height ?? window.innerHeight;
+      const bottom = top + height;
+      const rect = anchor.getBoundingClientRect();
+
+      const roomAbove = Math.max(0, rect.top - top - 12);
+      const roomBelow = Math.max(0, bottom - rect.bottom - 12);
+      const desired = Math.min(
+        menu.scrollHeight,
+        440,
+        height * 0.7
+      );
+
+      const above = roomBelow < desired && roomAbove > roomBelow;
+      const available = above ? roomAbove : roomBelow;
+
+      setMenuAbove(above);
+      setMenuMaxHeight(
+        Math.max(0, Math.floor(Math.min(available, 440, height * 0.7)))
+      );
+    };
+
+    updatePosition();
+
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    window.visualViewport?.addEventListener('resize', updatePosition);
+    window.visualViewport?.addEventListener('scroll', updatePosition);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.visualViewport?.removeEventListener('resize', updatePosition);
+      window.visualViewport?.removeEventListener('scroll', updatePosition);
+    };
+  }, [openMenu]);
 
   const act = (
     action: MemberAction,
@@ -189,17 +239,34 @@ export default function GroupMembersPanel({
                     aria-label={`Manage ${name}`}
                     aria-expanded={menuOpen}
                     aria-controls={`member-actions-${member.user_id}`}
-                    onClick={() => setOpenMenu(
-                      menuOpen ? null : member.user_id
-                    )}
+                    onClick={() => {
+                      setMenuAbove(false);
+                      setMenuMaxHeight(null);
+                      setOpenMenu(menuOpen ? null : member.user_id);
+                    }}
                   >
-                    <span aria-hidden="true">•••</span>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <circle cx="5" cy="12" r="1.8" />
+                      <circle cx="12" cy="12" r="1.8" />
+                      <circle cx="19" cy="12" r="1.8" />
+                    </svg>
                   </button>
 
                   {menuOpen && (
                     <div
-                      className={styles.menu}
+                      ref={menuRef}
+                      className={`${styles.menu} ${menuAbove ? styles.menuAbove : ''}`}
                       id={`member-actions-${member.user_id}`}
+                      style={menuMaxHeight === null
+                        ? undefined
+                        : { maxHeight: `${menuMaxHeight}px` }}
                     >
                       <p className={styles.menuTitle}>
                         Manage {name}
