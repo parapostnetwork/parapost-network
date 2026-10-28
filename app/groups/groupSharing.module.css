@@ -46,3 +46,10 @@
 .coverLink { display:block; }
 .button:focus-visible,.dialog :is(button,a,textarea,input):focus-visible { outline:3px solid #d1b6ff; outline-offset:3px; }
 @media(max-width:600px) { .dialog { padding:16px; border-radius:16px; } }
+
+
+/* Keep scrolling inside the Share Group dialog, not the page behind it. */
+.dialog {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}

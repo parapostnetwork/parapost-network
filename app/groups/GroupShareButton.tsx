@@ -21,9 +21,46 @@ export function ShareDialog({groupId,postId,shareId,read,onClose,onShared}:{grou
   const dialog=useRef<HTMLDialogElement>(null);const lock=useRef(false);
   const [preview,setPreview]=useState<GroupPromotion|null>(null);const [loading,setLoading]=useState(true);const [caption,setCaption]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
   useEffect(()=>{
-    const element=dialog.current;const trigger=document.activeElement as HTMLElement|null;
-    element?.showModal();const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
-    return ()=>{element?.close();document.body.style.overflow=overflow;trigger?.focus();};
+    const element=dialog.current;
+    const trigger=document.activeElement as HTMLElement|null;
+    const body=document.body;
+    const root=document.documentElement;
+    const scrollX=window.scrollX;
+    const scrollY=window.scrollY;
+    const gutter=Math.max(0,window.innerWidth-root.clientWidth);
+
+    const previous={
+      position:body.style.position,
+      top:body.style.top,
+      left:body.style.left,
+      width:body.style.width,
+      overflow:body.style.overflow,
+      rootOverflow:root.style.overflow
+    };
+
+    // Freeze the exact page position while the sharing modal is open.
+    body.style.position='fixed';
+    body.style.top=`-${scrollY}px`;
+    body.style.left=`-${scrollX}px`;
+    body.style.width=gutter ? `calc(100% - ${gutter}px)` : '100%';
+    body.style.overflow='hidden';
+    root.style.overflow='hidden';
+
+    element?.showModal();
+
+    return ()=>{
+      element?.close();
+
+      body.style.position=previous.position;
+      body.style.top=previous.top;
+      body.style.left=previous.left;
+      body.style.width=previous.width;
+      body.style.overflow=previous.overflow;
+      root.style.overflow=previous.rootOverflow;
+
+      window.scrollTo(scrollX,scrollY);
+      if(trigger?.isConnected)trigger.focus({preventScroll:true});
+    };
   },[]);
   useEffect(()=>{
     const abort=new AbortController();const params=new URLSearchParams({group:groupId});if(shareId)params.set('share',shareId);
