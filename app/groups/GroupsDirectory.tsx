@@ -65,12 +65,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
       className={styles.directoryResults}
       style={loading && heldHeight > 0 ? { minHeight: heldHeight } : undefined}>
       {loading ? <div className={styles.directoryLoading} role="status">
-        <span>Loading your communities…</span>
-        <div className={styles.directorySkeleton} aria-hidden="true">
-          {[0, 1, 2].map(index =>
-            <div key={index} className={styles.directorySkeletonCard} />
-          )}
-        </div>
+        <span>Updating Groups…</span>
       </div> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
         {section.title && <div className={styles.directorySectionHeading}><h2>{section.title} <span>({section.items.length})</span></h2>
           {mineView === 'all' && section.items.length > 0 && <button className={styles.viewAll} onClick={() => viewAll(section.key as MineFilter)} aria-label={`View all ${section.title.toLowerCase()}`}>View All <span aria-hidden="true">→</span></button>}
