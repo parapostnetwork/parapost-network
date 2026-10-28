@@ -1,0 +1,316 @@
+.panel {
+  box-sizing: border-box;
+  width: min(100%, 860px);
+  margin: 24px auto;
+  padding: 22px;
+  border: 1px solid rgba(174,124,229,.22);
+  border-radius: 20px;
+  background: #141021;
+  color: #f5f1fc;
+  min-width: 0;
+  font-family: var(--parapost-user-font, Arial, sans-serif);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(174,124,229,.18);
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: #bd93f4;
+}
+
+.heading h2 {
+  margin: 0;
+  font-size: clamp(21px, 3vw, 26px);
+  line-height: 1.25;
+  font-weight: 750;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: #b6afc4;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.count {
+  padding: 8px 12px;
+  border: 1px solid rgba(174,124,229,.25);
+  border-radius: 999px;
+  font-size: 12px;
+  color: #cbb8e4;
+  white-space: nowrap;
+}
+
+.list {
+  min-width: 0;
+}
+
+.person {
+  display: grid;
+  grid-template-columns: 48px minmax(0,1fr) auto 44px;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(174,124,229,.15);
+  overflow: visible;
+}
+
+.person:last-child {
+  border-bottom: none;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(174,124,229,.35);
+  background: linear-gradient(145deg,#403055,#251b38);
+  color: #f7ecff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.name {
+  color: #f6f1fc;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.name:hover {
+  color: #cda8ff;
+  text-decoration: underline;
+}
+
+.memberDescription {
+  font-size: 12px;
+  color: #a99fb9;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.roleBadge,
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.25;
+  border: 1px solid rgba(174,124,229,.3);
+  background: rgba(174,124,229,.09);
+  color: #d9c0ff;
+}
+
+.ownerBadge {
+  background: rgba(139,92,246,.24);
+  border-color: rgba(174,124,229,.5);
+  color: #f2e6ff;
+}
+
+.statusBadge {
+  color: #d2c9da;
+  background: rgba(255,255,255,.04);
+}
+
+.actionArea {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  z-index: 1;
+}
+
+.actionArea:has(.menu) {
+  z-index: 10;
+}
+
+.moreButton {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(174,124,229,.28);
+  border-radius: 12px;
+  background: rgba(255,255,255,.035);
+  color: #e8dcf5;
+  cursor: pointer;
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+
+.moreButton:hover {
+  background: rgba(174,124,229,.13);
+}
+
+.menu {
+  box-sizing: border-box;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  width: min(250px, calc(100vw - 48px));
+  max-height: min(440px,70dvh);
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid rgba(174,124,229,.4);
+  border-radius: 14px;
+  background: #20182e;
+  box-shadow: 0 16px 42px rgba(0,0,0,.5);
+}
+
+.menuTitle {
+  font-size: 12px;
+  color: #bcb0cd;
+  margin: 5px 8px 9px;
+  overflow-wrap: anywhere;
+}
+
+.menu button {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #f1e9f9;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  background: rgba(174,124,229,.14);
+}
+
+.menu button.danger {
+  color: #ffb3ba;
+}
+
+.roleControl {
+  display: grid;
+  gap: 7px;
+  padding: 10px 8px;
+  color: #c6bad7;
+  font-size: 12px;
+}
+
+.roleControl select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(174,124,229,.4);
+  border-radius: 9px;
+  padding: 9px;
+  background: #171120;
+  color: white;
+  font-size: 16px;
+}
+
+.panel :is(button,a,select):focus-visible {
+  outline: 2px solid #bd93f4;
+  outline-offset: 3px;
+}
+
+.panel button:disabled,
+.panel select:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.footer button {
+  min-height: 44px;
+  border: 1px solid rgba(174,124,229,.35);
+  border-radius: 11px;
+  padding: 10px 14px;
+  background: transparent;
+  color: #f5ebff;
+}
+
+.empty {
+  padding: 30px 10px;
+  color: #b5a9c6;
+  text-align: center;
+  font-size: 13px;
+}
+
+.help {
+  color: #968ba7;
+  font-size: 11px;
+  line-height: 1.55;
+  margin: 18px 0 0;
+}
+
+@media (max-width: 600px) {
+  .panel {
+    padding: 14px;
+    border-radius: 16px;
+    margin-top: 16px;
+  }
+
+  .person {
+    grid-template-columns: 44px minmax(0,1fr) 44px;
+    gap: 10px;
+    padding: 14px 0;
+  }
+
+  .avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .badges {
+    grid-column: 2;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+
+  .actionArea {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .name {
+    font-size: 14px;
+  }
+}
