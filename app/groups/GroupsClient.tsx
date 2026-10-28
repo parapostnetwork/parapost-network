@@ -74,6 +74,7 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
     avatar_url:string|null;
   }>>({});
   const [groups,setGroups]=useState<Group[]>([]); const [posts,setPosts]=useState<GroupPost[]>([]); const [members,setMembers]=useState<GroupMember[]>([]);
+  const [loadedDirectoryFilter,setLoadedDirectoryFilter]=useState<DirectoryTab|null>(null);
   const groupPreferences=useGroupPreferences(userId);
   const [search,setSearch]=useState('');const [filter,setFilter]=useState<DirectoryTab>('all');const [offset,setOffset]=useState(0);const [memberOffset,setMemberOffset]=useState(0);
   const feedEnd=useRef<HTMLDivElement>(null);const moreLock=useRef(false);
@@ -200,6 +201,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       if(!active)return;
       if(id!==currentUser){
         currentUser=id;requestNumber.current++;
+        setLoadedDirectoryFilter(null);
         setGroups([]);setPosts([]);setMembers([]);setContent('');setFiles([]);
         setSettings(false);setManagement(false);setEditPost(undefined);setCreate(false);
       }
@@ -279,7 +281,12 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       setMoreError('');
 
     } catch(e) {if(number===requestNumber.current){setGroups([]);setPosts([]);setMembers([]);setError(e instanceof Error?e.message:'Unable to load Groups.');}}
-    finally {if(number===requestNumber.current)setLoading(false);}
+    finally {
+      if(number===requestNumber.current){
+        if(!groupId)setLoadedDirectoryFilter(filter);
+        setLoading(false);
+      }
+    }
   },[groupId,serverSearch,filter,offset,memberOffset,management,groupsFetch]);
   useEffect(()=>{
     if(!groupId||!notice)return;
@@ -365,8 +372,16 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       {!create&&<>
 
       <GroupsDirectory groups={groups} viewerId={userId} tab={filter}
-        onTab={value=>{if(value===filter)return;setLoading(true);setFilter(value);setOffset(0);setSearch('');}}
-        search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={loading}
+        onTab={value=>{
+          if(value===filter)return;
+          requestNumber.current++;
+          setLoadedDirectoryFilter(null);
+          setLoading(true);
+          setFilter(value);
+          setOffset(0);
+          setSearch('');
+        }}
+        search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={loading||loadedDirectoryFilter!==filter}
         {...groupPreferences} renderMembership={membership} routeBase={routeBase}
         renderCover={g=><GroupCover path={g.cover_storage_path} name={g.name} load={groupsFetch} viewerId={userId} cacheable={g.visibility==='public'}/>}/>
       {filter!=='mine'&&<nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>}

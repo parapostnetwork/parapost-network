@@ -56,7 +56,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
     </div>
     {mine && <>
       <div className={styles.directoryFilterRow}>
-        <div className={styles.myGroupsFilters} role="group" aria-label="My Groups filters">{filters.map(([value, label]) => <button key={value} aria-pressed={mineView === value} onClick={() => setMineView(value)}>{label}{!loading && ` (${select(value, '').length})`}</button>)}</div>
+        <div className={styles.myGroupsFilters} role="group" aria-label="My Groups filters">{filters.map(([value, label]) => <button key={value} aria-pressed={mineView === value} onClick={() => setMineView(value)}>{label}{loading ? ' (…)' : ` (${select(value, '').length})`}</button>)}</div>
         <label className={styles.directorySort}>Sort by:<select value={sort} onChange={event => setSort(event.target.value as DirectorySort)}><option value="name">Name A–Z</option><option value="members">Member count</option><option value="visited">Recently visited</option></select></label>
       </div>
       <p className={styles.directoryLocalNote}>{storageError || 'Favorites and visits are saved for this account in this browser.'}</p>
