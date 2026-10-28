@@ -814,3 +814,23 @@
     animation: none;
   }
 }
+
+
+/* Group status feedback without shifting page content */
+.groupStatusToast {
+  position: fixed;
+  right: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  box-sizing: border-box;
+  max-width: min(360px, calc(100vw - 32px));
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid rgba(174,124,229,.38);
+  border-radius: 12px;
+  background: #171021;
+  color: #f3edfb;
+  box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  line-height: 1.5;
+  pointer-events: none;
+}

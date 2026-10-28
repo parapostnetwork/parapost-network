@@ -240,20 +240,36 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         }
       }
       if(number!==requestNumber.current)return;
-      setGroups([...new Map(list.map(item=>[item.id,item])).values()]);setPosts([]);setMembers([]);setHasMore(false);setMoreError('');
+      const nextGroups=[...new Map(list.map(item=>[item.id,item])).values()];
+      let nextPosts:GroupPost[]=[];
+      let nextMembers:GroupMember[]=[];
+      let nextHasMore=false;
       if(groupId&&list[0]) {
         const current=list[0];
         const allowed=current.membership_status==='approved'||(current.visibility==='public'&&!['rejected','removed','banned'].includes(current.membership_status ?? ''));
         const feed:GroupPost[]=allowed?await(await groupsFetch(`/api/groups?kind=feed&group=${groupId}&offset=0`)).json():[];
-        if(number!==requestNumber.current)return;setPosts(feed);setHasMore(feed.length===20);
+        if(number!==requestNumber.current)return;nextPosts=feed;nextHasMore=feed.length===20;
         if(management&&current.membership_status==='approved'&&['owner','admin'].includes(current.membership_role ?? '')) {
           const roster=await(await groupsFetch(`/api/groups?kind=members&group=${groupId}&offset=${memberOffset}`)).json();
-          if(number===requestNumber.current)setMembers(roster);
+          if(number!==requestNumber.current)return;nextMembers=roster;
         }
       }
+      if(number!==requestNumber.current)return;
+      setGroups(nextGroups);
+      setPosts(nextPosts);
+      setMembers(nextMembers);
+      setHasMore(nextHasMore);
+      setMoreError('');
+
     } catch(e) {if(number===requestNumber.current){setGroups([]);setPosts([]);setMembers([]);setError(e instanceof Error?e.message:'Unable to load Groups.');}}
     finally {if(number===requestNumber.current)setLoading(false);}
   },[groupId,serverSearch,filter,offset,memberOffset,management,groupsFetch]);
+  useEffect(()=>{
+    if(!groupId||!notice)return;
+    const timer=window.setTimeout(()=>setNotice(''),3500);
+    return()=>window.clearTimeout(timer);
+  },[groupId,notice]);
+
   useEffect(()=>{if(!authReady||!userId)return;const sequence=requestNumber;const timer=setTimeout(()=>{setError('');void refresh();},200);return()=>{clearTimeout(timer);sequence.current++;};},[refresh,userId,authReady]);
   // Clear restricted content before revalidating on tab focus. Already downloaded bytes cannot be revoked.
   useEffect(()=>{const focus=()=>{setPosts([]);setMembers([]);if(userId)void refresh();};window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus);},[refresh,userId]);
@@ -318,8 +334,8 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         ← Dashboard
       </Link>
     </header>
-    {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-    {loading&&groupId&&<p role="status">Loading Groups…</p>}
+    {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p className={groupId?styles.groupStatusToast:undefined} role="status">{notice}</p>}
+    {loading&&groupId&&!group&&<p role="status">Loading Groups…</p>}
     {!groupId?<>
       <DirectoryHeading mine={filter==='mine'} create={create} onCreate={()=>setCreate(value=>!value)}/>
       {create&&<GroupForm busy={busy} onSubmit={async(name,description,visibility,file)=>{
