@@ -21,6 +21,9 @@ export function ShareDialog({groupId,postId,shareId,read,onClose,onShared}:{grou
   const dialog=useRef<HTMLDialogElement>(null);const lock=useRef(false);
   const [preview,setPreview]=useState<GroupPromotion|null>(null);const [loading,setLoading]=useState(true);const [caption,setCaption]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
   useEffect(()=>{
+    // Wait until the complete sharing preview is ready.
+    // This prevents the small loading dialog from flashing.
+    if(loading)return;
     const element=dialog.current;
     const trigger=document.activeElement as HTMLElement|null;
     const body=document.body;
@@ -61,7 +64,7 @@ export function ShareDialog({groupId,postId,shareId,read,onClose,onShared}:{grou
       window.scrollTo(scrollX,scrollY);
       if(trigger?.isConnected)trigger.focus({preventScroll:true});
     };
-  },[]);
+  },[loading]);
   useEffect(()=>{
     const abort=new AbortController();const params=new URLSearchParams({group:groupId});if(shareId)params.set('share',shareId);
     void read(`/api/groups/sharing?${params}`,{signal:abort.signal}).then(response=>response.json()).then((data:GroupPromotion|null)=>{
