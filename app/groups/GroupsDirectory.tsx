@@ -77,7 +77,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
             {onOpen ? <button className={styles.directoryOpen} onClick={() => { recordVisit(group.id); onOpen(group); }} aria-label={`Open ${group.name}`}>{cardContents}</button>
               : <a className={styles.directoryOpen} href={`${routeBase}/${group.id}`} onClick={() => { if (approved) recordVisit(group.id); }} aria-label={`Open ${group.name}`}>{cardContents}</a>}
             {approved && <button className={styles.favoriteToggle} aria-pressed={favorite} aria-label={`${favorite ? 'Remove' : 'Add'} ${group.name} ${favorite ? 'from' : 'to'} favorites`} onClick={() => toggleFavorite(group.id)}>{favorite ? '★' : '☆'}</button>}
-            {!mine && <div className={styles.directoryCardActions}>{renderMembership(group)}</div>}
+            {!mine && !approved && <div className={styles.directoryCardActions}>{renderMembership(group)}</div>}
           </article>;
         })}</div>
         {!section.items.length && <p className={styles.directoryEmpty}>{search ? 'No groups match your search in this section.' : section.key === 'favorites' ? 'Star a group to keep it close.' : section.key === 'recent' ? 'Groups you open will appear here.' : section.key === 'owned' ? 'Groups you create will appear here.' : section.key === 'joined' ? 'Join a community to see it here.' : 'No groups found. Try another search or filter.'}</p>}
