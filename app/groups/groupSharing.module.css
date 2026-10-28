@@ -53,3 +53,15 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+
+
+/* SHARE GROUP RESPONSIVE SAFE AREA REFINEMENT */
+.dialog {
+  width: min(
+    480px,
+    calc(100vw - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)))
+  );
+  max-height: calc(
+    100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))
+  );
+}

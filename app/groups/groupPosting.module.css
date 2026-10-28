@@ -184,3 +184,20 @@
     flex-basis: 40px;
   }
 }
+
+
+/* GROUPS MOBILE TOUCH TARGET REFINEMENT */
+@media (max-width: 760px) {
+  .composerTop {
+    grid-template-columns: 44px minmax(0, 1fr) 44px !important;
+  }
+
+  .composerTop > button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .composerFooter button {
+    min-height: 44px !important;
+  }
+}

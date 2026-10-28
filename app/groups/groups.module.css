@@ -867,3 +867,37 @@
     animation: none;
   }
 }
+
+
+/* GROUPS RESPONSIVE SAFE AREA REFINEMENT */
+.settingsOverlay {
+  box-sizing: border-box;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+.settingsModal {
+  max-height: min(
+    90dvh,
+    calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)))
+  );
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 600px) {
+  .settingsOverlay {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+  }
+
+  .settingsModal {
+    max-height: min(
+      94dvh,
+      calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)))
+    );
+  }
+}
