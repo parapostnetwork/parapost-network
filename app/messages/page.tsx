@@ -719,8 +719,8 @@ function MessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const selectedConversationFromUrl = searchParams.get("conversation") || "";
-  const selectedUserFromUrl = searchParams.get("user") || "";
+  const selectedConversationFromUrl = searchParams?.get("conversation") || "";
+  const selectedUserFromUrl = searchParams?.get("user") || "";
 
   const [viewerId, setViewerId] = useState("");
   const [conversations, setConversations] = useState<ConversationItem[]>([]);

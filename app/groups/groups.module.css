@@ -243,7 +243,7 @@
 
 
 /* Compact Group Settings header pill */
-.page .identityActions > button.secondaryButton {
+.page .headerActionRow > button.secondaryButton {
   box-sizing: border-box;
   flex: 0 1 auto;
   width: auto;
@@ -260,13 +260,13 @@
   white-space: nowrap;
 }
 
-.page .identityActions > button.secondaryButton:hover:not(:disabled) {
+.page .headerActionRow > button.secondaryButton:hover:not(:disabled) {
   background: rgba(255,255,255,.035);
   border-color: rgba(191,179,204,.35);
 }
 
 @media (max-width:600px) {
-  .page .identityActions > button.secondaryButton {
+  .page .headerActionRow > button.secondaryButton {
     font-size: 12px;
     padding: 8px 11px;
   }
@@ -296,5 +296,462 @@
 
   .banner .mascot {
     max-height:70%;
+  }
+}
+
+/* MY GROUPS DASHBOARD V1 */
+
+.directorySection {
+  margin: 20px 0 28px;
+}
+
+.directorySectionHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 14px;
+}
+
+.directorySectionHeading h2 {
+  font-size: 21px;
+  margin: 0;
+}
+
+.directorySectionHeading span {
+  font-size: 12px;
+  color: #bfb3cc;
+}
+
+.myGroupsFilters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.myGroupsFilters button {
+  border-radius: 999px;
+}
+
+.myGroupsFilters button[aria-pressed="true"] {
+  background: var(--parapost-accent-1,#8b5cf6);
+  color: #fff;
+}
+
+.directoryCardGrid {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 16px;
+}
+
+.directoryCard {
+  display: grid;
+  grid-template-columns: 104px minmax(0,1fr);
+  gap: 12px;
+  padding: 12px;
+  background: color-mix(in srgb,var(--background,#07090d) 90%,var(--parapost-accent-1));
+  border: 1px solid var(--parapost-accent-border,#ae7ce526);
+  border-radius: 17px;
+  min-width: 0;
+}
+
+.directoryCardMedia {
+  min-width: 0;
+  align-self: start;
+}
+
+.directoryCardMedia .cover {
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 12px;
+}
+
+.directoryCardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.directoryCardContent h3 {
+  font-size: 16px;
+  line-height: 1.3;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.directoryCardLabel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  font-size: 11px;
+  color: #c9addf;
+  margin: 0;
+}
+
+.ownerTag {
+  border: 1px solid #ae7ce566;
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.directoryCardDescription {
+  color: #c9c0d1;
+  font-size: 12px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.directoryCardMeta {
+  color: #d7c5eb;
+  font-size: 12px;
+  margin: 0;
+}
+
+.directoryCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.directoryCardActions a {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.directoryCardActions button {
+  font-size: 12px;
+  max-width: 100%;
+}
+
+@media(max-width:1050px) {
+  .directoryCardGrid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:700px) {
+  .directoryCardGrid {
+    grid-template-columns: minmax(0,1fr);
+    gap: 12px;
+  }
+  .directoryCard {
+    grid-template-columns: 88px minmax(0,1fr);
+    padding: 10px;
+    gap: 12px;
+  }
+  .directorySectionHeading h2 {
+    font-size: 18px;
+  }
+}
+
+/* Complete the existing compact directory; individual Group surfaces are untouched. */
+.directoryHero { padding:28px 0 20px; }
+.directoryHero > button { border-radius:14px; padding:14px 20px; }
+.directoryBrowser { min-width:0; }
+.directoryBrowser .directoryControls { align-items:flex-end; gap:24px; margin:0 0 22px; }
+.directoryBrowser .search { width:min(100%,390px); font-size:12px; }
+.directorySearchInput { position:relative; display:block; }
+.directorySearchInput > svg { position:absolute; left:15px; top:50%; transform:translateY(-50%); color:#c9c0d1; pointer-events:none; }
+.directorySearchInput > input { padding:15px 16px 15px 46px!important; background:#ffffff03!important; border-color:#8b6aa6!important; min-height:50px; border-radius:13px!important; }
+.directoryFilterRow { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.myGroupsFilters { margin:0; gap:8px; }
+.page .myGroupsFilters > button { border-radius:999px; padding:10px 15px; font-size:12px; }
+.page .myGroupsFilters > button[aria-pressed=true], .directoryBrowser .tabs > button[aria-pressed=true] { background:linear-gradient(120deg,var(--parapost-accent-1,#8b5cf6),var(--parapost-accent-2,#a855f7)); box-shadow:inset 0 1px 0 #ffffff25; }
+.page .directorySort { flex-direction:row; align-items:center; gap:8px; white-space:nowrap; color:#d0c5dc; font-size:12px; }
+.directorySort select { width:auto; min-height:44px; font-size:12px; background:#ffffff04; border-color:var(--parapost-accent-border,#ae7ce526); }
+.directoryLocalNote { font-size:11px; line-height:1.5; color:#a69ab7; margin:12px 0 22px; }
+.directorySection { margin:0 0 26px; }
+.directorySectionHeading { align-items:center; gap:12px; margin-bottom:10px; }
+.directorySectionHeading h2 { font-size:17px; font-weight:750; letter-spacing:-.015em; }
+.directorySectionHeading h2 span { font:inherit; color:inherit; }
+.page button.viewAll { min-height:44px; padding:4px 0 4px 10px; border:0; background:transparent; color:var(--parapost-accent-readable-text,#bc8fff); font-size:13px; flex-shrink:0; }
+.directoryCardGrid { gap:14px; }
+.directoryCard { position:relative; display:block; padding:0; overflow:hidden; border-radius:15px; background:linear-gradient(110deg,#ffffff04,#ffffff02),color-mix(in srgb,var(--background,#07090d) 94%,var(--parapost-accent-1,#8b5cf6)); border-color:#ae7ce51c; }
+.page .directoryOpen { display:grid; grid-template-columns:70px minmax(0,1fr) 12px; align-items:center; gap:14px; width:100%; min-height:104px; padding:12px 28px 12px 12px; border:0; border-radius:0; color:#f5f1fc; background:transparent; text-align:left; text-decoration:none; font:inherit; }
+.page .directoryOpen:hover { background:#ae7ce509; text-decoration:none; }
+.page .directoryOpen:focus-visible { outline-offset:-4px; }
+.directoryCardMedia { align-self:center; }
+.directoryCardMedia .cover { border-radius:11px; }
+.directoryCardMedia .mascot { width:75%; max-height:80%; }
+.directoryCardMedia img { display:block; width:100%; aspect-ratio:1; object-fit:contain; }
+.directoryCardContent { gap:6px; }
+.directoryCardContent h3 { font-size:13px; line-height:1.4; font-weight:750; }
+.directoryCardMeta { font-size:12px; color:#aaa2b6; line-height:1.4; }
+.directoryCardLabel { gap:5px 10px; font-size:11px; color:#ded9e7; line-height:1.4; }
+.ownerTag { background:var(--parapost-accent-button-bg,#8b5cf6); border:0; color:white; padding:3px 9px; }
+.favoriteTag { color:#facc15; }
+.visitedTag { color:#bfb3cc; }
+.privacyTag { display:inline-flex; align-items:center; gap:5px; }
+.directoryChevron { color:#bfb3cc; font-size:24px; }
+.page .favoriteToggle { position:absolute; right:0; top:0; min-height:32px; width:32px; padding:0; border:0; border-radius:0 14px 0 10px; font-size:18px; background:transparent; color:#a69ab7; }
+.page .favoriteToggle[aria-pressed=true] { color:#facc15; background:transparent; }
+.directoryCardActions { margin:0; padding:0 12px 12px; }
+.directoryEmpty { border:1px dashed #ae7ce52c; border-radius:14px; color:#a69ab7; font-size:13px; line-height:1.6; padding:20px; margin:0; }
+.directoryLoading { padding:40px 0; color:#bfb3cc; }
+.previewBanner { margin:16px 0 0; padding:10px 14px; border:1px dashed #8b5cf666; border-radius:10px; color:#c9b5df; font-size:12px; line-height:1.5; }
+.previewCover { width:100%; aspect-ratio:1; border-radius:11px; display:grid; place-items:center; background:linear-gradient(135deg,#8b5cf6,#a855f7); }
+.previewCover img { width:76%; }
+.previewDialog { width:min(460px,calc(100% - 32px)); margin:auto; padding:24px; border-radius:20px; border:1px solid #8b5cf655; background:#100d18; color:#f5f1fc; }
+.previewDialog::backdrop { background:#000b; }
+.previewDialog h2 { font-size:22px; margin:0 0 12px; overflow-wrap:anywhere; }
+.previewDialog p { color:#c4b9cf; line-height:1.6; }
+.previewDialog button { margin-top:20px; }
+@media(max-width:1100px) { .directoryFilterRow { align-items:flex-start; } }
+@media(max-width:1050px) { .directoryCardGrid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:700px) {
+  .directoryHero { flex-direction:row; align-items:center; gap:12px; padding:24px 2px 20px; }
+  .directoryHero .eyebrow { display:none; }
+  .directoryHero h1 { font-size:29px; margin:0 0 8px; }
+  .directoryHero p { font-size:13px; line-height:1.5; }
+  .directoryHero > button { padding:10px 13px; font-size:12px; }
+  .directoryBrowser .directoryControls { flex-direction:column; align-items:stretch; gap:16px; margin-bottom:16px; }
+  .directoryBrowser .tabs { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; border:0; padding:0; background:transparent; overflow:visible; }
+  .directoryBrowser .tabs > button { min-width:0; padding:10px 3px; font-size:12px; border-radius:14px; }
+  .directoryBrowser .search { width:100%; }
+  .directoryCardGrid { grid-template-columns:minmax(0,1fr); gap:10px; }
+  .page .directoryOpen { grid-template-columns:70px minmax(0,1fr) 12px; min-height:100px; padding:10px 26px 10px 10px; gap:12px; }
+  .directoryCardContent h3 { font-size:15px; }
+  .directoryCardMeta { font-size:13px; }
+  .directoryCardLabel { font-size:12px; }
+  .page .favoriteToggle { min-height:44px; width:32px; }
+  .directorySectionHeading h2 { font-size:18px; }
+  .directoryFilterRow { gap:12px; }
+  .myGroupsFilters { gap:8px; }
+  .page .myGroupsFilters > button { padding:9px 13px; font-size:12px; }
+  .directorySort { margin-left:auto; }
+  .directoryLocalNote { margin:10px 0 18px; }
+}
+@media(max-width:360px) {
+  .directoryHero { align-items:flex-start; }
+  .directoryHero > button { padding:10px; max-width:112px; }
+  .directoryHero h1 { font-size:25px; }
+  .page .directoryOpen { grid-template-columns:58px minmax(0,1fr) 10px; gap:10px; }
+}
+
+
+/* MY GROUPS DESKTOP POLISH 2026-10-27 */
+@media (min-width:701px) {
+  .directoryHero {
+    padding:16px 0 10px;
+    margin-bottom:12px;
+  }
+
+  .directoryBrowser .directoryControls {
+    gap:18px;
+    margin-bottom:16px;
+  }
+
+  .directoryLocalNote {
+    margin:9px 0 16px;
+  }
+
+  .directorySection {
+    margin-bottom:22px;
+  }
+
+  .directorySectionHeading {
+    margin-bottom:12px;
+  }
+
+  .directoryCardContent h3 {
+    font-size:15px;
+    line-height:1.35;
+  }
+
+  .directoryCardMeta {
+    font-size:13px;
+  }
+
+  .directoryCardLabel {
+    font-size:12px;
+    gap:6px 9px;
+  }
+
+  .page .directoryOpen {
+    min-height:112px;
+  }
+
+  .page .favoriteToggle {
+    top:8px;
+    right:8px;
+    width:34px;
+    min-height:34px;
+    border-radius:10px;
+    background:rgba(255,255,255,.035);
+  }
+
+  .page .favoriteToggle:hover {
+    background:rgba(139,92,246,.18);
+  }
+
+  .page .favoriteToggle:focus-visible {
+    outline:2px solid #a855f7;
+    outline-offset:2px;
+  }
+
+  .page .directorySort {
+    gap:10px;
+    font-size:13px;
+  }
+
+  .page .directorySort select {
+    min-width:166px;
+    min-height:44px;
+    padding:9px 30px 9px 13px;
+    border:1px solid rgba(174,124,229,.35);
+    border-radius:12px;
+    background:#15101f;
+    color:#f3edfb;
+    font-size:13px;
+    font-weight:600;
+    color-scheme:dark;
+    cursor:pointer;
+  }
+
+  .page button.viewAll {
+    font-weight:650;
+  }
+}
+
+
+/* MY GROUPS VISUAL STABILITY POLISH */
+
+.directoryBrowser .directoryCard {
+  transform: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.directoryBrowser .directoryCard:hover {
+  transform: none;
+  border-color: rgba(174,124,229,.30);
+  box-shadow: 0 5px 18px rgba(0,0,0,.14);
+}
+
+.directoryBrowser .directoryOpen {
+  transition: background-color 160ms ease;
+}
+
+.directoryBrowser .directoryOpen:hover {
+  background-color: rgba(139,92,246,.045);
+}
+
+.directoryBrowser .tabs > button,
+.page .myGroupsFilters > button,
+.page .favoriteToggle,
+.page button.viewAll {
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.directoryBrowser .directoryCardMeta {
+  font-variant-numeric: tabular-nums;
+}
+
+.directoryBrowser .directoryOpen:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: -3px;
+}
+
+.page .myGroupsFilters > button:focus-visible,
+.directoryBrowser .tabs > button:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .directoryBrowser .directoryCard,
+  .directoryBrowser .directoryOpen,
+  .directoryBrowser .tabs > button,
+  .page .myGroupsFilters > button,
+  .page .favoriteToggle,
+  .page button.viewAll {
+    transition: none;
+    animation: none;
+  }
+}
+
+
+/* INDIVIDUAL GROUP HEADER WIDTH ADJUSTMENT */
+@media (min-width: 900px) {
+  .page .groupHeader {
+    max-width: 1180px;
+    margin-inline: auto;
+  }
+}
+
+
+/* GROUP HEADER ACTION ROW - SAFE BUTTON SPACING */
+.page .headerActionRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 28px;
+  row-gap: 14px;
+  margin-top: 14px;
+}
+
+.page .headerActionRow > button.secondaryButton {
+  min-height: 44px;
+  margin: 0;
+}
+
+
+/* ALIGN GROUP HEADER BUTTONS */
+.page .headerActionRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 28px;
+  row-gap: 14px;
+}
+
+.page .headerActionRow > * {
+  box-sizing: border-box;
+  height: 48px;
+  min-height: 48px;
+  margin-block: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page .headerActionRow > :first-child button {
+  box-sizing: border-box;
+  height: 48px;
+  min-height: 48px;
+  margin-block: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* GROUP HEADER PARAGHOST LOGO */
+.page .topbarGhost {
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: url('/parapost-icon-white.png') center / contain no-repeat;
+}
+
+@media (max-width: 600px) {
+  .page .topbarGhost {
+    width: 36px;
+    height: 36px;
   }
 }

@@ -2,7 +2,7 @@
 .button:disabled { opacity:.5; cursor:not-allowed; }
 .iconButton { width:100%; border:0; background:transparent; padding:0; }
 .button.headerButton {
-  margin-top: 8px;
+  margin-top: 0;
   min-height: 44px;
   padding: 8px 12px;
   border-radius: 999px;

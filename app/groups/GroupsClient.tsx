@@ -18,6 +18,9 @@ import GroupCover from './GroupCover';
 import GroupShareButton from './GroupShareButton';
 import GroupPromotionSettings from './GroupPromotionSettings';
 import GroupPostActions from './GroupPostActions';
+import GroupsDirectory, { DirectoryHeading, type DirectoryTab } from './GroupsDirectory';
+import { useGroupPreferences } from './useGroupPreferences';
+import { parseGroupPreferences } from '@/lib/groups/directory';
 
 type GroupTab = 'discussion' | 'about' | 'members' | 'media';
 
@@ -71,7 +74,8 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
     avatar_url:string|null;
   }>>({});
   const [groups,setGroups]=useState<Group[]>([]); const [posts,setPosts]=useState<GroupPost[]>([]); const [members,setMembers]=useState<GroupMember[]>([]);
-  const [search,setSearch]=useState('');const [filter,setFilter]=useState('all');const [offset,setOffset]=useState(0);const [memberOffset,setMemberOffset]=useState(0);
+  const groupPreferences=useGroupPreferences(userId);
+  const [search,setSearch]=useState('');const [filter,setFilter]=useState<DirectoryTab>('all');const [offset,setOffset]=useState(0);const [memberOffset,setMemberOffset]=useState(0);
   const feedEnd=useRef<HTMLDivElement>(null);const moreLock=useRef(false);
   const [hasMore,setHasMore]=useState(false);const [loadingMore,setLoadingMore]=useState(false);const [moreError,setMoreError]=useState('');
   const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
@@ -146,7 +150,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   useEffect(()=>{
     let active=true;
     setViewerProfile(null);
-    if(userId){
+    if(userId && transport===liveGroupsTransport){
       void supabase.from('profiles')
         .select('full_name,username,avatar_url')
         .eq('id',userId).maybeSingle()
@@ -155,7 +159,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         });
     }
     return ()=>{active=false;};
-  },[userId]);
+  },[userId,transport]);
 
   useEffect(()=>{
     if(!openPostMenuId)return;
@@ -210,13 +214,33 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
     return ()=>{active=false;};
   },[posts,transport]);
 
+  const serverSearch=filter==='mine'?'':search;
+  useEffect(()=>{
+    if(!groupId||!group?.id||!approved||!userId)return;
+    const key=`parapost:groups:vmgelrgrtpghmvqgufzz:${userId}`;
+    try{const preferences=parseGroupPreferences(localStorage.getItem(key));preferences.visits[group.id]=Date.now();localStorage.setItem(key,JSON.stringify(preferences));}catch{/* Browser storage is optional. */}
+  },[groupId,group?.id,approved,userId]);
+
   const refresh=useCallback(async()=>{
     const number=++requestNumber.current;setLoading(true);
     try {
-      const params=new URLSearchParams({search,filter,offset:String(offset)});if(groupId)params.set('group',groupId);
+      const params=new URLSearchParams({search:serverSearch,filter,offset:String(filter==='mine'&&!groupId?0:offset)});if(groupId)params.set('group',groupId);
       const list:Group[]=await (await groupsFetch(`/api/groups?${params}`)).json();
       if(number!==requestNumber.current)return;
-      setGroups(list);setPosts([]);setMembers([]);setHasMore(false);setMoreError('');
+      // My Groups filters/counts cover the full authorized membership list.
+      if(filter==='mine'&&!groupId){
+        let pageLength=list.length;
+        for(let nextOffset=24;pageLength===24;nextOffset+=24){
+          if(number!==requestNumber.current)return;
+          if(nextOffset>100000)throw new Error('Too many Groups to load. Please contact support.');
+          params.set('offset',String(nextOffset));
+          const page:Group[]=await(await groupsFetch(`/api/groups?${params}`)).json();
+          pageLength=page.length;
+          list.push(...page);
+        }
+      }
+      if(number!==requestNumber.current)return;
+      setGroups([...new Map(list.map(item=>[item.id,item])).values()]);setPosts([]);setMembers([]);setHasMore(false);setMoreError('');
       if(groupId&&list[0]) {
         const current=list[0];
         const allowed=current.membership_status==='approved'||(current.visibility==='public'&&!['rejected','removed','banned'].includes(current.membership_status ?? ''));
@@ -229,7 +253,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       }
     } catch(e) {if(number===requestNumber.current){setGroups([]);setPosts([]);setMembers([]);setError(e instanceof Error?e.message:'Unable to load Groups.');}}
     finally {if(number===requestNumber.current)setLoading(false);}
-  },[groupId,search,filter,offset,memberOffset,management,groupsFetch]);
+  },[groupId,serverSearch,filter,offset,memberOffset,management,groupsFetch]);
   useEffect(()=>{if(!authReady||!userId)return;const sequence=requestNumber;const timer=setTimeout(()=>{setError('');void refresh();},200);return()=>{clearTimeout(timer);sequence.current++;};},[refresh,userId,authReady]);
   // Clear restricted content before revalidating on tab focus. Already downloaded bytes cannot be revoked.
   useEffect(()=>{const focus=()=>{setPosts([]);setMembers([]);if(userId)void refresh();};window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus);},[refresh,userId]);
@@ -279,11 +303,25 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   if(!authReady)return <main className={styles.page}><p role="status">Checking your session…</p></main>;
   if(!userId)return <main className={styles.page}><h1>Groups</h1><p>Sign in to discover and participate in Groups.</p><Link href="/">Sign in</Link></main>;
   return <main className={styles.page}><div className={styles.shell}>
-    <header className={styles.topbar}><Link href="/dashboard">PARAPOST NETWORK</Link><Link href={routeBase}>Groups</Link><Link href="/dashboard">← Dashboard</Link></header>
+    <header className={styles.topbar}>
+      <Link href={routeBase === '/group-original-preview' ? '/groups-preview' : '/dashboard'}>
+        <span
+          className={styles.topbarGhost}
+          role="img"
+          aria-label="Parapost Network"
+        />
+      </Link>
+      <Link href={routeBase === '/group-original-preview' ? '/groups-preview' : routeBase}>
+        Groups
+      </Link>
+      <Link href={routeBase === '/group-original-preview' ? '/' : '/dashboard'}>
+        ← Dashboard
+      </Link>
+    </header>
     {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
     {loading&&<p role="status">Loading Groups…</p>}
     {!groupId?<>
-      <section className={styles.hero}><div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>{create?'Create a Group':'Discover Groups'}</h1><p>{create?'Bring your community together. Give your Group a name and a place to call home.':'Find your paranormal community. Share experiences and explore together.'}</p></div><button onClick={()=>setCreate(v=>!v)} aria-expanded={create}>{create?'Cancel':'+ Create Group'}</button></section>
+      <DirectoryHeading mine={filter==='mine'} create={create} onCreate={()=>setCreate(value=>!value)}/>
       {create&&<GroupForm busy={busy} onSubmit={async(name,description,visibility,file)=>{
         if(mutationLock.current)return;mutationLock.current=true;setBusy(true);
         try{const created=await groupAction('create',undefined,{name,description,visibility});
@@ -292,10 +330,13 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         }finally{mutationLock.current=false;setBusy(false);}
       }}/>}
       {!create&&<>
-      <div className={styles.directoryControls}><div className={styles.tabs} aria-label="Filter Groups">{[['all','Discover'],['public','Public'],['private','Private'],['mine','My Groups']].map(([value,label])=><button key={value} aria-pressed={filter===value} onClick={()=>{setFilter(value);setOffset(0);}}>{label}</button>)}</div><label className={styles.search}>Search Groups<input placeholder="Search by name or description" type="search" maxLength={100} value={search} onChange={e=>{setSearch(e.target.value);setOffset(0);}}/></label></div>
-      <div className={styles.grid}>{groups.map(g=><article key={g.id} className={styles.card}><GroupCover path={g.cover_storage_path} name={g.name} load={groupsFetch} viewerId={userId} cacheable={g.visibility==='public'}/><div className={styles.body}><p className={styles.eyebrow}>{g.visibility} Group</p><h2><Link href={`${routeBase}/${g.id}`}>{g.name}</Link></h2><p className={styles.cardDescription}>{g.description || "Connect with this community."}</p><p className={styles.muted}>{g.member_count!==null&&<>{g.member_count} {g.member_count===1?'member':'members'}</>}{g.owner_id&&<> · Owner: {g.owner_name}</>}</p><div className={styles.cardActions}><Link className={styles.openGroup} href={`${routeBase}/${g.id}`}>View Group →</Link>{membership(g)}</div></div></article>)}</div>
-      {!loading&&!groups.length&&<p className={styles.empty}>No Groups found. Try another filter or create a community.</p>}
-      <nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>
+
+      <GroupsDirectory groups={groups} viewerId={userId} tab={filter}
+        onTab={value=>{setFilter(value);setOffset(0);setSearch('');}}
+        search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={loading}
+        {...groupPreferences} renderMembership={membership} routeBase={routeBase}
+        renderCover={g=><GroupCover path={g.cover_storage_path} name={g.name} load={groupsFetch} viewerId={userId} cacheable={g.visibility==='public'}/>}/>
+      {filter!=='mine'&&<nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>}
       </>}
     </>:group?<>
       <section className={`${styles.card} ${styles.groupHeader}`}>
@@ -306,11 +347,14 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
             <h1>{group.name}</h1>
             <p className={styles.headerDescription}>{group.description}</p>
             <p className={styles.identityMeta}>{group.member_count!==null&&<>{group.member_count} {group.member_count===1?'member':'members'}</>}{group.owner_id&&<> <span aria-hidden="true">·</span> Owner: <Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></>}</p>
-            {(group.visibility==='public'?canRead:approved)&&<GroupShareButton header groupId={group.id} read={groupsFetch}/>}
+            <div className={styles.headerActionRow}>
+              {(group.visibility==='public'?canRead:approved)&&<GroupShareButton header groupId={group.id} read={groupsFetch}/>}
+              {admin&&<button className={styles.secondaryButton} onClick={()=>setSettings(true)} aria-haspopup="dialog">Group settings</button>}
+            </div>
           </div>
           <div className={styles.identityActions}>
             <div className={styles.membershipActions}>{membership(group)}</div>
-            {admin&&<button className={styles.secondaryButton} onClick={()=>setSettings(true)} aria-haspopup="dialog">Group settings</button>}
+
           </div>
         </div>
         <div className={styles.groupTabs} role="tablist" aria-label="Group sections">
@@ -371,7 +415,12 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       <aside className={styles.aboutSidebar}><GroupAbout group={group}/></aside>
       <div className={styles.discussionColumn}>
       {canRead&&!approved&&<p className={styles.readingNotice}>You’re viewing a public discussion. Join this Group to participate.</p>}
-      {approved && <GroupPostComposer userId={userId} profile={viewerProfile} content={content}
+      {approved && <GroupPostComposer userId={userId} profile={viewerProfile}
+        groupName={group.name}
+        coverPath={group.cover_storage_path}
+        read={groupsFetch}
+        cacheable={group.visibility==='public'}
+        content={content}
         setContent={setContent} files={files} setFiles={setFiles} busy={busy} onPublish={() => void perform(publish)} />}
 
       {!canRead?<p className={styles.empty}>Discussion and media are available only to eligible members. {group.membership_status==='pending'?'Your request is awaiting approval.':''}</p>:<section aria-label="Group discussion"><h2>Discussion</h2>{posts.map(post=><article data-posting className={`${posting.posting} ${posting.post}`} id={`group-post-${post.id}`} style={postCardStyle} key={post.id}><div className={posting.postHeader} style={postHeaderStyle}>

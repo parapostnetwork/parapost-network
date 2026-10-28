@@ -100,7 +100,7 @@ export default function SettingsNav() {
               </p>
 
               {group.links.map((link) => {
-                const isActive = isActivePath(pathname, link.href);
+                const isActive = pathname !== null && isActivePath(pathname, link.href);
 
                 return (
                   <Link
