@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useRef, useState, type ReactNode } from 'react';
 import type { Group } from '@/lib/groups/types';
 import { ownsGroup, selectMyGroups, type DirectorySort, type GroupPreferences, type MineFilter } from '@/lib/groups/directory';
@@ -85,7 +86,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
           </div><span className={styles.directoryChevron} aria-hidden="true">›</span></>;
           return <article key={group.id} className={styles.directoryCard}>
             {onOpen ? <button className={styles.directoryOpen} onClick={() => { recordVisit(group.id); onOpen(group); }} aria-label={`Open ${group.name}`}>{cardContents}</button>
-              : <a className={styles.directoryOpen} href={`${routeBase}/${group.id}`} onClick={() => { if (approved) recordVisit(group.id); }} aria-label={`Open ${group.name}`}>{cardContents}</a>}
+              : <Link className={styles.directoryOpen} href={`${routeBase}/${group.id}`} onClick={() => { if (approved) recordVisit(group.id); }} aria-label={`Open ${group.name}`}>{cardContents}</Link>}
             {approved && <button className={styles.favoriteToggle} aria-pressed={favorite} aria-label={`${favorite ? 'Remove' : 'Add'} ${group.name} ${favorite ? 'from' : 'to'} favorites`} onClick={() => toggleFavorite(group.id)}>{favorite ? '★' : '☆'}</button>}
             {!mine && !approved && <div className={styles.directoryCardActions}>{renderMembership(group)}</div>}
           </article>;
