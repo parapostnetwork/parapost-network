@@ -328,15 +328,14 @@ export default function SharedGroupPostEngagement({
                     {comment.like_count > 0 ? ` (${comment.like_count})` : ""}
                   </button>
 
-                  {!comment.parent_id && (
-                    <button type="button"
-                      onClick={() => {
-                        setReplyTo(comment.id);
-                        setCommentsOpen(true);
-                      }}>
-                      Reply
-                    </button>
-                  )}
+                  <button type="button" disabled={busy || loading}
+                    onClick={() => {
+                      // Keep replies within the original comment thread.
+                      setReplyTo(comment.parent_id ?? comment.id);
+                      setCommentsOpen(true);
+                    }}>
+                    Reply
+                  </button>
 
                   {own && (
                     <>

@@ -221,3 +221,33 @@ test('Dashboard/Profile keep the existing feed merge and ordinary posts/Reels; G
   assert.match(dashboard, /fetchSharedPosts\(blockedIds\)/); assert.match(dashboard, /fetchSharedReels\(blockedIds\)/);
   assert.doesNotMatch(hook, /IntersectionObserver|addEventListener\(['"]scroll|setTimeout|location\.reload/);
 });
+
+test('nested comments expose Reply and use the root thread', async () => {
+  const h = engagement('promotion');
+  h.backend.comments.push(
+    {id: 'c0', author_id: 'viewer', content: 'First',
+      parent_id: null, liked: false, like_count: 0},
+    {id: 'c1', author_id: 'viewer', content: 'Second',
+      parent_id: 'c0', liked: false, like_count: 0}
+  );
+  h.backend.comment_count = 2;
+
+  let tree = await h.flush();
+  actions(tree).onComment();
+  tree = h.render();
+
+  const replies = nodes(tree).filter(
+    n => n.type === 'button' && content(n) === 'Reply'
+  );
+  assert.equal(replies.length, 2);
+
+  replies[1].props.onClick();
+  tree = writeDraft(h, h.render(), 'Answer to second', true);
+
+  await commentForm(tree).props.onSubmit(submit);
+  await h.flush();
+
+  assert.equal(h.backend.comments.at(-1).parent_id, 'c0');
+  assert.equal(h.calls.at(-1).action, 'reply');
+  h.dispose();
+});
