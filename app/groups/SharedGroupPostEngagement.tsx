@@ -1,9 +1,10 @@
 "use client";
 
 import { shareErrorMessage } from '@/lib/groups/shareErrors';
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { groupsFetch, groupAction } from "@/lib/groups/client";
 import { supabase } from "@/lib/supabase";
+import { useGroupSession } from '@/lib/groups/useGroupSession';
 import SharedGroupPostActions from "./SharedGroupPostActions";
 import { createPortal } from "react-dom";
 import { ShareDialog } from "./GroupShareButton";
@@ -40,8 +41,18 @@ export default function SharedGroupPostEngagement({
   kind?: "post" | "promotion";
   canShare?: boolean;
 }) {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [viewerId, setViewerId] = useState("");
+  const session = useGroupSession();
+  const viewerId = session.userId;
+  const scope = JSON.stringify([viewerId, kind, shareId]);
+  const [loaded, setLoaded] = useState<{scope: string; stats: Stats} | null>(null);
+  const stats = loaded?.scope === scope ? loaded.stats : null;
+  const [loading, setLoading] = useState(true);
+  const sequence = useRef(0);
+  const pending = useRef<AbortController | null>(null);
+  const mutationLock = useRef(false);
+  const instance = useRef({});
+  const currentScope = useRef(scope);
+  currentScope.current = scope;
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -63,28 +74,66 @@ export default function SharedGroupPostEngagement({
   }
 
   const reload = useCallback(async () => {
-    const response = await groupsFetch(
-      `/api/groups/sharing/interactions?share=${encodeURIComponent(shareId)}&kind=${kind}`
-    );
-    const result = await response.json() as Stats;
-    if (!Array.isArray(result.comments) ||
-        typeof result.like_count !== "number" ||
-        typeof result.comment_count !== "number") {
-      throw new Error("Invalid reactions");
+    const request = ++sequence.current;
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
+    setLoading(true);
+    try {
+      const response = await groupsFetch(
+        `/api/groups/sharing/interactions?share=${encodeURIComponent(shareId)}&kind=${kind}`,
+        {signal: controller.signal}
+      );
+      const result = await response.json() as Stats;
+      if (!Array.isArray(result.comments) || typeof result.like_count !== "number" ||
+          typeof result.comment_count !== "number" || typeof result.liked !== "boolean") {
+        throw new Error("Invalid reactions");
+      }
+      if (controller.signal.aborted || request !== sequence.current) return;
+      setLoaded({scope, stats: result});
+      setError("");
+    } catch {
+      if (controller.signal.aborted || request !== sequence.current) return;
+      setLoaded(null);
+      setError("Reactions are temporarily unavailable. Please try again.");
+    } finally {
+      if (request === sequence.current) setLoading(false);
     }
-    setStats(result);
-  }, [shareId, kind]);
+  }, [shareId, kind, scope]);
 
   useEffect(() => {
-    let active = true;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (active) setViewerId(data.session?.user.id ?? "");
-    });
-    void reload().catch(() => {
-      if (active) setError("Reactions are temporarily unavailable.");
-    });
-    return () => { active = false; };
-  }, [reload]);
+    currentScope.current = scope;
+    mutationLock.current = false; setBusy(false); setError("");
+    setDraft(""); setReplyTo(null); setEditingId(null); setEditDraft("");
+    setSharing(false); setCaption(""); setShareError(""); setNotice("");
+    return () => { if (currentScope.current === scope) currentScope.current = ""; };
+  }, [scope]);
+
+  useEffect(() => {
+    if (!session.ready || !viewerId) { setLoaded(null); setLoading(!session.ready); return; }
+    const refresh = () => { if (document.visibilityState !== 'hidden') void reload(); };
+    const visibility = () => {
+      if (document.visibilityState === 'hidden') {
+        sequence.current++; pending.current?.abort(); setLoaded(null);
+      } else refresh();
+    };
+    const engagement = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.shareId === shareId && detail?.kind === kind && detail?.source !== instance.current) refresh();
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('pageshow', refresh);
+    window.addEventListener('parapost-group-engagement', engagement);
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      sequence.current++; pending.current?.abort();
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('pageshow', refresh);
+      window.removeEventListener('parapost-group-engagement', engagement);
+      document.removeEventListener('visibilitychange', visibility);
+    };
+  }, [reload, session.ready, session.revision, viewerId, shareId, kind]);
 
   useEffect(() => {
     const ids = [...new Set([viewerId, ...(stats?.comments.map(c => c.author_id) ?? [])].filter(Boolean))];
@@ -108,7 +157,8 @@ export default function SharedGroupPostEngagement({
     content?: string,
     parentId?: string
   ): Promise<boolean> {
-    if (busy) return false;
+    if (mutationLock.current || loading || !stats || !viewerId) return false;
+    mutationLock.current = true;
     setBusy(true);
     setError("");
     try {
@@ -123,13 +173,19 @@ export default function SharedGroupPostEngagement({
           parentId: parentId ?? null
         })
       });
+      if (currentScope.current !== scope) return false;
       await reload();
+      if (currentScope.current !== scope) return false;
+      window.dispatchEvent(new CustomEvent('parapost-group-engagement', {
+        detail: {shareId, kind, source: instance.current},
+      }));
+      // The write succeeded even if the subsequent statistics read failed. Do not invite duplicate comments.
       return true;
     } catch {
-      setError("Unable to complete this action. Please try again.");
+      if (currentScope.current === scope) setError("Unable to complete this action. Please try again.");
       return false;
     } finally {
-      setBusy(false);
+      if (currentScope.current === scope) { mutationLock.current = false; setBusy(false); }
     }
   }
 
@@ -146,7 +202,8 @@ export default function SharedGroupPostEngagement({
 
   async function submitShare(event: FormEvent) {
     event.preventDefault();
-    if (busy || !canShare || !postId || caption.length > 1000) return;
+    if (mutationLock.current || !canShare || !postId || !viewerId || caption.length > 1000) return;
+    mutationLock.current = true;
     setBusy(true);
     setShareError("");
     setNotice("");
@@ -156,21 +213,25 @@ export default function SharedGroupPostEngagement({
         caption: caption.trim() || null
       });
       if (typeof result?.id !== "string") throw new Error("Share was not confirmed");
+      if (currentScope.current !== scope) return;
       setSharing(false);
       setCaption("");
       setNotice("Shared to Dashboard and your Profile.");
       window.dispatchEvent(new Event("parapost-group-shared"));
     } catch (error) {
-      setShareError(shareErrorMessage(error));
+      if (currentScope.current === scope) setShareError(shareErrorMessage(error));
     } finally {
-      setBusy(false);
+      if (currentScope.current === scope) { mutationLock.current = false; setBusy(false); }
     }
   }
 
   if (!stats) {
-    return error
-      ? <p role="status" style={{ fontSize: 13, opacity: 0.8 }}>{error}</p>
-      : null;
+    return <section className={styles.sharedEngagement} aria-label="Shared Group post interactions" aria-busy={loading}>
+      <p role="status">{loading ? 'Loading reactions…' : error || 'Sign in to interact with this share.'}</p>
+      <SharedGroupPostActions liked={false} commentsOpen={false} busy canShare={false}
+        onLike={() => {}} onComment={() => {}} onShare={() => {}} />
+      {!loading && viewerId && <button type="button" onClick={() => void reload()}>Retry reactions</button>}
+    </section>;
   }
 
   return (
@@ -189,7 +250,7 @@ export default function SharedGroupPostEngagement({
       <SharedGroupPostActions
         liked={stats.liked}
         commentsOpen={commentsOpen}
-        busy={busy}
+        busy={busy || loading}
         canShare={canShare}
         onLike={() => {
           void interact(stats.liked ? "unlike" : "like");
@@ -199,7 +260,7 @@ export default function SharedGroupPostEngagement({
       />
 
       {notice && <p role="status">{notice}</p>}
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{error} <button type="button" disabled={loading} onClick={() => void reload()}>Retry reactions</button></p>}
 
       {sharing && kind === "promotion" && createPortal(
         <ShareDialog groupId={groupId} shareId={shareId} read={groupsFetch}
@@ -249,7 +310,7 @@ export default function SharedGroupPostEngagement({
                     <textarea value={editDraft} maxLength={1200}
                       onChange={e => setEditDraft(e.target.value)}
                       style={dashboardCommentTextareaStyle} />
-                    <button type="submit" disabled={busy || !editDraft.trim()}>
+                    <button type="submit" disabled={busy || loading || !editDraft.trim()}>
                       Save
                     </button>
                     <button type="button"
@@ -258,7 +319,7 @@ export default function SharedGroupPostEngagement({
                 ) : <p className={styles.engagementText}>{comment.content}</p>}
 
                 <div className={styles.commentActions}>
-                  <button type="button" disabled={busy}
+                  <button type="button" disabled={busy || loading}
                     onClick={() => void interact(
                       comment.liked ? "unlike_comment" : "like_comment",
                       undefined, comment.id
@@ -283,7 +344,7 @@ export default function SharedGroupPostEngagement({
                         setEditingId(comment.id);
                         setEditDraft(comment.content);
                       }}>Edit</button>
-                      <button type="button" disabled={busy}
+                      <button type="button" disabled={busy || loading}
                         onClick={() => {
                           if (window.confirm("Delete this comment?")) {
                             void interact("delete_comment",
@@ -322,7 +383,7 @@ export default function SharedGroupPostEngagement({
               onChange={e => setDraft(e.target.value)}
               style={dashboardCommentTextareaStyle}
             />
-            <button type="submit" style={dashboardCommentSubmitButtonStyle} disabled={busy || !draft.trim()}>
+            <button type="submit" style={dashboardCommentSubmitButtonStyle} disabled={busy || loading || !draft.trim()}>
               {replyTo ? "Post reply" : "Post comment"}
             </button>
           </form>

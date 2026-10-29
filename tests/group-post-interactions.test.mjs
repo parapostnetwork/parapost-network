@@ -36,7 +36,7 @@ function harness({ canInteract = true, canShare = true, failShare = false } = {}
   }).outputText;
   const componentModule = { exports: {} };
   const styles = new Proxy({}, { get: (_, key) => key });
-  vm.runInNewContext(source, { module: componentModule, exports: componentModule.exports, React,
+  vm.runInNewContext(source, { module: componentModule, exports: componentModule.exports, React, Event, window: new EventTarget(),
     IntersectionObserver: class { constructor(callback) { this.callback = callback; } observe() { this.callback([{ isIntersecting: true }]); } disconnect() {} },
     require: name => name === 'react' ? React : name.endsWith('.css') ? { __esModule: true, default: styles }
       : name === '@/lib/groups/shareErrors' ? shareModule.exports

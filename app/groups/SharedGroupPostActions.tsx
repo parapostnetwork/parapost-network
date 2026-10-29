@@ -70,6 +70,7 @@ export default function SharedGroupPostActions({
         type="button"
         aria-label="Comments"
         aria-expanded={commentsOpen}
+        disabled={busy}
         onClick={onComment}
         style={buttonStyle}
       >

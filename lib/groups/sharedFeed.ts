@@ -2,10 +2,14 @@ import {supabase} from '@/lib/supabase';
 import type {SharedGroupPost} from '@/app/groups/SharedGroupPostCard';
 
 /** Preserve existing post shares while merging canonical Group/invitation shares. */
-export async function fetchGroupShares(sharerId:string|null,limit=60){
+export async function fetchGroupShares(sharerId:string|null,limit=60,signal?:AbortSignal){
   const params={p_sharer_id:sharerId,p_limit:limit,p_offset:0};
+  const read=(name:string)=>{
+    const request=supabase.rpc(name,params);
+    return signal ? request.abortSignal(signal) : request;
+  };
   const [posts,promotions]=await Promise.all([
-    supabase.rpc('groups_shared_feed',params),supabase.rpc('groups_promotional_feed',params),
+    read('groups_shared_feed'),read('groups_promotional_feed'),
   ]);
   if(posts.error)return {data:null,error:posts.error};
   // Before the separately approved migration, keep established public post sharing working.

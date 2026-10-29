@@ -4,7 +4,7 @@ import { composerCardStyle, composerTopRowStyle, composerInputStyle, composerIma
 import PostComposerInput from "@/components/PostComposerInput";
 import { DotsIcon, HeartIcon, CommentIcon, ShareIcon } from "@/components/PostActionIcons";
 import { groupsNavigationEnabled } from "@/lib/groups/config";
-import {fetchGroupShares} from '@/lib/groups/sharedFeed';
+import {useSharedGroupFeed} from '@/lib/groups/useSharedGroupFeed';
 import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
@@ -2067,8 +2067,7 @@ export default function DashboardPage() {
   const [postImagePreviewUrls, setPostImagePreviewUrls] = useState<string[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostItems, setSharedPostItems] = useState<SharedPostItem[]>([]);
-  const [groupSharedPostItems, setGroupSharedPostItems] = useState<SharedGroupPost[]>([]);
-  const groupSharedRequestRef = useRef(0);
+  const { shares: groupSharedPostItems, loading: groupSharesLoading, error: groupSharesError, refresh: refreshGroupShares } = useSharedGroupFeed(null, DASHBOARD_FEED_ITEM_LIMIT);
   const [sharedReelItems, setSharedReelItems] = useState<SharedReelItem[]>([]);
   const [liveFeedStreams, setLiveFeedStreams] = useState<DashboardLiveStreamItem[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
@@ -3725,35 +3724,6 @@ export default function DashboardPage() {
     return nextSharedPosts;
   }, []);
 
-  const fetchSharedGroupPosts = useCallback(async (blockedIds: string[] = []) => {
-    const requestId = ++groupSharedRequestRef.current;
-    const { data, error } = await fetchGroupShares(null, DASHBOARD_FEED_ITEM_LIMIT);
-
-    if (requestId !== groupSharedRequestRef.current) {
-      return [] as SharedGroupPost[];
-    }
-
-    if (error) {
-      console.error("Unable to load Group shares:", error.message);
-      setGroupSharedPostItems([]);
-      return [] as SharedGroupPost[];
-    }
-
-    const rows = Array.isArray(data)
-      ? (data as SharedGroupPost[])
-      : [];
-
-    const visible = rows.filter(
-      (share) =>
-        Boolean(share.share_id && share.sharer_id && (share.original_author_id || share.promotion)) &&
-        !blockedIds.includes(share.sharer_id) &&
-        (!share.original_author_id || !blockedIds.includes(share.original_author_id))
-    );
-
-    setGroupSharedPostItems(visible);
-    return visible;
-  }, []);
-
   const fetchSharedReels = useCallback(async (blockedIds: string[] = []) => {
     const { data: shareRows, error: shareError } = await supabase
       .from("reel_shares")
@@ -4074,8 +4044,6 @@ export default function DashboardPage() {
         void fetchFriendShowcases(user.id, blockedIds, relationships.friendships).catch((error) => logDashboardNetworkIssue("Dashboard showcases skipped", error));
       } else {
         setCurrentUserId("");
-        groupSharedRequestRef.current += 1;
-        setGroupSharedPostItems([]);
         setUserEmail("");
         setCurrentProfile(null);
         setBlockedUserIds(previous => preserveBlockedIds(previous, []));
@@ -4145,16 +4113,13 @@ export default function DashboardPage() {
         fetchSharedPosts(blockedIds),
         fetchSharedReels(blockedIds),
         fetchLiveFeedStreams(blockedIds),
-          fetchSharedGroupPosts(blockedIds),
       ])
-        .then(([visibleSharedPosts, visibleShared, visibleLiveStreams, visibleGroupShares]) => {
+        .then(([visibleSharedPosts, visibleShared, visibleLiveStreams]) => {
           const profileIds = [
             userId,
             ...visiblePostsBase.map((post) => post.user_id),
             ...visibleSharedPosts.map((share) => share.user_id),
             ...visibleSharedPosts.map((share) => share.original_post.user_id),
-              ...visibleGroupShares.map((share) => share.sharer_id),
-              ...visibleGroupShares.flatMap((share) => share.original_author_id ? [share.original_author_id] : []),
             ...visibleShared.map((share) => share.user_id),
             ...visibleShared.map((share) => share.reel_user_id),
             ...visibleShared.map((share) => share.creator_profile_id || ""),
@@ -4196,7 +4161,7 @@ export default function DashboardPage() {
       sharedLikesReconcilerRef.current?.resume();
       setFetchingPosts(false);
     }
-  }, [fetchCounts, fetchFollowData, fetchFriendShowcases, fetchLiveFeedStreams, fetchNotifications, fetchPeopleToDiscover, fetchProfileMap, fetchRecentlyViewed, fetchSharedGroupPosts, fetchSharedPosts, fetchSharedReels]);
+  }, [fetchCounts, fetchFollowData, fetchFriendShowcases, fetchLiveFeedStreams, fetchNotifications, fetchPeopleToDiscover, fetchProfileMap, fetchRecentlyViewed, fetchSharedPosts, fetchSharedReels]);
 
   useEffect(() => {
     void fetchDashboardData(true);
@@ -4555,28 +4520,22 @@ export default function DashboardPage() {
     );
 
     const handleFocusRefresh = () => {
-      groupSharedRequestRef.current += 1;
-      setGroupSharedPostItems([]);
       schedulePulseRefresh();
     };
 
     const handleVisibilityRefresh = () => {
-      groupSharedRequestRef.current += 1;
-      setGroupSharedPostItems([]);
       if (document.visibilityState === "visible") {
         schedulePulseRefresh();
       }
     };
 
     window.addEventListener("focus", handleFocusRefresh);
-    window.addEventListener("parapost-group-shared", handleFocusRefresh);
     document.addEventListener("visibilitychange", handleVisibilityRefresh);
 
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
       window.clearInterval(intervalId);
       window.removeEventListener("focus", handleFocusRefresh);
-      window.removeEventListener("parapost-group-shared", handleFocusRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityRefresh);
       void supabase.removeChannel(channel);
     };
@@ -6244,9 +6203,11 @@ export default function DashboardPage() {
             />
 
             <section style={feedStackStyle}>
+              {groupSharesError && <p role="alert">{groupSharesError} <button type="button" onClick={refreshGroupShares}>Retry Group shares</button></p>}
+              {groupSharesLoading && groupSharedPostItems.length === 0 && <p role="status">Loading Group shares…</p>}
               {fetchingPosts ? (
                 <DashboardEmptyState title="Loading your feed" text="Parapost Network is pulling in posts, shared reels, and profile activity." />
-              ) : filteredFeedItems.length === 0 ? (
+              ) : filteredFeedItems.length === 0 && groupSharesLoading ? null : filteredFeedItems.length === 0 ? (
                 <DashboardEmptyState
                   title={
                     feedMode === "friends"

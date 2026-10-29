@@ -20,11 +20,11 @@ const id='10000000-0000-4000-8000-000000000001';
 function harness(file) {
   const states=[];let cursor=0;const effects=[];
   const jsx=(type,props)=>({type,props});
-  const react={useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v;}];},useRef:()=>({current:null}),useEffect:fn=>effects.push(fn),useCallback:fn=>fn};
+  const react={useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v;}];},useRef:initial=>({current:initial}),useEffect:fn=>effects.push(fn),useCallback:fn=>fn};
   const identity={PostAvatar:'Avatar',profileName:()=> 'Member'};
   const client={groupsFetch:async()=>Response.json(stats),groupAction:async()=>{throw new shareErrors.ShareRequestError('cooldown','post',561600);}};
-  const modules={'@/lib/groups/shareErrors':shareErrors,react,'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:x=>x},'next/link':'Link','@/lib/supabase':{supabase:{auth:{getSession:async()=>({data:{session:{user:{id}}}})}}},'@/lib/groups/client':client,'./SharedGroupPostActions':{default:'Actions'},'./GroupShareButton':{default:'ShareButton',ShareDialog:'ShareDialog'},'@/components/PostActionIcons':{HeartIcon:'Heart',CommentIcon:'Comment',ShareIcon:'Share'},'./groupPosting.module.css':{default:{}},'./PostIdentity':identity,'@/components/postPresentation':{}};
-  const component=moduleAt(file,modules).default;
+  const modules={'@/lib/groups/useGroupSession':{useGroupSession:()=>({ready:true,userId:id,revision:0})},'@/lib/groups/shareErrors':shareErrors,react,'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:x=>x},'next/link':'Link','@/lib/supabase':{supabase:{from:()=>({select:()=>({in:()=>Promise.resolve({data:[],error:null})})}),auth:{getSession:async()=>({data:{session:{user:{id}}}})}}},'@/lib/groups/client':client,'./SharedGroupPostActions':{default:'Actions'},'./GroupShareButton':{default:'ShareButton',ShareDialog:'ShareDialog'},'@/components/PostActionIcons':{HeartIcon:'Heart',CommentIcon:'Comment',ShareIcon:'Share'},'./groupPosting.module.css':{default:{}},'./PostIdentity':identity,'@/components/postPresentation':{}};
+  const component=moduleAt(file,modules,{AbortController,Event,CustomEvent,window:new EventTarget(),document:Object.assign(new EventTarget(),{visibilityState:'visible'})}).default;
   return {render(props){cursor=0;effects.length=0;return component(props);},async initialize(){for(const effect of [...effects])effect();await new Promise(resolve=>setImmediate(resolve));},states};
 }
 function nodes(tree) { if(!tree||typeof tree!=='object')return [];if(Array.isArray(tree))return tree.flatMap(nodes);return [tree,...nodes(tree.props?.children)]; }

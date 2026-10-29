@@ -164,6 +164,7 @@ export default function GroupPostActions({
       }
 
       setShareNotice('Shared to Dashboard and your Profile.');
+      window.dispatchEvent(new Event('parapost-group-shared'));
       setShareOpen(false); setCaption('');
     } catch (error) {
       setShareError(shareErrorMessage(error));

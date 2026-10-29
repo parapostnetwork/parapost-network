@@ -31,7 +31,7 @@ import { createPortal } from "react-dom";
 import PostMediaViewer, { type PostMediaViewerState, type OpenPostMediaViewer } from "@/components/PostMediaViewer";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import {fetchGroupShares} from '@/lib/groups/sharedFeed';
+import {useSharedGroupFeed} from '@/lib/groups/useSharedGroupFeed';
 import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
 import { supabase } from "@/lib/supabase";
 import { cleanupPushBeforeLogout } from "@/components/pwa/PushNotificationLogout";
@@ -2574,7 +2574,7 @@ export default function ProfilePage() {
   const [profilePostLoading, setProfilePostLoading] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostPosts, setSharedPostPosts] = useState<SharedProfilePost[]>([]);
-  const [groupSharedPostPosts, setGroupSharedPostPosts] = useState<SharedGroupPost[]>([]);
+  const { shares: groupSharedPostPosts, loading: groupSharesLoading, error: groupSharesError, refresh: refreshGroupShares } = useSharedGroupFeed(profileId, 60);
   const [sharedReelPosts, setSharedReelPosts] = useState<ReelShareProfilePost[]>([]);
   const [profileLiveStreams, setProfileLiveStreams] = useState<ProfileLiveStream[]>([]);
   const [reels, setReels] = useState<Reel[]>([]);
@@ -3376,90 +3376,6 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
   );
 }, [profileThought, posts, sharedPostPosts, groupSharedPostPosts, sharedReelPosts, profileAchievementActivity, profileBadges, profileLiveStreams]);
 
-useEffect(() => {
-  if (!profileId || !viewerId) {
-    setGroupSharedPostPosts([]);
-    return;
-  }
-
-  let active = true;
-  let sequence = 0;
-
-  const clearShares = () => {
-    sequence += 1;
-    setGroupSharedPostPosts([]);
-  };
-
-  const refreshShares = () => {
-    if (document.visibilityState === "hidden") {
-      clearShares();
-      return;
-    }
-
-    const request = ++sequence;
-    setGroupSharedPostPosts([]);
-
-    void (async () => {
-      try {
-        const { data, error } = await fetchGroupShares(profileId, 60);
-
-        if (!active || request !== sequence) return;
-
-        if (error) {
-          console.error("Profile Group share refresh:", error.message);
-          return;
-        }
-
-        const rows = Array.isArray(data)
-          ? (data as SharedGroupPost[])
-          : [];
-
-        setGroupSharedPostPosts(
-          rows.filter(
-            (share) =>
-              Boolean(share.share_id && (share.post_id || share.promotion)) &&
-              share.sharer_id === profileId
-          )
-        );
-      } catch (error) {
-        if (active && request === sequence) {
-          console.error("Profile Group share refresh failed:", error);
-          setGroupSharedPostPosts([]);
-        }
-      }
-    })();
-  };
-
-  const handleVisibility = () => {
-    if (document.visibilityState === "visible") {
-      refreshShares();
-    } else {
-      clearShares();
-    }
-  };
-
-  const handleFocus = () => {
-    if (document.visibilityState === "visible") {
-      refreshShares();
-    }
-  };
-
-  refreshShares();
-
-  window.addEventListener("focus", handleFocus);
-  document.addEventListener("visibilitychange", handleVisibility);
-  window.addEventListener("pagehide", clearShares);
-  window.addEventListener("parapost-group-shared", refreshShares);
-
-  return () => {
-    active = false;
-    sequence += 1;
-    window.removeEventListener("focus", handleFocus);
-    document.removeEventListener("visibilitychange", handleVisibility);
-    window.removeEventListener("pagehide", clearShares);
-    window.removeEventListener("parapost-group-shared", refreshShares);
-  };
-}, [profileId, viewerId]);
 
 const showFriendStatus = useCallback((message: string) => {
   setFriendStatusMessage(message);
@@ -19108,11 +19024,13 @@ return (
                     </div>
                   </div>
 
+                  {groupSharesError && <p role="alert">{groupSharesError} <button type="button" onClick={refreshGroupShares}>Retry Group shares</button></p>}
+                  {groupSharesLoading && groupSharedPostPosts.length === 0 && <p role="status">Loading Group shares…</p>}
                   {errorMessage ? (
                     <div style={messageBoxStyle}>{errorMessage}</div>
                   ) : !profile && !profileMissingForOwner ? (
                     <div style={messageBoxStyle}>This profile could not be found.</div>
-                  ) : profileFeedItems.length === 0 ? (
+                  ) : profileFeedItems.length === 0 && groupSharesLoading ? null : profileFeedItems.length === 0 ? (
                     <div className="profile-empty-state-card" style={profilePolishedEmptyStateStyle}>
                       <div style={profileEmptyStateIconStyle}>✦</div>
                       <strong style={profileEmptyStateTitleStyle}>
