@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import type { Group } from '@/lib/groups/types';
 import { ownsGroup, selectMyGroups, type DirectorySort, type GroupPreferences, type MineFilter } from '@/lib/groups/directory';
 import styles from './groups.module.css';
+import { GroupsLoadingCards } from './GroupsLoadingView';
 
 export type DirectoryTab = 'all' | 'public' | 'private' | 'mine';
 export function DirectoryHeading({ mine, create = false, onCreate }: { mine: boolean; create?: boolean; onCreate: () => void }) {
@@ -65,9 +66,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
     <div ref={results} tabIndex={-1} aria-busy={loading}
       className={styles.directoryResults}
       style={loading && heldHeight > 0 ? { minHeight: heldHeight } : undefined}>
-      {loading ? <div className={styles.directoryLoading} role="status">
-        <span>Updating Groups…</span>
-      </div> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
+      {loading ? <GroupsLoadingCards /> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
         {section.title && <div className={styles.directorySectionHeading}><h2>{section.title} <span>({section.items.length})</span></h2>
           {mineView === 'all' && section.items.length > 0 && <button className={styles.viewAll} onClick={() => viewAll(section.key as MineFilter)} aria-label={`View all ${section.title.toLowerCase()}`}>View All <span aria-hidden="true">→</span></button>}
           {mineView !== 'all' && <button className={styles.viewAll} onClick={() => setMineView('all')}>← Back to All My Groups</button>}

@@ -977,3 +977,67 @@
   border-radius: 14px;
   overflow: hidden;
 }
+
+/* GROUPS NAVIGATION LOADING SKELETON */
+.groupsSkeletonStatus {
+  width: 100%;
+}
+
+.groupsSkeletonStatus > p {
+  margin: 14px 0;
+  color: #cdbdde;
+  font-size: 14px;
+}
+
+.groupsSkeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.groupsSkeletonCard {
+  overflow: hidden;
+  min-width: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(170, 135, 220, .22);
+  background: rgba(120, 85, 160, .07);
+}
+
+.groupsSkeletonMedia,
+.groupsSkeletonLine {
+  background: rgba(170, 135, 220, .16);
+  animation: groupsSkeletonPulse 1.5s ease-in-out infinite alternate;
+}
+
+.groupsSkeletonMedia {
+  width: 100%;
+  aspect-ratio: 1640 / 856;
+}
+
+.groupsSkeletonContent {
+  padding: 16px;
+}
+
+.groupsSkeletonLine {
+  width: 85%;
+  height: 13px;
+  border-radius: 7px;
+  margin-bottom: 12px;
+}
+
+.groupsSkeletonShort {
+  width: 55%;
+}
+
+@keyframes groupsSkeletonPulse {
+  from { opacity: .45; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .groupsSkeletonMedia,
+  .groupsSkeletonLine {
+    animation: none;
+  }
+}

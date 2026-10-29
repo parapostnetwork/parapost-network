@@ -14,6 +14,7 @@ import { validateGroupFields, validateUpload } from '@/lib/groups/validation';
 import { appendGroupPosts } from '@/lib/groups/feed';
 import type { Group, GroupMember, GroupPost } from '@/lib/groups/types';
 import styles from './groups.module.css';
+import GroupsLoadingView from './GroupsLoadingView';
 import GroupCover from './GroupCover';
 import GroupShareButton from './GroupShareButton';
 import GroupPromotionSettings from './GroupPromotionSettings';
@@ -341,7 +342,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
     catch(e){try{await groupAction('delete_post',groupId,{post_id:draft.id});}catch{/* Durable cleanup runbook handles abandoned drafts. */}throw e;}
     setContent('');setFiles([]);setNotice('Post published.');
   }
-  if(!authReady)return <main className={styles.page}><p role="status">Checking your session…</p></main>;
+  if(!authReady)return <GroupsLoadingView title={groupId ? 'Groups' : 'Discover Groups'} />;
   if(!userId)return <main className={styles.page}><h1>Groups</h1><p>Sign in to discover and participate in Groups.</p><Link href="/">Sign in</Link></main>;
   return <main className={styles.page}><div className={styles.shell}>
     <header className={styles.topbar}>
