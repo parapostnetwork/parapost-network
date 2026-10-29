@@ -930,3 +930,36 @@
     overflow-wrap: anywhere;
   }
 }
+
+
+/* Compact Groups cards — reference sizing */
+
+/* Desktop: shorter cards and tighter spacing */
+@media (min-width: 701px) {
+  .page .directoryOpen {
+    grid-template-columns: 64px minmax(0, 1fr) 12px;
+    min-height: 94px;
+    gap: 12px;
+    padding: 10px 26px 10px 10px;
+  }
+}
+
+/* Phones: preserve full width but reduce card height */
+@media (max-width: 700px) {
+  .page .directoryOpen {
+    grid-template-columns: 64px minmax(0, 1fr) 12px;
+    min-height: 92px;
+    gap: 10px;
+    padding: 9px 25px 9px 9px;
+  }
+}
+
+/* Narrow phones */
+@media (max-width: 360px) {
+  .page .directoryOpen {
+    grid-template-columns: 58px minmax(0, 1fr) 10px;
+    min-height: 86px;
+    gap: 9px;
+    padding: 8px 23px 8px 8px;
+  }
+}
