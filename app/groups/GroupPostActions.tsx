@@ -315,7 +315,7 @@ export default function GroupPostActions({
           <button type="button" className={styles.commentAction} disabled={!canInteract || busy}
             aria-pressed={comment.liked} aria-label={comment.liked ? 'Unlike comment' : 'Like comment'}
             onClick={() => void toggleCommentLike(comment)}>
-            <HeartIcon filled={comment.liked} /> {comment.liked ? 'Liked' : 'Like'}{comment.like_count > 0 ? ` · ${comment.like_count}` : ''}
+            {comment.liked ? 'Liked' : 'Like'}{comment.like_count > 0 ? ` · ${comment.like_count}` : ''}
           </button>
           {canInteract && <button type="button" className={styles.commentAction} disabled={busy}
             onClick={() => { setReplyTo(comment.parent_id ?? comment.id); setReplyingToAuthorId(comment.author_id); setDraft(''); }}>Reply</button>}
