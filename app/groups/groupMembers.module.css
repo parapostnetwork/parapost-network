@@ -337,3 +337,34 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+
+
+/* Members action: transparent three-dot button */
+.panel .actionArea > button.moreButton {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #d6b6ff;
+  cursor: pointer;
+}
+
+.panel .actionArea > button.moreButton:hover,
+.panel .actionArea > button.moreButton:active,
+.panel .actionArea > button.moreButton[aria-expanded="true"] {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #f0dfff;
+}
+
+.panel .actionArea > button.moreButton svg {
+  display: block;
+  transform: scale(1.25);
+  transform-origin: center;
+}
