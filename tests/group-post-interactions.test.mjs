@@ -16,6 +16,21 @@ function harness({ canInteract = true, canShare = true, failShare = false } = {}
     useRef: () => ({ current: {} }), useCallback: fn => fn,
     useEffect: fn => effects.push(fn),
   };
+  // Load the real sharing error helper into the isolated test harness.
+  const shareModule = { exports: {} };
+  const shareSource = ts.transpileModule(
+    readFileSync(new URL('../lib/groups/shareErrors.ts', import.meta.url), 'utf8'),
+    { compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022
+    } }
+  ).outputText;
+
+  vm.runInNewContext(shareSource, {
+    module: shareModule,
+    exports: shareModule.exports
+  });
+
   const source = ts.transpileModule(readFileSync(new URL('../app/groups/GroupPostActions.tsx', import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText;
@@ -24,6 +39,7 @@ function harness({ canInteract = true, canShare = true, failShare = false } = {}
   vm.runInNewContext(source, { module: componentModule, exports: componentModule.exports, React,
     IntersectionObserver: class { constructor(callback) { this.callback = callback; } observe() { this.callback([{ isIntersecting: true }]); } disconnect() {} },
     require: name => name === 'react' ? React : name.endsWith('.css') ? { __esModule: true, default: styles }
+      : name === '@/lib/groups/shareErrors' ? shareModule.exports
       : name === '@/lib/supabase' ? { supabase: { from: () => ({ select: () => ({ in: () => Promise.resolve({ data: [], error: null }) }) }) } }
       : name === './PostIdentity' ? { PostAvatar: 'avatar', profileName: () => 'Member' }
       : name === 'next/link' ? { __esModule: true, default: 'a' } : {},
@@ -85,7 +101,7 @@ test('denied shares do not show success; private posts have no Share control', a
   const h = harness({ failShare: true }); await h.flush();
   h.find('button', 'Share Group post to Dashboard and your Profile').props.onClick(); h.render();
   h.all().find(n => n.type === 'form').props.onSubmit({ preventDefault() {} }); await h.flush();
-  assert.match(h.text(), /Unable to share/); assert.doesNotMatch(h.text(), /Shared to Dashboard/);
+  assert.match(h.text(), /Sharing could not be completed/); assert.doesNotMatch(h.text(), /Shared to Dashboard/);
   const privatePost = harness({ canShare: false }); await privatePost.flush();
   assert.equal(privatePost.find('button', 'Share Group post to Dashboard and your Profile'), undefined);
   const visitor = harness({ canInteract: false, canShare: false }); await visitor.flush();
