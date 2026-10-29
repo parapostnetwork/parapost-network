@@ -963,3 +963,33 @@
     padding: 8px 23px 8px 8px;
   }
 }
+
+
+/* COMPACT CREATE GROUP COVER PREVIEW */
+.page .createGroupForm > .cover {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  justify-self: stretch;
+  box-sizing: border-box;
+  height: 160px;
+  aspect-ratio: auto;
+  min-height: 0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.createGroupForm > .cover .mascot {
+  width: 110px;
+  max-height: 75%;
+}
+
+@media (max-width: 600px) {
+  .page .createGroupForm > .cover {
+    height: 120px;
+  }
+
+  .createGroupForm > .cover .mascot {
+    width: 85px;
+  }
+}

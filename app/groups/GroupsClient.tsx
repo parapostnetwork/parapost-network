@@ -46,7 +46,7 @@ function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:(name:s
   const [visibility,setVisibility]=useState(group?.visibility ?? 'public');
   const [file,setFile]=useState<File>();
   const [error,setError]=useState('');
-  return <form className={styles.form} onSubmit={async event => {event.preventDefault();setError('');try {validateGroupFields(name,description,visibility);if(file)validateUpload(file.type,file.size,true);await onSubmit(name,description,visibility,file);}catch(e){setError(e instanceof Error?e.message:'Unable to save.');}}}>
+  return <form className={`${styles.form} ${!group ? styles.createGroupForm : ''}`} onSubmit={async event => {event.preventDefault();setError('');try {validateGroupFields(name,description,visibility);if(file)validateUpload(file.type,file.size,true);await onSubmit(name,description,visibility,file);}catch(e){setError(e instanceof Error?e.message:'Unable to save.');}}}>
     {!group&&<h2>Create a Group</h2>}<GroupCover path={group ? group.cover_storage_path : null} file={file} load={read} name={name||'New Group'} viewerId={viewerId} cacheable={!!group&&group.visibility==='public'&&!file}/>
     <label>Name<input required minLength={3} maxLength={100} value={name} onChange={e=>setName(e.target.value)} /></label>
     <label>Description<textarea maxLength={5000} value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></label>
