@@ -14,6 +14,7 @@ import { validateGroupFields, validateUpload } from '@/lib/groups/validation';
 import { appendGroupPosts } from '@/lib/groups/feed';
 import type { Group, GroupMember, GroupPost } from '@/lib/groups/types';
 import styles from './groups.module.css';
+import { getWarmGroupsDirectory } from '@/lib/groups/directory-preload';
 import GroupsLoadingView from './GroupsLoadingView';
 import GroupCover from './GroupCover';
 import GroupShareButton from './GroupShareButton';
@@ -203,8 +204,11 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       if(!active)return;
       if(id!==currentUser){
         currentUser=id;requestNumber.current++;
-        setLoadedDirectoryFilter(null);
-        setGroups([]);setPosts([]);setMembers([]);setContent('');setFiles([]);
+        const preloaded = id && !groupId && transport===liveGroupsTransport
+          ? getWarmGroupsDirectory(id) : null;
+        setLoadedDirectoryFilter(preloaded ? 'all' : null);
+        setGroups(preloaded ?? []);setPosts([]);setMembers([]);setContent('');setFiles([]);
+        setLoading(!preloaded);
         setSettings(false);setManagement(false);setEditPost(undefined);setCreate(false);
       }
       setUserId(id);setAuthReady(true);
@@ -383,7 +387,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
           setOffset(0);
           setSearch('');
         }}
-        search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={loading||loadedDirectoryFilter!==filter}
+        search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={(loading && groups.length===0)||loadedDirectoryFilter!==filter}
         {...groupPreferences} renderMembership={membership} routeBase={routeBase}
         renderCover={g=><GroupCover path={g.cover_storage_path} name={g.name} load={groupsFetch} viewerId={userId} cacheable={g.visibility==='public'}/>}/>
       {filter!=='mine'&&<nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>}

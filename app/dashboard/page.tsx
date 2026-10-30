@@ -4,6 +4,7 @@ import { composerCardStyle, composerTopRowStyle, composerInputStyle, composerIma
 import PostComposerInput from "@/components/PostComposerInput";
 import { DotsIcon, HeartIcon, CommentIcon, ShareIcon } from "@/components/PostActionIcons";
 import { groupsNavigationEnabled } from "@/lib/groups/config";
+import { warmGroupsDirectory, clearWarmGroupsDirectory } from "@/lib/groups/directory-preload";
 import {useSharedGroupFeed} from '@/lib/groups/useSharedGroupFeed';
 import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
 
@@ -2073,6 +2074,34 @@ export default function DashboardPage() {
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
   const [currentProfile, setCurrentProfile] = useState<ProfilePreview | null>(null);
   const [currentUserId, setCurrentUserId] = useState("");
+
+  useEffect(() => {
+    if (!groupsNavigationEnabled()) return;
+
+    if (!currentUserId) {
+      clearWarmGroupsDirectory();
+      return;
+    }
+
+    void warmGroupsDirectory(currentUserId);
+
+    const warmOnNavigation = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Element &&
+          target.closest('a[href="/groups"]')) {
+        void warmGroupsDirectory(currentUserId);
+      }
+    };
+
+    document.addEventListener('pointerover', warmOnNavigation);
+    document.addEventListener('focusin', warmOnNavigation);
+
+    return () => {
+      document.removeEventListener('pointerover', warmOnNavigation);
+      document.removeEventListener('focusin', warmOnNavigation);
+    };
+  }, [currentUserId]);
+
   const [userEmail, setUserEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetchingPosts, setFetchingPosts] = useState(true);
