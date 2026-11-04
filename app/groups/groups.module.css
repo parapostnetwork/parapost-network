@@ -1333,3 +1333,104 @@
     font-size: 12px;
   }
 }
+
+/* CreatorVerse-aligned Group directory cards */
+
+.directoryBrowser .directoryCardGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: min(100%, 822px);
+}
+
+.directoryBrowser .directoryCard {
+  position: relative;
+  min-width: 0;
+  min-height: 110px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.directoryBrowser .directoryOpen {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 16px;
+  align-items: start;
+  gap: 9px;
+  width: 100%;
+  min-height: 108px;
+  padding: 11px;
+  text-align: left;
+}
+
+.directoryBrowser .directoryCardMedia {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.directoryBrowser .directoryCardMedia > *,
+.directoryBrowser .directoryCardMedia img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.directoryBrowser .directoryCardContent {
+  min-width: 0;
+  padding: 0;
+}
+
+.directoryBrowser .directoryCardContent h3 {
+  margin: 0 0 5px;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directoryBrowser .directoryCardMeta {
+  margin: 0 0 9px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.directoryBrowser .directoryCardLabel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+}
+
+.directoryBrowser .directoryCardLabel > span {
+  font-size: 10px;
+}
+
+.directoryBrowser .directoryChevron {
+  align-self: center;
+  font-size: 19px;
+}
+
+.directoryBrowser .favoriteToggle {
+  top: 4px;
+  right: 19px;
+  transform: scale(.78);
+  transform-origin: top right;
+}
+
+@media (max-width: 800px) {
+  .directoryBrowser .directoryCardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 540px) {
+  .directoryBrowser .directoryCardGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
