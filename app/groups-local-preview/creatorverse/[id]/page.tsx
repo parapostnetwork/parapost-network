@@ -1,3 +1,4 @@
+import { creatorVerseStagingPreviewEnabled } from '@/lib/creatorverse/staging-preview';
 import { notFound } from 'next/navigation';
 import { CREATORVERSE_SAMPLES } from '../samples';
 import { CREATORVERSE_CATEGORIES } from '@/lib/creatorverse/types';
@@ -8,7 +9,7 @@ export default async function SampleCreatorVersePage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  if (process.env.NODE_ENV !== 'development') notFound();
+  if (process.env.NODE_ENV !== 'development' && !creatorVerseStagingPreviewEnabled()) notFound();
 
   const { id } = await params;
   const sample = CREATORVERSE_SAMPLES.find(item => item.page.id === id);
