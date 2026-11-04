@@ -1,5 +1,8 @@
 'use client';
 
+import ContainedMobileSelect from './ContainedMobileSelect';
+import mobileSelectStyles from './ContainedMobileSelect.module.css';
+
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { GroupMember } from '@/lib/groups/types';
@@ -48,7 +51,8 @@ export default function GroupMembersPanel({
   onOffsetChange,
   onAction
 }: Props) {
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [menuSelection, setMenuSelection] = useState<{ id: string; snapshot: typeof members } | null>(null);
+  const openMenu = menuSelection?.snapshot === members ? menuSelection.id : null;
   const activeMenuRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuAbove, setMenuAbove] = useState(false);
@@ -62,12 +66,12 @@ export default function GroupMembersPanel({
         event.target instanceof Node &&
         !activeMenuRef.current?.contains(event.target)
       ) {
-        setOpenMenu(null);
+        setMenuSelection(null);
       }
     };
 
     const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenMenu(null);
+      if (event.key === 'Escape') setMenuSelection(null);
     };
 
     document.addEventListener('pointerdown', outside);
@@ -79,9 +83,7 @@ export default function GroupMembersPanel({
     };
   }, [openMenu]);
 
-  useEffect(() => {
-    setOpenMenu(null);
-  }, [members]);
+
 
   // Reposition the menu before the browser paints it.
   useLayoutEffect(() => {
@@ -135,7 +137,7 @@ export default function GroupMembersPanel({
     member: GroupMember,
     role?: AssignableRole
   ) => {
-    setOpenMenu(null);
+    setMenuSelection(null);
     onAction(action, member, role);
   };
 
@@ -242,7 +244,7 @@ export default function GroupMembersPanel({
                     onClick={() => {
                       setMenuAbove(false);
                       setMenuMaxHeight(null);
-                      setOpenMenu(menuOpen ? null : member.user_id);
+                      setMenuSelection(menuOpen ? null : { id: member.user_id, snapshot: members });
                     }}
                   >
                     <svg
@@ -296,9 +298,10 @@ export default function GroupMembersPanel({
                       )}
 
                       {owner && member.status === 'approved' && (
-                        <label className={styles.roleControl}>
-                          Change role
-                          <select
+                        <>
+    <label className={`${styles.roleControl} ${mobileSelectStyles.desktopOnly}`}>
+      Change role
+      <select
                             value={member.role}
                             disabled={busy}
                             onChange={event => act(
@@ -311,7 +314,19 @@ export default function GroupMembersPanel({
                             <option value="moderator">Moderator</option>
                             <option value="admin">Administrator</option>
                           </select>
-                        </label>
+    </label>
+    <ContainedMobileSelect
+      label="Change role"
+      value={member.role}
+      disabled={busy}
+      options={[
+        {value: 'member', label: 'Member'},
+        {value: 'moderator', label: 'Moderator'},
+        {value: 'admin', label: 'Administrator'}
+      ]}
+      onChange={value => act('role', member, value as AssignableRole)}
+    />
+  </>
                       )}
 
                       {member.status === 'approved' && (

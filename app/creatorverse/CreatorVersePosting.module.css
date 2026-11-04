@@ -1,0 +1,33 @@
+.root { min-width: 0; color: #fff; --cv-media-tile: 230px; }
+.avatar { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: #7145aa; color: #fff; overflow: hidden; font-weight: 800; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.note { font-size: 12px; line-height: 1.5; color: #b7a9c9; }
+.error { color: #ffb6b6; font-size: 13px; }
+.mediaTile { min-width: 0; }
+.posts { display: grid; gap: 20px; }
+.root textarea { box-sizing: border-box; min-width: 0; font-family: inherit; }
+.root button:disabled { cursor: not-allowed; opacity: .55; }
+.root button:focus-visible, .root a:focus-visible { outline: 2px solid #c9a7ff; outline-offset: 3px; }
+@media (max-width: 760px) {
+  .root { --cv-media-tile: clamp(120px, 34vw, 230px); --cv-media-gap: 6px; }
+  .avatar { width: 36px; height: 36px; }
+}
+
+/* Match the Dashboard's responsive posting rules without changing Dashboard CSS. */
+@media (min-width: 1181px) {
+  .mediaGrid { gap: 9px !important; }
+  .root { --cv-media-gap: 9px; }
+}
+@media (min-width: 761px) and (max-width: 1180px) {
+  .postCard { padding: 16px !important; }
+  .root { --cv-media-tile: 210px; }
+}
+@media (max-width: 760px) {
+  .composer { padding: 11px !important; border-radius: 22px !important; margin-bottom: 10px !important; }
+  .composerRow { grid-template-columns: auto minmax(0, 1fr) !important; gap: 9px !important; align-items: start !important; }
+  .composerRow > button { display: none !important; }
+  .composerRow textarea { min-height: 58px !important; padding: 12px 13px !important; border-radius: 17px !important; font-size: 16px !important; }
+  .postCard { padding: 12px !important; border-radius: 21px !important; }
+  .singleMedia { max-height: 510px !important; border-radius: 18px !important; margin-top: 11px !important; }
+  .mediaGrid { gap: 6px !important; border-radius: 19px !important; }
+}

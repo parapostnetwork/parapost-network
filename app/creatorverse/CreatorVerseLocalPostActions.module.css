@@ -1,0 +1,58 @@
+
+.cleanAction {
+  appearance: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #e5e7eb !important;
+  padding: 0 4px !important;
+}
+
+.cleanAction:hover {
+  background: transparent !important;
+}
+
+.cleanAction[aria-pressed="true"],
+.cleanAction[aria-expanded="true"] {
+  color: var(--parapost-accent-readable-text) !important;
+}
+
+.cleanStats button {
+  appearance: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  padding: 0 !important;
+}
+
+.cleanAction { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; min-height: 44px; cursor: pointer; font-size: 12px; }
+.cleanAction svg { width: 20px; height: 20px; }
+
+.commentDelete { background: transparent; color: #d1c5dc; border: 0; margin-left: 8px; padding: 8px; cursor: pointer; }
+
+@media (max-width: 760px) {
+  .actionRow { gap: 4px !important; margin-top: 9px !important; padding: 0 !important; border: 0 !important; }
+  .cleanAction { min-height: 44px; font-size: 11.5px; gap: 4px; padding: 0 2px !important; }
+  .cleanAction svg { width: 14px; height: 14px; }
+}
+
+.commentAvatar { flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #7145aa; color: #fff; font-weight: 700; }
+.username, .notice { color: #b7a9c9; font-size: 12px; line-height: 1.5; }
+.notice { display: block; margin-top: 12px; }
+.reply { margin-left: 38px; padding-left: 10px; border-left: 2px solid rgba(255,255,255,.08); }
+.commentDelete { min-height: 44px; }
+.cleanAction:disabled, .commentDelete:disabled { opacity: .55; cursor: not-allowed; }
+.cleanAction:focus-visible, .cleanStats button:focus-visible, .commentDelete:focus-visible { outline: 2px solid #c9a7ff; outline-offset: 3px; border-radius: 6px; }
+.cleanAction:hover:not(:disabled) { color: #c9a7ff !important; }
+@media (max-width: 760px) { .reply { margin-left: 12px; padding-left: 8px; } }
+
+.commentTop { flex-wrap: wrap; column-gap: 10px; row-gap: 3px; }
+.commentTop time { white-space: normal; overflow-wrap: anywhere; }
+.commentDelete { appearance: none !important; background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none !important; padding: 4px 6px !important; border-radius: 4px !important; color: #c8b6e4 !important; font-size: 12px !important; }
+.commentDelete:hover:not(:disabled) { color: #fff !important; text-decoration: underline; }

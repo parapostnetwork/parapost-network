@@ -1,0 +1,77 @@
+
+.root { display:grid; gap:24px; width:100%; padding:12px 0 36px; }
+.hero {
+  border:1px solid #493268; border-radius:20px; padding:32px;
+  background:radial-gradient(circle at 90% 0%,#372051 0%,#171222 58%,#100e18 100%);
+  display:flex; justify-content:space-between; align-items:flex-start; gap:22px;
+}
+.eyebrow { font-size:12px; font-weight:800; letter-spacing:2px; color:#bfa3ff; margin:0 0 12px; }
+.hero h2 { font-size:clamp(26px,3vw,38px); line-height:1.2; margin:0 0 14px; color:#f7f2ff; }
+.hero p:not(.eyebrow) { color:#c5b9d5; font-size:16px; line-height:1.6; max-width:570px; margin:0; }
+.preview { white-space:nowrap; color:#cfbaff; border:1px solid #6b4b92; border-radius:40px; padding:9px 14px; font-size:12px; }
+.heading h3 { font-size:22px; margin:0 0 6px; color:#f5f2fa; }
+.heading p { margin:0; color:#aca3bd; }
+.grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.card { overflow:hidden; border:1px solid #393048; background:#16121f; border-radius:16px; min-width:0; }
+.cover { height:170px; display:flex; align-items:flex-end; padding:18px; }
+.sample { font-size:10px; font-weight:800; letter-spacing:1.5px; background:#17121caa; padding:8px 10px; border-radius:6px; color:white; }
+.details { padding:20px; }
+.category { color:#bd96ff; font-size:12px; font-weight:700; }
+.details h4 { color:#f7f4fa; font-size:19px; margin:10px 0; }
+.details p { color:#ada4b9; line-height:1.5; margin:0; font-size:14px; }
+.note { color:#988fa7; font-size:12px; margin:0; }
+@media(max-width:800px) {
+  .grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hero { flex-direction:column; padding:24px; }
+}
+@media(max-width:560px) {
+  .grid { grid-template-columns:1fr; }
+  .hero { padding:20px; }
+  .preview { white-space:normal; }
+}
+
+.creatorverseSampleThumbnail {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.creatorverseSampleThumbnail span {
+  color: white;
+  font-size: 26px;
+  font-weight: 800;
+}
+.creatorverseCategory {
+  color: #c9a5ff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.backButton {
+  justify-self: start;
+  padding: 10px 16px;
+  border: 1px solid #514069;
+  border-radius: 10px;
+  background: #21182e;
+  color: #f5edff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+
+/* Phase 5: mobile creation form width correction */
+@media (max-width: 700px) {
+  .root {
+    box-sizing: border-box;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .root > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}

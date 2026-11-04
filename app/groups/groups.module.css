@@ -1041,3 +1041,295 @@
     animation: none;
   }
 }
+
+
+/* Phase 5 mobile layout refinement */
+@media (max-width: 700px) {
+  .page .directoryHero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  .page .directoryHero h1 {
+    font-size: clamp(27px, 7vw, 32px);
+    line-height: 1.2;
+  }
+  .page .directoryHero > button {
+    width: 100%;
+    max-width: none;
+    min-height: 48px;
+    border-radius: 12px;
+  }
+  .directoryBrowser .directoryControls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+  .directoryBrowser .tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .directoryBrowser .tabs > button {
+    min-height: 48px;
+    padding: 10px 8px;
+    white-space: normal;
+    font-size: 13px;
+  }
+  .directoryBrowser .search {
+    width: 100%;
+    min-width: 0;
+  }
+  .directoryBrowser .directoryFilterRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .page .directoryBrowser .myGroupsFilters {
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+  .page .directoryBrowser .myGroupsFilters > button {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: max-content;
+    max-width: none;
+    white-space: nowrap;
+  }
+  .directoryBrowser .directorySort {
+    margin-left: 0;
+    align-self: flex-end;
+  }
+  .directoryBrowser .directoryCardGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
+
+/* Phase 5: visible mobile My Groups filter */
+.myGroupsMobileFilter {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .page .directoryBrowser .myGroupsFilters {
+    display: none;
+  }
+
+  .page .directoryBrowser .myGroupsMobileFilter {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+    color: #c6bdd2;
+    font-size: 13px;
+  }
+
+  .page .directoryBrowser .myGroupsMobileFilter select {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 14px;
+    border: 1px solid #8b6aa6;
+    border-radius: 12px;
+    background: #15101f;
+    color: #f6f0ff;
+    font: inherit;
+  }
+}
+
+
+/* Phase 5: contained My Groups mobile menus */
+.mobileGroupDropdown {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .page .directoryBrowser .desktopGroupSort {
+    display: none !important;
+  }
+
+  .page .directoryBrowser .directoryFilterRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .page .directoryBrowser .mobileGroupDropdown {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    color: #d0c5dc;
+    font-size: 13px;
+    box-sizing: border-box;
+  }
+
+  .page .directoryBrowser .mobileGroupTrigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid #8b6aa6;
+    border-radius: 12px;
+    background: #15101f;
+    color: #f6f0ff;
+    text-align: left;
+    box-shadow: none;
+  }
+
+  .page .directoryBrowser .mobileGroupOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 5px;
+    border: 1px solid #72518b;
+    border-radius: 12px;
+    background: #1c1428;
+    box-sizing: border-box;
+  }
+
+  .page .directoryBrowser .mobileGroupOption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #f6f0ff;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-shadow: none;
+  }
+
+  .page .directoryBrowser .mobileGroupOption[aria-pressed="true"] {
+    background: #6437a1;
+  }
+}
+
+/* Phase 5: responsive individual Group pages */
+.groupHeader,
+.groupIdentity,
+.identityText,
+.discussionLayout,
+.discussionColumn,
+.groupTabContent {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.groupIdentity h1 {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .discussionLayout {
+    grid-template-columns: minmax(210px, 270px) minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .groupIdentity {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .discussionLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .groupIdentity {
+    flex-wrap: wrap;
+  }
+
+  .identityActions {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .groupIdentity {
+    padding: 16px;
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .groupIdentity h1 {
+    font-size: clamp(24px, 6vw, 32px);
+    line-height: 1.18;
+    margin: 8px 0;
+  }
+
+  .identityActions {
+    width: 100%;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .groupTabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    padding: 7px;
+    overflow-x: visible;
+  }
+
+  .page .groupTabs > button {
+    min-width: 0;
+    min-height: 48px;
+    padding: 10px 6px;
+    white-space: normal;
+    line-height: 1.25;
+    border-bottom-width: 2px;
+  }
+
+  .discussionLayout {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .aboutPanel,
+  .mediaPanel {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .groupIdentity {
+    padding: 12px;
+  }
+
+  .page .groupTabs > button {
+    padding-inline: 4px;
+    font-size: 12px;
+  }
+}

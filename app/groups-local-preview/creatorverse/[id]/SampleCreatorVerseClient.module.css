@@ -1,0 +1,32 @@
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 10px;
+  border-top: 1px solid #ae7ce526;
+}
+
+.tabs button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 3px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #c7b9d8;
+  font-size: clamp(11px, 2.7vw, 14px);
+  text-align: center;
+}
+
+.tabs button[aria-pressed="true"] {
+  background: #7843c4;
+  color: white;
+  font-weight: 700;
+}
+
+.content {
+  min-width: 0;
+  width: 100%;
+  margin-top: 14px;
+  overflow-wrap: anywhere;
+}

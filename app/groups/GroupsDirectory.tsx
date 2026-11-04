@@ -6,12 +6,13 @@ import { ownsGroup, selectMyGroups, type DirectorySort, type GroupPreferences, t
 import styles from './groups.module.css';
 import { GroupsLoadingCards } from './GroupsLoadingView';
 
+
 export type DirectoryTab = 'all' | 'public' | 'private' | 'mine';
-export function DirectoryHeading({ mine, create = false, onCreate }: { mine: boolean; create?: boolean; onCreate: () => void }) {
+export function DirectoryHeading({ mine, create = false, creatorVerse = false, onCreate, createLabel = '+ Create Group' }: { mine: boolean; create?: boolean; creatorVerse?: boolean; onCreate: () => void; createLabel?: string }) {
   return <section className={`${styles.hero} ${styles.directoryHero}`}>
-    <div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>{create ? 'Create a Group' : mine ? 'My Groups' : 'Discover Groups'}</h1>
-      <p>{create ? 'Bring your community together. Give your Group a name and a place to call home.' : mine ? 'Your groups, organized for quick and easy access.' : 'Connect, share and explore communities.'}</p></div>
-    <button onClick={onCreate} aria-expanded={create}>{create ? 'Cancel' : '+ Create Group'}</button>
+    <div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>{create ? 'Create a Group' : mine ? 'My Groups' : creatorVerse ? 'Discover CreatorVerse' : 'Discover Groups'}</h1>
+      <p>{create ? 'Bring your community together. Give your Group a name and a place to call home.' : mine ? 'Your groups, organized for quick and easy access.' : creatorVerse ? 'Explore creator pages, projects and communities.' : 'Connect, share and explore communities.'}</p></div>
+    <button onClick={onCreate} aria-expanded={create}>{create ? 'Cancel' : createLabel}</button>
   </section>;
 }
 function PrivacyIcon({ privateGroup }: { privateGroup: boolean }) {
@@ -25,14 +26,22 @@ type Props = {
   preferences: GroupPreferences; toggleFavorite: (id: string) => void; recordVisit: (id: string) => void;
   renderCover: (group: Group) => ReactNode; renderMembership: (group: Group) => ReactNode;
   routeBase?: string; onOpen?: (group: Group) => void; storageError?: string;
+  /** Local preview only. Default callers keep the existing Private tab. */
+  creatorVersePreview?: boolean;
+  creatorVerseActive?: boolean;
+  creatorVerseSearch?: ReactNode;
+  creatorVerseContent?: ReactNode;
+  onCreatorVerseChange?: (active: boolean) => void;
 };
 
-export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, onSearch, loading, preferences, toggleFavorite, recordVisit, renderCover, renderMembership, routeBase = '/groups', onOpen, storageError }: Props) {
+export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, onSearch, loading, preferences, toggleFavorite, recordVisit, renderCover, renderMembership, routeBase = '/groups', onOpen, storageError, onCreatorVerseChange, creatorVersePreview = false, creatorVerseActive = false, creatorVerseSearch, creatorVerseContent }: Props) {
   const [mineView, setMineView] = useState<MineFilter>('all');
   const [sort, setSort] = useState<DirectorySort>('name');
   const results = useRef<HTMLDivElement>(null);
   const [heldHeight, setHeldHeight] = useState(0);
-  const mine = tab === 'mine';
+  const allowCreatorVerse = process.env.NODE_ENV === 'development' && creatorVersePreview;
+  const showCreatorVerse = allowCreatorVerse && creatorVerseActive;
+  const mine = tab === 'mine' && !showCreatorVerse;
   const owned = (group: Group) => ownsGroup(group, viewerId);
   const select = (filter: MineFilter, query = search) => selectMyGroups(groups, viewerId, preferences, filter, query, sort);
   const sections = mine
@@ -44,29 +53,50 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
   }
   return <div className={styles.directoryBrowser}>
     <div className={styles.directoryControls}>
-      <nav className={styles.tabs} aria-label="Filter Groups">{([['all', 'Discover'], ['public', 'Public'], ['private', 'Private'], ['mine', 'My Groups']] as const).map(([value, label]) =>
-        <button key={value} aria-pressed={tab === value} onClick={() => {
-      if (value === tab) return;
+      <nav className={styles.tabs} aria-label="Filter Groups">{([['all', 'Discover'], ['public', 'Public'], [allowCreatorVerse ? 'creatorverse' : 'private', allowCreatorVerse ? 'CreatorVerse' : 'Private'], ['mine', 'My Groups']] as const).map(([value, label]) =>
+        <button key={value} aria-pressed={value === 'creatorverse' ? showCreatorVerse : !showCreatorVerse && tab === value} onClick={() => {
+      if (value === 'creatorverse') {
+          onCreatorVerseChange?.(true);
+          return;
+        }
+        onCreatorVerseChange?.(false);
+        if (value === tab && !showCreatorVerse) return;
       setHeldHeight(Math.ceil(results.current?.getBoundingClientRect().height ?? 0));
       setMineView('all');
       onTab(value);
     }}>{label}</button>)}</nav>
-      <label className={styles.search}>{mine ? 'Search My Groups' : 'Search Groups'}<span className={styles.directorySearchInput}>
+      {showCreatorVerse ? creatorVerseSearch : <label className={styles.search}>{mine ? 'Search My Groups' : 'Search Groups'}<span className={styles.directorySearchInput}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg>
         <input type="search" maxLength={100} placeholder={mine ? 'Search your groups…' : 'Search by name or description'} value={search} onChange={event => onSearch(event.target.value)}/>
-      </span></label>
+      </span></label>}
     </div>
     {mine && <>
       <div className={styles.directoryFilterRow}>
+        <ContainedGroupMobileMenu
+          label="Filter My Groups"
+          value={mineView}
+          items={filters}
+          onChange={setMineView}
+        />
         <div className={styles.myGroupsFilters} role="group" aria-label="My Groups filters">{filters.map(([value, label]) => <button key={value} aria-pressed={mineView === value} onClick={() => setMineView(value)}>{label}{loading ? ' (…)' : ` (${select(value, '').length})`}</button>)}</div>
-        <label className={styles.directorySort}>Sort by:<select value={sort} onChange={event => setSort(event.target.value as DirectorySort)}><option value="name">Name A–Z</option><option value="members">Member count</option><option value="visited">Recently visited</option></select></label>
+        <label className={`${styles.directorySort} ${styles.desktopGroupSort}`}>Sort by:<select value={sort} onChange={event => setSort(event.target.value as DirectorySort)}><option value="name">Name A–Z</option><option value="members">Member count</option><option value="visited">Recently visited</option></select></label>
+        <ContainedGroupMobileMenu
+          label="Sort by"
+          value={sort}
+          items={[
+            ['name', 'Name A–Z'],
+            ['members', 'Member count'],
+            ['visited', 'Recently visited']
+          ] as const}
+          onChange={setSort}
+        />
       </div>
       <p className={styles.directoryLocalNote}>{storageError || 'Favorites and visits are saved for this account in this browser.'}</p>
     </>}
     <div ref={results} tabIndex={-1} aria-busy={loading}
       className={styles.directoryResults}
       style={loading && heldHeight > 0 ? { minHeight: heldHeight } : undefined}>
-      {loading ? <GroupsLoadingCards /> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
+      {showCreatorVerse ? creatorVerseContent : loading ? <GroupsLoadingCards /> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
         {section.title && <div className={styles.directorySectionHeading}><h2>{section.title} <span>({section.items.length})</span></h2>
           {mineView === 'all' && section.items.length > 0 && <button className={styles.viewAll} onClick={() => viewAll(section.key as MineFilter)} aria-label={`View all ${section.title.toLowerCase()}`}>View All <span aria-hidden="true">→</span></button>}
           {mineView !== 'all' && <button className={styles.viewAll} onClick={() => setMineView('all')}>← Back to All My Groups</button>}
@@ -93,5 +123,56 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
         {!section.items.length && <p className={styles.directoryEmpty}>{search ? 'No groups match your search in this section.' : section.key === 'favorites' ? 'Star a group to keep it close.' : section.key === 'recent' ? 'Groups you open will appear here.' : section.key === 'owned' ? 'Groups you create will appear here.' : section.key === 'joined' ? 'Join a community to see it here.' : 'No groups found. Try another search or filter.'}</p>}
       </section>)}
     </div>
+  </div>;
+}
+
+
+function ContainedGroupMobileMenu<T extends string>({
+  label, value, items, onChange
+}: {
+  label: string;
+  value: T;
+  items: readonly (readonly [T, string])[];
+  onChange: (next: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = items.find(([key]) => key === value)?.[1] ?? label;
+
+  return <div className={styles.mobileGroupDropdown}>
+    <span>{label}</span>
+    <button
+      type="button"
+      className={styles.mobileGroupTrigger}
+      aria-label={`${label}: ${selected}`}
+      aria-expanded={open}
+      onClick={() => setOpen(current => !current)}
+    >
+      <span>{selected}</span>
+      <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+    </button>
+    {open && <div
+      className={styles.mobileGroupOptions}
+      role="group"
+      aria-label={`${label} choices`}
+      onKeyDown={event => {
+        if (event.key === 'Escape') setOpen(false);
+      }}
+    >
+      {items.map(([key, name]) =>
+        <button
+          key={key}
+          type="button"
+          className={styles.mobileGroupOption}
+          aria-pressed={value === key}
+          onClick={() => {
+            onChange(key);
+            setOpen(false);
+          }}
+        >
+          <span>{name}</span>
+          {value === key && <span aria-hidden="true">✓</span>}
+        </button>
+      )}
+    </div>}
   </div>;
 }
