@@ -5,14 +5,24 @@ import type { Group } from '@/lib/groups/types';
 import { ownsGroup, selectMyGroups, type DirectorySort, type GroupPreferences, type MineFilter } from '@/lib/groups/directory';
 import styles from './groups.module.css';
 import { GroupsLoadingCards } from './GroupsLoadingView';
+import CreatorVerseLandingPreview from './CreatorVerseLandingPreview';
+import { DiscoverySearch } from '@/app/creatorverse/CreatorVerseDiscovery';
+import type { DiscoveryFilter } from '@/lib/creatorverse/discovery';
+import { useCreatorVerseStaging } from './CreatorVerseStagingProvider';
 
 
 export type DirectoryTab = 'all' | 'public' | 'private' | 'mine';
 export function DirectoryHeading({ mine, create = false, creatorVerse = false, onCreate, createLabel = '+ Create Group' }: { mine: boolean; create?: boolean; creatorVerse?: boolean; onCreate: () => void; createLabel?: string }) {
+  const stage = useCreatorVerseStaging();
+  const preview = stage.enabled && stage.selected;
+  const creating = create || (preview && stage.formOpen);
+
   return <section className={`${styles.hero} ${styles.directoryHero}`}>
-    <div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>{create ? 'Create a Group' : mine ? 'My Groups' : creatorVerse ? 'Discover CreatorVerse' : 'Discover Groups'}</h1>
-      <p>{create ? 'Bring your community together. Give your Group a name and a place to call home.' : mine ? 'Your groups, organized for quick and easy access.' : creatorVerse ? 'Explore creator pages, projects and communities.' : 'Connect, share and explore communities.'}</p></div>
-    <button onClick={onCreate} aria-expanded={create}>{create ? 'Cancel' : createLabel}</button>
+    <div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>{create ? 'Create a Group' : mine ? 'My Groups' : (creatorVerse || preview) ? 'Discover CreatorVerse' : 'Discover Groups'}</h1>
+      <p>{create ? 'Bring your community together. Give your Group a name and a place to call home.' : mine ? 'Your groups, organized for quick and easy access.' : (creatorVerse || preview) ? 'Explore creator pages, projects and communities.' : 'Connect, share and explore communities.'}</p></div>
+    <button onClick={preview ? () => stage.setFormOpen(!stage.formOpen) : onCreate}
+      aria-expanded={creating}>
+      {creating ? 'Cancel' : preview ? '+ Create CreatorVerse Page' : createLabel}</button>
   </section>;
 }
 function PrivacyIcon({ privateGroup }: { privateGroup: boolean }) {
@@ -35,12 +45,19 @@ type Props = {
 };
 
 export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, onSearch, loading, preferences, toggleFavorite, recordVisit, renderCover, renderMembership, routeBase = '/groups', onOpen, storageError, onCreatorVerseChange, creatorVersePreview = false, creatorVerseActive = false, creatorVerseSearch, creatorVerseContent }: Props) {
+  const stage = useCreatorVerseStaging();
+  const [stageFilter, setStageFilter] = useState<DiscoveryFilter>({
+    search: '', category: '',
+  });
   const [mineView, setMineView] = useState<MineFilter>('all');
   const [sort, setSort] = useState<DirectorySort>('name');
   const results = useRef<HTMLDivElement>(null);
   const [heldHeight, setHeldHeight] = useState(0);
-  const allowCreatorVerse = process.env.NODE_ENV === 'development' && creatorVersePreview;
-  const showCreatorVerse = allowCreatorVerse && creatorVerseActive;
+  const allowCreatorVerse =
+    (process.env.NODE_ENV === 'development' && creatorVersePreview)
+    || stage.enabled;
+  const showCreatorVerse =
+    allowCreatorVerse && (creatorVerseActive || stage.selected);
   const mine = tab === 'mine' && !showCreatorVerse;
   const owned = (group: Group) => ownsGroup(group, viewerId);
   const select = (filter: MineFilter, query = search) => selectMyGroups(groups, viewerId, preferences, filter, query, sort);
@@ -56,8 +73,13 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
       <nav className={styles.tabs} aria-label="Filter Groups">{([['all', 'Discover'], ['public', 'Public'], [allowCreatorVerse ? 'creatorverse' : 'private', allowCreatorVerse ? 'CreatorVerse' : 'Private'], ['mine', 'My Groups']] as const).map(([value, label]) =>
         <button key={value} aria-pressed={value === 'creatorverse' ? showCreatorVerse : !showCreatorVerse && tab === value} onClick={() => {
       if (value === 'creatorverse') {
+          if (stage.enabled) stage.setSelected(true);
           onCreatorVerseChange?.(true);
           return;
+        }
+        if (stage.enabled) {
+          stage.setSelected(false);
+          stage.setFormOpen(false);
         }
         onCreatorVerseChange?.(false);
         if (value === tab && !showCreatorVerse) return;
@@ -65,7 +87,16 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
       setMineView('all');
       onTab(value);
     }}>{label}</button>)}</nav>
-      {showCreatorVerse ? creatorVerseSearch : <label className={styles.search}>{mine ? 'Search My Groups' : 'Search Groups'}<span className={styles.directorySearchInput}>
+      {showCreatorVerse
+      ? (creatorVerseSearch ?? (stage.enabled
+          ? <DiscoverySearch
+              value={stageFilter.search}
+              onChange={search => setStageFilter(current => ({
+                ...current, search,
+              }))}
+            />
+          : null))
+      : <label className={styles.search}>{mine ? 'Search My Groups' : 'Search Groups'}<span className={styles.directorySearchInput}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg>
         <input type="search" maxLength={100} placeholder={mine ? 'Search your groups…' : 'Search by name or description'} value={search} onChange={event => onSearch(event.target.value)}/>
       </span></label>}
@@ -96,7 +127,16 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
     <div ref={results} tabIndex={-1} aria-busy={loading}
       className={styles.directoryResults}
       style={loading && heldHeight > 0 ? { minHeight: heldHeight } : undefined}>
-      {showCreatorVerse ? creatorVerseContent : loading ? <GroupsLoadingCards /> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
+      {showCreatorVerse
+      ? (creatorVerseContent ?? (stage.enabled
+          ? <CreatorVerseLandingPreview
+              formOpen={stage.formOpen}
+              onCancelForm={() => stage.setFormOpen(false)}
+              filter={stageFilter}
+              onFilter={setStageFilter}
+            />
+          : null))
+      : loading ? <GroupsLoadingCards /> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
         {section.title && <div className={styles.directorySectionHeading}><h2>{section.title} <span>({section.items.length})</span></h2>
           {mineView === 'all' && section.items.length > 0 && <button className={styles.viewAll} onClick={() => viewAll(section.key as MineFilter)} aria-label={`View all ${section.title.toLowerCase()}`}>View All <span aria-hidden="true">→</span></button>}
           {mineView !== 'all' && <button className={styles.viewAll} onClick={() => setMineView('all')}>← Back to All My Groups</button>}
