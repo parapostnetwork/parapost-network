@@ -3048,6 +3048,12 @@ function MessagesPage() {
         }
 
         @media (max-width: 980px) {
+          /* Diagnostic: disable Android inbox background blur. */
+          .parachat-inbox {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+          }
+
           body:has(.parachat-page-root) {
             padding-top: 0;
           }
