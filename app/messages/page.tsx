@@ -764,6 +764,7 @@ function MessagesPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectedImagePreviewUrlRef = useRef<string | null>(null);
   const activeConversationIdRef = useRef(selectedConversationFromUrl);
+  const inboxLoadedOnceRef = useRef(false);
   const conversationsRef = useRef<ConversationItem[]>([]);
   const messagesRef = useRef<MessageRow[]>([]);
   const hasMoreMessagesRef = useRef(false);
@@ -1202,7 +1203,7 @@ function MessagesPage() {
   );
 
   const loadInbox = useCallback(async () => {
-    setLoadingInbox(true);
+    if (!inboxLoadedOnceRef.current) setLoadingInbox(true);
     setErrorMessage("");
 
     const {
@@ -1244,6 +1245,7 @@ function MessagesPage() {
       setMessages([]);
       setMobileChatOpen(false);
       clearConversationUrl();
+      inboxLoadedOnceRef.current = true;
       setLoadingInbox(false);
       return;
     }
@@ -1284,6 +1286,7 @@ function MessagesPage() {
       setMessages([]);
       setMobileChatOpen(false);
       clearConversationUrl();
+      inboxLoadedOnceRef.current = true;
       setLoadingInbox(false);
       return;
     }
@@ -1303,6 +1306,7 @@ function MessagesPage() {
 
     if (conversationError) {
       setErrorMessage(getParachatErrorMessage(conversationError.message || "Could not load conversations."));
+      inboxLoadedOnceRef.current = true;
       setLoadingInbox(false);
       return;
     }
@@ -1330,6 +1334,7 @@ function MessagesPage() {
 
       if (refreshed.error) {
         setErrorMessage(getParachatErrorMessage(refreshed.error.message || "Could not refresh Parachat conversations."));
+        inboxLoadedOnceRef.current = true;
         setLoadingInbox(false);
         return;
       }
@@ -1381,6 +1386,7 @@ function MessagesPage() {
       setMessages([]);
       setMobileChatOpen(false);
       clearConversationUrl();
+      inboxLoadedOnceRef.current = true;
       setLoadingInbox(false);
       return;
     }
@@ -1410,6 +1416,7 @@ function MessagesPage() {
           inboxSummaryError.message || "Could not load Parachat Inbox summaries."
         )
       );
+      inboxLoadedOnceRef.current = true;
       setLoadingInbox(false);
       return;
     }
@@ -1518,6 +1525,7 @@ function MessagesPage() {
       setMobileChatOpen(false);
     }
 
+    inboxLoadedOnceRef.current = true;
     setLoadingInbox(false);
   }, [router, selectedConversationFromUrl, selectedUserFromUrl]);
 
@@ -3054,7 +3062,7 @@ function MessagesPage() {
 
           .parachat-page-root {
             min-height: 100svh !important;
-            min-height: 100dvh !important;
+            min-height: 100svh !important;
             overflow-x: hidden !important;
             background:
               radial-gradient(circle at top left, rgba(168,85,247,0.28), transparent 34%),
@@ -3064,9 +3072,9 @@ function MessagesPage() {
 
           .parachat-page-chat-open {
             height: 100svh !important;
-            height: 100dvh !important;
+            height: 100svh !important;
             max-height: 100svh !important;
-            max-height: 100dvh !important;
+            max-height: 100svh !important;
             overflow: hidden !important;
           }
 
@@ -3075,15 +3083,15 @@ function MessagesPage() {
             gap: 0 !important;
             padding: 0 !important;
             min-height: 100svh !important;
-            min-height: 100dvh !important;
+            min-height: 100svh !important;
             max-width: none !important;
           }
 
           .parachat-page-chat-open .parachat-shell {
             height: 100svh !important;
-            height: 100dvh !important;
+            height: 100svh !important;
             max-height: 100svh !important;
-            max-height: 100dvh !important;
+            max-height: 100svh !important;
             overflow: hidden !important;
           }
 
@@ -3091,7 +3099,7 @@ function MessagesPage() {
             display: block !important;
             border-radius: 0 !important;
             min-height: 100svh !important;
-            min-height: 100dvh !important;
+            min-height: 100svh !important;
             max-height: none !important;
             border: none !important;
             overflow-y: auto !important;
@@ -3103,7 +3111,7 @@ function MessagesPage() {
             display: none !important;
             border-radius: 0 !important;
             min-height: 100svh !important;
-            min-height: 100dvh !important;
+            min-height: 100svh !important;
             border: none !important;
           }
 
@@ -3115,11 +3123,11 @@ function MessagesPage() {
             display: grid !important;
             grid-template-rows: auto minmax(0, 1fr) auto !important;
             height: 100svh !important;
-            height: 100dvh !important;
+            height: 100svh !important;
             min-height: 100svh !important;
-            min-height: 100dvh !important;
+            min-height: 100svh !important;
             max-height: 100svh !important;
-            max-height: 100dvh !important;
+            max-height: 100svh !important;
             overflow: hidden !important;
             background: rgba(7,10,16,0.98) !important;
           }
