@@ -1,5 +1,7 @@
 'use client';
 
+import groupTabStyles from './CreatorVerseGroupTabs.module.css';
+
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -77,11 +79,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
             </div>
           </div>
 
-          <div
-            className={tabStyles.tabs}
-            role="group"
-            aria-label="CreatorVerse sections"
-          >
+          <div className={groupTabStyles.tabs} role="group" aria-label="CreatorVerse sections">
             {(['Posts', 'Photos', 'Videos', 'About'] as Section[]).map(tab => (
               <button
                 key={tab}

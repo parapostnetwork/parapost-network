@@ -1,5 +1,7 @@
 'use client';
 
+import groupTabStyles from '@/app/creatorverse/CreatorVerseGroupTabs.module.css';
+
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -57,8 +59,7 @@ export default function SampleCreatorVerseClient({
           </div>
         </div>
 
-        <div className={ui.tabs}
-          role="group" aria-label="CreatorVerse sections">
+        <div className={groupTabStyles.tabs} role="group" aria-label="CreatorVerse sections">
           {(['Posts', 'Photos', 'Videos', 'About'] as Section[]).map(tab => (
             <button
               type="button"
@@ -71,6 +72,19 @@ export default function SampleCreatorVerseClient({
           ))}
         </div>
       </header>
+        <div className={groupTabStyles.columns}>
+          <aside
+            className={groupTabStyles.sidebar}
+            aria-label="About this Page"
+          >
+            <h2>About this Page</h2>
+            <p>
+              Explore updates, photos and videos
+              from this CreatorVerse page.
+            </p>
+          </aside>
+          <div className={groupTabStyles.feed}>
+
 
       <section className={`${styles.panel} ${ui.content}`}
         aria-label={`${section} section`}>
@@ -89,6 +103,9 @@ export default function SampleCreatorVerseClient({
         {section === 'About' &&
           <p>{description || bio}</p>}
       </section>
-    </main>
+
+          </div>
+        </div>
+</main>
   </div>;
 }
