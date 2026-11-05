@@ -15,6 +15,7 @@ import CreatorVerseOwnerComposer from './CreatorVerseOwnerComposer';
 import CreatorVersePublisherOnly from './CreatorVersePublisherOnly';
 import CreatorVersePostActions from './CreatorVersePostActions';
 import styles from './creatorverse.module.css';
+import layout from './CreatorVerseGroupsLayout.module.css';
 
 type Section = 'Posts' | 'Photos' | 'Videos' | 'About';
 
@@ -94,10 +95,39 @@ export default function CreatorVersePage({ id }: { id: string }) {
           </div>
         </header>
 
-        <section
-          className={`${draftStyles.panel} ${tabStyles.content}`}
-          aria-label={`${section} section`}
-        >
+        <div className={layout.columns}>
+          <aside className={layout.sidebar} aria-label="About this CreatorVerse page">
+            <h2>About this Page</h2>
+            <p className={layout.description}>
+              {page.description || page.short_bio}
+            </p>
+
+            <div className={layout.detail}>
+              <span>Category</span>
+              <strong>{CREATORVERSE_CATEGORIES[page.category]}</strong>
+            </div>
+
+            {page.location && (
+              <div className={layout.detail}>
+                <span>Location</span>
+                <strong>{page.location}</strong>
+              </div>
+            )}
+
+            {page.website && (
+              <div className={layout.detail}>
+                <span>Website</span>
+                <a href={page.website} target="_blank" rel="noopener noreferrer">
+                  Visit website
+                </a>
+              </div>
+            )}
+          </aside>
+
+          <section
+            className={`${draftStyles.panel} ${tabStyles.content} ${layout.primary}`}
+            aria-label={`${section} section`}
+          >
           <h2>{section}</h2>
 
           {section === 'Posts' && (
@@ -172,7 +202,8 @@ export default function CreatorVersePage({ id }: { id: string }) {
               ))}
             </div>
           )}
-        </section>
+          </section>
+        </div>
       </main>
     </div>
   );
