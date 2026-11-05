@@ -469,3 +469,11 @@
     margin: 0;
   }
 }
+
+
+/* CreatorVerse identity text alignment correction */
+@media (min-width: 601px) {
+  .identityText {
+    transform: translateY(30px);
+  }
+}
