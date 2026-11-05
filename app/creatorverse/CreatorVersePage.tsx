@@ -13,6 +13,7 @@ import draftStyles from '@/app/groups-local-preview/creatorverse/draft/draft.mod
 import tabStyles from '@/app/groups-local-preview/creatorverse/[id]/SampleCreatorVerseClient.module.css';
 import CreatorVerseOwnerComposer from './CreatorVerseOwnerComposer';
 import CreatorVersePublisherOnly from './CreatorVersePublisherOnly';
+import CreatorVersePostActions from './CreatorVersePostActions';
 import styles from './creatorverse.module.css';
 
 type Section = 'Posts' | 'Photos' | 'Videos' | 'About';
@@ -120,6 +121,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                     {new Date(post.created_at).toLocaleDateString()}
                   </time>
                   <p style={postContentStyle}>{post.content}</p>
+                  <CreatorVersePostActions pageId={id} postId={post.id} commentsEnabled={post.comments_enabled} />
                 </article>
               )) : (
                 <p className={styles.empty}>

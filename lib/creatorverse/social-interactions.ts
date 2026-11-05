@@ -10,7 +10,7 @@ import {
 
 // Remains locked until the public SQL gateway, follower checks,
 // rate limits and staging authorization are verified.
-const SOCIAL_WRITES_APPROVED = false;
+const SOCIAL_WRITES_APPROVED = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') === 'https://vmgelrgrtpghmvqgufzz.supabase.co' && process.env.CREATORVERSE_STAGING_WRITES_ENABLED === 'true';
 
 const actions = new Set([
   'like',

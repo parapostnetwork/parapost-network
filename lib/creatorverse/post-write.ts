@@ -11,7 +11,7 @@ import { pageId } from './validation';
  * publication validation and media verification are approved.
  */
 function postWritesApproved(): boolean {
-  return false;
+  return process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') === 'https://vmgelrgrtpghmvqgufzz.supabase.co' && process.env.CREATORVERSE_STAGING_WRITES_ENABLED === 'true';
 }
 
 function validatePostContent(input: unknown): string {
