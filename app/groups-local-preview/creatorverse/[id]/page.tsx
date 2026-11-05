@@ -23,5 +23,6 @@ export default async function SampleCreatorVersePage({
     bio={page.short_bio}
     description={page.description}
     creatorName={creator?.name ?? null}
+    id={id}
   />;
 }

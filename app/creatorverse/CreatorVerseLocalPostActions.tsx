@@ -1,5 +1,7 @@
 'use client';
 
+import { useCreatorVersePreviewAccess } from './CreatorVersePreviewAccess';
+
 import { useEffect, useRef, useState } from 'react';
 import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
 import { postStatsSummaryStyle, postActionsStyle, dashboardCommentTextareaStyle,
@@ -38,6 +40,7 @@ export default function CreatorVerseLocalPostActions({ pageName, postId, postTex
   const [shareOpen, setShareOpen] = useState(false);
   const [caption, setCaption] = useState('');
   const liked = data.likes.includes(actor.id);
+  const previewAccess = useCreatorVersePreviewAccess();
   const shared = data.shares.some(share => share.actorId === actor.id);
   useEffect(() => { activeActor.current = actor.id; }, [actor.id]);
   useEffect(() => {
@@ -50,7 +53,7 @@ export default function CreatorVerseLocalPostActions({ pageName, postId, postTex
     return () => window.removeEventListener('storage', changed);
   }, [key, postId]);
   async function save(action: LocalInteractionAction) {
-    if (process.env.NODE_ENV !== 'development' || !readable || inFlight.current) return false;
+    if ((process.env.NODE_ENV !== 'development' && !previewAccess) || !readable || inFlight.current) return false;
     inFlight.current = true; setBusy(true);
     try {
       if (!navigator.locks) throw new Error('This browser cannot safely save concurrent local interactions. Use a browser with Web Locks support.');
@@ -92,7 +95,7 @@ export default function CreatorVerseLocalPostActions({ pageName, postId, postTex
       </div>
     </div>;
   }
-  if (process.env.NODE_ENV !== 'development') return null;
+  if (process.env.NODE_ENV !== 'development' && !previewAccess) return null;
   return <div aria-busy={busy}>
     <div className={styles.cleanStats} style={postStatsSummaryStyle} aria-live="polite">
       <span>{data.likes.length} {data.likes.length === 1 ? 'Like' : 'Likes'}</span>

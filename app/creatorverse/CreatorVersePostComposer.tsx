@@ -1,5 +1,7 @@
 'use client';
 
+import { useCreatorVersePreviewAccess } from './CreatorVersePreviewAccess';
+
 import { useEffect, useRef, useState } from 'react';
 import PostComposerInput from '@/components/PostComposerInput';
 import { composerCardStyle, composerActionPillStyle, composerFooterStyle, publishButtonStyle,
@@ -18,7 +20,11 @@ export default function CreatorVersePostComposer({ pageName = 'CreatorVerse Page
   previewRole = 'visitor', pageHref = '/groups-local-preview/creatorverse/draft' }: {
   pageName?: string; avatarUrl?: string | null; previewRole?: LocalPreviewRole; pageHref?: string;
 }) {
-  const canManage = localPreviewCanManage(previewRole, process.env.NODE_ENV);
+  const previewAccess = useCreatorVersePreviewAccess();
+  const canManage = localPreviewCanManage(
+    previewRole,
+    previewAccess ? 'development' : process.env.NODE_ENV
+  );
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [posts, setPosts] = useState<LocalPost[]>([]);
@@ -126,7 +132,7 @@ export default function CreatorVersePostComposer({ pageName = 'CreatorVerse Page
       // eslint-disable-next-line @next/next/no-img-element
       ? <img src={avatarUrl} alt={`${pageName} avatar`} /> : <span aria-hidden="true">{pageName.trim()[0]?.toUpperCase() || 'C'}</span>}
   </span>;
-  if (process.env.NODE_ENV !== 'development') return null;
+  if (process.env.NODE_ENV !== 'development' && !previewAccess) return null;
   return <div className={styles.root}>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {!ready && !error && <p role="status">Restoring local posts…</p>}
