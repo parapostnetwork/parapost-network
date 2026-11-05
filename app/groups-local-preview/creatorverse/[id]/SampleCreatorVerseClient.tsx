@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import CreatorVersePostComposer from '@/app/creatorverse/CreatorVersePostComposer';
-import CreatorVersePreviewAccess from '@/app/creatorverse/CreatorVersePreviewAccess';
 import groupStyles from '@/app/groups/groups.module.css';
 import styles from '../draft/draft.module.css';
 import discoveryStyles from '@/app/creatorverse/CreatorVerseDiscovery.module.css';
@@ -13,7 +11,7 @@ import ui from './SampleCreatorVerseClient.module.css';
 type Section = 'Posts' | 'Photos' | 'Videos' | 'About';
 
 export default function SampleCreatorVerseClient({
-  name, category, bio, description, creatorName, id
+  name, category, bio, description, creatorName
 }: {
   name: string;
   category: string;
@@ -23,7 +21,6 @@ export default function SampleCreatorVerseClient({
   id: string;
 }) {
   const [section, setSection] = useState<Section>('Posts');
-  const [role, setRole] = useState<'owner' | 'visitor'>('visitor');
 
 
   return <div className={groupStyles.page}>
@@ -80,44 +77,7 @@ export default function SampleCreatorVerseClient({
         <h2>{section}</h2>
 
         {section === 'Posts' && (
-          <CreatorVersePreviewAccess enabled>
-            <div
-              role="group"
-              aria-label="Staging role simulation"
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: 12,
-                marginBottom: 20,
-              }}
-            >
-              <span>Test as:</span>
-              <button
-                type="button"
-                aria-pressed={role === 'owner'}
-                onClick={() => setRole('owner')}
-              >
-                Owner
-              </button>
-              <button
-                type="button"
-                aria-pressed={role === 'visitor'}
-                onClick={() => setRole('visitor')}
-              >
-                Follower
-              </button>
-              <span style={{ fontSize: 12, opacity: .7 }}>
-                Staging simulation only
-              </span>
-            </div>
-
-            <CreatorVersePostComposer
-              pageName={name}
-              pageHref={`/groups-local-preview/creatorverse/${id}`}
-              previewRole={role}
-            />
-          </CreatorVersePreviewAccess>
+          <p>No posts have been published on this page yet.</p>
         )}
 
         {section === 'Photos' &&
