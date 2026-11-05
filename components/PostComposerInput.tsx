@@ -13,7 +13,7 @@ export function PhotoIcon() {
 // Keep each surface's responsive class hooks and upload rules intact.
 export default function PostComposerInput({ avatar, inputProps, onSelectMedia, className,
   mediaLabel = 'Upload photos', disabled = false, rowStyle = composerTopRowStyle,
-  inputStyle = composerInputStyle, mediaStyle = composerImageButtonStyle,
+  inputStyle = composerInputStyle, mediaStyle = composerImageButtonStyle, showMediaButton = true,
 }: {
   avatar: ReactNode;
   inputProps: TextareaHTMLAttributes<HTMLTextAreaElement>;
@@ -24,12 +24,15 @@ export default function PostComposerInput({ avatar, inputProps, onSelectMedia, c
   rowStyle?: CSSProperties;
   inputStyle?: CSSProperties;
   mediaStyle?: CSSProperties;
+  showMediaButton?: boolean;
 }) {
   return <div className={className} style={rowStyle}>
     {avatar}
     <textarea rows={2} style={inputStyle} disabled={disabled} {...inputProps} />
-    <button type="button" onClick={onSelectMedia} style={mediaStyle} aria-label={mediaLabel} disabled={disabled}>
-      <PhotoIcon />
-    </button>
+    {showMediaButton && (
+      <button type="button" onClick={onSelectMedia} style={mediaStyle} aria-label={mediaLabel} disabled={disabled}>
+        <PhotoIcon />
+      </button>
+    )}
   </div>;
 }
