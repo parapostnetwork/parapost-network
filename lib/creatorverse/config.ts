@@ -8,6 +8,14 @@ export function isCreatorVerseTarget(value: string | undefined): boolean {
   } catch { return false; }
 }
 export function creatorVerseEnabled(): boolean {
-  return process.env.CREATORVERSE_ENABLED === 'true'
-    && isCreatorVerseTarget(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const approvedStaging =
+    process.env.VERCEL_ENV === 'preview' &&
+    process.env.VERCEL_GIT_COMMIT_REF === 'staging';
+
+  const approvedLocal =
+    process.env.NODE_ENV === 'development' &&
+    process.env.CREATORVERSE_ENABLED === 'true';
+
+  return isCreatorVerseTarget(process.env.NEXT_PUBLIC_SUPABASE_URL)
+    && (approvedStaging || approvedLocal);
 }

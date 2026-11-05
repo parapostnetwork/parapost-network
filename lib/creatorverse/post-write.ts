@@ -1,4 +1,5 @@
 import 'server-only';
+import { creatorVerseEnabled } from './config';
 
 import { requireCreatorVerseOwner } from './server';
 import { CreatorVerseError } from './permissions';
@@ -11,7 +12,7 @@ import { pageId } from './validation';
  * publication validation and media verification are approved.
  */
 function postWritesApproved(): boolean {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') === 'https://vmgelrgrtpghmvqgufzz.supabase.co' && process.env.CREATORVERSE_STAGING_WRITES_ENABLED === 'true';
+  return creatorVerseEnabled();
 }
 
 function validatePostContent(input: unknown): string {

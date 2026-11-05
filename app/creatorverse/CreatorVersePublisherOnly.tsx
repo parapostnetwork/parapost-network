@@ -1,30 +1,76 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { usePublicRead } from '@/lib/creatorverse/usePublicRead';
-import type { PagePermissions } from '@/lib/creatorverse/types';
+import { useEffect, useState, type ReactNode } from 'react';
+import { supabase } from '@/lib/supabase';
 
 type Props = {
   pageId: string;
   children: ReactNode;
 };
 
-/**
- * Presentation-only permission gate.
- * The server and database must independently authorize every write.
- */
 export default function CreatorVersePublisherOnly({
   pageId,
   children,
 }: Props) {
-  const { data, loading, error } = usePublicRead<PagePermissions>(
-    `/api/creatorverse/${encodeURIComponent(pageId)}/permissions`
-  );
+  const [canPublish, setCanPublish] = useState(false);
 
-  // Never expose owner controls while identity or permission is uncertain.
-  if (loading || error || data?.can_publish !== true) {
-    return null;
-  }
+  useEffect(() => {
+    let active = true;
+    let sequence = 0;
+
+    async function verify(token?: string) {
+      const requestId = ++sequence;
+
+      if (active) setCanPublish(false);
+      if (!token) return;
+
+      try {
+        const response = await fetch(
+          `/api/creatorverse/${encodeURIComponent(pageId)}/permissions`,
+          {
+            cache: 'no-store',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) return;
+
+        const permissions = await response.json() as {
+          can_publish?: boolean;
+        };
+
+        if (active && requestId === sequence) {
+          setCanPublish(permissions.can_publish === true);
+        }
+      } catch {
+        if (active && requestId === sequence) {
+          setCanPublish(false);
+        }
+      }
+    }
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active) {
+        void verify(data.session?.access_token);
+      }
+    });
+
+    const { data } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        void verify(session?.access_token);
+      }
+    );
+
+    return () => {
+      active = false;
+      sequence++;
+      data.subscription.unsubscribe();
+    };
+  }, [pageId]);
+
+  if (!canPublish) return null;
 
   return <>{children}</>;
 }
