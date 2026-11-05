@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import type { Group } from '@/lib/groups/types';
 import { ownsGroup, selectMyGroups, type DirectorySort, type GroupPreferences, type MineFilter } from '@/lib/groups/directory';
 import styles from './groups.module.css';
+import creatorCardStyles from '@/app/creatorverse/CreatorVerseDiscovery.module.css';
 import { GroupsLoadingCards } from './GroupsLoadingView';
 import CreatorVerseLandingPreview from './CreatorVerseLandingPreview';
 import { DiscoverySearch } from '@/app/creatorverse/CreatorVerseDiscovery';
@@ -136,15 +137,15 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
               onFilter={setStageFilter}
             />
           : null))
-      : loading ? <GroupsLoadingCards /> : sections.map(section => <section key={section.key} className={styles.directorySection} aria-label={section.title || 'Group results'}>
+      : loading ? <GroupsLoadingCards /> : sections.map(section => <section key={section.key} className={`${styles.directorySection} ${creatorCardStyles.discovery}`} aria-label={section.title || 'Group results'}>
         {section.title && <div className={styles.directorySectionHeading}><h2>{section.title} <span>({section.items.length})</span></h2>
           {mineView === 'all' && section.items.length > 0 && <button className={styles.viewAll} onClick={() => viewAll(section.key as MineFilter)} aria-label={`View all ${section.title.toLowerCase()}`}>View All <span aria-hidden="true">→</span></button>}
           {mineView !== 'all' && <button className={styles.viewAll} onClick={() => setMineView('all')}>← Back to All My Groups</button>}
         </div>}
-        <div className={styles.directoryCardGrid}>{(mine && mineView === 'all' ? section.items.slice(0, 3) : section.items).map(group => {
+        <div className={`${styles.directoryCardGrid} ${creatorCardStyles.cardGrid}`}>{(mine && mineView === 'all' ? section.items.slice(0, 3) : section.items).map(group => {
           const favorite = preferences.favorites.includes(group.id);
           const approved = group.membership_status === 'approved';
-          const cardContents = <><div className={styles.directoryCardMedia}>{renderCover(group)}</div><div className={styles.directoryCardContent}>
+          const cardContents = <><div className={`${styles.directoryCardMedia} ${creatorCardStyles.avatar}`}>{renderCover(group)}</div><div className={`${styles.directoryCardContent} ${creatorCardStyles.content}`}>
             <h3>{group.name}</h3>
             <p className={styles.directoryCardMeta}>{group.member_count !== null ? `${group.member_count} ${group.member_count === 1 ? 'member' : 'members'}` : 'Member count unavailable'}</p>
             <div className={styles.directoryCardLabel}>{owned(group) && <span className={styles.ownerTag}>Owner</span>}
@@ -153,9 +154,9 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
               <span className={styles.privacyTag}><PrivacyIcon privateGroup={group.visibility === 'private'}/>{group.visibility === 'private' ? 'Private' : 'Public'}</span>
             </div>
           </div><span className={styles.directoryChevron} aria-hidden="true">›</span></>;
-          return <article key={group.id} className={styles.directoryCard}>
-            {onOpen ? <button className={styles.directoryOpen} onClick={() => { recordVisit(group.id); onOpen(group); }} aria-label={`Open ${group.name}`}>{cardContents}</button>
-              : <Link className={styles.directoryOpen} href={`${routeBase}/${group.id}`} onClick={() => { if (approved) recordVisit(group.id); }} aria-label={`Open ${group.name}`}>{cardContents}</Link>}
+          return <article key={group.id} className={`${styles.directoryCard} ${creatorCardStyles.card}`}>
+            {onOpen ? <button className={`${styles.directoryOpen} ${creatorCardStyles.open}`} onClick={() => { recordVisit(group.id); onOpen(group); }} aria-label={`Open ${group.name}`}>{cardContents}</button>
+              : <Link className={`${styles.directoryOpen} ${creatorCardStyles.open}`} href={`${routeBase}/${group.id}`} onClick={() => { if (approved) recordVisit(group.id); }} aria-label={`Open ${group.name}`}>{cardContents}</Link>}
             {approved && <button className={styles.favoriteToggle} aria-pressed={favorite} aria-label={`${favorite ? 'Remove' : 'Add'} ${group.name} ${favorite ? 'from' : 'to'} favorites`} onClick={() => toggleFavorite(group.id)}>{favorite ? '★' : '☆'}</button>}
             {!mine && !approved && <div className={styles.directoryCardActions}>{renderMembership(group)}</div>}
           </article>;

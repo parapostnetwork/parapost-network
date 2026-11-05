@@ -60,23 +60,19 @@ export async function createCreatorVersePostDraft(
     throw new CreatorVerseError(401, 'Sign in to continue.');
   }
 
-  const { data, error } = await client
-    .from('creatorverse_posts')
-    .insert({
-      page_id: validatedPageId,
-      author_id: userId,
-      content,
-      status: 'draft',
-      comments_enabled: true,
-    })
-    .select('id')
-    .single();
+  const { data, error } = await client.rpc(
+    'creatorverse_create_post_draft',
+    {
+      p_page_id: validatedPageId,
+      p_content: content,
+    }
+  );
 
   if (error || !data) {
     throw new CreatorVerseError(503, 'Unable to create post draft.');
   }
 
-  return { id: data.id };
+  return { id: pageId(data) };
 }
 
 /** Only the verified page owner may publish an existing draft. */

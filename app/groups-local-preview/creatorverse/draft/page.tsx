@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { CREATORVERSE_CATEGORIES, type PageFields } from '@/lib/creatorverse/types';
 import { validatePageFields } from '@/lib/creatorverse/validation';
-import CreatorVerseLocalRolePreview from '@/app/creatorverse/CreatorVerseLocalRolePreview';
 import styles from './draft.module.css';
 import groupStyles from '@/app/groups/groups.module.css';
 import { OFFICIAL_PARAGHOST } from '@/app/groups/GroupCover';
@@ -26,7 +25,6 @@ function safeUrl(value: string): string | null {
 export default function LocalCreatorVerseBusinessPage() {
   const [page, setPage] = useState<PageFields | null>(null);
   const [ready, setReady] = useState(false);
-  const [previewRole, setPreviewRole] = useState<'owner' | 'visitor'>('visitor');
   const [section, setSection] = useState<Section>('Posts');
 
   useEffect(() => {
@@ -99,7 +97,7 @@ export default function LocalCreatorVerseBusinessPage() {
             <p>{page.short_bio}</p>
             {page.location && <p className={styles.location}>{page.location}</p>}
           </div>
-          {previewRole === 'owner' && <div className={styles.pageMenu}>
+          <div className={styles.pageMenu}>
             <details className={styles.pageMenuDetails}>
               <summary aria-label="Page options" title="Page options">
                 <span aria-hidden="true">•••</span>
@@ -110,7 +108,7 @@ export default function LocalCreatorVerseBusinessPage() {
                 </Link>
               </div>
             </details>
-          </div>}
+          </div>
         </div>
         <nav className={`${groupStyles.groupTabs} ${styles.tabs}`} role="tablist" aria-label="Business page sections">
         {(['Posts', 'About', 'Photos', 'Videos'] as const).map(name => (
@@ -127,8 +125,7 @@ export default function LocalCreatorVerseBusinessPage() {
         <div className={`${styles.columns} ${styles.postsOnly}`} role="tabpanel">
           <section className={styles.panel} style={{ minWidth: 0 }}>
             <h2>Posts</h2>
-            <CreatorVerseLocalRolePreview pageName={page.name} role={previewRole} onRoleChange={setPreviewRole} />
-            <p style={{ marginTop: 22, fontSize: 13, lineHeight: 1.6, opacity: 0.75 }}>Local test posts only. Live publishing remains disabled.</p>
+            <p>No posts have been published on this page yet.</p>
           </section>
 
         </div>
