@@ -43,7 +43,7 @@ export default function LocalCreatorVerseBusinessPage() {
   if (!page) return (
     <main className={styles.shell}>
       <h1>No saved CreatorVerse page found</h1>
-      <Link href="/groups-local-preview?tab=creatorverse">Back to CreatorVerse</Link>
+      <Link href="/groups">Back to CreatorVerse</Link>
     </main>
   );
 
@@ -70,7 +70,7 @@ export default function LocalCreatorVerseBusinessPage() {
   return (
     <div className={groupStyles.page}>
       <main className={`${groupStyles.shell} ${styles.shell}`}>
-      <Link className={styles.back} href="/groups-local-preview?tab=creatorverse">
+      <Link className={styles.back} href="/groups">
         ← Back to CreatorVerse
       </Link>
 

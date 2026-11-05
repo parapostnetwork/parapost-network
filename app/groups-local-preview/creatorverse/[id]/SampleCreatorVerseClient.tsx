@@ -27,7 +27,7 @@ export default function SampleCreatorVerseClient({
     <main className={`${groupStyles.shell} ${styles.shell}`}>
       <nav className={discoveryStyles.navigation}
         aria-label="CreatorVerse navigation">
-        <Link href="/groups-local-preview?tab=creatorverse">
+        <Link href="/groups">
           ← Back to CreatorVerse
         </Link>
         <Link href="/dashboard" prefetch={false}>Dashboard →</Link>
