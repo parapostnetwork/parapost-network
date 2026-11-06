@@ -22,6 +22,7 @@ type Props = {
   heading?: string;
   buttonLabel?: string;
   successMessage?: string;
+  stagingPageCreation?: boolean;
 };
 
 const empty: PageFields = {
@@ -41,6 +42,7 @@ export default function CreatorVersePageForm({
   heading = 'Create your CreatorVerse page',
   buttonLabel = 'Save Page',
   successMessage = 'Page information saved.',
+  stagingPageCreation = false,
 }: Props) {
   const [fields, setFields] = useState<PageFields>(
     () => initial
@@ -137,6 +139,21 @@ export default function CreatorVersePageForm({
 
   return (
     <form className={styles.form} onSubmit={event => void submit(event)}>
+      {stagingPageCreation && (
+        <p role="note" style={{
+          padding: 16,
+          border: '1px solid #9461c8',
+          borderRadius: 12,
+          lineHeight: 1.6
+        }}>
+          Staging creation test: page name, category,
+          short bio and description can be saved.
+          Cover images, avatars, website, email,
+          location and social links are not connected yet.
+          Leave those fields empty for this test.
+          Unsupported fields will block submission.
+        </p>
+      )}
       <header>
         <h2>{heading}</h2>
         <p>Your brand. Your content. Your audience.</p>
@@ -325,7 +342,7 @@ export default function CreatorVersePageForm({
       </button>
       <p className={styles.note}>
         Image selection is local only until secure uploads are implemented.
-        No database changes are made by this form.
+        Only supported page details can be saved in staging.
       </p>
     </form>
   );

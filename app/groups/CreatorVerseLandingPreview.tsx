@@ -17,11 +17,11 @@ import { validatePageFields } from '@/lib/creatorverse/validation';
 
 const DRAFT_KEY = 'parapost.creatorverse.localDraft.v1';
 const SHOW_STAGING_DATA =
-  process.env.NODE_ENV === 'development' &&
-  process.env.NEXT_PUBLIC_CREATORVERSE_REAL_DIRECTORY === 'true' &&
   process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
     'https://vmgelrgrtpghmvqgufzz.supabase.co';
-const REAL_PAGE_DRAFTS_APPROVED = false;
+const REAL_PAGE_DRAFTS_APPROVED =
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
+  'https://vmgelrgrtpghmvqgufzz.supabase.co';
 
 const subscribeHydration = () => () => {};
 
@@ -60,12 +60,19 @@ function LocalCreatorVerseDraftForm({
 
   return (
     <CreatorVersePageForm
+        stagingPageCreation={REAL_PAGE_DRAFTS_APPROVED}
       initial={initial}
-      buttonLabel={REAL_PAGE_DRAFTS_APPROVED ? "Create Page Draft" : "Save Draft"}
+      buttonLabel={REAL_PAGE_DRAFTS_APPROVED ? "Create Staging Page" : "Save Draft"}
       successMessage={REAL_PAGE_DRAFTS_APPROVED ? "Page activated in staging. Images and extra details are not saved yet." : "Draft saved in this browser. Image files were not saved."}
       onSave={async (fields, images) => {
           if (REAL_PAGE_DRAFTS_APPROVED) {
-            await createCreatorVersePageDraft(fields, images);
+            const id = await createCreatorVersePageDraft(
+              fields, images
+            );
+            window.localStorage.removeItem(DRAFT_KEY);
+            window.location.assign(
+              `/creatorverse/${encodeURIComponent(id)}`
+            );
             return;
           }
         window.localStorage.setItem(
