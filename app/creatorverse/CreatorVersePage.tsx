@@ -49,7 +49,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
     <div className={groupStyles.page}>
       <main className={`${groupStyles.shell} ${draftStyles.shell}`}>
         <nav className={styles.navigation} aria-label="CreatorVerse navigation">
-          <Link href="/groups?tab=creatorverse">← Back to CreatorVerse</Link>
+          <Link href="/groups">← Back to Groups</Link>
           <Link href="/dashboard" prefetch={false}>Dashboard</Link>
         </nav>
 
