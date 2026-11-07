@@ -141,6 +141,7 @@ export default function CreatorVersePostActions({
       }
 
       if (action === 'share') {
+        window.dispatchEvent(new Event('parapost-creatorverse-shared'));
         setShareCaption('');
         setShowShare(false);
       }

@@ -7,6 +7,19 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const id = pageId((await context.params).id);
     const { client, userId } = await creatorVerseClient(request);
     if (!userId) throw new CreatorVerseError(401, 'Sign in to continue.');
-    return Response.json(await pagePermissions(client, id), { headers: creatorVerseHeaders });
+    const current = await pagePermissions(client, id);
+    const { data, error } = await client.rpc(
+      'creatorverse_details_can_edit',
+      { p_page_id: id }
+    );
+    if (error) {
+      throw new CreatorVerseError(
+        503, 'Page editing permissions are unavailable.'
+      );
+    }
+    return Response.json(
+      { ...current, can_edit_details: data === true },
+      { headers: creatorVerseHeaders }
+    );
   } catch (error) { return creatorVerseErrorResponse(error); }
 }

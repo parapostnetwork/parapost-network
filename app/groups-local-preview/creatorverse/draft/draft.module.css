@@ -477,3 +477,31 @@
     transform: translateY(30px);
   }
 }
+
+
+/* CreatorVerse owner menu: three dots only */
+.pageOptionsTrigger {
+  display: inline-block;
+  list-style: none;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0 4px;
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.pageOptionsTrigger::-webkit-details-marker {
+  display: none;
+}
+
+.pageOptionsTrigger::marker {
+  content: "";
+}
+
+.pageOptionsTrigger:focus-visible {
+  outline: 2px solid #bd85ff;
+  outline-offset: 4px;
+}

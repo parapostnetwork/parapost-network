@@ -2,7 +2,9 @@
 
 import groupTabStyles from './CreatorVerseGroupTabs.module.css';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import CreatorVerseEditDetails from './CreatorVerseEditDetails';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -26,6 +28,54 @@ type Section = 'Posts' | 'Photos' | 'Videos' | 'About';
 
 export default function CreatorVersePage({ id }: { id: string }) {
   const [section, setSection] = useState<Section>('Posts');
+  const [canManage, setCanManage] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let sequence = 0;
+
+    async function verify(token?: string) {
+      const current = ++sequence;
+      if (active) setCanManage(false);
+      if (token == null) return;
+
+      try {
+        const response = await fetch(
+          `/api/creatorverse/${encodeURIComponent(id)}/permissions`,
+          {
+            cache: 'no-store',
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        if (response.ok === false) return;
+        const permissions = await response.json();
+        if (active && current === sequence) {
+          setCanManage((permissions.can_edit_details === true));
+        }
+      } catch {
+        if (active && current === sequence) setCanManage(false);
+      }
+    }
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active) void verify(data.session?.access_token);
+    }).catch(() => {
+      if (active) setCanManage(false);
+    });
+
+    const { data } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        void verify(session?.access_token);
+      }
+    );
+
+    return () => {
+      active = false;
+      sequence++;
+      data.subscription.unsubscribe();
+    };
+  }, [id]);
 
   const { data, loading, error, retry } = usePublicRead<PageResult>(
     `/api/creatorverse?page=${encodeURIComponent(id)}`
@@ -49,7 +99,11 @@ export default function CreatorVersePage({ id }: { id: string }) {
     <div className={groupStyles.page}>
       <main className={`${groupStyles.shell} ${draftStyles.shell}`}>
         <nav className={styles.navigation} aria-label="CreatorVerse navigation">
-          <Link href="/groups">← Back to Groups</Link>
+          <Link href={
+            process.env.NODE_ENV === 'development'
+              ? '/groups-local-preview'
+              : '/groups'
+          }>← Back to Groups</Link>
           <Link href="/dashboard" prefetch={false}>Dashboard</Link>
         </nav>
 
@@ -77,6 +131,26 @@ export default function CreatorVersePage({ id }: { id: string }) {
               <h1>{page.name}</h1>
               <p>{page.short_bio}</p>
             </div>
+            {canManage && (
+              <details style={{
+                position: 'absolute', right: 24, top: 76, zIndex: 10
+              }}>
+                <summary
+                  aria-label="Page options"
+                  className={draftStyles.pageOptionsTrigger}
+                >
+                  ⋯
+                </summary>
+                <div style={{
+                  position: 'absolute', right: 0, top: '100%',
+                  minWidth: 140
+                }}>
+                  <button type="button" onClick={() => setEditing(true)}>
+                    Edit Page
+                  </button>
+                </div>
+              </details>
+            )}
           </div>
 
           <div className={groupTabStyles.tabs} role="group" aria-label="CreatorVerse sections">
@@ -92,6 +166,17 @@ export default function CreatorVersePage({ id }: { id: string }) {
             ))}
           </div>
         </header>
+
+        {editing && canManage && (
+          <CreatorVerseEditDetails
+            page={page}
+            onCancel={() => setEditing(false)}
+            onSaved={() => {
+              setEditing(false);
+              retry();
+            }}
+          />
+        )}
 
         <div className={layout.columns}>
           <aside className={layout.sidebar} aria-label="About this CreatorVerse page">

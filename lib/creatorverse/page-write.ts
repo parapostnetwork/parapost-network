@@ -93,7 +93,12 @@ export async function updateCreatorVersePage(
 
   const { data, error } = await client
     .from('creatorverse_pages')
-    .update(fields)
+    .update({
+      name: fields.name,
+      category: fields.category,
+      short_bio: fields.short_bio,
+      description: fields.description,
+    })
     .eq('id', validatedId)
     .eq('owner_id', userId!)
     .select('id')

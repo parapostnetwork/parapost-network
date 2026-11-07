@@ -13,9 +13,9 @@ import {
 } from './server';
 
 /**
- * Internal-only handlers.
- * NOT connected to Next.js API routes.
- * Underlying post-write functions remain hard-locked.
+ * Connected to the CreatorVerse draft and publish API routes.
+ * Both post-writing operations remain independently hard-locked
+ * in post-write.ts until explicitly approved.
  */
 
 export async function handleCreatorVersePostDraft(

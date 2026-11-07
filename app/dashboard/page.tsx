@@ -7,6 +7,8 @@ import { groupsNavigationEnabled } from "@/lib/groups/config";
 import { warmGroupsDirectory, clearWarmGroupsDirectory } from "@/lib/groups/directory-preload";
 import {useSharedGroupFeed} from '@/lib/groups/useSharedGroupFeed';
 import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
+import { useSharedCreatorVerseFeed, type SharedCreatorVersePost } from "@/lib/creatorverse/useSharedCreatorVerseFeed";
+import SharedCreatorVersePostCard from "@/app/creatorverse/SharedCreatorVersePostCard";
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
 
@@ -230,6 +232,7 @@ type MixedFeedItem =
   | { type: "post"; id: string; created_at: string; post: Post }
   | { type: "shared_post"; id: string; created_at: string; sharedPost: SharedPostItem }
   | { type: "group_shared_post"; id: string; created_at: string; share: SharedGroupPost }
+  | { type: "creatorverse_shared_post"; id: string; created_at: string; share: SharedCreatorVersePost }
   | { type: "reel_share"; id: string; created_at: string; share: SharedReelItem }
   | { type: "live_stream"; id: string; created_at: string; liveStream: DashboardLiveStreamItem };
 
@@ -979,7 +982,7 @@ function DashboardLikesModal({
   useEffect(() => {
     if (!target || typeof document === "undefined") return;
 
-    setSearchQuery("");
+
 
     const previousBodyOverflow = document.body.style.overflow;
     const previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
@@ -1519,7 +1522,9 @@ function buildDashboardTrendingTopics(items: MixedFeedItem[]) {
                   item.share.original_content,
                   item.share.group_name
                 ].filter(Boolean).join(" ")
-              : [item.liveStream.title, item.liveStream.description].filter(Boolean).join(" ");
+              : item.type === "creatorverse_shared_post"
+                ? [item.share.caption, item.share.original_content, item.share.page_name].filter(Boolean).join(" ")
+                : [item.liveStream.title, item.liveStream.description].filter(Boolean).join(" ");
 
     const hashtags = text.match(/#[a-zA-Z0-9_]{3,}/g) || [];
     hashtags.forEach((tag) => addTrendCandidate(trendMap, tag, latestTime, "hashtag"));
@@ -2069,6 +2074,12 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostItems, setSharedPostItems] = useState<SharedPostItem[]>([]);
   const { shares: groupSharedPostItems, loading: groupSharesLoading, error: groupSharesError, refresh: refreshGroupShares } = useSharedGroupFeed(null, DASHBOARD_FEED_ITEM_LIMIT);
+  const {
+    shares: creatorVerseSharedPostItems,
+    loading: creatorVerseSharesLoading,
+    error: creatorVerseSharesError,
+    refresh: refreshCreatorVerseShares
+  } = useSharedCreatorVerseFeed(null, DASHBOARD_FEED_ITEM_LIMIT);
   const [sharedReelItems, setSharedReelItems] = useState<SharedReelItem[]>([]);
   const [liveFeedStreams, setLiveFeedStreams] = useState<DashboardLiveStreamItem[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
@@ -2548,6 +2559,18 @@ export default function DashboardPage() {
         share,
       }));
 
+    const creatorVerseShareItems = creatorVerseSharedPostItems
+      .filter(share =>
+        !blockedUserIds.includes(share.sharer_id) &&
+        !blockedUserIds.includes(share.original_author_id)
+      )
+      .map(share => ({
+        type: "creatorverse_shared_post" as const,
+        id: `creatorverse-share-${share.share_id}`,
+        created_at: share.shared_at,
+        share,
+      }));
+
     const reelShareItems = visibleSharedReelItemsForViewer.map((share) => ({
       type: "reel_share" as const,
       id: share.id,
@@ -2562,7 +2585,7 @@ export default function DashboardPage() {
       liveStream,
     }));
 
-    return [...postItems, ...sharedPostFeedItems, ...groupShareItems, ...reelShareItems, ...liveStreamItems].sort(
+    return [...postItems, ...sharedPostFeedItems, ...groupShareItems, ...creatorVerseShareItems, ...reelShareItems, ...liveStreamItems].sort(
       (a, b) => {
         const timeDifference =
           getDashboardFeedSortTime(b.created_at) -
@@ -2573,6 +2596,7 @@ export default function DashboardPage() {
         // If two activities have the exact same timestamp, keep fresh shares
         // ahead of ordinary posts so the action the user just completed is visible.
         const feedPriority: Record<MixedFeedItem["type"], number> = {
+          creatorverse_shared_post: 6,
           group_shared_post: 5,
           reel_share: 4,
           shared_post: 3,
@@ -2583,7 +2607,7 @@ export default function DashboardPage() {
         return feedPriority[b.type] - feedPriority[a.type];
       }
     ).slice(0, DASHBOARD_FEED_ITEM_LIMIT);
-  }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, groupSharedPostItems, sharedReelItems]);
+  }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, groupSharedPostItems, creatorVerseSharedPostItems, sharedReelItems]);
 
   const filteredFeedItems = useMemo(() => {
     if (feedMode === "live") {
@@ -2609,7 +2633,7 @@ export default function DashboardPage() {
               ? item.sharedPost.user_id
               : item.type === "reel_share"
                 ? item.share.user_id
-                : item.type === "group_shared_post"
+                : item.type === "group_shared_post" || item.type === "creatorverse_shared_post"
                   ? item.share.sharer_id
                   : item.liveStream.user_id;
         return acceptedFriendUserIds.includes(authorId);
@@ -2625,7 +2649,7 @@ export default function DashboardPage() {
               ? item.sharedPost.user_id
               : item.type === "reel_share"
                 ? item.share.user_id
-                : item.type === "group_shared_post"
+                : item.type === "group_shared_post" || item.type === "creatorverse_shared_post"
                   ? item.share.sharer_id
                   : item.liveStream.user_id;
         return followedUserIds.includes(authorId);
@@ -3787,7 +3811,7 @@ export default function DashboardPage() {
       return [] as SharedReelItem[];
     }
 
-    const reelMap = new Map<string, any>();
+    const reelMap = new Map<string, NonNullable<typeof reelRows>[number]>();
     for (const reel of reelRows || []) reelMap.set(reel.id, reel);
 
     const nextShared = visibleShareRows
@@ -3866,7 +3890,11 @@ export default function DashboardPage() {
   }, []);
 
   const refreshPostFromRealtime = useCallback(
-    async (payload: any) => {
+    async (payload: {
+      new?: Partial<Post> | null;
+      old?: Partial<Post> | null;
+      eventType?: string;
+    }) => {
       const nextRow = (payload?.new || {}) as Partial<Post>;
       const previousRow = (payload?.old || {}) as Partial<Post>;
       const postId = String(nextRow.id || previousRow.id || "");
@@ -4345,7 +4373,11 @@ export default function DashboardPage() {
       );
     };
 
-    const refreshCommentsOnly = (payload: any) => {
+    const refreshCommentsOnly = (payload: {
+  new?: Record<string, unknown> | null;
+  old?: Record<string, unknown> | null;
+  eventType?: string;
+}) => {
       if (!shouldRunDashboardNetworkRefresh()) return;
 
       const nextRow = payload?.new || {};
@@ -4387,7 +4419,11 @@ export default function DashboardPage() {
       );
     };
 
-    const refreshSharesOnly = (payload: any) => {
+    const refreshSharesOnly = (payload: {
+  new?: Record<string, unknown> | null;
+  old?: Record<string, unknown> | null;
+  eventType?: string;
+}) => {
       if (!shouldRunDashboardNetworkRefresh()) return;
 
       const nextRow = payload?.new || {};
@@ -6234,9 +6270,11 @@ export default function DashboardPage() {
             <section style={feedStackStyle}>
               {groupSharesError && <p role="alert">{groupSharesError} <button type="button" onClick={refreshGroupShares}>Retry Group shares</button></p>}
               {groupSharesLoading && groupSharedPostItems.length === 0 && <p role="status">Loading Group shares…</p>}
+              {creatorVerseSharesError && <p role="alert">{creatorVerseSharesError} <button type="button" onClick={refreshCreatorVerseShares}>Retry CreatorVerse shares</button></p>}
+              {creatorVerseSharesLoading && creatorVerseSharedPostItems.length === 0 && <p role="status">Loading CreatorVerse shares…</p>}
               {fetchingPosts ? (
                 <DashboardEmptyState title="Loading your feed" text="Parapost Network is pulling in posts, shared reels, and profile activity." />
-              ) : filteredFeedItems.length === 0 && groupSharesLoading ? null : filteredFeedItems.length === 0 ? (
+              ) : filteredFeedItems.length === 0 && (groupSharesLoading || creatorVerseSharesLoading) ? null : filteredFeedItems.length === 0 ? (
                 <DashboardEmptyState
                   title={
                     feedMode === "friends"
@@ -6329,6 +6367,15 @@ export default function DashboardPage() {
                                 profilesMap[item.share.original_author_id ?? ""]?.full_name ||
                                 profilesMap[item.share.original_author_id ?? ""]?.username ||
                                 "Original author"
+                              }
+                            />
+                          ) : item.type === "creatorverse_shared_post" ? (
+                            <SharedCreatorVersePostCard
+                              share={item.share}
+                              sharerName={
+                                profilesMap[item.share.sharer_id]?.full_name ||
+                                profilesMap[item.share.sharer_id]?.username ||
+                                "Member"
                               }
                             />
                           ) : item.type === "shared_post" ? (
@@ -6642,7 +6689,7 @@ export default function DashboardPage() {
 
       <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
 
-      <DashboardLikesModal
+      <DashboardLikesModal key={JSON.stringify(likeListTarget)}
         target={likeListTarget}
         people={likeListPeople}
         loading={likeListLoading}

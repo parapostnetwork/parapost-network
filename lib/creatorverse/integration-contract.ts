@@ -11,7 +11,7 @@ export type CreatorVerseOperation =
   | { action: 'comment'; postId: string; content: string; parentId: string | null }
   | { action: 'delete_comment'; postId: string; targetId: string }
   | { action: 'share'; postId: string; caption: string; requestId: string };
-export const CREATORVERSE_MEDIA_BUCKET = 'creatorverse-private';
+export const CREATORVERSE_MEDIA_BUCKET = 'creatorverse-media';
 const mimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'];
 function invalid(): never { throw new CreatorVerseError(400, 'Invalid CreatorVerse operation.'); }
 function identifier(value: unknown): string {

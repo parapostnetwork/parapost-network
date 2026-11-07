@@ -33,6 +33,11 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {useSharedGroupFeed} from '@/lib/groups/useSharedGroupFeed';
 import SharedGroupPostCard, { type SharedGroupPost } from "@/app/groups/SharedGroupPostCard";
+import {
+  useSharedCreatorVerseFeed,
+  type SharedCreatorVersePost
+} from "@/lib/creatorverse/useSharedCreatorVerseFeed";
+import SharedCreatorVersePostCard from "@/app/creatorverse/SharedCreatorVersePostCard";
 import { supabase } from "@/lib/supabase";
 import { cleanupPushBeforeLogout } from "@/components/pwa/PushNotificationLogout";
 import { canPlayPublishedStream } from "@/lib/live/playback";
@@ -235,6 +240,11 @@ type ProfileFeedItem =
   | (Post & { feedKind: "post" })
   | (SharedProfilePost & { feedKind: "shared_post" })
   | (SharedGroupPost & { feedKind: "group_shared_post"; id: string; created_at: string })
+  | (SharedCreatorVersePost & {
+      feedKind: "creatorverse_shared_post";
+      id: string;
+      created_at: string;
+    })
   | (ReelShareProfilePost & { feedKind: "reel_share" })
   | (ProfileLiveStream & { feedKind: "live_stream" })
   | (ProfileAchievementActivity & { feedKind: "achievement" })
@@ -2575,6 +2585,8 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostPosts, setSharedPostPosts] = useState<SharedProfilePost[]>([]);
   const { shares: groupSharedPostPosts, loading: groupSharesLoading, error: groupSharesError, refresh: refreshGroupShares } = useSharedGroupFeed(profileId, 60);
+  const { shares: creatorVerseSharedPostPosts } =
+    useSharedCreatorVerseFeed(profileId, 60);
   const [sharedReelPosts, setSharedReelPosts] = useState<ReelShareProfilePost[]>([]);
   const [profileLiveStreams, setProfileLiveStreams] = useState<ProfileLiveStream[]>([]);
   const [reels, setReels] = useState<Reel[]>([]);
@@ -3353,6 +3365,12 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
     ...sharedPostPosts.map((share) => ({
       ...share,
       feedKind: "shared_post" as const,
+    })),
+    ...creatorVerseSharedPostPosts.map((share) => ({
+      ...share,
+      id: `creatorverse-share-${share.share_id}`,
+      created_at: share.shared_at,
+      feedKind: "creatorverse_shared_post" as const,
     })),
     ...groupSharedPostPosts.map((share) => ({
       ...share,
@@ -19767,6 +19785,16 @@ return (
                                 </div>
                               ) : null}
                             </article>
+                          );
+                        }
+
+                        if (item.feedKind === "creatorverse_shared_post") {
+                          return (
+                            <SharedCreatorVersePostCard
+                              key={item.id}
+                              share={item}
+                              sharerName={profileDisplayName || "Member"}
+                            />
                           );
                         }
 

@@ -294,7 +294,11 @@ export default function DashboardReelsSection() {
   useEffect(() => {
     if (!currentUserId) return;
 
-    const handleReelRealtime = (payload: any) => {
+    const handleReelRealtime = (payload: {
+  new?: Record<string, unknown> | null;
+  old?: Record<string, unknown> | null;
+  eventType?: string;
+}) => {
       const nextRow = payload?.new || {};
       const oldRow = payload?.old || {};
 

@@ -1,5 +1,4 @@
 import 'server-only';
-import { creatorVerseEnabled } from './config';
 
 import { requireCreatorVerseOwner } from './server';
 import { CreatorVerseError } from './permissions';
@@ -12,7 +11,9 @@ import { pageId } from './validation';
  * publication validation and media verification are approved.
  */
 function postWritesApproved(): boolean {
-  return creatorVerseEnabled();
+  // Independent hard lock. CreatorVerse page availability
+  // must never automatically enable post drafts or publishing.
+  return false;
 }
 
 function validatePostContent(input: unknown): string {
