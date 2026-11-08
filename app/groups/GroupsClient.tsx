@@ -418,7 +418,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       <section className={`${styles.card} ${styles.groupHeader}`}>
         <GroupCover banner path={group.cover_storage_path} name={group.name} load={groupsFetch} viewerId={userId} cacheable={group.visibility==='public'}/>
         <div className={styles.groupIdentity}>
-  <GroupAvatarView path={group.avatar_storage_path ?? null} name={group.name} size={96}/>
+  <GroupAvatarView path={group.avatar_storage_path ?? null} name={group.name} size={144}/>
           <div className={styles.identityText}>
             <p className={styles.eyebrow}>{group.visibility} Group</p>
             <h1>{group.name}</h1>

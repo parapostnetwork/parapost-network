@@ -33,6 +33,7 @@ export function GroupAvatarImage({
         background: '#201532',
         border: '2px solid #8b5cf6',
         aspectRatio: '1 / 1',
+        boxSizing: 'border-box',
       }}
     >
       {src ? (
