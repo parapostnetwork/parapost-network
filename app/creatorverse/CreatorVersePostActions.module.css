@@ -102,3 +102,41 @@
   color: #ffabae;
   margin: 8px 0;
 }
+
+
+/* Parapost shared post-action icon presentation */
+.actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+.actions button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+}
+
+.actions button:hover:not(:disabled) {
+  background: rgba(168, 104, 240, 0.12);
+  border-color: transparent;
+}
+
+.actions button:focus-visible {
+  outline: 2px solid #c9a7ff;
+  outline-offset: 2px;
+}
+
+.actions button svg {
+  flex-shrink: 0;
+}

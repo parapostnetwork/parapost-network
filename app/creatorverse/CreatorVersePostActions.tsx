@@ -7,6 +7,7 @@ import {
   submitCreatorVerseInteraction,
   type CreatorVerseSocialAction
 } from '@/lib/creatorverse/social-client';
+import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
 import styles from './CreatorVersePostActions.module.css';
 
 type Comment = {
@@ -171,32 +172,35 @@ export default function CreatorVersePostActions({
         <button
           type="button"
           disabled={busy || !viewerId}
+          aria-label={engagement?.liked_by_me ? 'Unlike post' : 'Like post'}
+          aria-pressed={engagement?.liked_by_me ?? false}
           onClick={() =>
             void act(engagement?.liked_by_me ? 'unlike' : 'like')
           }
         >
-          {engagement?.liked_by_me ? 'Unlike' : 'Like'}
-          {engagement ? ` (${engagement.like_count})` : ''}
+          <HeartIcon filled={engagement?.liked_by_me ?? false} />
         </button>
 
         {commentsEnabled && (
           <button
             type="button"
             disabled={busy}
+            aria-label="Comments"
+            aria-expanded={showComments}
             onClick={() => setShowComments(value => !value)}
           >
-            Comment
-            {engagement ? ` (${engagement.comment_count})` : ''}
+            <CommentIcon />
           </button>
         )}
 
         <button
           type="button"
           disabled={busy || !viewerId}
+          aria-label="Share post"
+          aria-expanded={showShare}
           onClick={() => setShowShare(value => !value)}
         >
-          Share
-          {engagement ? ` (${engagement.share_count})` : ''}
+          <ShareIcon />
         </button>
 
       </div>
