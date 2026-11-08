@@ -10,9 +10,16 @@ import { pageId } from './validation';
  * Do not enable until database policies, rate limiting,
  * publication validation and media verification are approved.
  */
-function postWritesApproved(): boolean {
-  // Independent hard lock. CreatorVerse page availability
-  // must never automatically enable post drafts or publishing.
+function postDraftsApproved(): boolean {
+  // Independent draft lock.
+  // Keep disabled until authenticated database permissions,
+  // rate limiting, and staging tests are approved.
+  return false;
+}
+
+function postPublishingApproved(): boolean {
+  // Separate publication lock.
+  // Verified media and publication checks are required.
   return false;
 }
 
@@ -43,7 +50,7 @@ export async function createCreatorVersePostDraft(
   pageIdentifier: string,
   submittedContent: unknown
 ): Promise<{ id: string }> {
-  if (!postWritesApproved()) {
+  if (!postDraftsApproved()) {
     throw new CreatorVerseError(
       503,
       'CreatorVerse post saving is not enabled yet.'
@@ -83,7 +90,7 @@ export async function publishCreatorVersePost(
   pageIdentifier: string,
   postIdentifier: string
 ): Promise<{ id: string }> {
-  if (!postWritesApproved()) {
+  if (!postPublishingApproved()) {
     throw new CreatorVerseError(
       503,
       'CreatorVerse publishing is not enabled yet.'
