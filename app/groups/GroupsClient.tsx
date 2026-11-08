@@ -20,6 +20,8 @@ import styles from './groups.module.css';
 import { getWarmGroupsDirectory } from '@/lib/groups/directory-preload';
 import GroupsLoadingView from './GroupsLoadingView';
 import GroupCover from './GroupCover';
+import GroupAvatarView from './GroupAvatarView';
+import GroupAvatarSettings from './GroupAvatarSettings';
 import GroupShareButton from './GroupShareButton';
 import GroupPromotionSettings from './GroupPromotionSettings';
 import GroupPostActions from './GroupPostActions';
@@ -409,13 +411,14 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         }}
         search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={(loading && groups.length===0)||loadedDirectoryFilter!==filter}
         {...groupPreferences} renderMembership={membership} routeBase={routeBase}
-        renderCover={g=><GroupCover path={g.cover_storage_path} name={g.name} load={groupsFetch} viewerId={userId} cacheable={g.visibility==='public'}/>}/>
+        renderCover={g=><GroupAvatarView path={g.avatar_storage_path ?? null} name={g.name} size={44}/>}/>
       {filter!=='mine'&&<nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>}
       </>}
     </>:group?<>
       <section className={`${styles.card} ${styles.groupHeader}`}>
         <GroupCover banner path={group.cover_storage_path} name={group.name} load={groupsFetch} viewerId={userId} cacheable={group.visibility==='public'}/>
         <div className={styles.groupIdentity}>
+  <GroupAvatarView path={group.avatar_storage_path ?? null} name={group.name} size={96}/>
           <div className={styles.identityText}>
             <p className={styles.eyebrow}>{group.visibility} Group</p>
             <h1>{group.name}</h1>
@@ -478,6 +481,13 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
                   setDeleteName('');
                 }}>Close</button>
             </header>
+{owner&&<GroupAvatarSettings
+  groupId={group.id}
+  groupName={group.name}
+  currentPath={group.avatar_storage_path ?? null}
+  disabled={busy}
+  onChange={path=>setGroups(current=>current.map(item=>item.id===group.id?{...item,avatar_storage_path:path}:item))}
+/>}
 {group.cover_storage_path&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove_cover',group.id);setNotice('Custom cover removed. ParaGhost is restored.');})}>Remove cover and restore ParaGhost</button>}<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} viewerId={userId} busy={busy} onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');setSettings(false);setDeleteName('');});}}/>{owner&&<GroupPromotionSettings groupId={group.id} read={groupsFetch}/>} {owner&&<section className={`${styles.form} ${styles.settingsDanger}`}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</div></div>}
       {admin&&management&&<GroupMembersPanel
         members={members}
@@ -505,9 +515,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       {canRead&&!approved&&<p className={styles.readingNotice}>You’re viewing a public discussion. Join this Group to participate.</p>}
       {approved && <GroupPostComposer userId={userId} profile={viewerProfile}
         groupName={group.name}
-        coverPath={group.cover_storage_path}
-        read={groupsFetch}
-        cacheable={group.visibility==='public'}
+        avatarPath={group.avatar_storage_path ?? null}
         content={content}
         setContent={setContent} files={files} setFiles={setFiles} busy={busy} onPublish={() => void perform(publish)} />}
 

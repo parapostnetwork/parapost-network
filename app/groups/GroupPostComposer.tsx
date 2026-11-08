@@ -8,45 +8,10 @@ import { composerCardStyle, composerFooterStyle, publishButtonStyle,
   composerPreviewCounterStyle } from '@/components/postPresentation';
 import { validateUpload } from '@/lib/groups/validation';
 import type { PostProfile } from './PostIdentity';
-import type { GroupsTransport } from '@/lib/groups/transport';
-import GroupCover from './GroupCover';
+import GroupAvatarView from './GroupAvatarView';
 import styles from './groupPosting.module.css';
 
 
-function GroupComposerAvatar({
-  name, coverPath, read, viewerId, cacheable
-}: {
-  name: string;
-  coverPath: string | null;
-  read: GroupsTransport['read'];
-  viewerId: string;
-  cacheable: boolean;
-}) {
-  const initial = name.trim().charAt(0).toUpperCase() || 'G';
-
-  return (
-    <span
-      className={styles.groupComposerAvatar}
-      role="img"
-      aria-label={`${name} Group`}
-    >
-      <span className={styles.groupComposerInitial} aria-hidden="true">
-        {initial}
-      </span>
-      {coverPath && (
-        <span aria-hidden="true" className={styles.groupComposerCover}>
-          <GroupCover
-            path={coverPath}
-            name={name}
-            load={read}
-            viewerId={viewerId}
-            cacheable={cacheable}
-          />
-        </span>
-      )}
-    </span>
-  );
-}
 
 function Preview({ file, index, count, disabled, onRemove }: {
   file: File; index: number; count: number; disabled: boolean; onRemove: () => void;
@@ -71,12 +36,11 @@ function Preview({ file, index, count, disabled, onRemove }: {
   </button>;
 }
 
-export default function GroupPostComposer({ userId, profile,
-  groupName, coverPath, read, cacheable,
+export default function GroupPostComposer({ profile,
+  groupName, avatarPath,
   content, setContent, files, setFiles, busy, onPublish }: {
   userId: string; profile: PostProfile | null;
-  groupName: string; coverPath: string | null;
-  read: GroupsTransport['read']; cacheable: boolean;
+  groupName: string; avatarPath: string | null;
   content: string; setContent: (value: string) => void;
   files: File[]; setFiles: (files: File[]) => void; busy: boolean; onPublish: () => void;
 }) {
@@ -86,13 +50,7 @@ export default function GroupPostComposer({ userId, profile,
   return <form data-posting className={`${styles.posting} ${styles.composer}`} style={composerCardStyle}
     onSubmit={event => { event.preventDefault(); if (!busy) onPublish(); }} aria-label="Create a Group post">
     <PostComposerInput className={styles.composerTop}
-      avatar={<GroupComposerAvatar
-        name={groupName}
-        coverPath={coverPath}
-        read={read}
-        viewerId={userId}
-        cacheable={cacheable}
-      />}
+      avatar={<GroupAvatarView path={avatarPath} name={groupName} size={48} />}
       inputProps={{ value: content, onChange: event => setContent(event.target.value), maxLength: 10000,
         placeholder: `What's on your mind, ${firstName}?`, 'aria-label': 'Write a Group post' }}
       onSelectMedia={() => input.current?.click()} mediaLabel="Upload photos or videos" disabled={busy} />

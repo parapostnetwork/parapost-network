@@ -1,5 +1,4 @@
 'use client';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRef, useState, type ReactNode } from 'react';
 import type { Group } from '@/lib/groups/types';
@@ -146,7 +145,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
         <div className={`${styles.directoryCardGrid} ${creatorCardStyles.cardGrid}`}>{(mine && mineView === 'all' ? section.items.slice(0, 3) : section.items).map(group => {
           const favorite = preferences.favorites.includes(group.id);
           const approved = group.membership_status === 'approved';
-          const cardContents = <><div className={`${styles.directoryAvatar} ${creatorCardStyles.avatar}`}>{group.cover_storage_path ? renderCover(group) : <Image src="/parapost-icon-white.png" alt="" width={48} height={48} />}</div><div className={creatorCardStyles.content}>
+          const cardContents = <><div className={`${styles.directoryAvatar} ${creatorCardStyles.avatar}`}>{renderCover(group)}</div><div className={creatorCardStyles.content}>
             <h3>{group.name}</h3>
             <p className={creatorCardStyles.description}>{group.member_count !== null ? `${group.member_count} ${group.member_count === 1 ? 'member' : 'members'}` : 'Member count unavailable'}</p>
             <div className={styles.directoryCardLabel}>{owned(group) && <span className={styles.ownerTag}>Owner</span>}
