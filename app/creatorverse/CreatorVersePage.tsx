@@ -18,6 +18,7 @@ import tabStyles from '@/app/groups-local-preview/creatorverse/[id]/SampleCreato
 import CreatorVerseOwnerComposer from './CreatorVerseOwnerComposer';
 import CreatorVersePublisherOnly from './CreatorVersePublisherOnly';
 import CreatorVersePostActions from './CreatorVersePostActions';
+import CreatorVerseFollowButton from './CreatorVerseFollowButton';
 import styles from './creatorverse.module.css';
 import layout from './CreatorVerseGroupsLayout.module.css';
 
@@ -165,6 +166,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
               </button>
             ))}
           </div>
+        <CreatorVerseFollowButton pageId={id} isOwner={canManage} />
         </header>
 
         {editing && canManage && (
