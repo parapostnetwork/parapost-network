@@ -1459,3 +1459,35 @@
   height: 100%;
   object-fit: cover;
 }
+
+
+/* Groups only: fixed avatar and independent text column.
+   Preserve the existing compact CreatorVerse-sized cards. */
+.directorySection .directoryCardGrid .directoryCard .directoryOpenAvatarFit {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 12px;
+  column-gap: 8px;
+  align-items: center;
+}
+
+.directorySection .directoryCardGrid .directoryCard .directoryOpenAvatarFit .directoryAvatar {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.directorySection .directoryCardGrid .directoryCard .directoryCardText {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.directorySection .directoryCardGrid .directoryCard .directoryCardText .directoryCardLabel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

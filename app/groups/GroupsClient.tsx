@@ -411,7 +411,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         }}
         search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={(loading && groups.length===0)||loadedDirectoryFilter!==filter}
         {...groupPreferences} renderMembership={membership} routeBase={routeBase}
-        renderCover={g=><GroupAvatarView path={g.avatar_storage_path ?? null} name={g.name} size={44}/>}/>
+        renderCover={g=><GroupAvatarView path={g.avatar_storage_path ?? null} name={g.name} size={40}/>}/>
       {filter!=='mine'&&<nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>}
       </>}
     </>:group?<>
