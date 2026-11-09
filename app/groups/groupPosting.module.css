@@ -275,3 +275,159 @@
     max-height: 125px !important;
   }
 }
+
+
+/* PARAPOST COMPACT FEED MEDIA V2 */
+
+/* Published Group media: compact desktop grid */
+
+@media (min-width: 768px) {
+
+  .mediaGrid:not(.singleMedia) {
+    display: grid !important;
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    grid-auto-rows: 174px !important;
+    gap: 6px !important;
+
+    width: 100% !important;
+    max-width: 680px !important;
+    height: auto !important;
+    max-height: 354px !important;
+
+    align-items: stretch !important;
+    overflow: hidden !important;
+  }
+
+  .mediaGrid:not(.singleMedia) > .mediaTile {
+    grid-row: auto !important;
+    grid-column: auto !important;
+
+    position: relative !important;
+    box-sizing: border-box !important;
+
+    width: 100% !important;
+    height: 174px !important;
+    min-height: 0 !important;
+    max-height: 174px !important;
+
+    aspect-ratio: auto !important;
+    overflow: hidden !important;
+  }
+
+  .mediaGrid:not(.singleMedia)
+  > .mediaTile .mediaOpen {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .mediaGrid:not(.singleMedia)
+  > .mediaTile img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .mediaGrid:not(.singleMedia)
+  > .mediaTile video {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+    background: #000;
+  }
+
+  /* Single image or video */
+
+  .mediaGrid.singleMedia {
+    width: 100% !important;
+    max-width: 680px !important;
+    height: min(380px, 68dvh) !important;
+    max-height: min(380px, 68dvh) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .mediaGrid.singleMedia > .mediaTile {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    aspect-ratio: auto !important;
+    overflow: hidden !important;
+  }
+
+  .mediaGrid.singleMedia video,
+  .mediaGrid.singleMedia img {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+  }
+}
+
+/* Compact media on smaller screens */
+
+@media (max-width: 767px) {
+
+  .mediaGrid:not(.singleMedia) {
+    display: grid !important;
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    grid-auto-rows:
+      clamp(128px, 36vw, 170px) !important;
+    gap: 5px !important;
+
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 345px !important;
+    overflow: hidden !important;
+  }
+
+  .mediaGrid:not(.singleMedia) > .mediaTile {
+    grid-row: auto !important;
+    grid-column: auto !important;
+
+    width: 100% !important;
+    height: clamp(128px, 36vw, 170px) !important;
+    min-height: 0 !important;
+    max-height: 170px !important;
+
+    aspect-ratio: auto !important;
+    overflow: hidden !important;
+  }
+
+  .mediaGrid:not(.singleMedia)
+  > .mediaTile img,
+  .mediaGrid:not(.singleMedia)
+  > .mediaTile video {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+  }
+
+  .mediaGrid:not(.singleMedia)
+  > .mediaTile img {
+    object-fit: cover !important;
+  }
+
+  .mediaGrid:not(.singleMedia)
+  > .mediaTile video {
+    object-fit: contain !important;
+  }
+
+  .mediaGrid.singleMedia {
+    height: min(420px, 70dvh) !important;
+    max-height: min(420px, 70dvh) !important;
+  }
+}
+
+/* END PARAPOST COMPACT FEED MEDIA V2 */
