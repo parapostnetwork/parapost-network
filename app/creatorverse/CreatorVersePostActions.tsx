@@ -167,6 +167,37 @@ export default function CreatorVersePostActions({
   return (
     <section className={styles.section} aria-label="Post interactions">
 
+      <div
+        aria-live="polite"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          padding: '8px 0',
+          fontSize: 13
+        }}
+      >
+        <span>
+          {engagement
+            ? `${engagement.like_count} ${engagement.like_count === 1 ? 'Like' : 'Likes'}`
+            : 'Likes'}
+        </span>
+
+        <span>
+          {engagement
+            ? `${engagement.comment_count} ${engagement.comment_count === 1 ? 'Comment' : 'Comments'}`
+            : 'Comments'}
+        </span>
+
+        <span>
+          {engagement
+            ? `${engagement.share_count} ${engagement.share_count === 1 ? 'Share' : 'Shares'}`
+            : 'Shares'}
+        </span>
+      </div>
+
       <div className={styles.actions}>
 
         <button

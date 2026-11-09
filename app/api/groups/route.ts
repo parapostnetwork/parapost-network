@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       if(viewer.error || !viewer.data.user)
         throw new Error('Sign in required');
 
-      const [likes,mine,comments,commentLikeStats]=await Promise.all([
+      const [likes,mine,comments,commentLikeStats,shareStats]=await Promise.all([
         client.from('group_post_likes')
           .select('post_id',{head:true,count:'exact'})
           .eq('post_id',postId),
@@ -62,11 +62,21 @@ export async function GET(request: Request) {
         client.rpc('groups_comment_like_stats', {
           p_group_id: groupId,
           p_post_id: postId
+        }),
+        client.rpc('groups_post_share_count', {
+          p_group_id: groupId,
+          p_post_id: postId
         })
       ]);
 
-      if(likes.error || mine.error || comments.error || commentLikeStats.error)
-        throw (likes.error || mine.error || comments.error || commentLikeStats.error);
+      if(likes.error || mine.error || comments.error ||
+         commentLikeStats.error || shareStats.error)
+        throw (likes.error || mine.error || comments.error ||
+               commentLikeStats.error || shareStats.error);
+
+      const shareCount = Number(shareStats.data);
+      if (!Number.isSafeInteger(shareCount) || shareCount < 0)
+        throw new Error('Invalid share count');
 
       const commentLikesById = new Map<string, {
           like_count: number;
@@ -90,6 +100,7 @@ export async function GET(request: Request) {
           like_count:likes.count ?? 0,
           liked:!!mine.data,
           comment_count:comments.count ?? 0,
+          share_count:shareCount,
           comments:(comments.data ?? []).map(comment => ({
               ...comment,
               like_count:commentLikesById.get(comment.id)?.like_count ?? 0,

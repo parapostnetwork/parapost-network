@@ -28,6 +28,7 @@ type Stats = {
   liked: boolean;
   like_count: number;
   comment_count: number;
+  share_count: number;
 };
 
 type Props = {
@@ -74,7 +75,11 @@ export default function GroupPostActions({
     const response = await read(url);
     const data = await response.json() as Stats;
     if (typeof data.like_count !== 'number' ||
-        typeof data.comment_count !== 'number' || !Array.isArray(data.comments)) {
+        typeof data.comment_count !== 'number' ||
+        typeof data.share_count !== 'number' ||
+        !Number.isSafeInteger(data.share_count) ||
+        data.share_count < 0 ||
+        !Array.isArray(data.comments)) {
       throw new Error('Invalid interaction response');
     }
     setStats(data);
@@ -165,6 +170,9 @@ export default function GroupPostActions({
 
       setShareNotice('Shared to Dashboard and your Profile.');
       window.dispatchEvent(new Event('parapost-group-shared'));
+      void reload().catch(() => {
+        setError('Shared successfully. Refresh to update the Share count.');
+      });
       setShareOpen(false); setCaption('');
     } catch (error) {
       setShareError(shareErrorMessage(error));
@@ -346,6 +354,11 @@ export default function GroupPostActions({
       <button type="button" disabled={!stats} onClick={() => setCommentsOpen(open => !open)}>
         {stats ? `${stats.comment_count} ${stats.comment_count === 1 ? 'Comment' : 'Comments'}` : 'Comments'}
       </button>
+      <span>
+        {stats
+          ? `${stats.share_count} ${stats.share_count === 1 ? 'Share' : 'Shares'}`
+          : 'Shares'}
+      </span>
     </div>
     <div className={styles.actions} data-private={!canShare&&!privateSharing}>
       <button type="button" className={styles.action} disabled={!canInteract || !stats || busy}
