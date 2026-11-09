@@ -351,7 +351,7 @@ export default function GroupPostActions({
   return <div ref={marker}>
     <div className={styles.stats} aria-live="polite">
       <span>{stats ? `${stats.like_count} ${stats.like_count === 1 ? 'Like' : 'Likes'}` : 'Loading reactions…'}</span>
-      <button type="button" disabled={!stats} onClick={() => setCommentsOpen(open => !open)}>
+      <button type="button" disabled={!stats} style={{ marginLeft: 'auto' }} onClick={() => setCommentsOpen(open => !open)}>
         {stats ? `${stats.comment_count} ${stats.comment_count === 1 ? 'Comment' : 'Comments'}` : 'Comments'}
       </button>
       <span>

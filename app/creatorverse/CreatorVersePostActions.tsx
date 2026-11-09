@@ -172,7 +172,7 @@ export default function CreatorVersePostActions({
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-start',
           flexWrap: 'wrap',
           gap: 12,
           padding: '8px 0',
@@ -185,7 +185,7 @@ export default function CreatorVersePostActions({
             : 'Likes'}
         </span>
 
-        <span>
+        <span style={{ marginLeft: 'auto' }}>
           {engagement
             ? `${engagement.comment_count} ${engagement.comment_count === 1 ? 'Comment' : 'Comments'}`
             : 'Comments'}
