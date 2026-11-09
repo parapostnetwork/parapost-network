@@ -51,9 +51,12 @@ export default function GroupPostComposer({ profile,
     onSubmit={event => { event.preventDefault(); if (!busy) onPublish(); }} aria-label="Create a Group post">
     <PostComposerInput className={styles.composerTop}
       avatar={<GroupAvatarView path={avatarPath} name={groupName} size={48} />}
-      inputProps={{ value: content, onChange: event => setContent(event.target.value), maxLength: 10000,
+      inputProps={{ value: content, onChange: event => setContent(event.target.value), maxLength: 5000,
         placeholder: `What's on your mind, ${firstName}?`, 'aria-label': 'Write a Group post' }}
       onSelectMedia={() => input.current?.click()} mediaLabel="Upload photos or videos" disabled={busy} />
+    <p className={styles.characterCounter} aria-live="polite">
+      {(5000 - content.length).toLocaleString()} characters remaining
+    </p>
     <input ref={input} hidden type="file" multiple disabled={busy}
       accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
       onChange={event => {

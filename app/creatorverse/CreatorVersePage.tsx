@@ -1,4 +1,5 @@
 'use client';
+import ExpandablePostText from '@/components/ExpandablePostText';
 
 import groupTabStyles from './CreatorVerseGroupTabs.module.css';
 
@@ -235,7 +236,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                   <time dateTime={post.created_at}>
                     {new Date(post.created_at).toLocaleDateString()}
                   </time>
-                  <p style={postContentStyle}>{post.content}</p>
+                  <ExpandablePostText text={post.content} style={postContentStyle} />
                   <CreatorVersePostActions pageId={id} postId={post.id} commentsEnabled={post.comments_enabled} />
                 </article>
               )) : (

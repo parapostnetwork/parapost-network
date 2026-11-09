@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     const { action, groupId, payload = {} } = JSON.parse(raw);
     if (!actions.has(action) || (action !== 'create' && !UUID.test(groupId ?? ''))) throw new Error('Invalid request');
     if (action === 'create' || action === 'edit') validateGroupFields(payload.name,payload.description,payload.visibility);
-    if (payload.content !== undefined && (typeof payload.content !== 'string' || payload.content.length > 10000)) throw new Error('Invalid post');
+    if (payload.content !== undefined && (typeof payload.content !== 'string' || payload.content.length > 5000)) throw new Error('Invalid post');
     const interaction=['like','unlike','comment','reply','like_comment','unlike_comment'].includes(action);
     if(interaction){
       if(!UUID.test(payload?.post_id ?? ''))

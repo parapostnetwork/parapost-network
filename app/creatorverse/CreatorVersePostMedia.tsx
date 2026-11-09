@@ -1,4 +1,6 @@
 'use client';
+import { useState } from 'react';
+import PostMediaViewer, { type PostMediaViewerState } from '@/components/PostMediaViewer';
 
 import {
   imagePreviewWrapStyle, composerPreviewGridStyle, composerPreviewSingleGridStyle,
@@ -12,13 +14,16 @@ export type LocalAttachment = { name: string; url: string; kind: 'image' | 'vide
 export default function CreatorVersePostMedia({ attachments, onRemove, disabled = false }: {
   attachments: LocalAttachment[]; onRemove?: (index: number) => void; disabled?: boolean;
 }) {
+  const [viewer, setViewer] =
+    useState<PostMediaViewerState | null>(null);
+
   if (!attachments.length) return null;
   const single = attachments.length === 1;
   if (onRemove) return (
-    <div style={imagePreviewWrapStyle}>
-      <div style={{ ...composerPreviewGridStyle, ...(single ? composerPreviewSingleGridStyle : {}) }}>
+    <div className={styles.compactPreview} style={imagePreviewWrapStyle}>
+      <div className={styles.compactPreviewGrid} style={{ ...composerPreviewGridStyle, ...(single ? composerPreviewSingleGridStyle : {}) }}>
         {attachments.map((item, index) => (
-          <button key={item.url} type="button" disabled={disabled}
+          <button key={item.url} className={styles.compactPreviewTile} type="button" disabled={disabled}
             aria-label={`Remove selected media ${index + 1}: ${item.name}`}
             onClick={() => onRemove(index)}
             style={{ ...composerPreviewTileStyle, ...(single ? composerPreviewSingleTileStyle : {}) }}>
@@ -32,6 +37,10 @@ export default function CreatorVersePostMedia({ attachments, onRemove, disabled 
       </div>
     </div>
   );
+  const imageUrls = attachments
+    .filter(item => item.kind === 'image')
+    .map(item => item.url);
+
   function media(item: LocalAttachment, grid: boolean) {
     const style = grid ? { ...postImageGridImageStyle, position: 'absolute' as const, inset: 0, minHeight: 0 }
       : { ...postImageStyle, objectFit: 'contain' as const, height: 'auto' };
@@ -39,14 +48,32 @@ export default function CreatorVersePostMedia({ attachments, onRemove, disabled 
       ? <video src={item.url} controls playsInline preload="metadata" aria-label={item.name} className={grid ? undefined : styles.singleMedia}
           style={{ ...style, objectFit: 'contain' }} />
       // eslint-disable-next-line @next/next/no-img-element
-      : <img src={item.url} alt={item.name} loading="lazy" className={grid ? undefined : styles.singleMedia} style={style} />;
+      : <button type="button"
+          className={styles.postImageOpen}
+          aria-label="Open post image"
+          onClick={() => setViewer({
+            urls: imageUrls,
+            initialIndex: imageUrls.indexOf(item.url),
+            alt: item.name
+          })}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.url} alt={item.name} loading="lazy"
+            className={grid ? undefined : styles.singleMedia}
+            style={style} />
+        </button>;
   }
-  if (single) return media(attachments[0], false);
-  return <div className={styles.mediaGrid} style={postImageGridStyle}>
+  if (single) return <>
+    {media(attachments[0], false)}
+    <PostMediaViewer viewer={viewer} onClose={() => setViewer(null)} />
+  </>;
+  return <>
+  <div className={styles.mediaGrid} style={postImageGridStyle}>
     {attachments.map((item, index) => <div key={item.url} className={styles.mediaTile}
       style={{ ...postImageGridTileStyle, ...(attachments.length === 3 && index === 0 ? postImageGridLargeTileStyle : {}),
         minHeight: attachments.length === 3 && index === 0 ? 'calc(var(--cv-media-tile) * 2 + var(--cv-media-gap, 8px))' : 'var(--cv-media-tile)' }}>
       {media(item, true)}
     </div>)}
-  </div>;
+  </div>
+  <PostMediaViewer viewer={viewer} onClose={() => setViewer(null)} />
+  </>;
 }

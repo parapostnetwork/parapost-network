@@ -201,3 +201,77 @@
     min-height: 44px !important;
   }
 }
+
+
+/* Dashboard/Profile-sized Group media */
+
+.characterCounter {
+  margin: 4px 4px 8px;
+  text-align: right;
+  font-size: 12px;
+  color: #b9adca;
+}
+
+.previewGrid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  gap: 8px !important;
+}
+
+.previewGrid .previewTile {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 165px !important;
+  min-height: 0 !important;
+  max-height: 165px !important;
+  overflow: hidden !important;
+}
+
+.previewGrid .previewTile img,
+.previewGrid .previewTile video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  background: #16121d;
+}
+
+.mediaGrid.singleMedia {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  width: 100% !important;
+  height: min(520px, 70dvh) !important;
+  max-height: min(520px, 70dvh) !important;
+  min-height: 0 !important;
+}
+
+.mediaGrid.singleMedia .mediaTile {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  aspect-ratio: auto !important;
+}
+
+.mediaGrid.singleMedia video,
+.mediaGrid.singleMedia .mediaOpen,
+.mediaGrid.singleMedia .mediaOpen img {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+.mediaGrid video {
+  max-height: min(520px, 70dvh) !important;
+  object-fit: contain !important;
+}
+
+@media (max-width: 600px) {
+  .previewGrid { max-width: 100% !important; gap: 6px !important; }
+  .previewGrid .previewTile {
+    height: 125px !important;
+    max-height: 125px !important;
+  }
+}

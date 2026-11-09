@@ -31,3 +31,84 @@
   .singleMedia { max-height: 510px !important; border-radius: 18px !important; margin-top: 11px !important; }
   .mediaGrid { gap: 6px !important; border-radius: 19px !important; }
 }
+
+
+/* Dashboard/Profile-sized CreatorVerse media */
+
+.characterCounter {
+  margin: 4px 4px 8px;
+  text-align: right;
+  font-size: 12px;
+  color: #b9adca;
+}
+
+.compactPreview {
+  width: 100%;
+  min-width: 0;
+}
+
+.compactPreviewGrid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  gap: 8px !important;
+}
+
+.compactPreviewTile {
+  width: 100% !important;
+  height: 165px !important;
+  min-height: 0 !important;
+  max-height: 165px !important;
+  overflow: hidden !important;
+}
+
+.compactPreviewTile img,
+.compactPreviewTile video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  background: #16121d;
+}
+
+.postImageOpen {
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  align-items: center;
+  justify-content: center;
+}
+
+.postImageOpen img {
+  max-width: 100% !important;
+  max-height: min(520px, 70dvh) !important;
+  object-fit: contain !important;
+}
+
+.mediaGrid .postImageOpen {
+  position: absolute;
+  inset: 0;
+}
+
+.singleMedia,
+.mediaGrid video {
+  max-width: 100% !important;
+  max-height: min(520px, 70dvh) !important;
+  object-fit: contain !important;
+}
+
+@media (max-width: 600px) {
+  .compactPreviewGrid {
+    max-width: 100% !important;
+    gap: 6px !important;
+  }
+  .compactPreviewTile {
+    height: 125px !important;
+    max-height: 125px !important;
+  }
+}

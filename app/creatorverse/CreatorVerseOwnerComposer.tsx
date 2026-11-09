@@ -340,6 +340,9 @@ export default function CreatorVerseOwnerComposer({
         }}
       />
 
+      <p className={styles.characterCounter} aria-live="polite">
+        {(5000 - content.length).toLocaleString()} characters remaining
+      </p>
       <CreatorVersePostMedia
         attachments={attachments}
         onRemove={removeMedia}
