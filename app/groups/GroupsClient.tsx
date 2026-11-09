@@ -185,6 +185,7 @@ const [openPostMenuId,setOpenPostMenuId]=useState<string|null>(null);
     return ()=>document.removeEventListener('keydown',onKeyDown);
   },[settings,busy]);
 const requestNumber=useRef(0);const mutationLock=useRef(false);
+  const skipDeleteConfirmFocus=useRef(false);
   const group=groupId?groups.find(g=>g.id===groupId):undefined;
   const approved=group?.membership_status==='approved';const owner=approved&&group?.membership_role==='owner';
   const admin=approved&&['owner','admin'].includes(group?.membership_role ?? '');
@@ -325,7 +326,11 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
 
   useEffect(()=>{if(!authReady||!userId)return;const sequence=requestNumber;const timer=setTimeout(()=>{setError('');void refresh();},200);return()=>{clearTimeout(timer);sequence.current++;};},[refresh,userId,authReady]);
   // Clear restricted content before revalidating on tab focus. Already downloaded bytes cannot be revoked.
-  useEffect(()=>{const focus=()=>{setPosts([]);setMembers([]);if(userId)void refresh();};window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus);},[refresh,userId]);
+  useEffect(()=>{const focus=()=>{
+      if(skipDeleteConfirmFocus.current)return;
+      setPosts([]);setMembers([]);
+      if(userId)void refresh();
+    };window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus);},[refresh,userId]);
   const loadMore=useCallback(async()=>{
     if(!groupId||!hasMore||loading||moreLock.current||!posts.length)return;
     moreLock.current=true;setLoadingMore(true);setMoreError('');
@@ -560,8 +565,24 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
     <button type="button" role="menuitem" style={{...menuItemStyle,color:"#fca5a5"}}
       disabled={busy} onClick={()=>{
         setOpenPostMenuId(null);
-        if(window.confirm('Delete this Group post and its media?'))
-          void perform(async()=>{await groupAction('delete_post',group.id,{post_id:post.id});});
+        skipDeleteConfirmFocus.current=true;
+          const confirmed=window.confirm(
+            'Delete this Group post and its media?'
+          );
+
+          // Native confirmation may trigger a window focus event.
+          window.setTimeout(()=>{
+            skipDeleteConfirmFocus.current=false;
+          },600);
+
+          if(confirmed)void perform(async()=>{
+            await groupAction('delete_post',group.id,{
+              post_id:post.id
+            });
+            setPosts(current=>current.filter(
+              item=>item.id!==post.id
+            ));
+          });
       }}>Delete post</button>
   </div>}
 </div>
