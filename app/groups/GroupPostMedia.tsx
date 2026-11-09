@@ -1,4 +1,5 @@
 'use client';
+import PostVideoOverlay from '@/components/PostVideoOverlay';
 
 import { useEffect, useState } from 'react';
 import PostMediaViewer, { type PostMediaViewerState } from '@/components/PostMediaViewer';
@@ -48,7 +49,10 @@ export default function GroupPostMedia({ groupId, postId, media, read = groupsFe
         {!urls[item.storage_path] ? <p role="status" className={styles.mediaPlaceholder}>
           {loaded.key === key && loaded.failed.includes(item.storage_path) ? 'Media unavailable. Refresh to check access.' : 'Loading media…'}
         </p> : item.media_type === 'video'
-          ? <video src={urls[item.storage_path]} controls playsInline preload="metadata" aria-label={`Group post video ${index + 1}`} />
+          ? <PostVideoOverlay
+                src={urls[item.storage_path]}
+                label={`Group post video ${index + 1}`}
+              />
           : <button type="button" className={styles.mediaOpen} aria-label={`Open Group photo ${index + 1}`}
               onClick={() => setViewer({ urls: imageUrls, initialIndex: imageUrls.indexOf(urls[item.storage_path]), alt: 'Group post photo' })}>
               <ResponsiveMediaImage purpose="post" src={urls[item.storage_path]} alt={`Group post photo ${index + 1}`} loading="lazy"

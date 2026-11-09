@@ -1,4 +1,5 @@
 'use client';
+import PostVideoOverlay from '@/components/PostVideoOverlay';
 import { useState } from 'react';
 import PostMediaViewer, { type PostMediaViewerState } from '@/components/PostMediaViewer';
 
@@ -45,8 +46,18 @@ export default function CreatorVersePostMedia({ attachments, onRemove, disabled 
     const style = grid ? { ...postImageGridImageStyle, position: 'absolute' as const, inset: 0, minHeight: 0 }
       : { ...postImageStyle, objectFit: 'contain' as const, height: 'auto' };
     return item.kind === 'video'
-      ? <video src={item.url} controls playsInline preload="metadata" aria-label={item.name} className={grid ? undefined : styles.singleMedia}
-          style={{ ...style, objectFit: 'contain' }} />
+      ? <PostVideoOverlay
+          src={item.url}
+          label={item.name}
+          className={grid ? undefined : styles.singleMedia}
+          style={grid
+            ? { ...style, width: '100%', height: '100%' }
+            : {
+                width: '100%',
+                maxWidth: '100%',
+                height: 'min(380px, 68dvh)'
+              }}
+        />
       // eslint-disable-next-line @next/next/no-img-element
       : <button type="button"
           className={styles.postImageOpen}
