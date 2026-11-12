@@ -17,17 +17,81 @@ function Preview({ file, index, count, disabled, onRemove }: {
   file: File; index: number; count: number; disabled: boolean; onRemove: () => void;
 }) {
   const [url, setUrl] = useState('');
+  const [thumbnail, setThumbnail] = useState('');
+
   useEffect(() => {
     const src = URL.createObjectURL(file);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser-owned object URL, revoked on cleanup
+    let active = true;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize browser-owned preview URL
     setUrl(src);
-    return () => URL.revokeObjectURL(src);
+    setThumbnail('');
+
+    if (file.type.startsWith('video/')) {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+
+      const capture = () => {
+        if (!active || !video.videoWidth || !video.videoHeight) return;
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.drawImage(video, 0, 0);
+          const image = canvas.toDataURL('image/jpeg', 0.85);
+          if (active) setThumbnail(image);
+        } catch {
+          // Retain the native video fallback.
+        }
+      };
+
+      video.onloadedmetadata = () => {
+        if (!active) return;
+        try {
+          video.currentTime = Number.isFinite(video.duration)
+            ? Math.min(0.2, video.duration / 2)
+            : 0.2;
+        } catch {
+          // Some browsers cannot seek this file.
+        }
+      };
+
+      video.onseeked = capture;
+      video.onloadeddata = capture;
+      video.src = src;
+      video.load();
+
+      return () => {
+        active = false;
+        video.onloadedmetadata = null;
+        video.onseeked = null;
+        video.onloadeddata = null;
+        video.removeAttribute('src');
+        video.load();
+        URL.revokeObjectURL(src);
+      };
+    }
+
+    return () => {
+      active = false;
+      URL.revokeObjectURL(src);
+    };
   }, [file]);
   return <button type="button" className={styles.previewTile} disabled={disabled}
     style={{ ...composerPreviewTileStyle, ...(count === 1 ? composerPreviewSingleTileStyle : {}) }}
     onClick={onRemove} aria-label={`Remove selected media ${index + 1}: ${file.name}`}>
     {url && (file.type.startsWith('video/')
-      ? <video src={url} muted playsInline preload="metadata" style={composerPreviewImageStyle} />
+      ? thumbnail
+          ? (
+              // Browser-generated local thumbnail, not a remote image.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={thumbnail} alt={`Video preview ${index + 1}`} style={composerPreviewImageStyle} />
+            )
+          : <video src={url} muted playsInline preload="auto" style={composerPreviewImageStyle} />
       // Browser-owned preview URL; no public storage URL is generated.
       // eslint-disable-next-line @next/next/no-img-element
       : <img src={url} alt={`Selected preview ${index + 1}`} style={composerPreviewImageStyle} />)}
