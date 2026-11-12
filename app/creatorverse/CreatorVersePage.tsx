@@ -17,6 +17,7 @@ import groupStyles from '@/app/groups/groups.module.css';
 import draftStyles from '@/app/groups-local-preview/creatorverse/draft/draft.module.css';
 import tabStyles from '@/app/groups-local-preview/creatorverse/[id]/SampleCreatorVerseClient.module.css';
 import CreatorVersePublisherOnly from './CreatorVersePublisherOnly';
+import CreatorVerseOwnerComposer from './CreatorVerseOwnerComposer';
 import CreatorVersePostActions from './CreatorVersePostActions';
 import CreatorVerseFollowButton from './CreatorVerseFollowButton';
 import styles from './creatorverse.module.css';
@@ -219,7 +220,11 @@ export default function CreatorVersePage({ id }: { id: string }) {
             <section aria-label="Page posts">
 
               <CreatorVersePublisherOnly pageId={id}>
-                <p>Publishing new CreatorVerse posts is currently unavailable.</p>
+                <CreatorVerseOwnerComposer
+                  pageId={id}
+                  pageName={page.name}
+                  onPublished={retry}
+                />
               </CreatorVersePublisherOnly>
               {posts.length ? posts.map(post => (
                 <article

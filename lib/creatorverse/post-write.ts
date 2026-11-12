@@ -14,13 +14,13 @@ function postDraftsApproved(): boolean {
   // Independent draft lock.
   // Keep disabled until authenticated database permissions,
   // rate limiting, and staging tests are approved.
-  return false;
+  return process.env.CREATORVERSE_POST_WRITES_ENABLED === 'true';
 }
 
 function postPublishingApproved(): boolean {
   // Separate publication lock.
   // Verified media and publication checks are required.
-  return false;
+  return process.env.CREATORVERSE_POST_WRITES_ENABLED === 'true';
 }
 
 function validatePostContent(input: unknown): string {
