@@ -9,7 +9,7 @@ import ts from 'typescript';
 function harness({ canInteract = true, canShare = true, failShare = false } = {}) {
   const state = [], effects = [], calls = [];
   let cursor = 0, tree;
-  const stats = { comments: [], comments_limited: false, liked: false, like_count: 0, comment_count: 0 };
+  const stats = { comments: [], comments_limited: false, share_count: 0, liked: false, like_count: 0, comment_count: 0 };
   const React = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
     useState: initial => { const i = cursor++; if (!(i in state)) state[i] = initial; return [state[i], value => { state[i] = typeof value === 'function' ? value(state[i]) : value; }]; },

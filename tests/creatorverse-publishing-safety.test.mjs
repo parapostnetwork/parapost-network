@@ -14,8 +14,9 @@ test('page and post writes remain hard-locked', () => {
   assert.match(page,
     /function pageWritesApproved\(\): boolean \{\s*return false;/);
 
+  assert.match(post, /function postDraftsApproved\(\): boolean \{(?:\s*\/\/[^\n]*)*\s*return false;\s*\}/);
   assert.match(post,
-    /function postWritesApproved\(\): boolean \{\s*return false;/);
+    /function postPublishingApproved\(\): boolean \{(?:\s*\/\/[^\n]*)*\s*return false;\s*\}/);
 });
 
 test('client roles have no post insert or update grants', () => {
@@ -50,18 +51,26 @@ test('unverified media remains pending by default', () => {
     /verification IN \('pending','verified','rejected'\)/);
 });
 
-test('no public CreatorVerse mutation endpoints exist', () => {
+test('CreatorVerse mutation routes match the staging route inventory', () => {
   const root = 'app/api/creatorverse';
-
+  const actual = [];
   for (const relative of readdirSync(root, { recursive: true })) {
     if (!relative.endsWith('route.ts')) continue;
-
-    const content = read(join(root, relative));
-
-    assert.doesNotMatch(
-      content,
-      /export\s+(?:async\s+function|const)\s+(POST|PATCH|PUT|DELETE)\b/,
-      `Unexpected write endpoint: ${relative}`
-    );
+    const source = read(join(root, relative));
+    for (const match of source.matchAll(/export\s+(?:async\s+function|const)\s+(POST|PATCH|PUT|DELETE)\b/g)) {
+      actual.push(match[1] + ' ' + relative);
+    }
   }
+  assert.deepEqual(actual.sort(), [
+    'PATCH pages/[id]/details/route.ts',
+    'POST [id]/posts/[postId]/interactions/route.ts',
+    'POST [id]/posts/[postId]/media/[mediaId]/cancel/route.ts',
+    'POST [id]/posts/[postId]/media/[mediaId]/verify/route.ts',
+    'POST [id]/posts/[postId]/media/reserve/route.ts',
+    'POST [id]/posts/[postId]/publish/route.ts',
+    'POST [id]/posts/draft/route.ts',
+    'POST internal/media-maintenance/route.ts',
+    'POST pages/[id]/activate/route.ts',
+    'POST pages/draft/route.ts',
+  ].sort());
 });

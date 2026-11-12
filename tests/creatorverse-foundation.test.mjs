@@ -19,17 +19,17 @@ const id = '10000000-0000-4000-8000-000000000001';
 const owner = '20000000-0000-4000-8000-000000000002';
 const fields = { name: 'Night Watch', category: 'investigation_team' };
 const page = { ...validation.validatePageFields(fields), id, created_at: '2026-10-29T10:00:00Z', owner_id: owner, private_email: 'never-return@example.invalid' };
-const environment = { CREATORVERSE_ENABLED: 'true', NEXT_PUBLIC_SUPABASE_URL: 'https://vmgelrgrtpghmvqgufzz.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-only-public-placeholder' };
+const environment = { NODE_ENV: 'development', CREATORVERSE_ENABLED: 'true', NEXT_PUBLIC_SUPABASE_URL: 'https://vmgelrgrtpghmvqgufzz.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-only-public-placeholder' };
 const config = env => load('lib/creatorverse/config.ts', {}, { process: { env } });
 function server({ env = environment, user = { id: owner }, authError = null, access = { can_manage: true, can_publish: true }, rpcError = null } = {}) {
   const calls = [];
   const client = { auth: { getUser: async token => { calls.push(['getUser', token]); return { data: { user }, error: authError }; } },
-    rpc: async (name, params) => { calls.push(['rpc', name, params]); return { data: access, error: rpcError }; } };
-  const module = load('lib/creatorverse/server.ts', {
+    rpc: async (name, params) => { calls.push(['rpc', name, params]); return { data: name === 'creatorverse_details_can_edit' ? false : access, error: rpcError }; } };
+  const serverModule = load('lib/creatorverse/server.ts', {
     'server-only': {}, '@supabase/supabase-js': { createClient: (...args) => { calls.push(['client', ...args]); return client; } },
     './config': config(env), './permissions': permissions, './validation': validation,
   }, { process: { env } });
-  return { ...module, calls, client };
+  return { ...serverModule, calls, client };
 }
 const request = token => new Request('http://localhost/api/creatorverse', token === undefined ? {} : { headers: { Authorization: token } });
 const reader = load('lib/creatorverse/read.ts', { 'server-only': {}, './permissions': permissions, './validation': validation });
@@ -138,7 +138,7 @@ test('permissions API denies anonymous and returns only boolean capabilities', a
     const route = load('app/api/creatorverse/[id]/permissions/route.ts', { '@/lib/creatorverse/server': h, '@/lib/creatorverse/permissions': permissions, '@/lib/creatorverse/validation': validation });
     const response = await route.GET(request(token), { params: Promise.resolve({ id }) });
     assert.equal(response.status, token ? 200 : 401);
-    if (token) assert.deepEqual(await response.json(), { can_manage: true, can_publish: true });
+    if (token) assert.deepEqual(await response.json(), { can_manage: true, can_publish: true, can_edit_details: false });
   }
 });
 

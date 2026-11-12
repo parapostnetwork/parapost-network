@@ -84,3 +84,29 @@ test('route rejects malformed media and invalid paths instead of relabeling unsa
  const invalid=await request({path:'invalid/path'});assert.equal(invalid.response.status,400);assert.equal(invalid.calls.length,2);
  assert.equal((await request({mime:'image/png'})).response.status,400);
 });
+
+
+test('private JPEG poster paths use the existing secure download route', async () => {
+ const path = `${gid}/posts/20000000-0000-4000-8000-000000000002/30000000-0000-4000-8000-000000000003/40000000-0000-4000-8000-000000000004.poster.jpg`;
+
+ const allowed = await request({path});
+ assert.equal(allowed.response.status, 200);
+ assert.equal(allowed.response.headers.get('content-type'), 'image/jpeg');
+ assert.match(allowed.response.headers.get('cache-control'), /no-store/);
+ assert.equal(allowed.calls.length, 3);
+
+ const denied = await request({path, deny:'storage'});
+ assert.equal(denied.response.status, 400);
+ assert.equal(denied.calls.length, 3);
+
+ const unauthenticated = await request({path, deny:'auth'});
+ assert.equal(unauthenticated.response.status, 401);
+ assert.equal(unauthenticated.calls.length, 1);
+
+ const invalidContent = await request({
+  path,
+  mime:'text/html',
+  bytes:new TextEncoder().encode('<html>Invalid poster</html>')
+ });
+ assert.equal(invalidContent.response.status, 400);
+});

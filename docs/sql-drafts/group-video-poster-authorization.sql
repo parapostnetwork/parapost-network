@@ -1,0 +1,30 @@
+-- DRAFT ONLY. DO NOT EXECUTE.
+-- Security requirements for Group video JPEG posters.
+
+-- Every authorized poster must satisfy:
+--
+-- 1. Its parent row exists in public.group_post_media.
+-- 2. Its parent row has media_type = 'video'.
+-- 3. poster_path = storage_path || '.poster.jpg'.
+-- 4. The parent Group and post are accessible to the viewer.
+-- 5. Uploads are restricted to the authorized video uploader
+--    and an eligible unpublished post.
+-- 6. Poster downloads use the requesting user's identity.
+-- 7. Anonymous requests and unauthorized members are denied.
+-- 8. A poster never creates another group_post_media row.
+-- 9. Existing image/video permissions remain unchanged.
+-- 10. Poster bytes must validate as JPEG.
+--
+-- IMPLEMENTATION REQUIRED:
+--
+-- Extend parapost_groups_private.storage_allowed
+-- for exact poster-path matches using the parent video record.
+-- Preserve all current Group visibility, membership,
+-- ownership, blocked-user and publishing restrictions.
+--
+-- The media download route must use authenticated storage
+-- access and must never provide a public or signed URL.
+--
+-- Do not create a broad JPEG upload policy.
+-- Do not grant anonymous access.
+-- Do not apply until the complete workflow has passed tests.

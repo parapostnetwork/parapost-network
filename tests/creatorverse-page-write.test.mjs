@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const read = path => readFileSync(path, 'utf8');
@@ -36,24 +36,11 @@ test('Page editing requires verified ownership', () => {
   assert.match(source, /validatePageFields\(input\)/);
 });
 
-test('CreatorVerse APIs expose no write handlers', () => {
-  function routes(folder) {
-    return readdirSync(folder, { withFileTypes: true }).flatMap(item => {
-      const path = join(folder, item.name);
-      if (item.isDirectory()) return routes(path);
-      return item.name === 'route.ts' ? [path] : [];
-    });
-  }
-
-  const files = routes('app/api/creatorverse');
-  assert.ok(files.length >= 2);
-
-  for (const file of files) {
-    assert.doesNotMatch(
-      read(file),
-      /export\s+(?:async\s+function|const)\s+(?:POST|PUT|PATCH|DELETE)\b/,
-      `Unexpected write handler in ${file}`
-    );
+test('legacy page read endpoints expose only read methods', () => {
+  for (const path of ['route.ts', '[id]/permissions/route.ts']) {
+    const source = read(join('app/api/creatorverse', path));
+    assert.match(source, /export async function GET\b/);
+    assert.doesNotMatch(source, /export\s+(?:async\s+function|const)\s+(?:POST|PATCH|PUT|DELETE)\b/);
   }
 });
 

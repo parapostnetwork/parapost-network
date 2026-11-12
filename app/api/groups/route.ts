@@ -18,7 +18,18 @@ export async function GET(request: Request) {
     } else if (kind === 'members' && groupId) {
       result = await client.rpc('groups_members', { p_group_id: groupId, p_offset: offset });
     } else if (kind === 'feed' && groupId) {
-      let query = client.from('group_posts').select('id,group_id,author_id,content,created_at,updated_at,group_post_media(id,storage_path,media_type,mime_type,display_order)')
+      // Enable only after the poster schema and Storage authorization
+      // have been installed and verified on the staging database.
+      const posterSchemaReady =
+        process.env.GROUP_VIDEO_POSTERS_SCHEMA_READY === 'true';
+
+      const mediaFields = posterSchemaReady
+        ? 'id,storage_path,media_type,mime_type,display_order,poster_path'
+        : 'id,storage_path,media_type,mime_type,display_order';
+
+      let query = client.from('group_posts').select(
+        `id,group_id,author_id,content,created_at,updated_at,group_post_media(${mediaFields})`
+      )
         .eq('group_id',groupId).eq('published',true).eq('is_deleted',false);
       const afterCreated=params.get('afterCreated');const afterId=params.get('afterId');
       const cursor=groupFeedCursor(afterCreated,afterId);

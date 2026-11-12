@@ -37,6 +37,6 @@ test('ordinary updates cannot publish posts', () => {
 test('publishing remains hard-locked', () => {
   assert.match(
     post,
-    /function postWritesApproved\(\): boolean \{\s*return false;/
+    /function postPublishingApproved\(\): boolean \{(?:\s*\/\/[^\n]*)*\s*return false;\s*\}/
   );
 });

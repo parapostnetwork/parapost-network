@@ -25,10 +25,12 @@ export function createGroupReadQueue<T>(options: {
     } catch {
       if (!disposed && version === revision) options.fail();
     } finally {
-      if (controller === request) controller = null;
-      if (!disposed) {
-        if (pending) schedule();
-        else options.loading(false);
+      if (controller === request) {
+        controller = null;
+        if (!disposed) {
+          if (pending) schedule();
+          else options.loading(false);
+        }
       }
     }
   }
@@ -40,7 +42,9 @@ export function createGroupReadQueue<T>(options: {
   function invalidate() {
     revision++;
     pending = false;
-    controller?.abort();
+    const previous = controller;
+    controller = null;
+    previous?.abort();
   }
   return {
     refresh() {

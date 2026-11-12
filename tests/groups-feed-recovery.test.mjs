@@ -92,6 +92,18 @@ test('account switch and hidden-page recovery cannot expose an old private proje
   pending.resolve({ data: [] }); await h.flush(); assert.equal(h.render().shares.length, 0); h.dispose();
 });
 
+test('restoring starts a new authorized read even when the hidden request ignores abort', async () => {
+  const old = deferred(), fresh = deferred(); let reads = 0;
+  const h = feed({ read: () => ++reads === 1 ? old.promise : fresh.promise }); await tick();
+  h.document.visibilityState = 'hidden'; h.document.dispatchEvent(new Event('visibilitychange'));
+  h.document.visibilityState = 'visible'; h.document.dispatchEvent(new Event('visibilitychange')); await tick();
+  assert.equal(reads, 2); assert.equal(h.calls[0][2].aborted, true);
+  old.resolve({ data: [promotion] }); await tick();
+  assert.equal(h.render().shares.length, 0); assert.equal(h.render().loading, true);
+  fresh.resolve({ data: [post] }); assert.equal((await h.flush()).shares[0].share_id, post.share_id);
+  h.dispose();
+});
+
 test('Profile hook rejects rows belonging to another sharing user', async () => {
   const h = feed({ owner: 'different-owner' }); assert.equal((await h.flush()).shares.length, 0); h.dispose();
 });

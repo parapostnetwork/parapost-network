@@ -22,11 +22,48 @@ export async function groupAction(action:string,groupId?:string,payload:Record<s
 export async function groupUpload(groupId:string,file:File,postId?:string) {
   validateUpload(file.type,file.size,!postId);
   if (!matchesSignature(file.type,new Uint8Array(await file.slice(0,16).arrayBuffer()))) throw new Error('The file does not match its image or video type.');
-  const {path} = await groupAction(postId?'reserve_media':'reserve_cover',groupId,{post_id:postId,mime_type:file.type});
-  // Direct authenticated upload avoids Vercel's request-body limit. Database reservations,
-  // immutable paths, bucket limits and RLS are authoritative, not this browser validation.
-  const {error} = await supabase.storage.from('group-media').upload(path,file,{contentType:file.type,upsert:false,cacheControl:'0'});
+  const reservation = await groupAction(
+    postId?'reserve_media':'reserve_cover',
+    groupId,
+    {post_id:postId,mime_type:file.type}
+  ) as {path:string;poster_path?:string|null};
+
+  const {path,poster_path:posterPath} = reservation;
+
+  // Direct authenticated upload avoids Vercel's request-body limit.
+  // Existing storage reservations and RLS remain authoritative.
+  const {error} = await supabase.storage.from('group-media').upload(
+    path,file,{contentType:file.type,upsert:false,cacheControl:'0'}
+  );
   if (error) throw new Error('Upload failed. Check your connection and Group access.');
+
+  // Poster creation is optional. A JPEG failure must not fail a valid video post.
+  // Never accept an arbitrary poster destination from the server response.
+  if (postId && file.type.startsWith('video/') &&
+      posterPath === `${path}.poster.jpg`) {
+    try {
+      const {generatePosterFromFile} = await import('@/lib/reels/upload-lifecycle');
+      const poster = await generatePosterFromFile(
+        file,new AbortController().signal
+      );
+
+      if (poster.type !== 'image/jpeg' || !poster.size)
+        throw new Error('Invalid JPEG poster');
+
+      const {error:posterError} = await supabase.storage
+        .from('group-media')
+        .upload(posterPath,poster,{
+          contentType:'image/jpeg',
+          upsert:false,
+          cacheControl:'0'
+        });
+
+      if (posterError) throw posterError;
+    } catch {
+      // Video remains available; the feed uses its existing preview fallback.
+    }
+  }
+
   if (!postId) await groupAction('set_cover',groupId,{path});
   return {path};
 }

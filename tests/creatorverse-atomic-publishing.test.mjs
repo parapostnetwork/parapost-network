@@ -47,6 +47,6 @@ test('the SQL draft grants no publishing access', () => {
 test('application publishing remains disabled', () => {
   assert.match(
     post,
-    /function postWritesApproved\(\): boolean \{\s*return false;/
+    /function postPublishingApproved\(\): boolean \{(?:\s*\/\/[^\n]*)*\s*return false;\s*\}/
   );
 });

@@ -9,7 +9,7 @@ import { groupsFetch } from '@/lib/groups/client';
 import type { GroupsTransport } from '@/lib/groups/transport';
 import styles from './groupPosting.module.css';
 
-type Media = { storage_path: string; media_type: string; display_order: number };
+type Media = { storage_path: string; media_type: string; display_order: number; poster_path?: string | null };
 export default function GroupPostMedia({ groupId, postId, media, read = groupsFetch }: {
   groupId: string; postId: string; media: Media[]; read?: GroupsTransport['read'];
 }) {
@@ -32,6 +32,34 @@ export default function GroupPostMedia({ groupId, postId, media, read = groupsFe
         if (controller.signal.aborted) return;
         const url = URL.createObjectURL(blob); urls.push(url);
         setLoaded(previous => ({ ...previous, urls: { ...previous.urls, [item.storage_path]: url } }));
+
+        // Download JPEG posters through the authenticated Group route.
+        // Failure does not prevent the original video from playing.
+        const posterPath = item.poster_path;
+        if (item.media_type === 'video' &&
+            posterPath === `${item.storage_path}.poster.jpg`) {
+          try {
+            const response = await read(
+              `/api/groups/media?path=${encodeURIComponent(posterPath)}`,
+              { signal: controller.signal }
+            );
+
+            if (!response.ok) throw new Error('Poster unavailable');
+
+            const blob = await response.blob();
+            if (!controller.signal.aborted &&
+                blob.type === 'image/jpeg') {
+              const posterUrl = URL.createObjectURL(blob);
+              urls.push(posterUrl);
+              setLoaded(previous => ({
+                ...previous,
+                urls: { ...previous.urls, [posterPath]: posterUrl }
+              }));
+            }
+          } catch {
+            // Retain existing video thumbnail fallback.
+          }
+        }
       } catch {
         if (!controller.signal.aborted) setLoaded(previous => ({ ...previous, failed: [...previous.failed, item.storage_path] }));
       }
@@ -51,6 +79,8 @@ export default function GroupPostMedia({ groupId, postId, media, read = groupsFe
         </p> : item.media_type === 'video'
           ? <PostVideoOverlay
                 src={urls[item.storage_path]}
+                thumbnailSrc={urls[item.storage_path] + '#t=0.001'}
+                posterSrc={item.poster_path && item.poster_path === `${item.storage_path}.poster.jpg` ? urls[item.poster_path] : undefined}
                 label={`Group post video ${index + 1}`}
               />
           : <button type="button" className={styles.mediaOpen} aria-label={`Open Group photo ${index + 1}`}

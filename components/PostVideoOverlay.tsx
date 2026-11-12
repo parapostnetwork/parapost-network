@@ -13,6 +13,8 @@ import styles from './PostVideoOverlay.module.css';
 
 type Props = {
   src: string;
+  thumbnailSrc?: string;
+  posterSrc?: string;
   label: string;
   className?: string;
   style?: CSSProperties;
@@ -22,11 +24,14 @@ const OPEN_EVENT = 'parapost-video-overlay-open';
 
 export default function PostVideoOverlay({
   src,
+  thumbnailSrc,
+  posterSrc,
   label,
   className,
   style
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [failedPoster, setFailedPoster] = useState<string | null>(null);
 
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -153,15 +158,25 @@ export default function PostVideoOverlay({
         onClick={openVideo}
         aria-label={`Play video: ${label}`}
       >
-        <video
-          src={src}
-          muted
-          playsInline
-          preload="metadata"
-          tabIndex={-1}
-          aria-hidden="true"
-          className={styles.thumbnailVideo}
-        />
+        {posterSrc && failedPoster !== posterSrc ? (
+          <img
+            src={posterSrc}
+            onError={() => setFailedPoster(posterSrc)}
+            alt=""
+            aria-hidden="true"
+            className={styles.thumbnailVideo}
+          />
+        ) : (
+          <video
+            src={thumbnailSrc ?? src}
+            muted
+            playsInline
+            preload={thumbnailSrc ? "auto" : "metadata"}
+            tabIndex={-1}
+            aria-hidden="true"
+            className={styles.thumbnailVideo}
+          />
+        )}
 
         <span
           className={styles.playBadge}

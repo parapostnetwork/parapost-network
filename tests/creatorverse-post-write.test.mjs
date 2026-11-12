@@ -100,10 +100,10 @@ test('publishing a post is hard-locked', async () => {
   assert.deepEqual(calls, []);
 });
 
-test('draft ownership and server-controlled status are required', () => {
+test('draft RPC receives only the owner-checked page and validated content', () => {
   assert.match(source, /requireCreatorVerseOwner/);
-  assert.match(source, /author_id: userId/);
-  assert.match(source, /status: 'draft'/);
+  assert.match(source, /requireCreatorVerseOwner\(\s*request,\s*validatedPageId\s*\)/);
+  assert.match(source, /client\.rpc\(\s*'creatorverse_create_post_draft',\s*\{\s*p_page_id: validatedPageId,\s*p_content: content,?\s*\}/);
 });
 
 test('publication requires owner publishing permission', () => {
