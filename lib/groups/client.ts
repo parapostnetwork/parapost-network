@@ -11,7 +11,14 @@ export async function groupsFetch(path:string, init:RequestInit = {}) {
       if (shareError) throw shareError;
     }
     if (response.status===401) throw new Error('Your session expired. Sign in again.');
-    if (response.status===404) throw new Error('Groups is not enabled for this environment.');
+    if (response.status === 404) {
+      const body = await response.clone().json().catch(() => null);
+      const detail =
+        body && typeof body.error === 'string'
+          ? body.error
+          : 'The Groups API returned 404. Check the staging deployment and feature configuration.';
+      throw new Error(detail);
+    }
     throw new Error('Unable to complete the request. Your access may have changed. Refresh and try again.');
   }
   return response;

@@ -23,8 +23,18 @@ export async function createCreatorVersePageDraft(
     fields.location.trim() ||
     fields.social_links.length
   ) {
+    const unsupported = [
+      (images.logo || images.cover) && 'profile or cover image',
+      fields.website && 'website',
+      fields.public_email && 'public email',
+      fields.location.trim() && 'location',
+      fields.social_links.length > 0 && 'social links',
+    ].filter(Boolean);
+
     throw new Error(
-      'Images and additional profile fields are not yet connected. Nothing was submitted.'
+      'These fields cannot be saved during staging page creation: ' +
+      unsupported.join(', ') +
+      '. Clear them and try again. Nothing was submitted.'
     );
   }
 
