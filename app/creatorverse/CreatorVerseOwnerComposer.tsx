@@ -351,8 +351,8 @@ export default function CreatorVerseOwnerComposer({
 
       {attachments.length > 0 && (
         <p className={styles.note} role="status">
-          Media preview only. Files have not been uploaded.
-          Publishing with attachments remains disabled.
+          Selected media will be uploaded and verified
+          before the post is published.
         </p>
       )}
 
@@ -376,7 +376,7 @@ export default function CreatorVerseOwnerComposer({
         <button
           type="button"
           style={publishButtonStyle}
-          disabled={busy || !content.trim() || attachments.length > 0}
+          disabled={busy || !content.trim()}
           onClick={() => void publish()}
         >
           {busy ? 'Publishing…' : 'Publish Post'}
