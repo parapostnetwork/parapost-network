@@ -1,5 +1,9 @@
 import { supabase } from '@/lib/supabase';
 import type { PageFields } from './types';
+import {
+  pageImageUploadsApproved,
+  uploadCreatorVersePageImage,
+} from './page-image-client';
 
 type Images = {
   logo: File | null;
@@ -15,9 +19,12 @@ export async function createCreatorVersePageDraft(
   fields: PageFields,
   images: Images
 ): Promise<string> {
-  if (images.logo || images.cover) {
+  if (
+    (images.logo || images.cover) &&
+    !pageImageUploadsApproved()
+  ) {
     throw new Error(
-      'Profile and cover image uploads are not connected yet. ' +
+      'Profile and cover uploads are being prepared for staging. ' +
       'No page was created.'
     );
   }
@@ -91,6 +98,27 @@ export async function createCreatorVersePageDraft(
       `Page draft ${id} was created, but saving its details failed: ` +
       `${detailsResult.error || 'Update could not be verified.'} ` +
       'Do not create a duplicate page.'
+    );
+  }
+
+  // Save and verify selected images before activating the page.
+  // If an upload fails, retain the draft ID for safe recovery.
+  try {
+    if (images.logo) {
+      await uploadCreatorVersePageImage(id, 'logo', images.logo);
+    }
+
+    if (images.cover) {
+      await uploadCreatorVersePageImage(id, 'cover', images.cover);
+    }
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : 'Image upload failed.';
+
+    throw new Error(
+      `Page draft ${id} was created, but image setup failed: ` +
+      `${message} Do not create a duplicate page.`
     );
   }
 

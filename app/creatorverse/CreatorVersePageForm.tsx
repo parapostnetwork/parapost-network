@@ -149,8 +149,8 @@ export default function CreatorVersePageForm({
           CreatorVerse page creation is available in staging.
           Page name, category, short bio, description,
           website, public email, location and social links
-          can be saved. Profile and cover image uploads
-          are not enabled yet.
+          can be saved. Profile and cover images can be uploaded
+          when the staging image feature is enabled.
         </p>
       )}
       <header>
@@ -340,8 +340,8 @@ export default function CreatorVersePageForm({
         {busy ? 'Checking…' : onSave ? buttonLabel : 'Validate Draft'}
       </button>
       <p className={styles.note}>
-        Image selection is local only until secure uploads are implemented.
-        Only supported page details can be saved in staging.
+        Images are securely uploaded when the CreatorVerse
+        staging upload feature is enabled.
       </p>
     </form>
   );

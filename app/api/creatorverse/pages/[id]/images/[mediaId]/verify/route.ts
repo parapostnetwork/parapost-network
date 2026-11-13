@@ -17,8 +17,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function pageImageVerificationApproved(): boolean {
-  // Remains locked until staging installation and testing.
-  return false;
+  return (
+    process.env.CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://vmgelrgrtpghmvqgufzz.supabase.co'
+  );
 }
 
 type RouteContext = {

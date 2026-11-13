@@ -9,9 +9,11 @@ import {
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function pageImageUploadsApproved(): boolean {
-  // Do not unlock until SQL, RLS and cleanup are tested.
-  return false;
+export function pageImageUploadsApproved(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://vmgelrgrtpghmvqgufzz.supabase.co'
+  );
 }
 
 export type PageImagePurpose = 'logo' | 'cover';
@@ -115,6 +117,7 @@ export async function uploadCreatorVersePageImage(
     throw new Error('Invalid reserved image storage path.');
   }
 
+  try {
   const { error: uploadError } = await supabase.storage
     .from('creatorverse-media')
     .upload(expectedPath, file, {
@@ -162,6 +165,28 @@ export async function uploadCreatorVersePageImage(
       'Image uploaded but verification was not confirmed. ' +
       'The pending image requires cleanup.'
     );
+  }
+
+  } catch (error) {
+    // Best-effort cancellation of a pending reservation.
+    // The server and database independently enforce ownership.
+    // Never delete storage objects directly from the browser.
+    try {
+      await fetch(
+        `/api/creatorverse/pages/${pageId}/images/${normalizedId}/cancel`,
+        {
+          method: 'POST',
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } catch {
+      // Deferred server cleanup handles abandoned reservations.
+    }
+
+    throw error;
   }
 
   return {

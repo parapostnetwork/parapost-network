@@ -11,8 +11,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function pageImageCancellationApproved(): boolean {
-  // Remains locked until the staging cleanup lifecycle is ready.
-  return false;
+  return (
+    process.env.CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://vmgelrgrtpghmvqgufzz.supabase.co'
+  );
 }
 
 type RouteContext = {

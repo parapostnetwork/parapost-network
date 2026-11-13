@@ -16,7 +16,10 @@ export const dynamic = 'force-dynamic';
  * Do not enable until server-side reservation,
  * byte verification, attachment and cleanup are complete.
  */
-const PAGE_IMAGE_RESERVATIONS_ENABLED = false;
+const PAGE_IMAGE_RESERVATIONS_ENABLED = (
+    process.env.CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://vmgelrgrtpghmvqgufzz.supabase.co'
+);
 
 type RouteContext = {
   params: Promise<{ id: string }>;
