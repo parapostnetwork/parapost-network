@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 type State = {
   enabled: boolean;
@@ -30,6 +30,22 @@ export default function CreatorVerseStagingProvider({
 }) {
   const [selected, setSelected] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) {
+      setSelected(false);
+      return;
+    }
+
+    const restoreTab = () => {
+      const params = new URLSearchParams(window.location.search);
+      setSelected(params.get('tab') === 'creatorverse');
+    };
+
+    restoreTab();
+    window.addEventListener('popstate', restoreTab);
+    return () => window.removeEventListener('popstate', restoreTab);
+  }, [enabled]);
 
   return (
     <Context.Provider value={{

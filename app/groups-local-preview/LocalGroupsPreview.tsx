@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import styles from '@/app/groups/groups.module.css';
 import GroupsDirectory, { DirectoryHeading, type DirectoryTab } from '@/app/groups/GroupsDirectory';
@@ -10,9 +10,18 @@ import { GroupForm } from '@/app/groups/GroupsClient';
 import { DiscoverySearch } from '@/app/creatorverse/CreatorVerseDiscovery';
 import { parseDiscoveryFilter, type DiscoveryFilter } from '@/lib/creatorverse/discovery';
 import { emptyGroupPreferences } from '@/lib/groups/directory';
+import { useGroupSession } from '@/lib/groups/useGroupSession';
+import { groupsFetch } from '@/lib/groups/client';
+import type { Group } from '@/lib/groups/types';
+import GroupAvatarView from '@/app/groups/GroupAvatarView';
+
 
 export default function LocalGroupsPreview() {
   const params = useSearchParams();
+  const session = useGroupSession();
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsError, setGroupsError] = useState('');
   const [search, setSearch] = useState('');
   const [creatorVerseSearchDraft, setCreatorVerseSearchDraft] = useState<string | null>(null);
   const [creatorVerseFormOpen, setCreatorVerseFormOpen] = useState(false);
@@ -36,6 +45,50 @@ export default function LocalGroupsPreview() {
     if (next.category) query.set('category', next.category);
     window.history.replaceState(null, '', `/groups-local-preview?${query}`);
   }
+  useEffect(() => {
+    if (!session.ready) return;
+
+    let active = true;
+
+    if (!session.userId) {
+      setGroups([]);
+      setGroupsLoading(false);
+      setGroupsError('Sign in to your staging account to view Groups.');
+      return;
+    }
+
+    setGroupsLoading(true);
+    setGroupsError('');
+
+    const query = new URLSearchParams({
+      filter: tab,
+      search: tab === 'mine' ? '' : search,
+      offset: '0',
+    });
+
+    void groupsFetch(`/api/groups?${query}`)
+      .then(response => response.json() as Promise<Group[]>)
+      .then(rows => {
+        if (active) {
+          setGroups(rows);
+          setGroupsError('');
+        }
+      })
+      .catch(error => {
+        if (active) {
+          setGroups([]);
+          setGroupsError(
+            error instanceof Error ? error.message : 'Unable to load Groups.'
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setGroupsLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [session.ready, session.userId, session.revision, tab, search]);
+
   const activeCreatorVerseFilter: DiscoveryFilter = creatorVerseSearchDraft === null ? filter : { ...filter, search: creatorVerseSearchDraft };
   return <main className={styles.page}><div className={styles.shell}>
     <header className={styles.topbar}><Link href="/groups-local-preview">PARAPOST NETWORK</Link><span>Groups</span><Link href="/dashboard" prefetch={false}>← Dashboard</Link></header>
@@ -65,11 +118,22 @@ export default function LocalGroupsPreview() {
       />
       {groupPreviewMessage &&
         <p role="status" className={styles.muted}>{groupPreviewMessage}</p>}
-    </> : <GroupsDirectory creatorVersePreview creatorVerseActive={creatorVerseSelected}
+    </> : <>
+    {!creatorVerseSelected && groupsError &&
+      <p role="alert" className={styles.muted}>{groupsError}</p>}
+    <GroupsDirectory creatorVersePreview creatorVerseActive={creatorVerseSelected}
       onCreatorVerseChange={active => { if (active) navigateTab('creatorverse'); }}
       creatorVerseSearch={!creatorVerseFormOpen && <DiscoverySearch value={activeCreatorVerseFilter.search} onChange={search => { setCreatorVerseSearchDraft(search); updateFilter({ ...activeCreatorVerseFilter, search }); }} />}
       creatorVerseContent={invalid ? <div role="alert"><p>This search is not valid.</p><button type="button" onClick={() => updateFilter({ search: '', category: '' })}>Reset search</button></div> : <CreatorVerseLandingPreview formOpen={creatorVerseFormOpen} onCancelForm={() => setCreatorVerseFormOpen(false)} filter={activeCreatorVerseFilter} onFilter={next => { setCreatorVerseSearchDraft(next.search); updateFilter(next); }} state={params.get('state') ?? ''} retry={() => updateFilter(filter)} />}
-      groups={[]} viewerId="" tab={tab} onTab={next => navigateTab(next)} search={search} onSearch={setSearch} loading={false}
-      preferences={emptyGroupPreferences()} toggleFavorite={() => {}} recordVisit={() => {}} renderCover={() => null} renderMembership={() => null}/>}
+      groups={groups} viewerId={session.userId} tab={tab} onTab={next => navigateTab(next)} search={search} onSearch={setSearch} loading={!session.ready || groupsLoading}
+      preferences={emptyGroupPreferences()}
+      toggleFavorite={() => {}}
+      recordVisit={() => {}}
+      renderCover={group => <GroupAvatarView path={group.avatar_storage_path ?? null} name={group.name} size={40}/>}
+      renderMembership={() => <span>Open Group to join</span>}/></>}
+    {groupPreviewMessage && !groupFormOpen &&
+      <p role="status" className={styles.muted}>
+        {groupPreviewMessage}
+      </p>}
   </div></main>;
 }

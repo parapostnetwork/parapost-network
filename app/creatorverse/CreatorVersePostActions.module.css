@@ -140,3 +140,42 @@
 .actions button svg {
   flex-shrink: 0;
 }
+
+
+/* Step 416: Match Public Groups post-action layout */
+.section .actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+
+.section .actions > button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #e5e7eb;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.section .actions > button:hover:not(:disabled) {
+  background: #ffffff08;
+  color: #fff;
+  border: 0;
+}
+
+.section .actions > button[aria-pressed="true"],
+.section .actions > button[aria-expanded="true"] {
+  color: var(--parapost-accent-readable-text, #d8b4fe);
+}

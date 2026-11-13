@@ -158,10 +158,9 @@ export async function handleCreatorVerseInteraction(
       throw new CreatorVerseError(400, 'Invalid content.');
     }
 
-    // Reserved public SQL gateway contract.
-    // It must recheck follower status, blocking, visibility,
-    // comment rights, ownership and idempotency in the database.
-    // This function is NOT installed or enabled yet.
+    // Installed staging SQL gateway. Database-side checks
+    // remain authoritative for permissions and rate limits.
+    // Server and database write gates remain mandatory.
     const { data, error } = await client.rpc(
       'creatorverse_social_interact',
       {
@@ -174,10 +173,64 @@ export async function handleCreatorVerseInteraction(
       }
     );
 
-    if (error || typeof data !== 'string') {
+    if (error) {
+      const code = error.code;
+      const message = error.message;
+
+      if (message.includes('CREATORVERSE_SHARE_COOLDOWN')) {
+        throw new CreatorVerseError(
+          409,
+          'You can share this post once every 7 days.'
+        );
+      }
+
+      if (message.includes('Comment rate limit reached')) {
+        throw new CreatorVerseError(
+          429,
+          "You're commenting too quickly. Try again shortly."
+        );
+      }
+
+      if (message.includes('Share rate limit reached')) {
+        throw new CreatorVerseError(
+          429,
+          "You're sharing too quickly. Try again later."
+        );
+      }
+
+      if (code === '28000') {
+        throw new CreatorVerseError(
+          401,
+          'Sign in to continue.'
+        );
+      }
+
+      if (code === '42501') {
+        throw new CreatorVerseError(
+          403,
+          message.includes('writes are disabled')
+            ? "CreatorVerse interactions aren't available yet."
+            : "You don't have permission to interact with this post."
+        );
+      }
+
+      if (code === '22023') {
+        throw new CreatorVerseError(
+          400,
+          'Invalid interaction request.'
+        );
+      }
+
       throw new CreatorVerseError(
         503,
         'Unable to complete this interaction.'
+      );
+    }
+
+    if (typeof data !== 'string') {
+      throw new CreatorVerseError(
+        503,
+        'Unable to verify this interaction.'
       );
     }
 

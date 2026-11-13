@@ -21,7 +21,7 @@ export default function CreatorVerseStagingResults({
 
   const { data, loading, error, retry } =
     usePublicRead<DirectoryResult>(
-      `/api/creatorverse?${discoveryQuery(filter, offset)}`
+      `/api/creatorverse/public-preview?${discoveryQuery(filter, offset)}`
     );
 
   return (

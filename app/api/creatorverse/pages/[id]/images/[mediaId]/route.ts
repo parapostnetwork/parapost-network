@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 type Context = {
-  params: Promise<{ id: string; purpose: string }>;
+  params: Promise<{ id: string; mediaId: string }>;
 };
 
 const unavailable = () => new Response(null, {
@@ -18,7 +18,7 @@ async function serveImage(
   request: Request,
   context: Context
 ): Promise<Response> {
-  const { id: rawId, purpose } = await context.params;
+  const { id: rawId, mediaId: purpose } = await context.params;
 
   if (purpose !== 'logo' && purpose !== 'cover') {
     return unavailable();

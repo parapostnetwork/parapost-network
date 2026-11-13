@@ -28,6 +28,7 @@ import GroupPromotionSettings from './GroupPromotionSettings';
 import GroupPostActions from './GroupPostActions';
 import GroupMembersPanel from './GroupMembersPanel';
 import GroupsDirectory, { DirectoryHeading, type DirectoryTab } from './GroupsDirectory';
+import { useCreatorVerseStaging } from './CreatorVerseStagingProvider';
 import { useGroupPreferences } from './useGroupPreferences';
 import { parseGroupPreferences } from '@/lib/groups/directory';
 
@@ -88,6 +89,7 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const transport=useContext(TransportContext);
   const {read:groupsFetch,action:groupAction,upload:groupUpload}=transport;
   const router=useRouter();
+  const creatorVerseStage=useCreatorVerseStaging();
   const [userId,setUserId]=useState('');
   const [viewerProfile,setViewerProfile]=useState<{
     full_name:string|null;
@@ -103,6 +105,26 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const [loadedDirectoryFilter,setLoadedDirectoryFilter]=useState<DirectoryTab|null>(null);
   const groupPreferences=useGroupPreferences(userId);
   const [search,setSearch]=useState('');const [filter,setFilter]=useState<DirectoryTab>('all');const [offset,setOffset]=useState(0);const [memberOffset,setMemberOffset]=useState(0);
+  useEffect(() => {
+    if (!creatorVerseStage.enabled || groupId || routeBase !== '/groups') {
+      return;
+    }
+
+    const restoreGroupTab = () => {
+      const value = new URLSearchParams(window.location.search).get('tab');
+      const next: DirectoryTab =
+        value === 'public' || value === 'mine' ? value : 'all';
+
+      setFilter(next);
+      setOffset(0);
+      setSearch('');
+    };
+
+    restoreGroupTab();
+    window.addEventListener('popstate', restoreGroupTab);
+    return () => window.removeEventListener('popstate', restoreGroupTab);
+  }, [creatorVerseStage.enabled, groupId, routeBase]);
+
   const feedEnd=useRef<HTMLDivElement>(null);const moreLock=useRef(false);
   const [hasMore,setHasMore]=useState(false);const [loadingMore,setLoadingMore]=useState(false);const [moreError,setMoreError]=useState('');
   const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
@@ -406,7 +428,15 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       {!create&&<>
 
       <GroupsDirectory groups={groups} viewerId={userId} tab={filter}
+        onCreatorVerseChange={active=>{
+          if (active && creatorVerseStage.enabled) {
+            window.history.pushState(null, '', '/groups?tab=creatorverse');
+          }
+        }}
         onTab={value=>{
+          if (creatorVerseStage.enabled) {
+            window.history.pushState(null, '', `/groups?tab=${value}`);
+          }
           if(value===filter)return;
           requestNumber.current++;
           setLoadedDirectoryFilter(null);
