@@ -146,12 +146,11 @@ export default function CreatorVersePageForm({
           borderRadius: 12,
           lineHeight: 1.6
         }}>
-          Staging creation test: page name, category,
-          short bio and description can be saved.
-          Cover images, avatars, website, email,
-          location and social links are not connected yet.
-          Leave those fields empty for this test.
-          Unsupported fields will block submission.
+          CreatorVerse page creation is available in staging.
+          Page name, category, short bio, description,
+          website, public email, location and social links
+          can be saved. Profile and cover image uploads
+          are not enabled yet.
         </p>
       )}
       <header>

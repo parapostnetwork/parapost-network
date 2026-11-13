@@ -15,26 +15,10 @@ export async function createCreatorVersePageDraft(
   fields: PageFields,
   images: Images
 ): Promise<string> {
-  if (
-    images.logo ||
-    images.cover ||
-    fields.website ||
-    fields.public_email ||
-    fields.location.trim() ||
-    fields.social_links.length
-  ) {
-    const unsupported = [
-      (images.logo || images.cover) && 'profile or cover image',
-      fields.website && 'website',
-      fields.public_email && 'public email',
-      fields.location.trim() && 'location',
-      fields.social_links.length > 0 && 'social links',
-    ].filter(Boolean);
-
+  if (images.logo || images.cover) {
     throw new Error(
-      'These fields cannot be saved during staging page creation: ' +
-      unsupported.join(', ') +
-      '. Clear them and try again. Nothing was submitted.'
+      'Profile and cover image uploads are not connected yet. ' +
+      'No page was created.'
     );
   }
 
@@ -77,6 +61,37 @@ export async function createCreatorVersePageDraft(
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
   ) {
     throw new Error('Page draft could not be verified.');
+  }
+
+  const detailsResponse = await fetch(
+    `/api/creatorverse/pages/${encodeURIComponent(id)}/details`,
+    {
+      method: 'PATCH',
+      cache: 'no-store',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fields),
+    }
+  );
+
+  const detailsResult = await detailsResponse.json().catch(
+    () => ({})
+  ) as {
+    error?: string;
+    page?: { id?: string };
+  };
+
+  if (
+    !detailsResponse.ok ||
+    detailsResult.page?.id !== id
+  ) {
+    throw new Error(
+      `Page draft ${id} was created, but saving its details failed: ` +
+      `${detailsResult.error || 'Update could not be verified.'} ` +
+      'Do not create a duplicate page.'
+    );
   }
 
   const activationResponse = await fetch(
