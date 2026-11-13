@@ -19,11 +19,15 @@ import tabStyles from '@/app/groups-local-preview/creatorverse/[id]/SampleCreato
 import CreatorVersePublisherOnly from './CreatorVersePublisherOnly';
 import CreatorVerseOwnerComposer from './CreatorVerseOwnerComposer';
 import CreatorVersePostActions from './CreatorVersePostActions';
+import CreatorVersePublishedMedia from './CreatorVersePublishedMedia';
 import CreatorVerseFollowButton from './CreatorVerseFollowButton';
 import styles from './creatorverse.module.css';
 import layout from './CreatorVerseGroupsLayout.module.css';
 
 type Section = 'Posts' | 'Photos' | 'Videos' | 'About';
+
+const publishedMediaReady =
+  process.env.NEXT_PUBLIC_CREATORVERSE_POST_MEDIA_READ_ENABLED === 'true';
 
 // Release only after explicit approval and verified backend security.
 
@@ -305,6 +309,23 @@ export default function CreatorVersePage({ id }: { id: string }) {
                     {new Date(post.created_at).toLocaleDateString()}
                   </time>
                   <ExpandablePostText text={post.content} style={postContentStyle} />
+                  {publishedMediaReady && post.media.length > 0 && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                      gap: 10,
+                      marginTop: 12,
+                    }}>
+                      {post.media.map(media => (
+                        <CreatorVersePublishedMedia
+                          key={media.id}
+                          pageId={id}
+                          postId={post.id}
+                          media={media}
+                        />
+                      ))}
+                    </div>
+                  )}
                   <CreatorVersePostActions pageId={id} postId={post.id} commentsEnabled={post.comments_enabled} />
                 </article>
               )) : (
@@ -316,11 +337,65 @@ export default function CreatorVersePage({ id }: { id: string }) {
           )}
 
           {section === 'Photos' && (
-            <p>No photos have been published on this page yet.</p>
+            <section aria-label="Published Photos">
+              {publishedMediaReady &&
+              posts.some(post =>
+                post.media.some(media => media.media_type === 'image')
+              ) ? (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                  gap: 12,
+                  width: '100%',
+                }}>
+                  {posts.flatMap(post =>
+                    post.media
+                      .filter(media => media.media_type === 'image')
+                      .map(media => (
+                        <CreatorVersePublishedMedia
+                          key={media.id}
+                          pageId={id}
+                          postId={post.id}
+                          media={media}
+                        />
+                      ))
+                  )}
+                </div>
+              ) : (
+                <p>No photos have been published on this page yet.</p>
+              )}
+            </section>
           )}
 
           {section === 'Videos' && (
-            <p>No videos have been published on this page yet.</p>
+            <section aria-label="Published Videos">
+              {publishedMediaReady &&
+              posts.some(post =>
+                post.media.some(media => media.media_type === 'video')
+              ) ? (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                  gap: 12,
+                  width: '100%',
+                }}>
+                  {posts.flatMap(post =>
+                    post.media
+                      .filter(media => media.media_type === 'video')
+                      .map(media => (
+                        <CreatorVersePublishedMedia
+                          key={media.id}
+                          pageId={id}
+                          postId={post.id}
+                          media={media}
+                        />
+                      ))
+                  )}
+                </div>
+              ) : (
+                <p>No videos have been published on this page yet.</p>
+              )}
+            </section>
           )}
 
           {section === 'About' && (

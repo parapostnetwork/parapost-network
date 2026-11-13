@@ -30,7 +30,55 @@ export async function readPublicPage(client: SupabaseClient, id: string): Promis
     .eq('page_id', id).eq('status', 'published').order('created_at', { ascending: false }).order('id', { ascending: false }).limit(20);
   if (result.error) throw new CreatorVerseError(503, 'Posts are temporarily unavailable.');
   const posts: CreatorVersePost[] = (result.data ?? []).map(post => ({
-    id: post.id, page_id: post.page_id, content: post.content, created_at: post.created_at, comments_enabled: post.comments_enabled,
+    id: post.id,
+    page_id: post.page_id,
+    content: post.content,
+    created_at: post.created_at,
+    comments_enabled: post.comments_enabled,
+    media: [],
   }));
+
+  if (
+    process.env.CREATORVERSE_POST_MEDIA_READ_ENABLED === 'true' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL ===
+      'https://vmgelrgrtpghmvqgufzz.supabase.co' &&
+    posts.length > 0
+  ) {
+    const mediaResult = await client
+      .from('creatorverse_media')
+      .select('id,post_id,media_type,display_order')
+      .eq('page_id', id)
+      .eq('purpose', 'post')
+      .eq('verification', 'verified')
+      .in('post_id', posts.map(post => post.id))
+      .order('display_order', { ascending: true });
+
+    if (mediaResult.error) {
+      throw new CreatorVerseError(
+        503,
+        'Published media is temporarily unavailable.'
+      );
+    }
+
+    const byPost = new Map(posts.map(post => [post.id, post]));
+
+    for (const item of mediaResult.data ?? []) {
+      const post = byPost.get(item.post_id);
+
+      if (
+        !post ||
+        typeof item.id !== 'string' ||
+        (item.media_type !== 'image' && item.media_type !== 'video') ||
+        !Number.isInteger(item.display_order)
+      ) continue;
+
+      post.media.push({
+        id: item.id,
+        media_type: item.media_type,
+        display_order: item.display_order,
+      });
+    }
+  }
+
   return { page: publicPage(data), posts };
 }

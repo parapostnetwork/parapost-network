@@ -25,9 +25,16 @@ export type PageFields = {
 export type PublicPage = PageFields & { id: string; created_at: string };
 export type PageOwnership = { id: string; owner_id: string; status: PageStatus };
 export type PagePermissions = { can_manage: boolean; can_publish: boolean };
+export type CreatorVersePublishedMedia = {
+  id: string;
+  media_type: 'image' | 'video';
+  display_order: number;
+};
+
 export type CreatorVersePost = {
   id: string; page_id: string; content: string; created_at: string;
   comments_enabled: boolean;
+  media: CreatorVersePublishedMedia[];
 };
 /** Future uploads remain reserved/unpublished until a trusted verifier approves the object. */
 export type CreatorVerseMedia = {
