@@ -32,6 +32,9 @@ export default function CreatorVersePage({ id }: { id: string }) {
   const [section, setSection] = useState<Section>('Posts');
   const [canManage, setCanManage] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [coverAvailable, setCoverAvailable] = useState(false);
+  const [logoAvailable, setLogoAvailable] = useState(false);
+  const [imageRevision, setImageRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -79,6 +82,37 @@ export default function CreatorVersePage({ id }: { id: string }) {
     };
   }, [id]);
 
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkImages() {
+      const base =
+        `/api/creatorverse/pages/${encodeURIComponent(id)}/images`;
+
+      const [cover, logo] = await Promise.all([
+        fetch(`${base}/cover?v=${imageRevision}`, {
+          method: 'HEAD',
+          cache: 'no-store',
+        }).then(response => response.ok).catch(() => false),
+        fetch(`${base}/logo?v=${imageRevision}`, {
+          method: 'HEAD',
+          cache: 'no-store',
+        }).then(response => response.ok).catch(() => false),
+      ]);
+
+      if (!active) return;
+      setCoverAvailable(cover);
+      setLogoAvailable(logo);
+    }
+
+    void checkImages();
+
+    return () => {
+      active = false;
+    };
+  }, [id, imageRevision]);
+
   const { data, loading, error, retry } = usePublicRead<PageResult>(
     `/api/creatorverse?page=${encodeURIComponent(id)}`
   );
@@ -97,6 +131,11 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
   const { page, posts } = data;
 
+  const imageBase =
+    `/api/creatorverse/pages/${encodeURIComponent(page.id)}/images`;
+  const coverSrc = `${imageBase}/cover?v=${imageRevision}`;
+  const logoSrc = `${imageBase}/logo?v=${imageRevision}`;
+
   return (
     <div className={groupStyles.page}>
       <main className={`${groupStyles.shell} ${draftStyles.shell}`}>
@@ -111,19 +150,47 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
         <header className={`${groupStyles.card} ${groupStyles.groupHeader} ${draftStyles.header}`}>
           <div className={`${groupStyles.cover} ${groupStyles.banner} ${draftStyles.cover}`}>
-            <Image
-              src="/parapost-icon-white.png"
-              alt="ParaGhost"
-              width={512}
-              height={512}
-              className={groupStyles.mascot}
-              priority
-            />
+            {coverAvailable ? (
+              <Image
+                src={coverSrc}
+                alt={`${page.name} cover banner`}
+                fill
+                unoptimized
+                style={{ objectFit: 'cover' }}
+                onError={() => setCoverAvailable(false)}
+              />
+            ) : (
+              <Image
+                src="/parapost-icon-white.png"
+                alt="ParaGhost"
+                width={512}
+                height={512}
+                className={groupStyles.mascot}
+                priority
+              />
+            )}
           </div>
 
           <div className={draftStyles.identity}>
-            <div className={draftStyles.avatar} aria-hidden="true">
-              {page.name.charAt(0)}
+            <div className={draftStyles.avatar}>
+              {logoAvailable ? (
+                <Image
+                  src={logoSrc}
+                  alt={`${page.name} profile picture`}
+                  width={96}
+                  height={96}
+                  unoptimized
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    borderRadius: '50%',
+                  }}
+                  onError={() => setLogoAvailable(false)}
+                />
+              ) : (
+                page.name.charAt(0)
+              )}
             </div>
 
             <div className={draftStyles.identityText}>
@@ -175,9 +242,10 @@ export default function CreatorVersePage({ id }: { id: string }) {
             page={page}
             onCancel={() => setEditing(false)}
             onSaved={() => {
-              setEditing(false);
-              retry();
-            }}
+                setEditing(false);
+                setImageRevision(value => value + 1);
+                retry();
+              }}
           />
         )}
 

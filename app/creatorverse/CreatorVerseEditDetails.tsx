@@ -2,6 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import {
+  pageImageUploadsApproved,
+  uploadCreatorVersePageImage,
+} from '@/lib/creatorverse/page-image-client';
 import type {
   PageFields,
   PublicPage,
@@ -70,10 +74,12 @@ export default function CreatorVerseEditDetails({
   }
 
   async function save(fields: PageFields, images: Images) {
-    if (images.logo || images.cover) {
+    if (
+      (images.logo || images.cover) &&
+      !pageImageUploadsApproved()
+    ) {
       throw new Error(
-        'Image uploads are not connected yet. ' +
-        'Clear selected images before saving page details.'
+        'CreatorVerse image uploads are not enabled for this environment.'
       );
     }
 
@@ -114,6 +120,24 @@ export default function CreatorVerseEditDetails({
       throw new Error(result.error ?? 'Unable to save page.');
     }
 
+    try {
+      if (images.logo) {
+        await uploadCreatorVersePageImage(page.id, 'logo', images.logo);
+      }
+      if (images.cover) {
+        await uploadCreatorVersePageImage(page.id, 'cover', images.cover);
+      }
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'Image update failed.';
+      throw new Error(
+        'Page details were saved, but image replacement failed: ' +
+        message +
+        ' Reopen the editor before retrying.'
+      );
+    }
+
     onSaved();
   }
 
@@ -138,8 +162,9 @@ export default function CreatorVerseEditDetails({
 
       <p className={styles.note}>
         Update your page information, website, contact
-        details and social links. Image uploads are not
-        enabled yet.
+        details and social links. You can also replace
+          your profile picture and cover banner when
+          staging image uploads are enabled.
       </p>
 
       <CreatorVersePageForm
