@@ -147,10 +147,10 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
           const approved = group.membership_status === 'approved';
           const cardContents = <><div className={styles.directoryAvatar}
               style={{
-                width: 40,
-                height: 40,
-                minWidth: 40,
-                minHeight: 40,
+                width: 44,
+                height: 44,
+                minWidth: 44,
+                minHeight: 44,
                 boxSizing: 'border-box',
                 flexShrink: 0,
                 borderRadius: '50%',
