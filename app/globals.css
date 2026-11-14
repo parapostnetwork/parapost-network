@@ -885,3 +885,22 @@ main {
   }
 
 }
+
+
+/* PARAPOST PROFILE MOBILE BLUR FIX v2
+   Prevent GPU backdrop recomposition during timeline scrolling.
+   Mobile and tablet only. Desktop unchanged.
+*/
+
+@media (max-width: 1180px) {
+
+  html body .profile-polish-surface .profile-feed-section-card,
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts > .profile-feed-card,
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts .profile-feed-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+}
