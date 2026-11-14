@@ -18791,7 +18791,22 @@ return (
 
                 {!isProfileContentLocked ? (
                   <div className="profile-tabs-shell" style={profileTabsShellStyle}>
-                    <div className="profile-tabs-desktop" style={profileTabsStyle}>
+                    {/* PROFILE TAB VISIBLE FONT FIX v5 */}
+                      <style jsx global>{`
+                        html body .profile-tabs-mobile-cutoff-v22
+                        .profile-tabs-shell .profile-tabs-desktop
+                        > button > .profile-tab-main-label-v5 {
+                          font-size: 24px !important;
+                          font-weight: 800 !important;
+                          line-height: 1.2 !important;
+                          letter-spacing: 0 !important;
+                          white-space: nowrap !important;
+                          max-width: none !important;
+                          overflow: visible !important;
+                          text-overflow: clip !important;
+                        }
+                      `}</style>
+                      <div className="profile-tabs-desktop" style={profileTabsStyle}>
                     {profileTabItems.map((tab) => {
                       const isActive = activeProfileTab === tab.value;
 
@@ -18804,7 +18819,7 @@ return (
                           aria-pressed={isActive}
                           data-active={isActive ? "true" : "false"}
                         >
-                          <span style={profileTabLabelStyle}>{tab.label}</span>
+                          <span className="profile-tab-main-label-v5" style={{ ...profileTabLabelStyle, fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>{tab.label}</span>
                           <small style={isActive ? profileActiveTabDetailStyle : profileTabDetailStyle}>
                             {tab.detail}
                           </small>
