@@ -21761,6 +21761,75 @@ function ProfileStableBottomNav({
           }
         }
 
+
+        /* === PARAPOST MOBILE FEED REFINEMENTS v3 === */
+        @media (max-width: 760px) {
+
+          /* Full-width, clearly separated posts */
+          html body .dashboard-card.dashboard-feed-card,
+          html body .profile-polish-surface .profile-feed-card {
+            box-sizing: border-box !important;
+            width: calc(100% + 24px) !important;
+            max-width: none !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            margin-bottom: 0 !important;
+            border: 0 !important;
+            border-bottom: 8px solid #21162e !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            padding: 12px 12px 16px !important;
+          }
+
+          /* Three actions spread across the post */
+          html body .dashboard-post-actions,
+          html body .profile-polish-surface .profile-post-actions {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            gap: 0 !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+
+          html body .dashboard-post-actions > *,
+          html body .profile-polish-surface .profile-post-actions > * {
+            flex: 0 0 44px !important;
+            width: 44px !important;
+            min-width: 44px !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            justify-content: center !important;
+          }
+
+          /* Remove the composer outer floating card */
+          html body .dashboard-main-column .dashboard-composer-card {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+
+          /* Flatten direct Dashboard section cards */
+          html body .dashboard-main-column > .dashboard-card:not(.dashboard-feed-card) {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+
+          /* Remove the nested Showcases placeholder box */
+          html body .dashboard-showcase-scroller > div {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+        }
+
 /* === FINAL FEED SPACING TIGHTENING v2 === */
         @media (min-width: 1181px) {
           .dashboard-feed-card,
