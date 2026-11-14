@@ -13392,70 +13392,117 @@ return (
 
 
 
-      /* PROFILE RESPONSIVE TABS v1 */
-      .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop {
+
+      /* PROFILE HORIZONTAL TABS v2 — live Dashboard style */
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-shell {
+        box-sizing: border-box !important;
+        width: calc(100% - 24px) !important;
+        max-width: calc(100% - 24px) !important;
+        margin: 12px auto 18px !important;
+        padding: 6px !important;
+        border: 1px solid rgba(168, 120, 215, 0.14) !important;
+        border-radius: 25px !important;
+        background: linear-gradient(
+          110deg,
+          rgba(42, 30, 57, 0.97),
+          rgba(29, 23, 39, 0.97)
+        ) !important;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.16) !important;
+        overflow: hidden !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
         width: 100% !important;
         max-width: 100% !important;
-        gap: 12px !important;
-        padding: 12px !important;
-        overflow: visible !important;
+        min-height: 50px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        gap: 2px !important;
+        border: 0 !important;
+        border-radius: 20px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        overflow: hidden !important;
         scroll-snap-type: none !important;
         touch-action: auto !important;
         box-sizing: border-box !important;
       }
 
-      .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop button {
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button {
         display: flex !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
+        flex: 1 1 0 !important;
+        flex-direction: row !important;
+        align-items: center !important;
         justify-content: center !important;
-        flex: initial !important;
+        text-align: center !important;
         width: 100% !important;
         min-width: 0 !important;
         max-width: none !important;
-        min-height: 76px !important;
-        padding: 13px 15px !important;
-        gap: 6px !important;
-        border-radius: 16px !important;
+        min-height: 50px !important;
+        padding: 10px 4px !important;
+        margin: 0 !important;
+        gap: 0 !important;
+        border: 0 !important;
+        border-radius: 19px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #d6d2df !important;
+        scroll-snap-align: none !important;
         box-sizing: border-box !important;
       }
 
-      .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop button span {
-        font-size: 17px !important;
-        line-height: 1.25 !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-      }
-
-      .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop button small {
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button span {
         display: block !important;
-        font-size: 12px !important;
-        line-height: 1.35 !important;
-        white-space: normal !important;
+        width: auto !important;
+        max-width: 100% !important;
+        font-size: 16px !important;
+        font-weight: 750 !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap !important;
         overflow: visible !important;
         text-overflow: clip !important;
+        color: inherit !important;
       }
 
-      @media (max-width: 720px) {
-        .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop {
-          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          gap: 10px !important;
-          padding: 12px !important;
-          overflow: visible !important;
-        }
-
-        .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop button {
-          min-width: 0 !important;
-          max-width: none !important;
-          min-height: 80px !important;
-          padding: 13px 14px !important;
-        }
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button small {
+        display: none !important;
       }
 
-      /* Step 53: stabilize + New Showcase hover so it glows without lifting into the Showcases heading. */
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button[aria-pressed="true"] {
+        color: #fff !important;
+        background: linear-gradient(
+          180deg,
+          rgba(102, 64, 137, 0.55),
+          rgba(54, 35, 76, 0.88)
+        ) !important;
+        box-shadow: inset 0 -3px 0 #b65bf0 !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button[aria-pressed="true"]::after {
+        display: none !important;
+        content: none !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button:focus-visible {
+        outline: 2px solid #c38cf5 !important;
+        outline-offset: -3px !important;
+      }
+
+/* Step 53: stabilize + New Showcase hover so it glows without lifting into the Showcases heading. */
       .profile-showcases-row button[aria-label="Create a new Showcase"]:hover,
       .profile-showcases-row button[aria-label="Create a new Showcase"]:focus-visible {
         transform: none !important;
