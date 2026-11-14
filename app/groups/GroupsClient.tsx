@@ -407,9 +407,11 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
           aria-label="Parapost Network"
         />
       </Link>
-      <Link href={routeBase === '/group-original-preview' ? '/groups-preview' : routeBase}>
-        Groups
-      </Link>
+      {groupId
+          ? <Link href={routeBase === '/group-original-preview' ? '/groups-preview' : routeBase}>
+              Groups
+            </Link>
+          : <span aria-hidden="true" />}
       <Link href={routeBase === '/group-original-preview' ? '/' : '/dashboard'}>
         ← Dashboard
       </Link>
