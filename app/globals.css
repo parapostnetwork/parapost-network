@@ -867,3 +867,27 @@ main {
     border-top-width: 0 !important;
   }
 }
+
+
+/* PARAPOST PROFILE INTERNAL DIVIDERS v2
+   Remove grey lines inside posts while preserving
+   the purple separators BETWEEN posts.
+*/
+@media (max-width: 1180px) {
+  html body .profile-feed-list-all-posts
+  .profile-clean-stats,
+  html body .profile-feed-list-all-posts
+  .profile-post-actions.dashboard-post-actions {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html body .profile-feed-list-all-posts
+  .profile-post-image-grid,
+  html body .profile-feed-list-all-posts
+  .profile-post-image {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+  }
+}

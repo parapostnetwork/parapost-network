@@ -20265,7 +20265,16 @@ return (
                               </div>
 
                               {originalPostLikeCount > 0 || originalPostCommentCount > 0 || originalPostShareCount > 0 ? (
-                                <div style={profilePostStatsSummaryStyle}>
+                                <div className="profile-clean-stats"
+style={profileMobileProgressive
+  ? {
+      ...profilePostStatsSummaryStyle,
+      border: "none",
+      borderTop: "none",
+      borderBottom: "none",
+      boxShadow: "none",
+    }
+  : profilePostStatsSummaryStyle}>
                                   {originalPostLikeCount > 0 ? (
                                     <button
                                       type="button"
@@ -20302,7 +20311,15 @@ return (
                                 </div>
                               ) : null}
 
-                              <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
+                              <div className="profile-post-actions dashboard-post-actions" style={profileMobileProgressive
+  ? {
+      ...postActionsRowStyle,
+      border: "none",
+      borderTop: "none",
+      borderBottom: "none",
+      boxShadow: "none",
+    }
+  : postActionsRowStyle}>
                                 <button
                                   className={`profile-post-action-button profile-post-like-button ${originalPostLiked ? "profile-post-like-button-active" : ""}`}
                                   onClick={() => handleLikeToggle(originalPost.id, item.id)}
@@ -20530,7 +20547,16 @@ return (
                             <ProfilePostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" onOpenImage={openProfilePostImageViewer} />
 
                             {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
-                              <div style={profilePostStatsSummaryStyle}>
+                              <div className="profile-clean-stats"
+style={profileMobileProgressive
+  ? {
+      ...profilePostStatsSummaryStyle,
+      border: "none",
+      borderTop: "none",
+      borderBottom: "none",
+      boxShadow: "none",
+    }
+  : profilePostStatsSummaryStyle}>
                                 {likeCount > 0 ? (
                                   <button
                                     type="button"
@@ -20564,7 +20590,15 @@ return (
                               </div>
                             ) : null}
 
-                            <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
+                            <div className="profile-post-actions dashboard-post-actions" style={profileMobileProgressive
+  ? {
+      ...postActionsRowStyle,
+      border: "none",
+      borderTop: "none",
+      borderBottom: "none",
+      boxShadow: "none",
+    }
+  : postActionsRowStyle}>
                               <button
                                 className={`profile-post-action-button profile-post-like-button ${liked ? "profile-post-like-button-active" : ""}`}
                                 onClick={() => handleLikeToggle(post.id)}
