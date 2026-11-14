@@ -7405,6 +7405,7 @@ useEffect(() => {
     ? "Unlocked achievement"
     : "Locked achievement";
 
+  const PROFILE_EVENTS_VISIBLE = false;
   const profileTabItems = [
     {
       value: "Posts",
@@ -7450,7 +7451,7 @@ useEffect(() => {
       detail: "Coming soon",
       summary: "Events are prepared for a future Parapost Network profile update.",
     },
-  ];
+  ].filter((tab) => PROFILE_EVENTS_VISIBLE || tab.value !== "Events");
   const featuredProfileBadge = profileBadges[0] || null;
   const otherProfileBadges = profileBadges.slice(1, 5);
   const remainingOtherProfileBadgeCount = Math.max(
@@ -13389,6 +13390,70 @@ return (
 
 
 
+
+
+      /* PROFILE RESPONSIVE TABS v1 */
+      .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        gap: 12px !important;
+        padding: 12px !important;
+        overflow: visible !important;
+        scroll-snap-type: none !important;
+        touch-action: auto !important;
+        box-sizing: border-box !important;
+      }
+
+      .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop button {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        flex: initial !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        min-height: 76px !important;
+        padding: 13px 15px !important;
+        gap: 6px !important;
+        border-radius: 16px !important;
+        box-sizing: border-box !important;
+      }
+
+      .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop button span {
+        font-size: 17px !important;
+        line-height: 1.25 !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+      }
+
+      .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop button small {
+        display: block !important;
+        font-size: 12px !important;
+        line-height: 1.35 !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+      }
+
+      @media (max-width: 720px) {
+        .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 10px !important;
+          padding: 12px !important;
+          overflow: visible !important;
+        }
+
+        .profile-tabs-mobile-cutoff-v22 .profile-tabs-desktop button {
+          min-width: 0 !important;
+          max-width: none !important;
+          min-height: 80px !important;
+          padding: 13px 14px !important;
+        }
+      }
 
       /* Step 53: stabilize + New Showcase hover so it glows without lifting into the Showcases heading. */
       .profile-showcases-row button[aria-label="Create a new Showcase"]:hover,
