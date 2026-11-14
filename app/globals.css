@@ -841,3 +841,15 @@ main {
     transform: none !important;
   }
 }
+
+
+/* PARAPOST PROFILE CARD PAINT STABILITY v1
+   Avoid hidden-backface compositing on scrolling Profile cards.
+   Mobile and tablet only.
+*/
+@media (max-width: 1180px) {
+  html body .profile-polish-surface .profile-feed-card {
+    backface-visibility: visible !important;
+    -webkit-backface-visibility: visible !important;
+  }
+}
