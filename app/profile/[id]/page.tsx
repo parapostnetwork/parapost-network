@@ -13455,7 +13455,7 @@ return (
         box-shadow: none !important;
         color: #d6d2df !important;
         font-family: inherit !important;
-        font-size: 22px !important;
+        font-size: 18px !important;
         font-weight: 750 !important;
         line-height: 1.25 !important;
         letter-spacing: 0 !important;
@@ -13469,7 +13469,7 @@ return (
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-desktop button strong {
         font-family: inherit !important;
-        font-size: 22px !important;
+        font-size: 18px !important;
         font-weight: inherit !important;
         line-height: inherit !important;
         letter-spacing: inherit !important;
@@ -13518,18 +13518,48 @@ return (
         }
       }
 
-      /* PROFILE TAB VISIBLE FONT FIX v5 */
+      /* PROFILE TAB BALANCED SIZE v6 */
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-shell .profile-tabs-desktop
       > button > .profile-tab-main-label-v5 {
-        font-size: 24px !important;
-        font-weight: 800 !important;
+        font-size: 18px !important;
+        font-weight: 750 !important;
         line-height: 1.2 !important;
-        letter-spacing: 0 !important;
         white-space: nowrap !important;
-        max-width: none !important;
         overflow: visible !important;
         text-overflow: clip !important;
+      }
+
+      @media (max-width: 720px) {
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-shell .profile-tabs-desktop {
+          display: grid !important;
+          grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+          width: 100% !important;
+          gap: 2px !important;
+          padding: 2px !important;
+          overflow-x: hidden !important;
+        }
+
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-shell .profile-tabs-desktop > button {
+          display: flex !important;
+          flex: initial !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          min-height: 48px !important;
+          padding: 0 2px !important;
+          justify-content: center !important;
+          align-items: center !important;
+        }
+
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-shell .profile-tabs-desktop
+        > button > .profile-tab-main-label-v5 {
+          font-size: 17px !important;
+          font-weight: 750 !important;
+        }
       }
 
       /* Step 53: stabilize + New Showcase hover so it glows without lifting into the Showcases heading. */
@@ -18819,7 +18849,7 @@ return (
                           aria-pressed={isActive}
                           data-active={isActive ? "true" : "false"}
                         >
-                          <span className="profile-tab-main-label-v5" style={{ ...profileTabLabelStyle, fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>{tab.label}</span>
+                          <span className="profile-tab-main-label-v5" style={{ ...profileTabLabelStyle, fontSize: 18, fontWeight: 750, lineHeight: 1.2 }}>{tab.label}</span>
                           <small style={isActive ? profileActiveTabDetailStyle : profileTabDetailStyle}>
                             {tab.detail}
                           </small>
