@@ -21762,20 +21762,20 @@ function ProfileStableBottomNav({
         }
 
 
-        /* === PARAPOST MOBILE FEED REFINEMENTS v3 === */
+        /* === PARAPOST MOBILE FEED REFINEMENTS v4 === */
         @media (max-width: 760px) {
 
           /* Full-width, clearly separated posts */
           html body .dashboard-card.dashboard-feed-card,
           html body .profile-polish-surface .profile-feed-card {
             box-sizing: border-box !important;
-            width: calc(100% + 24px) !important;
+            width: 100vw !important;
             max-width: none !important;
-            margin-left: -12px !important;
-            margin-right: -12px !important;
+            margin-left: calc(50% - 50vw) !important;
+            margin-right: calc(50% - 50vw) !important;
             margin-bottom: 0 !important;
             border: 0 !important;
-            border-bottom: 8px solid #21162e !important;
+            border-bottom: 3px solid #291a35 !important;
             border-radius: 0 !important;
             box-shadow: none !important;
             background: transparent !important;
@@ -21797,9 +21797,9 @@ function ProfileStableBottomNav({
 
           html body .dashboard-post-actions > *,
           html body .profile-polish-surface .profile-post-actions > * {
-            flex: 0 0 44px !important;
-            width: 44px !important;
-            min-width: 44px !important;
+            flex: 1 1 0 !important;
+            width: auto !important;
+            min-width: 0 !important;
             margin-left: 0 !important;
             margin-right: 0 !important;
             justify-content: center !important;
@@ -21828,6 +21828,15 @@ function ProfileStableBottomNav({
             box-shadow: none !important;
             background: transparent !important;
           }
+
+          /* Consistent mobile action icons */
+          html body .dashboard-post-actions svg,
+          html body .profile-polish-surface .profile-post-actions svg {
+            width: 24px !important;
+            height: 24px !important;
+            flex-shrink: 0 !important;
+          }
+
         }
 
 /* === FINAL FEED SPACING TIGHTENING v2 === */
