@@ -853,3 +853,17 @@ main {
     -webkit-backface-visibility: visible !important;
   }
 }
+
+
+/* PARAPOST PROFILE ACTION DIVIDER REMOVAL v1
+   Remove the faint line above Like, Comment and Share.
+   Preserve separators between posts.
+*/
+@media (max-width: 1180px) {
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts
+  .profile-post-actions.dashboard-post-actions {
+    border-top: none !important;
+    border-top-width: 0 !important;
+  }
+}
