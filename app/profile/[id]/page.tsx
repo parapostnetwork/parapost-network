@@ -13393,7 +13393,7 @@ return (
 
 
 
-      /* PROFILE GROUPS-SIZED TABS v3 */
+      /* PROFILE GROUPS-SIZED TABS v4 */
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-shell {
         box-sizing: border-box !important;
@@ -13419,7 +13419,7 @@ return (
         justify-content: space-between !important;
         width: 100% !important;
         max-width: 100% !important;
-        min-height: 54px !important;
+        min-height: 60px !important;
         gap: 6px !important;
         margin: 0 !important;
         padding: 4px !important;
@@ -13445,7 +13445,7 @@ return (
         width: auto !important;
         min-width: max-content !important;
         max-width: none !important;
-        min-height: 54px !important;
+        min-height: 60px !important;
         margin: 0 !important;
         padding: 0 18px !important;
         gap: 0 !important;
@@ -13455,7 +13455,7 @@ return (
         box-shadow: none !important;
         color: #d6d2df !important;
         font-family: inherit !important;
-        font-size: 20px !important;
+        font-size: 22px !important;
         font-weight: 750 !important;
         line-height: 1.25 !important;
         letter-spacing: 0 !important;
@@ -13469,7 +13469,7 @@ return (
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-desktop button strong {
         font-family: inherit !important;
-        font-size: inherit !important;
+        font-size: 22px !important;
         font-weight: inherit !important;
         line-height: inherit !important;
         letter-spacing: inherit !important;
@@ -13508,12 +13508,12 @@ return (
       @media (max-width: 720px) {
         html body .profile-tabs-mobile-cutoff-v22
         .profile-tabs-desktop {
-          min-height: 48px !important;
+          min-height: 54px !important;
         }
 
         html body .profile-tabs-mobile-cutoff-v22
         .profile-tabs-desktop button {
-          min-height: 48px !important;
+          min-height: 54px !important;
           padding: 0 14px !important;
         }
       }
