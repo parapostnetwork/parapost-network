@@ -16808,7 +16808,7 @@ function MobileBottomNav({
 
 
   const navigation = (
-    <nav className="dashboard-bottom-nav" style={mobileBottomNavStyle} aria-label="Mobile dashboard navigation">
+    <nav data-parapost-edge-nav="true" className="dashboard-bottom-nav" style={mobileBottomNavStyle} aria-label="Mobile dashboard navigation">
       <Link href="/dashboard" style={mobileNavItemActiveStyle} aria-label="Home">
         <span style={mobileNavIconSlotStyle}><HomeIcon /></span>
         <span style={mobileNavLabelStyle}>Home</span>

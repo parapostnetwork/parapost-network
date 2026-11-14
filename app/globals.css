@@ -660,3 +660,141 @@ main {
     padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
   }
 }
+
+
+/* PARAPOST FULL WIDTH NAVIGATION v2
+   Phones and tablets only.
+   No desktop changes.
+*/
+
+@media (max-width: 1180px) {
+
+  html body nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"][data-parapost-edge-nav="true"] {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: center !important;
+    justify-items: stretch !important;
+
+    position: fixed !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    height: calc(65px + env(safe-area-inset-bottom)) !important;
+    min-height: calc(65px + env(safe-area-inset-bottom)) !important;
+
+    margin: 0 !important;
+    padding: 3px 0 env(safe-area-inset-bottom) !important;
+    gap: 0 !important;
+
+    border-radius: 0 !important;
+    border: 0 !important;
+    border-top: 1px solid rgba(165, 120, 220, 0.25) !important;
+
+    background: #101017 !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+
+    transform: none !important;
+    overflow: visible !important;
+    z-index: 2147483000 !important;
+    box-sizing: border-box !important;
+    pointer-events: auto !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"] > a,
+  html body nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"] > button {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 58px !important;
+    min-height: 58px !important;
+
+    margin: 0 !important;
+    padding: 3px 1px !important;
+    transform: none !important;
+    flex: none !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Plain plus icon, no circular background */
+  html body nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"] {
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    aspect-ratio: auto !important;
+    color: #e8d6ff !important;
+    justify-content: flex-start !important;
+    padding-top: 9px !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"]::before,
+  html body nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"]::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"] :is(span, div) {
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    transform: none !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"] svg {
+    width: 24px !important;
+    height: 24px !important;
+    transform: none !important;
+  }
+
+  /* Current account avatar */
+  html body nav[data-parapost-edge-nav="true"]
+  > a:last-child img {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+  }
+
+  /* Remove tablet floating-container margins */
+  html body .profile-tablet-nav-fixed-layer.profile-tablet-nav-fixed-layer {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  /* Prevent the bar from covering the last content */
+  html body:has(nav[data-parapost-edge-nav="true"]) {
+    padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important;
+  }
+}

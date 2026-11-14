@@ -21214,7 +21214,7 @@ function ProfileStableBottomNav({
 
   const navigation = (
     <>
-      <nav
+      <nav data-parapost-edge-nav="true"
         className="profile-stable-bottom-nav"
         aria-label="Primary bottom navigation"
         style={profileStableBottomNavStyle}
