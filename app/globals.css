@@ -826,3 +826,18 @@ main {
     overflow: hidden !important;
   }
 }
+
+
+/* PARAPOST PLUS ALIGNMENT v4
+   Phones and tablets only. Desktop unchanged.
+*/
+@media (max-width: 1180px) {
+  html body
+  nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"]
+  > span:first-child {
+    position: relative !important;
+    top: 9px !important;
+    transform: none !important;
+  }
+}

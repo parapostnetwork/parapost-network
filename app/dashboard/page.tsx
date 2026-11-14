@@ -6689,7 +6689,30 @@ export default function DashboardPage() {
         }}
       />
 
-      <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} avatarInitial={(currentProfile?.username || "?").trim().charAt(0).toUpperCase()} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
+      <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} avatarInitial={(currentProfile?.username || "?").trim().charAt(0).toUpperCase()} parachatUnreadCount={parachatUnreadCount} onCreatePost={() => {
+          const candidates = document.querySelectorAll<HTMLElement>(
+            'textarea, input, [contenteditable="true"], [role="textbox"]'
+          );
+
+          const composer = Array.from(candidates).find((element) => {
+            const description = [
+              element.getAttribute("placeholder"),
+              element.getAttribute("aria-label"),
+              element.getAttribute("data-placeholder"),
+            ].filter(Boolean).join(" ").toLowerCase();
+
+            return description.includes("on your mind");
+          });
+
+          const destination = composer
+            ? window.scrollY + composer.getBoundingClientRect().top - 112
+            : 0;
+
+          window.scrollTo({
+            top: Math.max(0, destination),
+            behavior: "instant",
+          });
+        }} />
 
       <DashboardLikesModal key={JSON.stringify(likeListTarget)}
         target={likeListTarget}
