@@ -13421,7 +13421,7 @@ return (
         justify-content: stretch !important;
         width: 100% !important;
         max-width: 100% !important;
-        min-height: 50px !important;
+        min-height: 56px !important;
         margin: 0 !important;
         padding: 0 !important;
         gap: 2px !important;
@@ -13446,7 +13446,7 @@ return (
         width: 100% !important;
         min-width: 0 !important;
         max-width: none !important;
-        min-height: 50px !important;
+        min-height: 56px !important;
         padding: 10px 4px !important;
         margin: 0 !important;
         gap: 0 !important;
@@ -13464,7 +13464,7 @@ return (
         display: block !important;
         width: auto !important;
         max-width: 100% !important;
-        font-size: 16px !important;
+        font-size: 18px !important;
         font-weight: 750 !important;
         line-height: 1.25 !important;
         letter-spacing: 0 !important;
