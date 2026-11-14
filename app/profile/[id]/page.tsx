@@ -21965,6 +21965,40 @@ function ProfileStableBottomNav({
             gap: 0 !important;
           }
 
+
+          /* PARAPOST COMMENTS CONTENT VISIBILITY v2 */
+
+          /* Keep large media from hiding the comments section */
+          html body .parapost-comments-overlay-post
+          > :not(.dashboard-post-header) :is(img, video),
+          html body .parapost-comments-overlay-post
+          > :is(img, video),
+          html body .profile-comments-overlay-post
+          > :not(header) :is(img, video),
+          html body .profile-comments-overlay-post
+          > :is(img, video) {
+            display: block !important;
+            height: auto !important;
+            max-height: 38dvh !important;
+            object-fit: contain !important;
+          }
+
+          /* Keep comments and counts accessible above the composer */
+          html body .parapost-comments-overlay-scroll,
+          html body .profile-comments-overlay-scroll {
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            padding-bottom: 20px !important;
+            scroll-padding-bottom: 24px !important;
+          }
+
+          html body .parapost-comments-overlay-scroll > section,
+          html body .profile-comments-overlay-scroll > section {
+            min-height: 90px !important;
+            padding-bottom: 24px !important;
+            box-sizing: border-box !important;
+          }
+
         }
 
 /* === FINAL FEED SPACING TIGHTENING v2 === */
