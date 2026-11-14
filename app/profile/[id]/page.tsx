@@ -7398,6 +7398,146 @@ useEffect(() => {
     (!profile || !profileHasEditedBasics || !profileHasFirstPost);
   const profileStarterCompletedCount = [profileHasEditedBasics, profileHasFirstPost].filter(Boolean).length;
   const profileStarterPercent = Math.round((profileStarterCompletedCount / 2) * 100);
+
+  // PARAPOST PROFILE PROGRESSIVE FEED v2
+  // Mobile/tablet rendering; earlier cards stay mounted.
+  const [profileMobileProgressive, setProfileMobileProgressive] =
+    useState(true);
+  const [profileVisibleFeedCount, setProfileVisibleFeedCount] =
+    useState(12);
+  const profileHashJumpRef = useRef("");
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1180px)");
+    const sync = () => setProfileMobileProgressive(query.matches);
+
+    sync();
+    query.addEventListener?.("change", sync);
+    return () => query.removeEventListener?.("change", sync);
+  }, []);
+
+  useEffect(() => {
+    setProfileVisibleFeedCount(12);
+    profileHashJumpRef.current = "";
+  }, [profileId]);
+
+  // Ensure links to older Profile posts can reveal their target.
+  useEffect(() => {
+    const revealHash = () => {
+      const hash = window.location.hash.slice(1);
+
+      if (!hash.startsWith("profile-post-")) return;
+
+      const postId = hash.slice("profile-post-".length);
+
+      const index = profileFeedItems.findIndex(
+        (item) =>
+          item.feedKind === "post" &&
+          String(item.id) === postId
+      );
+
+      if (index >= 0 && profileMobileProgressive) {
+        setProfileVisibleFeedCount((current) =>
+          Math.max(current, index + 1)
+        );
+      }
+    };
+
+    window.addEventListener("hashchange", revealHash);
+    revealHash();
+
+    return () => window.removeEventListener(
+      "hashchange",
+      revealHash
+    );
+  }, [profileId, profileFeedItems, profileMobileProgressive]);
+
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash.startsWith("profile-post-")) return;
+
+    const navigationKey = `${profileId}:${hash}`;
+    if (profileHashJumpRef.current === navigationKey) return;
+
+    const target = document.getElementById(hash);
+
+    if (target) {
+      target.scrollIntoView({
+        behavior: "auto",
+        block: "start",
+      });
+      profileHashJumpRef.current = navigationKey;
+    }
+  }, [
+    profileId,
+    profileVisibleFeedCount,
+    profileFeedItems.length,
+    profileMobileProgressive,
+  ]);
+
+  // Append more posts only when approaching the feed's end.
+  useEffect(() => {
+    if (
+      !profileMobileProgressive ||
+      profileVisibleFeedCount >= profileFeedItems.length
+    ) return;
+
+    let frame: number | null = null;
+
+    const check = () => {
+      const feed = document.querySelector(
+        ".profile-feed-list-all-posts"
+      );
+
+      if (!feed || feed.getClientRects().length === 0) return;
+
+      if (
+        feed.getBoundingClientRect().bottom <=
+        window.innerHeight + 900
+      ) {
+        setProfileVisibleFeedCount((current) =>
+          Math.min(profileFeedItems.length, current + 8)
+        );
+      }
+    };
+
+    const schedule = () => {
+      if (frame !== null) return;
+
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        check();
+      });
+    };
+
+    window.addEventListener("scroll", schedule, {
+      passive: true,
+    });
+    document.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
+
+    schedule();
+
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      document.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("resize", schedule);
+
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [
+    profileMobileProgressive,
+    profileVisibleFeedCount,
+    profileFeedItems.length,
+    profileId,
+  ]);
+
+  const visibleProfileFeedItems = profileMobileProgressive
+    ? profileFeedItems.slice(0, profileVisibleFeedCount)
+    : profileFeedItems;
+
   const profileSmoothLoadClass = profileIsReady
     ? "profile-data-ready"
     : "profile-data-waiting";
@@ -19284,7 +19424,7 @@ return (
                     </div>
                   ) : (
                     <div className="profile-feed-stack profile-feed-list-all-posts" style={feedStackStyle}>
-                      {profileFeedItems.map((item) => {
+                      {visibleProfileFeedItems.map((item) => {
                         if (item.feedKind === "live_stream") {
                           const effectiveStatus = getProfileEffectiveLiveStatus(item);
                           const isLive = effectiveStatus === "live";
