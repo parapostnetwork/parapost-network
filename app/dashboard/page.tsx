@@ -6689,7 +6689,7 @@ export default function DashboardPage() {
         }}
       />
 
-      <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
+      <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} avatarInitial={(currentProfile?.username || "?").trim().charAt(0).toUpperCase()} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
 
       <DashboardLikesModal key={JSON.stringify(likeListTarget)}
         target={likeListTarget}
@@ -16787,11 +16787,13 @@ function DashboardShowcaseComposerModal({
 function MobileBottomNav({
   currentUserId,
   avatarUrl,
+  avatarInitial,
   parachatUnreadCount,
   onCreatePost,
 }: {
   currentUserId: string;
   avatarUrl: string;
+  avatarInitial: string;
   parachatUnreadCount: number;
   onCreatePost: () => void;
 }) {
@@ -16820,7 +16822,8 @@ function MobileBottomNav({
       </Link>
 
       <button type="button" onClick={onCreatePost} style={mobileCenterPlusStyle} aria-label="Create post">
-        <PlusIcon />
+        <span style={mobileNavIconSlotStyle}><PlusIcon /></span>
+        <span className="parapost-nav-create-spacer" style={mobileNavLabelStyle} aria-hidden="true">Create</span>
       </button>
 
       <Link href="/messages" style={mobileNavItemStyle} aria-label="Parachat">
@@ -16836,10 +16839,7 @@ function MobileBottomNav({
           {avatarUrl ? (
             <img src={avatarUrl} alt="" style={mobileNavAvatarStyle} />
           ) : (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-              <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <span className="parapost-nav-avatar-fallback">{avatarInitial || "?"}</span>
           )}
         </span>
         <span style={mobileNavLabelStyle}>Profile</span>

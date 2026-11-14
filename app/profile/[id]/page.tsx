@@ -2568,6 +2568,33 @@ export default function ProfilePage() {
   const [viewerId, setViewerId] = useState("");
   const [viewerEmail, setViewerEmail] = useState("");
   const [viewerAvatarUrl, setViewerAvatarUrl] = useState("");
+  const [viewerNavInitial, setViewerNavInitial] = useState("?");
+
+  useEffect(() => {
+    if (!viewerId) return;
+
+    let cancelled = false;
+
+    void supabase
+      .from("profiles")
+      .select("username, full_name")
+      .eq("id", viewerId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const name = (
+          data?.username || data?.full_name || ""
+        ).trim();
+        setViewerNavInitial(
+          name ? name.charAt(0).toUpperCase() : "?"
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerId]);
+
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [profileThought, setProfileThought] = useState<ProfileThoughtRow | null>(null);
   // v31 desktop thought composer: page-owned state so desktop no longer relies on
@@ -21182,6 +21209,7 @@ return (
         <ProfileStableBottomNav
           viewerId={viewerId}
           avatarUrl={viewerAvatarUrl}
+          avatarInitial={viewerNavInitial}
           onCreatePost={handleMobileCreatePostClick}
         />
       ) : null}
@@ -21193,10 +21221,12 @@ return (
 function ProfileStableBottomNav({
   viewerId,
   avatarUrl,
+  avatarInitial,
   onCreatePost,
 }: {
   viewerId: string;
   avatarUrl: string;
+  avatarInitial: string;
   onCreatePost: () => void;
 }) {
   const profileHref = viewerId ? `/profile/${viewerId}` : "/dashboard";
@@ -21245,10 +21275,11 @@ function ProfileStableBottomNav({
           onClick={onCreatePost}
           style={profileStableCreateButtonStyle}
         >
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <span style={profileStableBottomNavIconStyle}><svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
-        </button>
+          </svg></span>
+            <span className="parapost-nav-create-spacer" style={profileStableBottomNavLabelStyle} aria-hidden="true">Create</span>
+          </button>
 
         <Link href="/messages" aria-label="Parachat" style={profileStableBottomNavItemStyle}>
           <span style={{ ...profileStableBottomNavIconStyle, position: "relative", fontSize: 22, lineHeight: 1 }}>
@@ -21267,10 +21298,7 @@ function ProfileStableBottomNav({
             {avatarUrl ? (
               <img src={avatarUrl} alt="" style={profileStableBottomNavAvatarStyle} />
             ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-                <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+              <span className="parapost-nav-avatar-fallback">{avatarInitial || "?"}</span>
             )}
           </span>
           <span style={profileStableBottomNavLabelStyle}>Profile</span>

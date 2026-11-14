@@ -744,8 +744,8 @@ main {
     border-radius: 0 !important;
     aspect-ratio: auto !important;
     color: #e8d6ff !important;
-    justify-content: flex-start !important;
-    padding-top: 9px !important;
+    justify-content: center !important;
+    padding-top: 3px !important;
   }
 
   html body nav[data-parapost-edge-nav="true"]
@@ -796,5 +796,33 @@ main {
   /* Prevent the bar from covering the last content */
   html body:has(nav[data-parapost-edge-nav="true"]) {
     padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+
+/* PARAPOST NAV FINISH v3 — mobile and tablet only */
+@media (max-width: 1180px) {
+
+  html body nav[data-parapost-edge-nav="true"]
+  .parapost-nav-create-spacer {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"]
+  .parapost-nav-avatar-fallback {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #9e55f2, #593b9c) !important;
+    color: #fff !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    overflow: hidden !important;
   }
 }
