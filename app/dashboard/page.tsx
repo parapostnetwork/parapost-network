@@ -12090,7 +12090,43 @@ export default function DashboardPage() {
         }
 
 
-        /* === FINAL FEED SPACING TIGHTENING v2 === */
+
+        /* === PARAPOST MOBILE EDGE-TO-EDGE POSTS v1 === */
+        @media (max-width: 760px) {
+          html body .dashboard-card.dashboard-feed-card,
+          html body .profile-polish-surface .profile-feed-card {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            outline: 0 !important;
+            padding: 12px !important;
+            margin-bottom: 0 !important;
+            transform: none !important;
+          }
+
+          html body .dashboard-card.dashboard-feed-card:hover,
+          html body .profile-polish-surface .profile-feed-card:hover {
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            transform: none !important;
+          }
+
+          html body .dashboard-card.dashboard-feed-card::before,
+          html body .profile-polish-surface .profile-feed-card::before {
+            display: none !important;
+            content: none !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          html body .dashboard-card.dashboard-feed-card,
+          html body .profile-polish-surface .profile-feed-card {
+            padding: 11px !important;
+          }
+        }
+
+/* === FINAL FEED SPACING TIGHTENING v2 === */
         @media (min-width: 1181px) {
           .dashboard-feed-card,
           .profile-feed-card {
