@@ -21852,6 +21852,41 @@ function ProfileStableBottomNav({
     margin-right: 0 !important;
   }
 
+
+          /* PROFILE EDGE-TO-EDGE MEDIA */
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article > .profile-post-image,
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article > .profile-post-image-grid {
+            box-sizing: border-box !important;
+            width: calc(100% + 24px) !important;
+            max-width: none !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
+
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article > .profile-post-image {
+            display: block !important;
+          }
+
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article > .profile-post-image-grid {
+            padding: 0 !important;
+          }
+
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article
+          .profile-post-image-grid > div,
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article
+          .profile-post-media-item {
+            border-radius: 0 !important;
+          }
+
         }
 
 /* === FINAL FEED SPACING TIGHTENING v2 === */
