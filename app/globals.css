@@ -891,3 +891,54 @@ main {
     border-bottom: 0 !important;
   }
 }
+
+
+/* PARAPOST DASHBOARD PROFILE DIVIDERS v2
+   Remove internal lines only.
+   Keep purple borders between post cards.
+*/
+@media (max-width: 1180px) {
+
+  /* Dashboard: Like, Comment, Share */
+  html body .dashboard-card.dashboard-feed-card
+  .dashboard-post-actions {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Dashboard: row immediately above actions */
+  html body .dashboard-card.dashboard-feed-card
+  > :has(+ .dashboard-post-actions) {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Profile: engagement counts */
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts .profile-clean-stats {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Profile: Like, Comment, Share */
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts
+  .profile-post-actions {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Profile: immediately preceding action row */
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts
+  .profile-feed-card
+  > :has(+ .profile-post-actions) {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+}
