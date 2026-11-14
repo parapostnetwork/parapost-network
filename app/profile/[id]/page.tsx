@@ -21832,10 +21832,26 @@ function ProfileStableBottomNav({
 
           html body .profile-polish-surface
           .profile-post-actions.dashboard-post-actions > button svg {
-            width: 24px !important;
-            height: 24px !important;
+            width: 20px !important;
+            height: 20px !important;
             flex-shrink: 0 !important;
           }
+
+  /* Remove extra spacing and duplicate separation */
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+    border-top: 0 !important;
+  }
+
+  /* Align the Profile feed with the phone viewport */
+  html body .profile-polish-surface .profile-feed-list-all-posts {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin-left: calc(50% - 50vw) !important;
+    margin-right: 0 !important;
+  }
+
         }
 
 /* === FINAL FEED SPACING TIGHTENING v2 === */

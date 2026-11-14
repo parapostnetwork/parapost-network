@@ -12232,6 +12232,23 @@ export default function DashboardPage() {
             background: transparent !important;
           }
 
+
+          /* Remove remaining outer Dashboard mobile gutters */
+          html body .dashboard-shell-pad {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
+
+          html body .dashboard-grid-desktop-safe,
+          html body .dashboard-main-column {
+            width: 100% !important;
+            max-width: none !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
+
         }
 
 /* === FINAL FEED SPACING TIGHTENING v2 === */
