@@ -6230,7 +6230,8 @@ useEffect(() => {
                   className="profile-post-action-button"
                   style={{ ...actionButtonStyle, color: "var(--parapost-accent-readable-text)" }}
                   type="button"
-                  aria-pressed={true}
+                  onClick={() => setOpenCommentsPostId(null)}
+                    aria-pressed={true}
                 >
                   <CommentIcon />
                   <span>Comment</span>
@@ -19993,7 +19994,7 @@ return (
                               </div>
 
                               {openCommentsPostId === sharedContextKey
-                                ? renderProfileCommentsPanel(
+                                ? createPortal(renderProfileCommentsPanel(
                                     originalPost,
                                     item.user_id,
                                     originalCreator,
@@ -20002,7 +20003,7 @@ return (
                                     originalPostCommentCount,
                                     originalPostShareCount,
                                     item.id,
-                                  )
+                                  ), document.body)
                                 : null}
                             </article>
                           );
@@ -20255,7 +20256,7 @@ return (
                             </div>
 
                             {openCommentsPostId === post.id
-                              ? renderProfileCommentsPanel(
+                              ? createPortal(renderProfileCommentsPanel(
                                   post,
                                   post.user_id,
                                   profile,
@@ -20263,7 +20264,7 @@ return (
                                   likeCount,
                                   commentCount,
                                   shareCount,
-                                )
+                                ), document.body)
                               : null}
                           </article>
                         );
@@ -21893,6 +21894,75 @@ function ProfileStableBottomNav({
           .profile-feed-list-all-posts > article
           .profile-post-media-item {
             border-radius: 0 !important;
+          }
+
+
+          /* PARAPOST COMMENTS VIEWPORT REPAIR v1 */
+          html body .parapost-comments-overlay,
+          html body .profile-comments-overlay {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            width: 100% !important;
+            height: 100dvh !important;
+            max-width: none !important;
+            overflow: hidden !important;
+            background: #090b13 !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-sizing: border-box !important;
+          }
+
+          html body .parapost-comments-overlay-shell,
+          html body .profile-comments-overlay-shell {
+            position: relative !important;
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+          }
+
+          html body .parapost-comments-overlay-scroll,
+          html body .profile-comments-overlay-scroll {
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+          }
+
+          html body .parapost-comments-overlay-composer,
+          html body .profile-comments-overlay-composer {
+            position: relative !important;
+            bottom: auto !important;
+            flex: 0 0 auto !important;
+            padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+          }
+
+          html body .parapost-comments-overlay-composer textarea,
+          html body .profile-comments-overlay-composer textarea {
+            font-size: 16px !important;
+            min-width: 0 !important;
+          }
+
+          /* Slightly wider but symmetrical action spacing */
+          html body .dashboard-feed-card .dashboard-post-actions,
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts
+          .profile-post-actions.dashboard-post-actions,
+          html body .parapost-comments-overlay .dashboard-post-actions,
+          html body .profile-comments-overlay
+          .profile-post-actions.dashboard-post-actions {
+            display: grid !important;
+            grid-template-columns: 28% 44% 28% !important;
+            align-items: center !important;
+            gap: 0 !important;
           }
 
         }
