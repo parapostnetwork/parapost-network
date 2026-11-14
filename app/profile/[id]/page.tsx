@@ -13393,8 +13393,7 @@ return (
 
 
 
-      /* PROFILE HORIZONTAL TABS v2 — live Dashboard style */
-
+      /* PROFILE GROUPS-SIZED TABS v3 */
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-shell {
         box-sizing: border-box !important;
@@ -13402,76 +13401,80 @@ return (
         max-width: calc(100% - 24px) !important;
         margin: 12px auto 18px !important;
         padding: 6px !important;
-        border: 1px solid rgba(168, 120, 215, 0.14) !important;
+        border: 1px solid rgba(168,120,215,0.14) !important;
         border-radius: 25px !important;
         background: linear-gradient(
           110deg,
-          rgba(42, 30, 57, 0.97),
-          rgba(29, 23, 39, 0.97)
+          rgba(42,30,57,0.97),
+          rgba(29,23,39,0.97)
         ) !important;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.16) !important;
         overflow: hidden !important;
       }
 
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-desktop {
-        display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
         align-items: stretch !important;
-        justify-content: stretch !important;
+        justify-content: space-between !important;
         width: 100% !important;
         max-width: 100% !important;
-        min-height: 56px !important;
+        min-height: 54px !important;
+        gap: 6px !important;
         margin: 0 !important;
-        padding: 0 !important;
-        gap: 2px !important;
+        padding: 4px !important;
         border: 0 !important;
-        border-radius: 20px !important;
         background: transparent !important;
-        box-shadow: none !important;
-        overflow: hidden !important;
-        scroll-snap-type: none !important;
-        touch-action: auto !important;
+        overflow-x: auto !important;
+        scrollbar-width: none !important;
         box-sizing: border-box !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop::-webkit-scrollbar {
+        display: none !important;
       }
 
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-desktop button {
         display: flex !important;
-        flex: 1 1 0 !important;
+        flex: 1 0 auto !important;
         flex-direction: row !important;
         align-items: center !important;
         justify-content: center !important;
-        text-align: center !important;
-        width: 100% !important;
-        min-width: 0 !important;
+        width: auto !important;
+        min-width: max-content !important;
         max-width: none !important;
-        min-height: 56px !important;
-        padding: 10px 4px !important;
+        min-height: 54px !important;
         margin: 0 !important;
+        padding: 0 18px !important;
         gap: 0 !important;
         border: 0 !important;
         border-radius: 19px !important;
         background: transparent !important;
         box-shadow: none !important;
         color: #d6d2df !important;
-        scroll-snap-align: none !important;
+        font-family: inherit !important;
+        font-size: 20px !important;
+        font-weight: 750 !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0 !important;
+        text-align: center !important;
+        white-space: nowrap !important;
         box-sizing: border-box !important;
       }
 
       html body .profile-tabs-mobile-cutoff-v22
-      .profile-tabs-desktop button span {
-        display: block !important;
-        width: auto !important;
-        max-width: 100% !important;
-        font-size: 18px !important;
-        font-weight: 750 !important;
-        line-height: 1.25 !important;
-        letter-spacing: 0 !important;
-        white-space: nowrap !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
+      .profile-tabs-desktop button span,
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button strong {
+        font-family: inherit !important;
+        font-size: inherit !important;
+        font-weight: inherit !important;
+        line-height: inherit !important;
+        letter-spacing: inherit !important;
         color: inherit !important;
+        white-space: nowrap !important;
       }
 
       html body .profile-tabs-mobile-cutoff-v22
@@ -13484,8 +13487,8 @@ return (
         color: #fff !important;
         background: linear-gradient(
           180deg,
-          rgba(102, 64, 137, 0.55),
-          rgba(54, 35, 76, 0.88)
+          rgba(102,64,137,0.55),
+          rgba(54,35,76,0.88)
         ) !important;
         box-shadow: inset 0 -3px 0 #b65bf0 !important;
       }
@@ -13502,7 +13505,20 @@ return (
         outline-offset: -3px !important;
       }
 
-/* Step 53: stabilize + New Showcase hover so it glows without lifting into the Showcases heading. */
+      @media (max-width: 720px) {
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-desktop {
+          min-height: 48px !important;
+        }
+
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-desktop button {
+          min-height: 48px !important;
+          padding: 0 14px !important;
+        }
+      }
+
+      /* Step 53: stabilize + New Showcase hover so it glows without lifting into the Showcases heading. */
       .profile-showcases-row button[aria-label="Create a new Showcase"]:hover,
       .profile-showcases-row button[aria-label="Create a new Showcase"]:focus-visible {
         transform: none !important;
