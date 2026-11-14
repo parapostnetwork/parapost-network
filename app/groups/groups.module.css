@@ -1516,3 +1516,17 @@
   width: 100%;
   box-sizing: border-box;
 }
+
+
+/* Group discovery: reserve space for favourite star */
+.directoryCard .directoryCardText {
+  min-width: 0;
+  box-sizing: border-box;
+  padding-right: 30px;
+  overflow-wrap: anywhere;
+}
+
+.directoryCard .directoryCardText h3 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
