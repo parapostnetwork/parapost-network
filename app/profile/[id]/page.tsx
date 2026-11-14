@@ -13518,6 +13518,20 @@ return (
         }
       }
 
+      /* PROFILE TAB VISIBLE FONT FIX v5 */
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-shell .profile-tabs-desktop
+      > button > .profile-tab-main-label-v5 {
+        font-size: 24px !important;
+        font-weight: 800 !important;
+        line-height: 1.2 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap !important;
+        max-width: none !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+      }
+
       /* Step 53: stabilize + New Showcase hover so it glows without lifting into the Showcases heading. */
       .profile-showcases-row button[aria-label="Create a new Showcase"]:hover,
       .profile-showcases-row button[aria-label="Create a new Showcase"]:focus-visible {
@@ -18791,21 +18805,7 @@ return (
 
                 {!isProfileContentLocked ? (
                   <div className="profile-tabs-shell" style={profileTabsShellStyle}>
-                    {/* PROFILE TAB VISIBLE FONT FIX v5 */}
-                      <style jsx global>{`
-                        html body .profile-tabs-mobile-cutoff-v22
-                        .profile-tabs-shell .profile-tabs-desktop
-                        > button > .profile-tab-main-label-v5 {
-                          font-size: 24px !important;
-                          font-weight: 800 !important;
-                          line-height: 1.2 !important;
-                          letter-spacing: 0 !important;
-                          white-space: nowrap !important;
-                          max-width: none !important;
-                          overflow: visible !important;
-                          text-overflow: clip !important;
-                        }
-                      `}</style>
+
                       <div className="profile-tabs-desktop" style={profileTabsStyle}>
                     {profileTabItems.map((tab) => {
                       const isActive = activeProfileTab === tab.value;
