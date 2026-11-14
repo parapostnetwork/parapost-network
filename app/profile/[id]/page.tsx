@@ -13419,7 +13419,7 @@ return (
         justify-content: space-between !important;
         width: 100% !important;
         max-width: 100% !important;
-        min-height: 60px !important;
+        min-height: 44px !important;
         gap: 6px !important;
         margin: 0 !important;
         padding: 4px !important;
@@ -13445,7 +13445,7 @@ return (
         width: auto !important;
         min-width: max-content !important;
         max-width: none !important;
-        min-height: 60px !important;
+        min-height: 44px !important;
         margin: 0 !important;
         padding: 0 18px !important;
         gap: 0 !important;
@@ -13455,10 +13455,10 @@ return (
         box-shadow: none !important;
         color: #d6d2df !important;
         font-family: inherit !important;
-        font-size: 18px !important;
-        font-weight: 750 !important;
+        font-size: clamp(12px, 3.15vw, 15px) !important;
+        font-weight: 760 !important;
         line-height: 1.25 !important;
-        letter-spacing: 0 !important;
+        letter-spacing: -0.02em !important;
         text-align: center !important;
         white-space: nowrap !important;
         box-sizing: border-box !important;
@@ -13469,7 +13469,7 @@ return (
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-desktop button strong {
         font-family: inherit !important;
-        font-size: 18px !important;
+        font-size: clamp(12px, 3.15vw, 15px) !important;
         font-weight: inherit !important;
         line-height: inherit !important;
         letter-spacing: inherit !important;
@@ -13508,22 +13508,22 @@ return (
       @media (max-width: 720px) {
         html body .profile-tabs-mobile-cutoff-v22
         .profile-tabs-desktop {
-          min-height: 54px !important;
+          min-height: 44px !important;
         }
 
         html body .profile-tabs-mobile-cutoff-v22
         .profile-tabs-desktop button {
-          min-height: 54px !important;
+          min-height: 44px !important;
           padding: 0 14px !important;
         }
       }
 
-      /* PROFILE TAB BALANCED SIZE v6 */
+      /* PROFILE TAB DASHBOARD MATCH v7 */
       html body .profile-tabs-mobile-cutoff-v22
       .profile-tabs-shell .profile-tabs-desktop
       > button > .profile-tab-main-label-v5 {
-        font-size: 18px !important;
-        font-weight: 750 !important;
+        font-size: clamp(12px, 3.15vw, 15px) !important;
+        font-weight: 760 !important;
         line-height: 1.2 !important;
         white-space: nowrap !important;
         overflow: visible !important;
@@ -13548,7 +13548,7 @@ return (
           width: 100% !important;
           min-width: 0 !important;
           max-width: 100% !important;
-          min-height: 48px !important;
+          min-height: 44px !important;
           padding: 0 2px !important;
           justify-content: center !important;
           align-items: center !important;
@@ -13557,8 +13557,8 @@ return (
         html body .profile-tabs-mobile-cutoff-v22
         .profile-tabs-shell .profile-tabs-desktop
         > button > .profile-tab-main-label-v5 {
-          font-size: 17px !important;
-          font-weight: 750 !important;
+          font-size: clamp(12px, 3.15vw, 15px) !important;
+          font-weight: 760 !important;
         }
       }
 
@@ -18849,7 +18849,7 @@ return (
                           aria-pressed={isActive}
                           data-active={isActive ? "true" : "false"}
                         >
-                          <span className="profile-tab-main-label-v5" style={{ ...profileTabLabelStyle, fontSize: 18, fontWeight: 750, lineHeight: 1.2 }}>{tab.label}</span>
+                          <span className="profile-tab-main-label-v5" style={{ ...profileTabLabelStyle, fontSize: "clamp(12px, 3.15vw, 15px)", fontWeight: 760, letterSpacing: "-0.02em", lineHeight: 1.2 }}>{tab.label}</span>
                           <small style={isActive ? profileActiveTabDetailStyle : profileTabDetailStyle}>
                             {tab.detail}
                           </small>
