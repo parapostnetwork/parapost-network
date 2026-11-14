@@ -21762,81 +21762,80 @@ function ProfileStableBottomNav({
         }
 
 
-        /* === PARAPOST MOBILE FEED REFINEMENTS v4 === */
+        /* === PARAPOST PROFILE MOBILE FEED v5 === */
         @media (max-width: 760px) {
 
-          /* Full-width, clearly separated posts */
-          html body .dashboard-card.dashboard-feed-card,
-          html body .profile-polish-surface .profile-feed-card {
+          /* Flat, continuous Profile feed */
+          html body .profile-polish-surface .profile-feed-list-all-posts {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            max-width: none !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          /* Full-width Profile posts with thin dividers */
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article {
             box-sizing: border-box !important;
             width: 100vw !important;
-            max-width: none !important;
+            max-width: 100vw !important;
             margin-left: calc(50% - 50vw) !important;
-            margin-right: calc(50% - 50vw) !important;
+            margin-right: 0 !important;
+            margin-top: 0 !important;
             margin-bottom: 0 !important;
+            padding: 12px 12px 16px !important;
             border: 0 !important;
             border-bottom: 3px solid #291a35 !important;
             border-radius: 0 !important;
             box-shadow: none !important;
+            outline: 0 !important;
             background: transparent !important;
-            padding: 12px 12px 16px !important;
+            transform: none !important;
           }
 
-          /* Three actions spread across the post */
-          html body .dashboard-post-actions,
-          html body .profile-polish-surface .profile-post-actions {
-            display: flex !important;
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article::before {
+            display: none !important;
+            content: none !important;
+          }
+
+          /* Three evenly distributed actions */
+          html body .profile-polish-surface
+          .profile-post-actions.dashboard-post-actions {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
             align-items: center !important;
-            justify-content: space-between !important;
+            gap: 0 !important;
             width: 100% !important;
             box-sizing: border-box !important;
-            gap: 0 !important;
-            padding-left: 12px !important;
-            padding-right: 12px !important;
+            padding: 0 4px !important;
           }
 
-          html body .dashboard-post-actions > *,
-          html body .profile-polish-surface .profile-post-actions > * {
-            flex: 1 1 0 !important;
-            width: auto !important;
-            min-width: 0 !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
+          /* Match the compact Dashboard action appearance */
+          html body .profile-polish-surface
+          .profile-post-actions.dashboard-post-actions > button {
+            display: flex !important;
+            align-items: center !important;
             justify-content: center !important;
+            box-sizing: border-box !important;
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 44px !important;
+            padding: 8px 3px !important;
+            gap: 6px !important;
+            font-size: 13px !important;
           }
 
-          /* Remove the composer outer floating card */
-          html body .dashboard-main-column .dashboard-composer-card {
-            border: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            background: transparent !important;
-          }
-
-          /* Flatten direct Dashboard section cards */
-          html body .dashboard-main-column > .dashboard-card:not(.dashboard-feed-card) {
-            border: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            background: transparent !important;
-          }
-
-          /* Remove the nested Showcases placeholder box */
-          html body .dashboard-showcase-scroller > div {
-            border: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            background: transparent !important;
-          }
-
-          /* Consistent mobile action icons */
-          html body .dashboard-post-actions svg,
-          html body .profile-polish-surface .profile-post-actions svg {
+          html body .profile-polish-surface
+          .profile-post-actions.dashboard-post-actions > button svg {
             width: 24px !important;
             height: 24px !important;
             flex-shrink: 0 !important;
           }
-
         }
 
 /* === FINAL FEED SPACING TIGHTENING v2 === */
