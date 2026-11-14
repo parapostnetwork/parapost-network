@@ -6230,13 +6230,15 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <ShowcaseQuickActions
-              currentProfile={currentProfile}
-              currentUserId={currentUserId}
-              friendShowcases={friendShowcases}
-              onCreateShowcase={handleOpenDashboardShowcaseComposer}
-              onOpenShowcase={setSelectedDashboardShowcase}
-            />
+            {SHOWCASES_VISIBLE_ON_FEEDS ? (
+              <ShowcaseQuickActions
+                currentProfile={currentProfile}
+                currentUserId={currentUserId}
+                friendShowcases={friendShowcases}
+                onCreateShowcase={handleOpenDashboardShowcaseComposer}
+                onOpenShowcase={setSelectedDashboardShowcase}
+              />
+            ) : null}
 
             <ComposerCard
               composerRef={mainComposerRef}
@@ -6617,7 +6619,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {showcaseComposerOpen ? (
+      {SHOWCASES_VISIBLE_ON_FEEDS && showcaseComposerOpen ? (
         <DashboardShowcaseComposerModal
           currentProfile={currentProfile}
           title={dashboardShowcaseTitle}
@@ -6655,7 +6657,7 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      {selectedDashboardShowcase ? (
+      {SHOWCASES_VISIBLE_ON_FEEDS && selectedDashboardShowcase ? (
         <DashboardShowcaseViewerModal
           showcase={selectedDashboardShowcase}
           showcases={friendShowcases}
@@ -12695,6 +12697,9 @@ function MobileDashboardHeader({
     </header>
   );
 }
+
+// Showcases temporarily hidden on every device.
+const SHOWCASES_VISIBLE_ON_FEEDS = false;
 
 function ShowcaseQuickActions({
   friendShowcases,

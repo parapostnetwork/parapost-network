@@ -1831,6 +1831,9 @@ function getPostImageUrls(post?: Pick<Post, "image_url" | "images"> | null) {
 }
 
 
+// Showcases temporarily hidden on every device.
+const SHOWCASES_VISIBLE_ON_FEEDS = false;
+
 function ProfilePostImageGrid({
   imageUrls,
   alt,
@@ -17357,7 +17360,7 @@ return (
                   </div>
                 </div>
 
-                {!isProfileContentLocked ? (
+                {SHOWCASES_VISIBLE_ON_FEEDS && !isProfileContentLocked ? (
                   <section className="profile-showcases-panel profile-showcases-coming-soon-panel" style={profileShowcasesPanelStyle} data-profile-showcases="true">
                     <h3 style={profileShowcasesTitleStyle}>Showcases</h3>
 
@@ -17424,7 +17427,7 @@ return (
 
                 {/* Profile Strength stays in the public profile-options scroll on mobile/tablet. Desktop keeps the right-rail card. */}
 
-                {isClientMounted && showcaseComposerOpen
+                {SHOWCASES_VISIBLE_ON_FEEDS && isClientMounted && showcaseComposerOpen
                   ? createPortal(
                       (
                   <div
@@ -17851,7 +17854,7 @@ return (
                     )
                   : null}
 
-                {isClientMounted && activeProfileShowcase
+                {SHOWCASES_VISIBLE_ON_FEEDS && isClientMounted && activeProfileShowcase
                   ? createPortal(
                       (
                         <div
