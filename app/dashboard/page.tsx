@@ -12148,26 +12148,30 @@ export default function DashboardPage() {
           }
 
           /* Three actions spread across the post */
-          html body .dashboard-post-actions,
-          html body .profile-polish-surface .profile-post-actions {
-            display: flex !important;
+          html body .dashboard-feed-card .dashboard-post-actions {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
             align-items: center !important;
-            justify-content: space-between !important;
-            width: 100% !important;
+            justify-content: normal !important;
             box-sizing: border-box !important;
+            width: calc(100% + 24px) !important;
+            max-width: none !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            padding: 0 !important;
             gap: 0 !important;
-            padding-left: 12px !important;
-            padding-right: 12px !important;
           }
 
-          html body .dashboard-post-actions > *,
-          html body .profile-polish-surface .profile-post-actions > * {
-            flex: 1 1 0 !important;
-            width: auto !important;
-            min-width: 0 !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
+          html body .dashboard-feed-card .dashboard-post-actions > * {
+            display: flex !important;
+            align-items: center !important;
             justify-content: center !important;
+            box-sizing: border-box !important;
+            flex: none !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            padding: 8px 0 !important;
           }
 
           /* Remove the composer outer floating card */
@@ -12195,10 +12199,9 @@ export default function DashboardPage() {
           }
 
           /* Consistent mobile action icons */
-          html body .dashboard-post-actions svg,
-          html body .profile-polish-surface .profile-post-actions svg {
-            width: 24px !important;
-            height: 24px !important;
+          html body .dashboard-feed-card .dashboard-post-actions svg {
+            width: 20px !important;
+            height: 20px !important;
             flex-shrink: 0 !important;
           }
 

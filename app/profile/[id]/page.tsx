@@ -21804,33 +21804,41 @@ function ProfileStableBottomNav({
 
           /* Three evenly distributed actions */
           html body .profile-polish-surface
+          .profile-feed-list-all-posts
           .profile-post-actions.dashboard-post-actions {
             display: grid !important;
             grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
             align-items: center !important;
-            gap: 0 !important;
-            width: 100% !important;
+            justify-content: normal !important;
             box-sizing: border-box !important;
-            padding: 0 4px !important;
+            width: calc(100% + 24px) !important;
+            max-width: none !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            padding: 0 !important;
+            gap: 0 !important;
           }
 
           /* Match the compact Dashboard action appearance */
           html body .profile-polish-surface
+          .profile-feed-list-all-posts
           .profile-post-actions.dashboard-post-actions > button {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             box-sizing: border-box !important;
-            flex: 1 1 auto !important;
+            flex: none !important;
             width: 100% !important;
             min-width: 0 !important;
             min-height: 44px !important;
-            padding: 8px 3px !important;
+            margin: 0 !important;
+            padding: 8px 0 !important;
             gap: 6px !important;
             font-size: 13px !important;
           }
 
           html body .profile-polish-surface
+          .profile-feed-list-all-posts
           .profile-post-actions.dashboard-post-actions > button svg {
             width: 20px !important;
             height: 20px !important;
