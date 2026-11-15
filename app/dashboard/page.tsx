@@ -13369,7 +13369,7 @@ function ComposerActionPill({
 
 function FeedTabs({ feedMode, setFeedMode }: { feedMode: FeedMode; setFeedMode: (mode: FeedMode) => void }) {
   return (
-    <div className="dashboard-card" style={feedTabsStyle}>
+    <div className="dashboard-card dashboard-feed-tabs-mobile-inset" style={feedTabsStyle}>
       <FeedTab label="For You" active={feedMode === "for_you"} onClick={() => setFeedMode("for_you")} />
       <FeedTab label="Friends" active={feedMode === "friends"} onClick={() => setFeedMode("friends")} />
       <FeedTab label="Following" active={feedMode === "following"} onClick={() => setFeedMode("following")} />
