@@ -1812,6 +1812,9 @@ function getPostImageUrls(post?: Pick<Post, "image_url" | "images"> | null) {
 }
 
 
+// Showcases temporarily hidden on every device.
+const SHOWCASES_VISIBLE_ON_FEEDS = false;
+
 function ProfilePostImageGrid({
   imageUrls,
   alt,
@@ -2547,6 +2550,33 @@ export default function ProfilePage() {
   const [viewerId, setViewerId] = useState("");
   const [viewerEmail, setViewerEmail] = useState("");
   const [viewerAvatarUrl, setViewerAvatarUrl] = useState("");
+  const [viewerNavInitial, setViewerNavInitial] = useState("?");
+
+  useEffect(() => {
+    if (!viewerId) return;
+
+    let cancelled = false;
+
+    void supabase
+      .from("profiles")
+      .select("username, full_name")
+      .eq("id", viewerId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const name = (
+          data?.username || data?.full_name || ""
+        ).trim();
+        setViewerNavInitial(
+          name ? name.charAt(0).toUpperCase() : "?"
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerId]);
+
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [profileThought, setProfileThought] = useState<ProfileThoughtRow | null>(null);
   // v31 desktop thought composer: page-owned state so desktop no longer relies on
@@ -6184,7 +6214,8 @@ useEffect(() => {
                   className="profile-post-action-button"
                   style={{ ...actionButtonStyle, color: "var(--parapost-accent-readable-text)" }}
                   type="button"
-                  aria-pressed={true}
+                  onClick={() => setOpenCommentsPostId(null)}
+                    aria-pressed={true}
                 >
                   <CommentIcon />
                   <span>Comment</span>
@@ -7321,6 +7352,146 @@ useEffect(() => {
     (!profile || !profileHasEditedBasics || !profileHasFirstPost);
   const profileStarterCompletedCount = [profileHasEditedBasics, profileHasFirstPost].filter(Boolean).length;
   const profileStarterPercent = Math.round((profileStarterCompletedCount / 2) * 100);
+
+  // PARAPOST PROFILE PROGRESSIVE FEED v2
+  // Mobile/tablet rendering; earlier cards stay mounted.
+  const [profileMobileProgressive, setProfileMobileProgressive] =
+    useState(true);
+  const [profileVisibleFeedCount, setProfileVisibleFeedCount] =
+    useState(12);
+  const profileHashJumpRef = useRef("");
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1180px)");
+    const sync = () => setProfileMobileProgressive(query.matches);
+
+    sync();
+    query.addEventListener?.("change", sync);
+    return () => query.removeEventListener?.("change", sync);
+  }, []);
+
+  useEffect(() => {
+    setProfileVisibleFeedCount(12);
+    profileHashJumpRef.current = "";
+  }, [profileId]);
+
+  // Ensure links to older Profile posts can reveal their target.
+  useEffect(() => {
+    const revealHash = () => {
+      const hash = window.location.hash.slice(1);
+
+      if (!hash.startsWith("profile-post-")) return;
+
+      const postId = hash.slice("profile-post-".length);
+
+      const index = profileFeedItems.findIndex(
+        (item) =>
+          item.feedKind === "post" &&
+          String(item.id) === postId
+      );
+
+      if (index >= 0 && profileMobileProgressive) {
+        setProfileVisibleFeedCount((current) =>
+          Math.max(current, index + 1)
+        );
+      }
+    };
+
+    window.addEventListener("hashchange", revealHash);
+    revealHash();
+
+    return () => window.removeEventListener(
+      "hashchange",
+      revealHash
+    );
+  }, [profileId, profileFeedItems, profileMobileProgressive]);
+
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash.startsWith("profile-post-")) return;
+
+    const navigationKey = `${profileId}:${hash}`;
+    if (profileHashJumpRef.current === navigationKey) return;
+
+    const target = document.getElementById(hash);
+
+    if (target) {
+      target.scrollIntoView({
+        behavior: "auto",
+        block: "start",
+      });
+      profileHashJumpRef.current = navigationKey;
+    }
+  }, [
+    profileId,
+    profileVisibleFeedCount,
+    profileFeedItems.length,
+    profileMobileProgressive,
+  ]);
+
+  // Append more posts only when approaching the feed's end.
+  useEffect(() => {
+    if (
+      !profileMobileProgressive ||
+      profileVisibleFeedCount >= profileFeedItems.length
+    ) return;
+
+    let frame: number | null = null;
+
+    const check = () => {
+      const feed = document.querySelector(
+        ".profile-feed-list-all-posts"
+      );
+
+      if (!feed || feed.getClientRects().length === 0) return;
+
+      if (
+        feed.getBoundingClientRect().bottom <=
+        window.innerHeight + 900
+      ) {
+        setProfileVisibleFeedCount((current) =>
+          Math.min(profileFeedItems.length, current + 8)
+        );
+      }
+    };
+
+    const schedule = () => {
+      if (frame !== null) return;
+
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        check();
+      });
+    };
+
+    window.addEventListener("scroll", schedule, {
+      passive: true,
+    });
+    document.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
+
+    schedule();
+
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      document.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("resize", schedule);
+
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [
+    profileMobileProgressive,
+    profileVisibleFeedCount,
+    profileFeedItems.length,
+    profileId,
+  ]);
+
+  const visibleProfileFeedItems = profileMobileProgressive
+    ? profileFeedItems.slice(0, profileVisibleFeedCount)
+    : profileFeedItems;
+
   const profileSmoothLoadClass = profileIsReady
     ? "profile-data-ready"
     : "profile-data-waiting";
@@ -7355,6 +7526,7 @@ useEffect(() => {
     ? "Unlocked achievement"
     : "Locked achievement";
 
+  const PROFILE_EVENTS_VISIBLE = false;
   const profileTabItems = [
     {
       value: "Posts",
@@ -7400,7 +7572,7 @@ useEffect(() => {
       detail: "Coming soon",
       summary: "Events are prepared for a future Parapost Network profile update.",
     },
-  ];
+  ].filter((tab) => PROFILE_EVENTS_VISIBLE || tab.value !== "Events");
   const featuredProfileBadge = profileBadges[0] || null;
   const otherProfileBadges = profileBadges.slice(1, 5);
   const remainingOtherProfileBadgeCount = Math.max(
@@ -13340,6 +13512,177 @@ return (
 
 
 
+
+
+      /* PROFILE GROUPS-SIZED TABS v4 */
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-shell {
+        box-sizing: border-box !important;
+        width: calc(100% - 24px) !important;
+        max-width: calc(100% - 24px) !important;
+        margin: 12px auto 18px !important;
+        padding: 6px !important;
+        border: 1px solid rgba(168,120,215,0.14) !important;
+        border-radius: 25px !important;
+        background: linear-gradient(
+          110deg,
+          rgba(42,30,57,0.97),
+          rgba(29,23,39,0.97)
+        ) !important;
+        overflow: hidden !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 44px !important;
+        gap: 6px !important;
+        margin: 0 !important;
+        padding: 4px !important;
+        border: 0 !important;
+        background: transparent !important;
+        overflow-x: auto !important;
+        scrollbar-width: none !important;
+        box-sizing: border-box !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop::-webkit-scrollbar {
+        display: none !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button {
+        display: flex !important;
+        flex: 1 0 auto !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: auto !important;
+        min-width: max-content !important;
+        max-width: none !important;
+        min-height: 44px !important;
+        margin: 0 !important;
+        padding: 0 18px !important;
+        gap: 0 !important;
+        border: 0 !important;
+        border-radius: 19px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #d6d2df !important;
+        font-family: inherit !important;
+        font-size: clamp(12px, 3.15vw, 15px) !important;
+        font-weight: 760 !important;
+        line-height: 1.25 !important;
+        letter-spacing: -0.02em !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+        box-sizing: border-box !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button span,
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button strong {
+        font-family: inherit !important;
+        font-size: clamp(12px, 3.15vw, 15px) !important;
+        font-weight: inherit !important;
+        line-height: inherit !important;
+        letter-spacing: inherit !important;
+        color: inherit !important;
+        white-space: nowrap !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button small {
+        display: none !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button[aria-pressed="true"] {
+        color: #fff !important;
+        background: linear-gradient(
+          180deg,
+          rgba(102,64,137,0.55),
+          rgba(54,35,76,0.88)
+        ) !important;
+        box-shadow: inset 0 -3px 0 #b65bf0 !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button[aria-pressed="true"]::after {
+        display: none !important;
+        content: none !important;
+      }
+
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-desktop button:focus-visible {
+        outline: 2px solid #c38cf5 !important;
+        outline-offset: -3px !important;
+      }
+
+      @media (max-width: 720px) {
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-desktop {
+          min-height: 44px !important;
+        }
+
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-desktop button {
+          min-height: 44px !important;
+          padding: 0 14px !important;
+        }
+      }
+
+      /* PROFILE TAB DASHBOARD MATCH v7 */
+      html body .profile-tabs-mobile-cutoff-v22
+      .profile-tabs-shell .profile-tabs-desktop
+      > button > .profile-tab-main-label-v5 {
+        font-size: clamp(12px, 3.15vw, 15px) !important;
+        font-weight: 760 !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+      }
+
+      @media (max-width: 720px) {
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-shell .profile-tabs-desktop {
+          display: grid !important;
+          grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+          width: 100% !important;
+          gap: 2px !important;
+          padding: 2px !important;
+          overflow-x: hidden !important;
+        }
+
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-shell .profile-tabs-desktop > button {
+          display: flex !important;
+          flex: initial !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          min-height: 44px !important;
+          padding: 0 2px !important;
+          justify-content: center !important;
+          align-items: center !important;
+        }
+
+        html body .profile-tabs-mobile-cutoff-v22
+        .profile-tabs-shell .profile-tabs-desktop
+        > button > .profile-tab-main-label-v5 {
+          font-size: clamp(12px, 3.15vw, 15px) !important;
+          font-weight: 760 !important;
+        }
+      }
+
       /* Step 53: stabilize + New Showcase hover so it glows without lifting into the Showcases heading. */
       .profile-showcases-row button[aria-label="Create a new Showcase"]:hover,
       .profile-showcases-row button[aria-label="Create a new Showcase"]:focus-visible {
@@ -17310,7 +17653,7 @@ return (
                   </div>
                 </div>
 
-                {!isProfileContentLocked ? (
+                {SHOWCASES_VISIBLE_ON_FEEDS && !isProfileContentLocked ? (
                   <section className="profile-showcases-panel profile-showcases-coming-soon-panel" style={profileShowcasesPanelStyle} data-profile-showcases="true">
                     <h3 style={profileShowcasesTitleStyle}>Showcases</h3>
 
@@ -17377,7 +17720,7 @@ return (
 
                 {/* Profile Strength stays in the public profile-options scroll on mobile/tablet. Desktop keeps the right-rail card. */}
 
-                {isClientMounted && showcaseComposerOpen
+                {SHOWCASES_VISIBLE_ON_FEEDS && isClientMounted && showcaseComposerOpen
                   ? createPortal(
                       (
                   <div
@@ -17804,7 +18147,7 @@ return (
                     )
                   : null}
 
-                {isClientMounted && activeProfileShowcase
+                {SHOWCASES_VISIBLE_ON_FEEDS && isClientMounted && activeProfileShowcase
                   ? createPortal(
                       (
                         <div
@@ -18613,7 +18956,8 @@ return (
 
                 {!isProfileContentLocked ? (
                   <div className="profile-tabs-shell" style={profileTabsShellStyle}>
-                    <div className="profile-tabs-desktop" style={profileTabsStyle}>
+
+                      <div className="profile-tabs-desktop" style={profileTabsStyle}>
                     {profileTabItems.map((tab) => {
                       const isActive = activeProfileTab === tab.value;
 
@@ -18626,7 +18970,7 @@ return (
                           aria-pressed={isActive}
                           data-active={isActive ? "true" : "false"}
                         >
-                          <span style={profileTabLabelStyle}>{tab.label}</span>
+                          <span className="profile-tab-main-label-v5" style={{ ...profileTabLabelStyle, fontSize: "clamp(12px, 3.15vw, 15px)", fontWeight: 760, letterSpacing: "-0.02em", lineHeight: 1.2 }}>{tab.label}</span>
                           <small style={isActive ? profileActiveTabDetailStyle : profileTabDetailStyle}>
                             {tab.detail}
                           </small>
@@ -19042,7 +19386,7 @@ return (
                     </div>
                   ) : (
                     <div className="profile-feed-stack profile-feed-list-all-posts" style={feedStackStyle}>
-                      {profileFeedItems.map((item) => {
+                      {visibleProfileFeedItems.map((item) => {
                         if (item.feedKind === "live_stream") {
                           const effectiveStatus = getProfileEffectiveLiveStatus(item);
                           const isLive = effectiveStatus === "live";
@@ -19442,7 +19786,7 @@ return (
                                 event.currentTarget.style.boxShadow = "0 16px 40px rgba(0,0,0,0.26)";
                               }}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
@@ -19555,7 +19899,7 @@ return (
                               className="profile-feed-card profile-achievement-feed-card"
                               style={profileAchievementTimelineCardStyle}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={postAuthorTextStyle}>
                                   <strong style={postAuthorNameStyle}>
                                     {profileDisplayName || "Parapost Member"}
@@ -19615,7 +19959,7 @@ return (
                               className="profile-feed-card profile-achievement-feed-card"
                               style={profileAchievementTimelineCardStyle}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
@@ -19700,7 +20044,7 @@ return (
                                 event.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.20)";
                               }}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
@@ -19787,7 +20131,7 @@ return (
                                 event.currentTarget.style.boxShadow = "0 16px 40px rgba(0,0,0,0.26)";
                               }}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
@@ -19858,7 +20202,16 @@ return (
                               </div>
 
                               {originalPostLikeCount > 0 || originalPostCommentCount > 0 || originalPostShareCount > 0 ? (
-                                <div style={profilePostStatsSummaryStyle}>
+                                <div className="profile-clean-stats"
+style={profileMobileProgressive
+  ? {
+      ...profilePostStatsSummaryStyle,
+      border: "none",
+      borderTop: "none",
+      borderBottom: "none",
+      boxShadow: "none",
+    }
+  : profilePostStatsSummaryStyle}>
                                   {originalPostLikeCount > 0 ? (
                                     <button
                                       type="button"
@@ -19895,7 +20248,15 @@ return (
                                 </div>
                               ) : null}
 
-                              <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
+                              <div className="profile-post-actions dashboard-post-actions" style={profileMobileProgressive
+  ? {
+      ...postActionsRowStyle,
+      border: "none",
+      borderTop: "none",
+      borderBottom: "none",
+      boxShadow: "none",
+    }
+  : postActionsRowStyle}>
                                 <button
                                   className={`profile-post-action-button profile-post-like-button ${originalPostLiked ? "profile-post-like-button-active" : ""}`}
                                   onClick={() => handleLikeToggle(originalPost.id, item.id)}
@@ -19930,7 +20291,7 @@ return (
                               </div>
 
                               {openCommentsPostId === sharedContextKey
-                                ? renderProfileCommentsPanel(
+                                ? createPortal(renderProfileCommentsPanel(
                                     originalPost,
                                     item.user_id,
                                     originalCreator,
@@ -19939,7 +20300,7 @@ return (
                                     originalPostCommentCount,
                                     originalPostShareCount,
                                     item.id,
-                                  )
+                                  ), document.body)
                                 : null}
                             </article>
                           );
@@ -19971,7 +20332,7 @@ return (
                               event.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.20)";
                             }}
                           >
-                            <header style={postHeaderStyle}>
+                            <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                               <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                 {profile?.avatar_url ? (
                                   <span style={postAuthorAvatarImageClipStyle}>
@@ -20123,7 +20484,16 @@ return (
                             <ProfilePostImageGrid imageUrls={getPostImageUrls(post)} alt="Post image" onOpenImage={openProfilePostImageViewer} />
 
                             {likeCount > 0 || commentCount > 0 || shareCount > 0 ? (
-                              <div style={profilePostStatsSummaryStyle}>
+                              <div className="profile-clean-stats"
+style={profileMobileProgressive
+  ? {
+      ...profilePostStatsSummaryStyle,
+      border: "none",
+      borderTop: "none",
+      borderBottom: "none",
+      boxShadow: "none",
+    }
+  : profilePostStatsSummaryStyle}>
                                 {likeCount > 0 ? (
                                   <button
                                     type="button"
@@ -20157,7 +20527,15 @@ return (
                               </div>
                             ) : null}
 
-                            <div className="profile-post-actions dashboard-post-actions" style={postActionsRowStyle}>
+                            <div className="profile-post-actions dashboard-post-actions" style={profileMobileProgressive
+  ? {
+      ...postActionsRowStyle,
+      border: "none",
+      borderTop: "none",
+      borderBottom: "none",
+      boxShadow: "none",
+    }
+  : postActionsRowStyle}>
                               <button
                                 className={`profile-post-action-button profile-post-like-button ${liked ? "profile-post-like-button-active" : ""}`}
                                 onClick={() => handleLikeToggle(post.id)}
@@ -20192,7 +20570,7 @@ return (
                             </div>
 
                             {openCommentsPostId === post.id
-                              ? renderProfileCommentsPanel(
+                              ? createPortal(renderProfileCommentsPanel(
                                   post,
                                   post.user_id,
                                   profile,
@@ -20200,7 +20578,7 @@ return (
                                   likeCount,
                                   commentCount,
                                   shareCount,
-                                )
+                                ), document.body)
                               : null}
                           </article>
                         );
@@ -20942,6 +21320,7 @@ return (
         <ProfileStableBottomNav
           viewerId={viewerId}
           avatarUrl={viewerAvatarUrl}
+          avatarInitial={viewerNavInitial}
           onCreatePost={handleMobileCreatePostClick}
         />
       ) : null}
@@ -20953,10 +21332,12 @@ return (
 function ProfileStableBottomNav({
   viewerId,
   avatarUrl,
+  avatarInitial,
   onCreatePost,
 }: {
   viewerId: string;
   avatarUrl: string;
+  avatarInitial: string;
   onCreatePost: () => void;
 }) {
   const profileHref = viewerId ? `/profile/${viewerId}` : "/dashboard";
@@ -20974,7 +21355,7 @@ function ProfileStableBottomNav({
 
   const navigation = (
     <>
-      <nav
+      <nav data-parapost-edge-nav="true"
         className="profile-stable-bottom-nav"
         aria-label="Primary bottom navigation"
         style={profileStableBottomNavStyle}
@@ -21005,10 +21386,11 @@ function ProfileStableBottomNav({
           onClick={onCreatePost}
           style={profileStableCreateButtonStyle}
         >
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <span style={profileStableBottomNavIconStyle}><svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
-        </button>
+          </svg></span>
+            <span className="parapost-nav-create-spacer" style={profileStableBottomNavLabelStyle} aria-hidden="true">Create</span>
+          </button>
 
         <Link href="/messages" aria-label="Parachat" style={profileStableBottomNavItemStyle}>
           <span style={{ ...profileStableBottomNavIconStyle, position: "relative", fontSize: 22, lineHeight: 1 }}>
@@ -21027,10 +21409,7 @@ function ProfileStableBottomNav({
             {avatarUrl ? (
               <img src={avatarUrl} alt="" style={profileStableBottomNavAvatarStyle} />
             ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-                <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+              <span className="parapost-nav-avatar-fallback">{avatarInitial || "?"}</span>
             )}
           </span>
           <span style={profileStableBottomNavLabelStyle}>Profile</span>
@@ -21662,7 +22041,282 @@ function ProfileStableBottomNav({
         }
 
 
-        /* === FINAL FEED SPACING TIGHTENING v2 === */
+
+        /* === PARAPOST MOBILE EDGE-TO-EDGE POSTS v1 === */
+        @media (max-width: 760px) {
+          html body .dashboard-card.dashboard-feed-card,
+          html body .profile-polish-surface .profile-feed-card {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            outline: 0 !important;
+            padding: 12px !important;
+            margin-bottom: 0 !important;
+            transform: none !important;
+          }
+
+          html body .dashboard-card.dashboard-feed-card:hover,
+          html body .profile-polish-surface .profile-feed-card:hover {
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            transform: none !important;
+          }
+
+          html body .dashboard-card.dashboard-feed-card::before,
+          html body .profile-polish-surface .profile-feed-card::before {
+            display: none !important;
+            content: none !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          html body .dashboard-card.dashboard-feed-card,
+          html body .profile-polish-surface .profile-feed-card {
+            padding: 11px !important;
+          }
+        }
+
+
+        /* === PARAPOST PROFILE MOBILE FEED v5 === */
+        @media (max-width: 760px) {
+
+          /* Flat, continuous Profile feed */
+          html body .profile-polish-surface .profile-feed-list-all-posts {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            max-width: none !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          /* Full-width Profile posts with thin dividers */
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article {
+            box-sizing: border-box !important;
+            width: 100vw !important;
+            max-width: 100vw !important;
+            margin-left: calc(50% - 50vw) !important;
+            margin-right: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding: 12px 12px 16px !important;
+            border: 0 !important;
+            border-bottom: 3px solid #291a35 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            outline: 0 !important;
+            background: transparent !important;
+            transform: none !important;
+          }
+
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article::before {
+            display: none !important;
+            content: none !important;
+          }
+
+          /* Three evenly distributed actions */
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts
+          .profile-post-actions.dashboard-post-actions {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            align-items: center !important;
+            justify-content: normal !important;
+            box-sizing: border-box !important;
+            width: calc(100% + 24px) !important;
+            max-width: none !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            padding: 0 !important;
+            gap: 0 !important;
+          }
+
+          /* Match the compact Dashboard action appearance */
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts
+          .profile-post-actions.dashboard-post-actions > button {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+            flex: none !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 44px !important;
+            margin: 0 !important;
+            padding: 8px 0 !important;
+            gap: 6px !important;
+            font-size: 13px !important;
+          }
+
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts
+          .profile-post-actions.dashboard-post-actions > button svg {
+            width: 20px !important;
+            height: 20px !important;
+            flex-shrink: 0 !important;
+          }
+
+  /* Remove extra spacing and duplicate separation */
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+    border-top: 0 !important;
+  }
+
+  /* Align the Profile feed with the phone viewport */
+  html body .profile-polish-surface .profile-feed-list-all-posts {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin-left: calc(50% - 50vw) !important;
+    margin-right: 0 !important;
+  }
+
+
+          /* PROFILE EDGE-TO-EDGE MEDIA */
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article > .profile-post-image,
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article > .profile-post-image-grid {
+            box-sizing: border-box !important;
+            width: calc(100% + 24px) !important;
+            max-width: none !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
+
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article > .profile-post-image {
+            display: block !important;
+          }
+
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article > .profile-post-image-grid {
+            padding: 0 !important;
+          }
+
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article
+          .profile-post-image-grid > div,
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts > article
+          .profile-post-media-item {
+            border-radius: 0 !important;
+          }
+
+
+          /* PARAPOST COMMENTS VIEWPORT REPAIR v1 */
+          html body .parapost-comments-overlay,
+          html body .profile-comments-overlay {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            width: 100% !important;
+            height: 100dvh !important;
+            max-width: none !important;
+            overflow: hidden !important;
+            background: #090b13 !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-sizing: border-box !important;
+          }
+
+          html body .parapost-comments-overlay-shell,
+          html body .profile-comments-overlay-shell {
+            position: relative !important;
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+          }
+
+          html body .parapost-comments-overlay-scroll,
+          html body .profile-comments-overlay-scroll {
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+          }
+
+          html body .parapost-comments-overlay-composer,
+          html body .profile-comments-overlay-composer {
+            position: relative !important;
+            bottom: auto !important;
+            flex: 0 0 auto !important;
+            padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+          }
+
+          html body .parapost-comments-overlay-composer textarea,
+          html body .profile-comments-overlay-composer textarea {
+            font-size: 16px !important;
+            min-width: 0 !important;
+          }
+
+          /* Slightly wider but symmetrical action spacing */
+          html body .dashboard-feed-card .dashboard-post-actions,
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts
+          .profile-post-actions.dashboard-post-actions,
+          html body .parapost-comments-overlay .dashboard-post-actions,
+          html body .profile-comments-overlay
+          .profile-post-actions.dashboard-post-actions {
+            display: grid !important;
+            grid-template-columns: 28% 44% 28% !important;
+            align-items: center !important;
+            gap: 0 !important;
+          }
+
+
+          /* PARAPOST COMMENTS CONTENT VISIBILITY v2 */
+
+          /* Keep large media from hiding the comments section */
+          html body .parapost-comments-overlay-post
+          > :not(.dashboard-post-header) :is(img, video),
+          html body .parapost-comments-overlay-post
+          > :is(img, video),
+          html body .profile-comments-overlay-post
+          > :not(header) :is(img, video),
+          html body .profile-comments-overlay-post
+          > :is(img, video) {
+            display: block !important;
+            height: auto !important;
+            max-height: 38dvh !important;
+            object-fit: contain !important;
+          }
+
+          /* Keep comments and counts accessible above the composer */
+          html body .parapost-comments-overlay-scroll,
+          html body .profile-comments-overlay-scroll {
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            padding-bottom: 20px !important;
+            scroll-padding-bottom: 24px !important;
+          }
+
+          html body .parapost-comments-overlay-scroll > section,
+          html body .profile-comments-overlay-scroll > section {
+            min-height: 90px !important;
+            padding-bottom: 24px !important;
+            box-sizing: border-box !important;
+          }
+
+        }
+
+/* === FINAL FEED SPACING TIGHTENING v2 === */
         @media (min-width: 1181px) {
           .dashboard-feed-card,
           .profile-feed-card {

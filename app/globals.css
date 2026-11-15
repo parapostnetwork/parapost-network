@@ -660,3 +660,301 @@ main {
     padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
   }
 }
+
+
+/* PARAPOST FULL WIDTH NAVIGATION v2
+   Phones and tablets only.
+   No desktop changes.
+*/
+
+@media (max-width: 1180px) {
+
+  html body nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"][data-parapost-edge-nav="true"] {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: center !important;
+    justify-items: stretch !important;
+
+    position: fixed !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    height: calc(65px + env(safe-area-inset-bottom)) !important;
+    min-height: calc(65px + env(safe-area-inset-bottom)) !important;
+
+    margin: 0 !important;
+    padding: 3px 0 env(safe-area-inset-bottom) !important;
+    gap: 0 !important;
+
+    border-radius: 0 !important;
+    border: 0 !important;
+    border-top: 1px solid rgba(165, 120, 220, 0.25) !important;
+
+    background: #101017 !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+
+    transform: none !important;
+    overflow: visible !important;
+    z-index: 2147483000 !important;
+    box-sizing: border-box !important;
+    pointer-events: auto !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"] > a,
+  html body nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"] > button {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 58px !important;
+    min-height: 58px !important;
+
+    margin: 0 !important;
+    padding: 3px 1px !important;
+    transform: none !important;
+    flex: none !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Plain plus icon, no circular background */
+  html body nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"] {
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    aspect-ratio: auto !important;
+    color: #e8d6ff !important;
+    justify-content: center !important;
+    padding-top: 3px !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"]::before,
+  html body nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"]::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"] :is(span, div) {
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    transform: none !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"] svg {
+    width: 24px !important;
+    height: 24px !important;
+    transform: none !important;
+  }
+
+  /* Current account avatar */
+  html body nav[data-parapost-edge-nav="true"]
+  > a:last-child img {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+  }
+
+  /* Remove tablet floating-container margins */
+  html body .profile-tablet-nav-fixed-layer.profile-tablet-nav-fixed-layer {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  /* Prevent the bar from covering the last content */
+  html body:has(nav[data-parapost-edge-nav="true"]) {
+    padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+
+/* PARAPOST NAV FINISH v3 — mobile and tablet only */
+@media (max-width: 1180px) {
+
+  html body nav[data-parapost-edge-nav="true"]
+  .parapost-nav-create-spacer {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html body nav[data-parapost-edge-nav="true"]
+  .parapost-nav-avatar-fallback {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #9e55f2, #593b9c) !important;
+    color: #fff !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    overflow: hidden !important;
+  }
+}
+
+
+/* PARAPOST PLUS ALIGNMENT v4
+   Phones and tablets only. Desktop unchanged.
+*/
+@media (max-width: 1180px) {
+  html body
+  nav[data-parapost-edge-nav="true"]
+  > button[aria-label="Create post"]
+  > span:first-child {
+    position: relative !important;
+    top: 9px !important;
+    transform: none !important;
+  }
+}
+
+
+/* PARAPOST PROFILE CARD PAINT STABILITY v1
+   Avoid hidden-backface compositing on scrolling Profile cards.
+   Mobile and tablet only.
+*/
+@media (max-width: 1180px) {
+  html body .profile-polish-surface .profile-feed-card {
+    backface-visibility: visible !important;
+    -webkit-backface-visibility: visible !important;
+  }
+}
+
+
+/* PARAPOST PROFILE ACTION DIVIDER REMOVAL v1
+   Remove the faint line above Like, Comment and Share.
+   Preserve separators between posts.
+*/
+@media (max-width: 1180px) {
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts
+  .profile-post-actions.dashboard-post-actions {
+    border-top: none !important;
+    border-top-width: 0 !important;
+  }
+}
+
+
+/* PARAPOST PROFILE INTERNAL DIVIDERS v2
+   Remove grey lines inside posts while preserving
+   the purple separators BETWEEN posts.
+*/
+@media (max-width: 1180px) {
+  html body .profile-feed-list-all-posts
+  .profile-clean-stats,
+  html body .profile-feed-list-all-posts
+  .profile-post-actions.dashboard-post-actions {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html body .profile-feed-list-all-posts
+  .profile-post-image-grid,
+  html body .profile-feed-list-all-posts
+  .profile-post-image {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+  }
+}
+
+
+/* PARAPOST DASHBOARD PROFILE DIVIDERS v2
+   Remove internal lines only.
+   Keep purple borders between post cards.
+*/
+@media (max-width: 1180px) {
+
+  /* Dashboard: Like, Comment, Share */
+  html body .dashboard-card.dashboard-feed-card
+  .dashboard-post-actions {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Dashboard: row immediately above actions */
+  html body .dashboard-card.dashboard-feed-card
+  > :has(+ .dashboard-post-actions) {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Profile: engagement counts */
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts .profile-clean-stats {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Profile: Like, Comment, Share */
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts
+  .profile-post-actions {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Profile: immediately preceding action row */
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts
+  .profile-feed-card
+  > :has(+ .profile-post-actions) {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+
+/* PARAPOST PROFILE HEADER DIVIDER FIX v1
+   Remove line beneath post avatar/name/menu.
+   Keep post separators and action icons unchanged.
+*/
+@media (max-width: 1180px) {
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts
+  .profile-feed-card
+  > header.profile-feed-header-no-divider {
+    border-bottom: 0 !important;
+    border-block-end: 0 !important;
+    box-shadow: none !important;
+  }
+}

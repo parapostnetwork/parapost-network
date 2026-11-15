@@ -6172,13 +6172,15 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <ShowcaseQuickActions
-              currentProfile={currentProfile}
-              currentUserId={currentUserId}
-              friendShowcases={friendShowcases}
-              onCreateShowcase={handleOpenDashboardShowcaseComposer}
-              onOpenShowcase={setSelectedDashboardShowcase}
-            />
+            {SHOWCASES_VISIBLE_ON_FEEDS ? (
+              <ShowcaseQuickActions
+                currentProfile={currentProfile}
+                currentUserId={currentUserId}
+                friendShowcases={friendShowcases}
+                onCreateShowcase={handleOpenDashboardShowcaseComposer}
+                onOpenShowcase={setSelectedDashboardShowcase}
+              />
+            ) : null}
 
             <ComposerCard
               composerRef={mainComposerRef}
@@ -6532,7 +6534,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {showcaseComposerOpen ? (
+      {SHOWCASES_VISIBLE_ON_FEEDS && showcaseComposerOpen ? (
         <DashboardShowcaseComposerModal
           currentProfile={currentProfile}
           title={dashboardShowcaseTitle}
@@ -6570,7 +6572,7 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      {selectedDashboardShowcase ? (
+      {SHOWCASES_VISIBLE_ON_FEEDS && selectedDashboardShowcase ? (
         <DashboardShowcaseViewerModal
           showcase={selectedDashboardShowcase}
           showcases={friendShowcases}
@@ -6602,7 +6604,30 @@ export default function DashboardPage() {
         }}
       />
 
-      <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} parachatUnreadCount={parachatUnreadCount} onCreatePost={scrollToComposer} />
+      <MobileBottomNav currentUserId={currentUserId} avatarUrl={currentProfile?.avatar_url || ""} avatarInitial={(currentProfile?.username || "?").trim().charAt(0).toUpperCase()} parachatUnreadCount={parachatUnreadCount} onCreatePost={() => {
+          const candidates = document.querySelectorAll<HTMLElement>(
+            'textarea, input, [contenteditable="true"], [role="textbox"]'
+          );
+
+          const composer = Array.from(candidates).find((element) => {
+            const description = [
+              element.getAttribute("placeholder"),
+              element.getAttribute("aria-label"),
+              element.getAttribute("data-placeholder"),
+            ].filter(Boolean).join(" ").toLowerCase();
+
+            return description.includes("on your mind");
+          });
+
+          const destination = composer
+            ? window.scrollY + composer.getBoundingClientRect().top - 112
+            : 0;
+
+          window.scrollTo({
+            top: Math.max(0, destination),
+            behavior: "instant",
+          });
+        }} />
 
       <DashboardLikesModal
         target={likeListTarget}
@@ -12005,7 +12030,274 @@ export default function DashboardPage() {
         }
 
 
-        /* === FINAL FEED SPACING TIGHTENING v2 === */
+
+        /* === PARAPOST MOBILE EDGE-TO-EDGE POSTS v1 === */
+        @media (max-width: 760px) {
+          html body .dashboard-card.dashboard-feed-card,
+          html body .profile-polish-surface .profile-feed-card {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            outline: 0 !important;
+            padding: 12px !important;
+            margin-bottom: 0 !important;
+            transform: none !important;
+          }
+
+          html body .dashboard-card.dashboard-feed-card:hover,
+          html body .profile-polish-surface .profile-feed-card:hover {
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            transform: none !important;
+          }
+
+          html body .dashboard-card.dashboard-feed-card::before,
+          html body .profile-polish-surface .profile-feed-card::before {
+            display: none !important;
+            content: none !important;
+          }
+        }
+
+        @media (max-width: 410px) {
+          html body .dashboard-card.dashboard-feed-card,
+          html body .profile-polish-surface .profile-feed-card {
+            padding: 11px !important;
+          }
+        }
+
+
+        /* === PARAPOST MOBILE FEED REFINEMENTS v4 === */
+        @media (max-width: 760px) {
+
+          /* Full-width, clearly separated posts */
+          html body .dashboard-card.dashboard-feed-card,
+          html body .profile-polish-surface .profile-feed-card {
+            box-sizing: border-box !important;
+            width: 100vw !important;
+            max-width: none !important;
+            margin-left: calc(50% - 50vw) !important;
+            margin-right: calc(50% - 50vw) !important;
+            margin-bottom: 0 !important;
+            border: 0 !important;
+            border-bottom: 3px solid #291a35 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            padding: 12px 12px 16px !important;
+          }
+
+          /* Three actions spread across the post */
+          html body .dashboard-feed-card .dashboard-post-actions {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            align-items: center !important;
+            justify-content: normal !important;
+            box-sizing: border-box !important;
+            width: calc(100% + 24px) !important;
+            max-width: none !important;
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            padding: 0 !important;
+            gap: 0 !important;
+          }
+
+          html body .dashboard-feed-card .dashboard-post-actions > * {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+            flex: none !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            padding: 8px 0 !important;
+          }
+
+          /* Remove the composer outer floating card */
+          html body .dashboard-main-column .dashboard-composer-card {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+
+          /* Flatten direct Dashboard section cards */
+          html body .dashboard-main-column > .dashboard-card:not(.dashboard-feed-card) {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+
+          /* Remove the nested Showcases placeholder box */
+          html body .dashboard-showcase-scroller > div {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+
+          /* Consistent mobile action icons */
+          html body .dashboard-feed-card .dashboard-post-actions svg {
+            width: 20px !important;
+            height: 20px !important;
+            flex-shrink: 0 !important;
+          }
+
+          /* Remove ONLY the outer mobile navigation box */
+          html body .dashboard-mobile-header {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            outline: none !important;
+            background: transparent !important;
+          }
+
+          html body .dashboard-mobile-header::before {
+            display: none !important;
+            content: none !important;
+          }
+
+          /* Flatten and widen Showcase and composer sections */
+          html body .dashboard-main-column .dashboard-showcase-row,
+          html body .dashboard-main-column .dashboard-composer-card {
+            box-sizing: border-box !important;
+            width: 100vw !important;
+            max-width: 100vw !important;
+            margin-left: calc(50% - 50vw) !important;
+            margin-right: calc(50% - 50vw) !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+
+
+          /* Remove remaining outer Dashboard mobile gutters */
+          html body .dashboard-shell-pad {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
+
+          html body .dashboard-grid-desktop-safe,
+          html body .dashboard-main-column {
+            width: 100% !important;
+            max-width: none !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
+
+
+          /* PARAPOST COMMENTS VIEWPORT REPAIR v1 */
+          html body .parapost-comments-overlay,
+          html body .profile-comments-overlay {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            width: 100% !important;
+            height: 100dvh !important;
+            max-width: none !important;
+            overflow: hidden !important;
+            background: #090b13 !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-sizing: border-box !important;
+          }
+
+          html body .parapost-comments-overlay-shell,
+          html body .profile-comments-overlay-shell {
+            position: relative !important;
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+          }
+
+          html body .parapost-comments-overlay-scroll,
+          html body .profile-comments-overlay-scroll {
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+          }
+
+          html body .parapost-comments-overlay-composer,
+          html body .profile-comments-overlay-composer {
+            position: relative !important;
+            bottom: auto !important;
+            flex: 0 0 auto !important;
+            padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+          }
+
+          html body .parapost-comments-overlay-composer textarea,
+          html body .profile-comments-overlay-composer textarea {
+            font-size: 16px !important;
+            min-width: 0 !important;
+          }
+
+          /* Slightly wider but symmetrical action spacing */
+          html body .dashboard-feed-card .dashboard-post-actions,
+          html body .profile-polish-surface
+          .profile-feed-list-all-posts
+          .profile-post-actions.dashboard-post-actions,
+          html body .parapost-comments-overlay .dashboard-post-actions,
+          html body .profile-comments-overlay
+          .profile-post-actions.dashboard-post-actions {
+            display: grid !important;
+            grid-template-columns: 28% 44% 28% !important;
+            align-items: center !important;
+            gap: 0 !important;
+          }
+
+
+          /* PARAPOST COMMENTS CONTENT VISIBILITY v2 */
+
+          /* Keep large media from hiding the comments section */
+          html body .parapost-comments-overlay-post
+          > :not(.dashboard-post-header) :is(img, video),
+          html body .parapost-comments-overlay-post
+          > :is(img, video),
+          html body .profile-comments-overlay-post
+          > :not(header) :is(img, video),
+          html body .profile-comments-overlay-post
+          > :is(img, video) {
+            display: block !important;
+            height: auto !important;
+            max-height: 38dvh !important;
+            object-fit: contain !important;
+          }
+
+          /* Keep comments and counts accessible above the composer */
+          html body .parapost-comments-overlay-scroll,
+          html body .profile-comments-overlay-scroll {
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            padding-bottom: 20px !important;
+            scroll-padding-bottom: 24px !important;
+          }
+
+          html body .parapost-comments-overlay-scroll > section,
+          html body .profile-comments-overlay-scroll > section {
+            min-height: 90px !important;
+            padding-bottom: 24px !important;
+            box-sizing: border-box !important;
+          }
+
+        }
+
+/* === FINAL FEED SPACING TIGHTENING v2 === */
         @media (min-width: 1181px) {
           .dashboard-feed-card,
           .profile-feed-card {
@@ -12343,6 +12635,9 @@ function MobileDashboardHeader({
     </header>
   );
 }
+
+// Showcases temporarily hidden on every device.
+const SHOWCASES_VISIBLE_ON_FEEDS = false;
 
 function ShowcaseQuickActions({
   friendShowcases,
@@ -13801,7 +14096,7 @@ function PostCard({
       </div>
 
       {commentsOpen ? (
-        <DashboardCommentsPanel
+        createPortal(<DashboardCommentsPanel
           post={post}
           profile={profile}
           postId={post.id}
@@ -13836,7 +14131,7 @@ function PostCard({
           onShare={onShare}
           onOpenImage={onOpenImage}
           onCloseComments={onToggleComments}
-        />
+        />, document.body)
       ) : null}
     </article>
   );
@@ -14455,7 +14750,7 @@ function DashboardCommentsPanel({
                 <HeartIcon filled={isLiked} />
                 <span className="dashboard-action-label">Like</span>
               </ActionButton>
-              <ActionButton label="Comment" onClick={() => undefined} active>
+              <ActionButton label="Comment" onClick={onCloseComments} active>
                 <CommentIcon />
                 <span className="dashboard-action-label">Comment</span>
               </ActionButton>
@@ -14824,7 +15119,7 @@ function SharedPostCard({
       </div>
 
       {commentsOpen ? (
-        <DashboardCommentsPanel
+        createPortal(<DashboardCommentsPanel
           post={originalPost}
           profile={originalProfile}
           postId={originalPost.id}
@@ -14859,7 +15154,7 @@ function SharedPostCard({
           onShare={onShareOriginal}
           onOpenImage={onOpenImage}
           onCloseComments={onToggleComments}
-        />
+        />, document.body)
       ) : null}
     </article>
   );
@@ -16440,11 +16735,13 @@ function DashboardShowcaseComposerModal({
 function MobileBottomNav({
   currentUserId,
   avatarUrl,
+  avatarInitial,
   parachatUnreadCount,
   onCreatePost,
 }: {
   currentUserId: string;
   avatarUrl: string;
+  avatarInitial: string;
   parachatUnreadCount: number;
   onCreatePost: () => void;
 }) {
@@ -16461,7 +16758,7 @@ function MobileBottomNav({
 
 
   const navigation = (
-    <nav className="dashboard-bottom-nav" style={mobileBottomNavStyle} aria-label="Mobile dashboard navigation">
+    <nav data-parapost-edge-nav="true" className="dashboard-bottom-nav" style={mobileBottomNavStyle} aria-label="Mobile dashboard navigation">
       <Link href="/dashboard" style={mobileNavItemActiveStyle} aria-label="Home">
         <span style={mobileNavIconSlotStyle}><HomeIcon /></span>
         <span style={mobileNavLabelStyle}>Home</span>
@@ -16473,7 +16770,8 @@ function MobileBottomNav({
       </Link>
 
       <button type="button" onClick={onCreatePost} style={mobileCenterPlusStyle} aria-label="Create post">
-        <PlusIcon />
+        <span style={mobileNavIconSlotStyle}><PlusIcon /></span>
+        <span className="parapost-nav-create-spacer" style={mobileNavLabelStyle} aria-hidden="true">Create</span>
       </button>
 
       <Link href="/messages" style={mobileNavItemStyle} aria-label="Parachat">
@@ -16489,10 +16787,7 @@ function MobileBottomNav({
           {avatarUrl ? (
             <img src={avatarUrl} alt="" style={mobileNavAvatarStyle} />
           ) : (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-              <path d="M4.5 21C5.5 16.8 8.4 14.5 12 14.5C15.6 14.5 18.5 16.8 19.5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <span className="parapost-nav-avatar-fallback">{avatarInitial || "?"}</span>
           )}
         </span>
         <span style={mobileNavLabelStyle}>Profile</span>
