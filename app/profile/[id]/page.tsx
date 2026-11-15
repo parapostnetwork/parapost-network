@@ -1507,28 +1507,53 @@ function ExpandableFeedText({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            const postCard = expanded
-              ? event.currentTarget.closest<HTMLElement>("article")
+            const textBlock = expanded
+              ? event.currentTarget.closest<HTMLElement>(".parapost-expandable-post-text")
               : null;
             setExpanded((current) => !current);
-            if (postCard) {
+            if (textBlock) {
               window.requestAnimationFrame(() => {
-                if (!postCard.isConnected) return;
-                const overlay = postCard.closest<HTMLElement>(
-                  ".parapost-comments-overlay-scroll, .profile-comments-overlay-scroll"
-                );
-                if (overlay) {
-                  overlay.scrollTop +=
-                    postCard.getBoundingClientRect().top -
-                    overlay.getBoundingClientRect().top - 12;
-                  return;
-                }
-                window.scrollTo({
-                  top: Math.max(
-                    0,
-                    window.scrollY + postCard.getBoundingClientRect().top - 12
-                  ),
-                  behavior: "auto",
+                window.requestAnimationFrame(() => {
+                  if (!textBlock.isConnected) return;
+
+                  let scrollParent: HTMLElement | null = null;
+                  let parent = textBlock.parentElement;
+
+                  while (parent) {
+                    const overflow = window.getComputedStyle(parent).overflowY;
+                    if (
+                      /auto|scroll/.test(overflow) &&
+                      parent.scrollHeight > parent.clientHeight + 2
+                    ) {
+                      scrollParent = parent;
+                      break;
+                    }
+                    parent = parent.parentElement;
+                  }
+
+                  const textTop = textBlock.getBoundingClientRect().top;
+                  const headerOffset = 140;
+
+                  if (scrollParent) {
+                    scrollParent.scrollTo({
+                      top: Math.max(
+                        0,
+                        scrollParent.scrollTop +
+                          textTop -
+                          scrollParent.getBoundingClientRect().top -
+                          headerOffset
+                      ),
+                      behavior: "auto",
+                    });
+                  } else {
+                    window.scrollTo({
+                      top: Math.max(
+                        0,
+                        window.scrollY + textTop - headerOffset
+                      ),
+                      behavior: "auto",
+                    });
+                  }
                 });
               });
             }
