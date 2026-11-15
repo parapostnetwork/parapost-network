@@ -794,7 +794,31 @@ function ExpandableFeedText({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
+            const postCard = expanded
+              ? event.currentTarget.closest<HTMLElement>("article")
+              : null;
             setExpanded((current) => !current);
+            if (postCard) {
+              window.requestAnimationFrame(() => {
+                if (!postCard.isConnected) return;
+                const overlay = postCard.closest<HTMLElement>(
+                  ".parapost-comments-overlay-scroll, .profile-comments-overlay-scroll"
+                );
+                if (overlay) {
+                  overlay.scrollTop +=
+                    postCard.getBoundingClientRect().top -
+                    overlay.getBoundingClientRect().top - 12;
+                  return;
+                }
+                window.scrollTo({
+                  top: Math.max(
+                    0,
+                    window.scrollY + postCard.getBoundingClientRect().top - 12
+                  ),
+                  behavior: "auto",
+                });
+              });
+            }
           }}
           aria-expanded={expanded}
         >
