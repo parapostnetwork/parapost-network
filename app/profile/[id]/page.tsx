@@ -19824,7 +19824,7 @@ return (
                                 event.currentTarget.style.boxShadow = "0 16px 40px rgba(0,0,0,0.26)";
                               }}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
@@ -19937,7 +19937,7 @@ return (
                               className="profile-feed-card profile-achievement-feed-card"
                               style={profileAchievementTimelineCardStyle}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={postAuthorTextStyle}>
                                   <strong style={postAuthorNameStyle}>
                                     {profileDisplayName || "Parapost Member"}
@@ -19997,7 +19997,7 @@ return (
                               className="profile-feed-card profile-achievement-feed-card"
                               style={profileAchievementTimelineCardStyle}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
@@ -20082,7 +20082,7 @@ return (
                                 event.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.20)";
                               }}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
@@ -20194,7 +20194,7 @@ return (
                                 event.currentTarget.style.boxShadow = "0 16px 40px rgba(0,0,0,0.26)";
                               }}
                             >
-                              <header style={postHeaderStyle}>
+                              <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                                 <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                   {profile?.avatar_url ? (
                                     <span style={postAuthorAvatarImageClipStyle}>
@@ -20395,7 +20395,7 @@ style={profileMobileProgressive
                               event.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.20)";
                             }}
                           >
-                            <header style={postHeaderStyle}>
+                            <header className="profile-feed-header-no-divider" style={postHeaderStyle}>
                               <div style={{ ...postAuthorAvatarStyle, ...(profileIsActuallyOnline ? postAuthorAvatarOnlineStyle : postAuthorAvatarOfflineStyle) }}>
                                 {profile?.avatar_url ? (
                                   <span style={postAuthorAvatarImageClipStyle}>

@@ -942,3 +942,19 @@ main {
     box-shadow: none !important;
   }
 }
+
+
+/* PARAPOST PROFILE HEADER DIVIDER FIX v1
+   Remove line beneath post avatar/name/menu.
+   Keep post separators and action icons unchanged.
+*/
+@media (max-width: 1180px) {
+  html body .profile-polish-surface
+  .profile-feed-list-all-posts
+  .profile-feed-card
+  > header.profile-feed-header-no-divider {
+    border-bottom: 0 !important;
+    border-block-end: 0 !important;
+    box-shadow: none !important;
+  }
+}
