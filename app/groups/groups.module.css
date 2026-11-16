@@ -1618,11 +1618,12 @@
     position: relative; isolation: isolate; padding: 48px 6px 24px;
     margin: 0 0 16px; align-items: center; gap: 32px;
   }
-  .page .directoryHero::before {
-    content: ''; position: absolute; z-index: -1; inset: 0 -3% -38px;
-    pointer-events: none;
-    background: radial-gradient(ellipse at 58% 2%, color-mix(in srgb, var(--parapost-accent-1,#8b5cf6) 20%, transparent), transparent 68%);
+  .page:has(.directoryTopbar) {
+    background:
+      radial-gradient(ellipse 920px 520px at 58% 0%, color-mix(in srgb, var(--parapost-accent-1,#8b5cf6) 20%, transparent), transparent 78%),
+      var(--background,#07090d);
   }
+  .page .directoryHero::before { content: none; }
   .page .directoryHero .desktopDirectoryHeading { max-width: 760px; }
   .page .directoryHero .eyebrow { display: block; font-size: 11px; letter-spacing: .16em; }
   .page .directoryHero h1 { font-size: clamp(30px,3.7vw,46px); line-height: 1.1; margin: 16px 0 10px; }
