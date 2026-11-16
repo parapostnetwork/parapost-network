@@ -12,10 +12,10 @@ import styles from '@/app/creatorverse/creatorverse.module.css';
 
 export default function CreatorVerseStagingResults({
   filter,
-  onFilter,
+  onFilter, mobileFiltersOpen = true,
 }: {
   filter: DiscoveryFilter;
-  onFilter: (value: DiscoveryFilter) => void;
+  onFilter: (value: DiscoveryFilter) => void; mobileFiltersOpen?: boolean;
 }) {
   const [offset, setOffset] = useState(0);
 
@@ -32,6 +32,7 @@ export default function CreatorVerseStagingResults({
           creator: null,
         }))}
         filter={filter}
+        mobileFiltersOpen={mobileFiltersOpen}
         onFilter={next => {
           setOffset(0);
           onFilter(next);

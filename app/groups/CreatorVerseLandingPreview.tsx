@@ -86,11 +86,11 @@ function LocalCreatorVerseDraftForm({
 }
 
 export default function CreatorVerseLandingPreview({
-  formOpen = false, onCancelForm, filter, onFilter, state = '', retry,
+  formOpen = false, onCancelForm, filter, onFilter, state = '', retry, mobileFiltersOpen = true,
 }: {
   formOpen?: boolean; onCancelForm?: () => void;
   filter: DiscoveryFilter; onFilter: (filter: DiscoveryFilter) => void;
-  state?: string; retry?: () => void;
+  state?: string; retry?: () => void; mobileFiltersOpen?: boolean;
 }) {
   const [savedDraft, setSavedDraft] = useState<PageFields | null>(null);
   const ready = useClientReady();
@@ -107,9 +107,10 @@ export default function CreatorVerseLandingPreview({
           key={`${filter.search}:${filter.category}`}
           filter={filter}
           onFilter={onFilter}
+          mobileFiltersOpen={mobileFiltersOpen}
         />
       ) : (
-        <CreatorVerseDiscovery rows={state === 'empty' ? [] : filterDiscoveryPages(CREATORVERSE_SAMPLES, filter)} filter={filter} onFilter={onFilter}
+        <CreatorVerseDiscovery rows={state === 'empty' ? [] : filterDiscoveryPages(CREATORVERSE_SAMPLES, filter)} filter={filter} onFilter={onFilter} mobileFiltersOpen={mobileFiltersOpen}
       loading={!ready || state === 'loading'} error={state === 'error' ? 'Please try again in a moment.' : ''} retry={retry} />
       )}
   </>;

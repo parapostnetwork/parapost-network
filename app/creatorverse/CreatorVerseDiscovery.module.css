@@ -240,3 +240,8 @@
     background: #6437a1;
   }
 }
+
+/* In the staging Groups directory, phone-only filters live under the Filter action. */
+@media (max-width: 700px) {
+  .mobileFiltersClosed { display: none !important; }
+}

@@ -1530,3 +1530,62 @@
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+
+/* Step 103: compact, search-first Groups directory on phones only. */
+.desktopDirectoryHeading { min-width: 0; }
+.mobileDirectoryHeading, .mobileDirectorySearch, .mobileDiscoveryBar, .mobileFilterPanel,
+.mobileMineEmpty, .mobileDiscoverEmpty { display: none; }
+.directoryTabIcon { display: none; }
+.desktopDirectorySearch { width: min(100%, 390px); min-width: 0; }
+.desktopDirectorySearch .search { width: 100%; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (max-width: 700px) {
+  .page .directoryHero { padding: 19px 0 14px; margin: 0; }
+  .page .directoryHero .desktopDirectoryHeading,
+  .page .directoryHero .desktopDirectoryCreate { display: none; }
+  .page .directoryHero .mobileDirectoryHeading { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-width: 0; }
+  .page .directoryHero .mobileDirectoryHeading h1 { margin: 0; font-size: clamp(20px, 5.3vw, 25px); line-height: 1.2; font-weight: 750; letter-spacing: -.025em; }
+  .mobileCreateMenu { position: relative; flex-shrink: 0; z-index: 5; }
+  .page .mobileCreateMenu summary, .page .mobileCreateAction { display: flex; width: 42px; height: 42px; min-height: 42px; align-items: center; justify-content: center; border: 1px solid transparent; background: transparent; border-radius: 12px; padding: 7px; cursor: pointer; color: var(--parapost-accent-readable-text,#c6a5ff); list-style: none; box-shadow: none; }
+  .mobileCreateMenu summary::-webkit-details-marker { display: none; }
+  .mobileCreateMenu summary svg, .mobileCreateAction svg { width: 23px; height: 23px; }
+  .mobileCreateMenu summary:focus-visible, .mobileCreateAction:focus-visible { outline: 2px solid var(--parapost-accent-1,#8b5cf6); outline-offset: 2px; }
+  .mobileCreateOptions { position: absolute; z-index: 10; top: calc(100% + 6px); right: 0; width: min(260px, 80vw); padding: 6px; border-radius: 14px; border: 1px solid var(--parapost-accent-border,#ae7ce526); background: #21182f; box-shadow: 0 14px 32px #0009; }
+  .page .mobileCreateOptions button { display: block; width: 100%; min-height: 44px; margin: 0; padding: 11px 13px; background: transparent; border: 0; border-radius: 9px; color: #f6f0ff; text-align: left; font-size: 13px; font-weight: 600; box-shadow: none; }
+  .page .mobileCreateOptions button:hover, .page .mobileCreateOptions button:focus-visible { background: #403058; }
+  .directoryBrowser .directoryControls { display: flex; flex-direction: column; gap: 17px; margin-bottom: 19px; align-items: stretch; }
+  .directoryBrowser .desktopDirectorySearch { display: none; }
+  .directoryBrowser .mobileDirectorySearch { display: block; width: 100%; margin: 0; }
+  .mobileDirectorySearchField { display: flex; gap: 11px; align-items: center; min-height: 48px; border-radius: 13px; background: #261d37; padding: 0 14px; border: 1px solid #ffffff14; }
+  .mobileDirectorySearchField svg { color: #cbbce0; flex-shrink: 0; }
+  .page .mobileDirectorySearchField input { width: 100%; min-width: 0; height: 46px; min-height: 46px; padding: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; outline: none; color: #f7f1ff; font-family: inherit; font-size: 14px; }
+  .page .mobileDirectorySearchField input::placeholder { color: #cbbce0; opacity: .85; }
+  .mobileDirectorySearchField:focus-within { outline: 2px solid var(--parapost-accent-1,#8b5cf6); outline-offset: 2px; }
+  .directoryBrowser .tabs { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); width: 100%; gap: 3px; border: 0; padding: 0; margin: 0; background: none; overflow: visible; }
+  .directoryBrowser .tabs > button, .page .directoryBrowser .tabs > button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 7px; min-width: 0; min-height: 79px; padding: 2px 0 4px; border: 0; border-radius: 12px; background: none !important; box-shadow: none !important; white-space: normal; color: #ded6e9; font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1.2; }
+  .directoryBrowser .tabs .directoryTabIcon { display: flex; align-items: center; justify-content: center; flex: 0 0 50px; width: 50px; height: 50px; border-radius: 50%; background: #28203b; color: #f6f0ff; transition: background .2s ease; }
+  .directoryBrowser .tabs > button[aria-pressed="true"] .directoryTabIcon { background: linear-gradient(135deg,var(--parapost-accent-1,#8152ed),var(--parapost-accent-2,#a855f7)); }
+  .directoryBrowser .tabs > button:focus-visible { outline: 2px solid var(--parapost-accent-1,#8b5cf6); outline-offset: 2px; }
+  .directoryBrowser .tabs .directoryTabLabel { display: block; width: 100%; overflow-wrap: anywhere; text-align: center; font-size: clamp(10px, 2.9vw, 12px); }
+  .directoryBrowser .mobileDiscoveryBar { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 0 0 10px; margin: 0 0 12px; border-bottom: 1px solid #483b603f; }
+  .mobileDiscoveryBar h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.015em; }
+  .page .mobileFilterToggle { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 6px 0 6px 10px; border: none; background: transparent; box-shadow: none; color: var(--parapost-accent-readable-text,#c6a5ff); font-family: inherit; font-size: 12px; font-weight: 600; }
+  .page .mobileFilterToggle:focus-visible { outline: 2px solid var(--parapost-accent-1,#8b5cf6); outline-offset: 2px; }
+  .page .mobileFilterPanel:not([hidden]) { display: block; padding: 10px 12px; margin: -4px 0 14px; border: 1px solid #4a3b60; border-radius: 12px; background: #22182f; }
+  .mobileFilterPanel label { display: flex; flex-direction: column; gap: 7px; font-size: 12px; color: #d4c8e1; }
+  .mobileFilterPanel select { width: 100%; min-height: 42px; padding: 8px 10px; border-radius: 9px; background: #151022; border: 1px solid #6e5284; color: #fff; }
+  .mobileFilterPanel p { margin: 0; color: #cbbce0; font-size: 12px; }
+  .page .directoryBrowser .mobileFilterContentClosed { display: none; }
+  .page .directoryBrowser .mobileFilterContentOpen { display: flex; margin: 0 0 15px; }
+  .mobileDiscoverEmpty, .mobileMineEmpty { padding: 15px; border: 1px solid #423650; background: #1b1427; border-radius: 13px; }
+  .mobileDiscoverEmpty h3, .mobileMineEmpty h3 { font-size: 14px; font-weight: 700; margin: 0 0 7px; }
+  .mobileDiscoverEmpty p, .mobileMineEmpty p { font-size: 12px; line-height: 1.5; margin: 0; color: #bcaeca; }
+  .directoryBrowser .directoryResults .mobileDiscoverEmpty, .directoryBrowser .directoryResults .mobileMineEmpty { display: block; }
+  .page .directoryBrowser .directorySection:has(.mobileDiscoverEmpty) > .directoryEmpty { display: none; }
+  .page .directoryBrowser .directoryResults:has(.mobileMineEmpty) > .directorySection { display: none; }
+  .page .directoryBrowser .directoryLocalNote { margin: 4px 0 14px; font-size: 11px; }
+}
+@media(max-width:360px) {
+  .directoryBrowser .tabs .directoryTabIcon { width: 46px; height: 46px; flex-basis: 46px; }
+  .directoryBrowser .tabs .directoryTabLabel { font-size: 10px; }
+}

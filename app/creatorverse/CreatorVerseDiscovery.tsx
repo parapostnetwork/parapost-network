@@ -41,15 +41,15 @@ function CreatorVerseCardAvatar({ pageId, sample = false }: { pageId: string; sa
   );
 }
 
-export default function CreatorVerseDiscovery({ rows, filter, onFilter, loading = false, error = '', retry }: {
-  rows: readonly DiscoveryPage[]; filter: DiscoveryFilter; onFilter: (filter: DiscoveryFilter) => void;
+export default function CreatorVerseDiscovery({ rows, filter, onFilter, mobileFiltersOpen = true, loading = false, error = '', retry }: {
+  rows: readonly DiscoveryPage[]; filter: DiscoveryFilter; onFilter: (filter: DiscoveryFilter) => void; mobileFiltersOpen?: boolean;
   loading?: boolean; error?: string; retry?: () => void;
 }) {
   const pages = uniqueDiscoveryPages(rows);
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
   const filtered = Boolean(filter.search || filter.category);
   return <section className={styles.discovery} aria-label="CreatorVerse discovery" aria-busy={loading}>
-    <div className={styles.filters}>
+    <div className={`${styles.filters} ${!mobileFiltersOpen ? styles.mobileFiltersClosed : ''}`}>
       <label className={styles.desktopCategory}>Category <select value={filter.category} onChange={event => onFilter({ ...filter, category: event.target.value as DiscoveryFilter['category'] })}>
         <option value="">All CreatorVerse pages</option>
         {Object.entries(CREATORVERSE_CATEGORIES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
