@@ -144,11 +144,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
     <div className={groupStyles.page}>
       <main className={`${groupStyles.shell} ${draftStyles.shell}`}>
         <nav className={styles.navigation} aria-label="CreatorVerse navigation">
-          <Link href={
-            process.env.NODE_ENV === 'development'
-              ? '/groups-local-preview?tab=creatorverse'
-              : '/groups?tab=creatorverse'
-          }>← Back to Groups</Link>
+          <Link href="/groups?tab=creatorverse">← Back to Groups</Link>
           <Link href="/dashboard" prefetch={false}>Dashboard</Link>
         </nav>
 

@@ -19,8 +19,8 @@ export function DirectoryHeading({ mine, create = false, creatorVerse = false, o
   const creating = create || (preview && stage.formOpen);
 
   return <section className={`${styles.hero} ${styles.directoryHero}`}>
-    <div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>{create ? 'Create a Group' : mine ? 'My Groups' : (creatorVerse || preview) ? 'Discover CreatorVerse' : 'Discover Groups'}</h1>
-      <p>{create ? 'Bring your community together. Give your Group a name and a place to call home.' : mine ? 'Your groups, organized for quick and easy access.' : (creatorVerse || preview) ? 'Explore creator pages, projects and communities.' : 'Connect, share and explore communities.'}</p></div>
+    <div><p className={styles.eyebrow}>COMMUNITY CONNECTIONS</p><h1>{create ? 'Create a Group' : (creatorVerse || preview) ? 'Discover CreatorVerse' : mine ? 'My Groups' : 'Discover Groups'}</h1>
+      <p>{create ? 'Bring your community together. Give your Group a name and a place to call home.' : (creatorVerse || preview) ? 'Explore creator pages, projects and communities.' : mine ? 'Your groups, organized for quick and easy access.' : 'Connect, share and explore communities.'}</p></div>
     <button onClick={preview ? () => stage.setFormOpen(!stage.formOpen) : onCreate}
       aria-expanded={creating}>
       {creating ? 'Cancel' : preview ? '+ Create CreatorVerse Page' : createLabel}</button>

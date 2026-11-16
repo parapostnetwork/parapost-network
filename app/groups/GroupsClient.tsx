@@ -409,7 +409,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       </Link>
       {groupId
           ? <Link href={routeBase === '/group-original-preview' ? '/groups-preview' : routeBase}>
-              Groups
+              ← Back to Groups
             </Link>
           : <span aria-hidden="true" />}
       <Link href={routeBase === '/group-original-preview' ? '/' : '/dashboard'}>
@@ -450,7 +450,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         search={search} onSearch={value=>{setSearch(value);setOffset(0);}} loading={(loading && groups.length===0)||loadedDirectoryFilter!==filter}
         {...groupPreferences} renderMembership={membership} routeBase={routeBase}
         renderCover={g=><GroupAvatarView path={g.avatar_storage_path ?? null} name={g.name} size={40}/>}/>
-      {filter!=='mine'&&<nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>}
+      {filter!=='mine' && !creatorVerseStage.selected && <nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>}
       </>}
     </>:group?<>
       <section className={`${styles.card} ${styles.groupHeader}`}>

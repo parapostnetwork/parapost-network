@@ -19,6 +19,28 @@ export function DiscoverySearch({ value, onChange, placeholder = 'Search pages, 
   </label>;
 }
 
+/** Public page logos are served only for active pages with verified images. */
+function CreatorVerseCardAvatar({ pageId, sample = false }: { pageId: string; sample?: boolean }) {
+  const [logoUnavailable, setLogoUnavailable] = useState(false);
+  const showLogo = !sample && !logoUnavailable;
+
+  return (
+    <div className={styles.avatar} aria-hidden="true">
+      <Image
+        src={showLogo
+          ? `/api/creatorverse/pages/${encodeURIComponent(pageId)}/images/logo`
+          : '/parapost-icon-white.png'}
+        alt=""
+        width={48}
+        height={48}
+        unoptimized={showLogo}
+        onError={() => setLogoUnavailable(true)}
+        style={showLogo ? { width: '100%', height: '100%', objectFit: 'cover' } : undefined}
+      />
+    </div>
+  );
+}
+
 export default function CreatorVerseDiscovery({ rows, filter, onFilter, loading = false, error = '', retry }: {
   rows: readonly DiscoveryPage[]; filter: DiscoveryFilter; onFilter: (filter: DiscoveryFilter) => void;
   loading?: boolean; error?: string; retry?: () => void;
@@ -102,7 +124,7 @@ export default function CreatorVerseDiscovery({ rows, filter, onFilter, loading 
         const profile = creatorProfileHref(creator);
         return <article key={page.id.toLowerCase()} className={`${groupStyles.directoryCard} ${styles.card}`}>
           <Link href={sample ? samplePageHref(page.id) : creatorVersePageHref(page.id)} prefetch={false} className={`${groupStyles.directoryOpen} ${styles.open}`} aria-label={`Open ${page.name}`}>
-            <div className={styles.avatar} aria-hidden="true"><Image src="/parapost-icon-white.png" alt="" width={48} height={48}/></div>
+            <CreatorVerseCardAvatar pageId={page.id} sample={sample} />
             <div className={styles.content}><h3>{page.name}</h3><p className={styles.description}>{page.short_bio || page.description || 'Explore this CreatorVerse page.'}</p><span className={styles.category}>{CREATORVERSE_CATEGORIES[page.category]}</span>{sample && <span className={styles.sample}>Sample page</span>}</div>
             <span className={groupStyles.directoryChevron} aria-hidden="true">›</span>
           </Link>
