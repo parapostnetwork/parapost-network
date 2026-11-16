@@ -1760,3 +1760,16 @@
   }
   .page .directoryBrowser .directoryResults { padding: 14px; }
 }
+
+
+/* STEP 109: clean groups topbar */
+.page .directoryTopbar {
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+.page .directoryTopbar::before,
+.page .directoryTopbar::after {
+  content: none !important;
+  display: none !important;
+}
