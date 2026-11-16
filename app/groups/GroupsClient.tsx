@@ -398,8 +398,8 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   }
   if(!authReady)return <GroupsLoadingView title={groupId ? 'Groups' : 'Discover Groups'} />;
   if(!userId)return <main className={styles.page}><h1>Groups</h1><p>Sign in to discover and participate in Groups.</p><Link href="/">Sign in</Link></main>;
-  return <main className={styles.page}><div className={styles.shell}>
-    <header className={styles.topbar}>
+  return <main className={styles.page}><div className={`${styles.shell} ${!groupId ? styles.directoryShell : ''}`}>
+    <header className={`${styles.topbar} ${!groupId ? styles.directoryTopbar : ''}`}>
       <Link href={routeBase === '/group-original-preview' ? '/groups-preview' : '/dashboard'}>
         <span
           className={styles.topbarGhost}
@@ -413,7 +413,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
             </Link>
           : <span aria-hidden="true" />}
       <Link href={routeBase === '/group-original-preview' ? '/' : '/dashboard'}>
-        ← Dashboard
+        {groupId ? '← Dashboard' : <><span className={styles.directoryDashboardDesktop}>Dashboard</span><span className={styles.directoryDashboardMobile}>← Dashboard</span></>}
       </Link>
     </header>
     {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p className={groupId?styles.groupStatusToast:undefined} role="status">{notice}</p>}

@@ -9,6 +9,7 @@ import { GroupsLoadingCards } from './GroupsLoadingView';
 import CreatorVerseLandingPreview from './CreatorVerseLandingPreview';
 import { DiscoverySearch } from '@/app/creatorverse/CreatorVerseDiscovery';
 import type { DiscoveryFilter } from '@/lib/creatorverse/discovery';
+import { CREATORVERSE_CATEGORIES } from '@/lib/creatorverse/types';
 import { useCreatorVerseStaging } from './CreatorVerseStagingProvider';
 
 
@@ -153,6 +154,23 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
               <input type="search" maxLength={100} placeholder={mine ? 'Search your groups…' : 'Search by name or description'} value={search} onChange={event => onSearch(event.target.value)}/>
             </span></label>}
       </div>
+      <details className={styles.desktopDirectoryFilter}>
+        <summary><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Filter</summary>
+        <div className={styles.desktopFilterOptions}>
+          {showCreatorVerse ? <label>CreatorVerse category
+            <select value={stageFilter.category} onChange={event => setStageFilter(current => ({ ...current, category: event.target.value as DiscoveryFilter['category'] }))}>
+              <option value="">All CreatorVerse pages</option>
+              {Object.entries(CREATORVERSE_CATEGORIES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label> : <label>Sort Groups
+            <select value={sort} onChange={event => setSort(event.target.value as DirectorySort)}>
+              <option value="name">Name A–Z</option>
+              <option value="members">Most members</option>
+              {mine && <option value="visited">Recently visited</option>}
+            </select>
+          </label>}
+        </div>
+      </details>
     </div>
     <div className={styles.mobileDiscoveryBar}>
       <h2>{showCreatorVerse ? 'Discover CreatorVerse' : mine ? 'My Groups' : 'Discover Groups'}</h2>
@@ -193,7 +211,11 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
       </div>
       <p className={styles.directoryLocalNote}>{storageError || 'Favorites and visits are saved for this account in this browser.'}</p>
     </>}
-    <div ref={results} tabIndex={-1} aria-busy={loading}
+    <div className={styles.desktopDirectoryResultsHeading}>
+      <h2>{showCreatorVerse ? 'CreatorVerse pages' : mine ? 'My Groups' : `Groups (${sections[0].items.length})`}</h2>
+      {!showCreatorVerse && <span>Sort: {sort === 'members' ? 'Most members' : sort === 'visited' ? 'Recently visited' : 'Name A–Z'}</span>}
+    </div>
+    <div ref={results} tabIndex={-1} aria-busy={loading} data-groups-directory-preview={showCreatorVerse ? 'true' : undefined}
       className={styles.directoryResults}
       style={loading && heldHeight > 0 ? { minHeight: heldHeight } : undefined}>
       {mineEmpty && !loading && <div className={styles.mobileMineEmpty}><h3>No groups yet</h3><p>Groups you own or join will appear here.</p></div>}
@@ -229,6 +251,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
                 placeItems: 'center'
               }}>{renderCover(group)}</div><div className={`${creatorCardStyles.content} ${styles.directoryCardText}`}>
             <h3>{group.name}</h3>
+            {group.description && <p className={styles.desktopDirectoryCardDescription}>{group.description}</p>}
             <p className={creatorCardStyles.description}>{group.member_count !== null ? `${group.member_count} ${group.member_count === 1 ? 'member' : 'members'}` : 'Member count unavailable'}</p>
             <div className={styles.directoryCardLabel}>{owned(group) && <span className={styles.ownerTag}>Owner</span>}
               {favorite && <span className={styles.favoriteTag}>★ Favorite</span>}

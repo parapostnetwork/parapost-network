@@ -1589,3 +1589,162 @@
   .directoryBrowser .tabs .directoryTabIcon { width: 46px; height: 46px; flex-basis: 46px; }
   .directoryBrowser .tabs .directoryTabLabel { font-size: 10px; }
 }
+
+
+/* Step 104: approved desktop + tablet Groups directory design.
+   Phone experience at <=700px remains exactly as delivered in Step 103. */
+.directoryDashboardDesktop { display: none; }
+.desktopDirectoryFilter, .desktopDirectoryResultsHeading, .desktopDirectoryCardDescription { display: none; }
+
+@media (min-width: 701px) {
+  .page .directoryShell { max-width: 1360px; }
+  .page .directoryTopbar { min-height: 78px; font-size: 15px; font-weight: 500; }
+  .page .directoryTopbar > [aria-hidden="true"] { display: none; }
+  .page .directoryTopbar .directoryDashboardDesktop { display: inline; color: #f6f0ff; }
+  .page .directoryTopbar .directoryDashboardMobile { display: none; }
+  .page .directoryTopbar a:last-child { color: #f6f0ff; }
+  .page .directoryHero {
+    position: relative; isolation: isolate; padding: 48px 6px 24px;
+    margin: 0 0 16px; align-items: center; gap: 32px;
+  }
+  .page .directoryHero::before {
+    content: ''; position: absolute; z-index: -1; inset: 0 -3% -38px;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 58% 2%, color-mix(in srgb, var(--parapost-accent-1,#8b5cf6) 20%, transparent), transparent 68%);
+  }
+  .page .directoryHero .desktopDirectoryHeading { max-width: 760px; }
+  .page .directoryHero .eyebrow { display: block; font-size: 11px; letter-spacing: .16em; }
+  .page .directoryHero h1 { font-size: clamp(30px,3.7vw,46px); line-height: 1.1; margin: 16px 0 10px; }
+  .page .directoryHero p:not(.eyebrow) { font-size: 15px; line-height: 1.55; }
+  .page .directoryHero > .desktopDirectoryCreate {
+    flex: 0 0 auto; min-width: 155px; min-height: 47px; border-radius: 13px;
+    padding: 12px 19px; font-size: 14px;
+  }
+  .page .directoryBrowser .directoryControls {
+    display: grid; grid-template-columns: minmax(0,1fr) auto;
+    grid-template-areas: 'tabs tabs' 'search filter';
+    align-items: stretch; column-gap: 16px; row-gap: 31px;
+    margin: 0 0 26px;
+  }
+  .page .directoryBrowser .tabs {
+    grid-area: tabs; display: flex; justify-content: center; gap: clamp(10px,1.7vw,24px);
+    padding: 0; margin: 0; border: 0; border-radius: 0;
+    background: none; overflow: visible; flex-wrap: nowrap; width: 100%;
+  }
+  .page .directoryBrowser .tabs > button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; flex: 0 1 clamp(124px,14vw,185px); width: clamp(124px,14vw,185px);
+    min-width: 0; min-height: 115px; padding: 15px 9px;
+    background: linear-gradient(155deg,#241a38,#110d20) !important;
+    border: 1px solid #63467d5c; border-radius: 20px;
+    box-shadow: none; white-space: normal; color: #f6f0ff; font-size: 13px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .page .directoryBrowser .tabs > button[aria-pressed="true"] {
+    border-color: var(--parapost-accent-1,#9b5cff);
+    background: linear-gradient(150deg,#332049,#171025) !important;
+    box-shadow: 0 2px 10px #8b5cf626, inset 0 -2px 0 var(--parapost-accent-1,#8b5cf6);
+  }
+  .page .directoryBrowser .tabs > button:hover { border-color: #a879e0; }
+  .page .directoryBrowser .tabs > button:focus-visible { outline: 2px solid #c6a5ff; outline-offset: 3px; }
+  .directoryBrowser .tabs .directoryTabIcon {
+    display: flex; align-items: center; justify-content: center;
+    width: 49px; height: 49px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 15%,#534078,#271b42);
+    color: #fff;
+  }
+  .directoryBrowser .tabs > button[aria-pressed="true"] .directoryTabIcon {
+    background: linear-gradient(135deg,var(--parapost-accent-1,#8b5cf6),var(--parapost-accent-2,#a855f7));
+  }
+  .directoryBrowser .tabs .directoryTabLabel { display: block; font-size: clamp(12px,1.1vw,14px); font-weight: 650; line-height: 1.3; }
+  .directoryBrowser .tabs > button:first-child .directoryTabLabel::after { content: ' Groups'; }
+  .page .directoryBrowser .desktopDirectorySearch { grid-area: search; width: 100%; min-width: 0; }
+  .page .directoryBrowser .desktopDirectorySearch .search { display: block; width: 100%; min-width: 0; font-size: 0; }
+  .page .directoryBrowser .desktopDirectorySearch .directorySearchInput { width: 100%; }
+  .page .directoryBrowser .desktopDirectorySearch input {
+    width: 100%; min-width: 0; height: 52px; min-height: 52px;
+    font-size: 14px; padding-left: 46px !important;
+    background: #171126 !important; border: 1px solid #77568c !important;
+    border-radius: 15px !important;
+  }
+  .page .directoryBrowser .desktopDirectorySearch input::placeholder { color: #bfb3cc; }
+  .page .directoryBrowser .desktopDirectoryFilter {
+    grid-area: filter; display: block; align-self: end; position: relative; z-index: 5;
+  }
+  .page .directoryBrowser .desktopDirectoryFilter summary {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 132px; height: 52px; cursor: pointer; list-style: none;
+    border: 1px solid #77568c; border-radius: 15px;
+    color: #f3eafa; background: #171126; font-size: 14px; font-weight: 650;
+  }
+  .page .directoryBrowser .desktopDirectoryFilter summary::-webkit-details-marker { display: none; }
+  .page .directoryBrowser .desktopDirectoryFilter summary:focus-visible { outline: 2px solid #c6a5ff; outline-offset: 3px; }
+  .desktopFilterOptions {
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 8;
+    width: min(285px,90vw); padding: 16px;
+    border: 1px solid #73518e; border-radius: 15px;
+    background: #1b132c; box-shadow: 0 15px 40px #0009;
+  }
+  .desktopFilterOptions label { display: flex; gap: 8px; font-size: 13px; color: #e6d9f6; }
+  .desktopFilterOptions select { min-height: 44px; font-size: 14px; }
+  .page .directoryBrowser .desktopDirectoryResultsHeading {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 0 0 13px; margin: 0;
+  }
+  .desktopDirectoryResultsHeading h2 { margin: 0; font-size: clamp(18px,2vw,22px); }
+  .desktopDirectoryResultsHeading span { font-size: 13px; color: #c6bdd2; }
+  .page .directoryBrowser .directoryResults {
+    border: 1px solid #63467d50; border-radius: 20px;
+    background: #140e211a; padding: 18px;
+  }
+  .page .directoryBrowser .directoryCardGrid {
+    width: 100%; grid-template-columns: repeat(3,minmax(0,1fr));
+    gap: 15px;
+  }
+  .page .directoryBrowser .directoryCard {
+    width: 100%; max-width: none; min-height: 124px;
+    border: 1px solid #60457855; border-radius: 16px;
+    background: linear-gradient(125deg,#21172f,#120e21);
+  }
+  .page .directoryBrowser .directoryCard .directoryOpen {
+    grid-template-columns: 66px minmax(0,1fr) 9px;
+    align-items: center; gap: 11px; padding: 13px;
+    min-height: 124px;
+  }
+  .page .directoryBrowser .directoryCard .directoryAvatar {
+    width: 66px !important; height: 66px !important;
+    min-width: 66px !important; min-height: 66px !important;
+    border-radius: 13px !important;
+  }
+  .page .directoryBrowser .directoryCard .directoryAvatar > * { width: 100%; height: 100%; }
+  .page .directoryBrowser .directoryCard .directoryCardText { padding-right: 14px; }
+  .page .directoryBrowser .directoryCard .directoryCardText h3 {
+    font-size: 14px; line-height: 1.3; margin-bottom: 6px;
+    white-space: normal; display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .page .directoryBrowser .desktopDirectoryCardDescription {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; font-size: 12px; line-height: 1.35;
+    color: #d0c5dc; margin: 0 0 8px;
+  }
+  .page .directoryBrowser .directoryCard .directoryCardLabel { font-size: 11px; }
+  .page .directoryBrowser .directoryCard .directoryCardLabel > span { font-size: 11px; }
+  .page .directoryBrowser .directoryResults .directoryEmpty {
+    padding: 27px; text-align: center; border: 1px dashed #624476;
+    background: #171020; border-radius: 15px;
+  }
+  .page .directoryBrowser .directoryFilterRow { margin: 0 0 16px; }
+}
+@media (min-width: 701px) and (max-width: 1060px) {
+  .page .directoryHero { padding: 30px 4px 18px; }
+  .page .directoryHero h1 { font-size: clamp(27px,3.5vw,38px); }
+  .page .directoryBrowser .tabs > button { min-height: 103px; }
+  .page .directoryBrowser .directoryCardGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .page .directoryBrowser .directoryCard .directoryOpen { grid-template-columns: 56px minmax(0,1fr) 9px; }
+  .page .directoryBrowser .directoryCard .directoryAvatar {
+    width: 56px !important; height: 56px !important;
+    min-width: 56px !important; min-height: 56px !important;
+  }
+  .page .directoryBrowser .directoryResults { padding: 14px; }
+}

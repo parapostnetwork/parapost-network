@@ -245,3 +245,8 @@
 @media (max-width: 700px) {
   .mobileFiltersClosed { display: none !important; }
 }
+
+/* Step 104: category is in the desktop/tablet Groups filter control, not duplicated below. */
+@media (min-width: 701px) {
+  [data-groups-directory-preview="true"] .discovery .filters { display: none; }
+}
