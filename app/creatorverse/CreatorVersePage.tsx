@@ -24,6 +24,8 @@ import CreatorVersePublishedMedia from './CreatorVersePublishedMedia';
 import CreatorVerseFollowButton from './CreatorVerseFollowButton';
 import styles from './creatorverse.module.css';
 import layout from './CreatorVerseGroupsLayout.module.css';
+import CommunityMobileBottomNav from '@/components/CommunityMobileBottomNav';
+import communityDetail from '@/app/groups/CommunityDetailMobile.module.css';
 
 type Section = 'Posts' | 'Photos' | 'Videos' | 'About';
 
@@ -36,6 +38,7 @@ const publishedMediaReady =
 export default function CreatorVersePage({ id }: { id: string }) {
   const [section, setSection] = useState<Section>('Posts');
   const [canManage, setCanManage] = useState(false);
+  const [viewerId, setViewerId] = useState('');
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [coverAvailable, setCoverAvailable] = useState(false);
@@ -70,13 +73,17 @@ export default function CreatorVersePage({ id }: { id: string }) {
     }
 
     void supabase.auth.getSession().then(({ data }) => {
-      if (active) void verify(data.session?.access_token);
+      if (active) {
+        setViewerId(data.session?.user?.id ?? '');
+        void verify(data.session?.access_token);
+      }
     }).catch(() => {
       if (active) setCanManage(false);
     });
 
     const { data } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        if (active) setViewerId(session?.user?.id ?? '');
         void verify(session?.access_token);
       }
     );
@@ -143,15 +150,15 @@ export default function CreatorVersePage({ id }: { id: string }) {
   const logoSrc = `${imageBase}/logo?v=${imageRevision}`;
 
   return (
-    <div className={groupStyles.page}>
-      <main className={`${groupStyles.shell} ${draftStyles.shell}`}>
-        <nav className={styles.navigation} aria-label="CreatorVerse navigation">
+    <div className={`${groupStyles.page} ${communityDetail.mobileCommunity}`}>
+      <main className={`${groupStyles.shell} ${draftStyles.shell}`} data-community-detail-container="creatorverse">
+        <nav className={styles.navigation} aria-label="CreatorVerse navigation" data-community-topbar="creatorverse">
           <Link href="/groups?tab=creatorverse">← Back to Groups</Link>
           <Link href="/dashboard" prefetch={false}>Dashboard</Link>
         </nav>
 
-        <header className={`${groupStyles.card} ${groupStyles.groupHeader} ${draftStyles.header}`}>
-          <div className={`${groupStyles.cover} ${groupStyles.banner} ${draftStyles.cover}`}>
+        <header className={`${groupStyles.card} ${groupStyles.groupHeader} ${draftStyles.header}`} data-community-header="creatorverse">
+          <div className={`${groupStyles.cover} ${groupStyles.banner} ${draftStyles.cover}`} data-community-banner="creatorverse">
             {coverAvailable ? (
               <Image
                 src={coverSrc}
@@ -271,8 +278,8 @@ export default function CreatorVersePage({ id }: { id: string }) {
           />
         )}
 
-        <div className={layout.columns}>
-          <aside className={layout.sidebar} aria-label="About this CreatorVerse page">
+        <div className={layout.columns} data-community-columns="creatorverse">
+          <aside className={layout.sidebar} aria-label="About this CreatorVerse page" data-community-sidebar="creatorverse">
             <h2>About this Page</h2>
             <p className={layout.description}>
               {page.description || page.short_bio}
@@ -302,6 +309,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
           <section
             className={`${draftStyles.panel} ${tabStyles.content} ${layout.primary}`}
+            data-community-primary="creatorverse"
             aria-label={`${section} section`}
           >
           <h2>{section}</h2>
@@ -321,6 +329,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                   key={post.id}
                   style={postCardStyle}
                   className={styles.post}
+                  data-posting
                 >
                   <strong>{page.name}</strong>
                   <time dateTime={post.created_at}>
@@ -452,6 +461,19 @@ export default function CreatorVersePage({ id }: { id: string }) {
           </section>
         </div>
       </main>
+      <CommunityMobileBottomNav
+        viewerId={viewerId}
+        avatarInitial="?"
+        onCreateHere={canManage ? () => {
+          setSection('Posts');
+          requestAnimationFrame(() => {
+            const textarea = document.querySelector<HTMLTextAreaElement>('[aria-label="Create a CreatorVerse post"] textarea');
+            textarea?.scrollIntoView({block:'center',behavior:'smooth'});
+            textarea?.focus();
+          });
+        } : undefined}
+        createHereLabel="Create a CreatorVerse post"
+      />
     </div>
   );
 }

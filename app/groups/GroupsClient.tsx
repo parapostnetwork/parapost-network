@@ -28,6 +28,8 @@ import GroupPromotionSettings from './GroupPromotionSettings';
 import GroupPostActions from './GroupPostActions';
 import GroupMembersPanel from './GroupMembersPanel';
 import GroupsDirectory, { DirectoryHeading, type DirectoryTab } from './GroupsDirectory';
+import CommunityMobileBottomNav from '@/components/CommunityMobileBottomNav';
+import communityDetail from './CommunityDetailMobile.module.css';
 import { useCreatorVerseStaging } from './CreatorVerseStagingProvider';
 import { useGroupPreferences } from './useGroupPreferences';
 import { parseGroupPreferences } from '@/lib/groups/directory';
@@ -398,8 +400,8 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   }
   if(!authReady)return <GroupsLoadingView title={groupId ? 'Groups' : 'Discover Groups'} />;
   if(!userId)return <main className={styles.page}><h1>Groups</h1><p>Sign in to discover and participate in Groups.</p><Link href="/">Sign in</Link></main>;
-  return <main className={styles.page}><div className={`${styles.shell} ${!groupId ? styles.directoryShell : ''}`}>
-    <header className={`${styles.topbar} ${!groupId ? styles.directoryTopbar : ''}`}>
+  return <main className={`${styles.page} ${groupId ? communityDetail.mobileCommunity : ''}`}><div className={`${styles.shell} ${!groupId ? styles.directoryShell : ''}`} data-community-detail-container={groupId ? 'group' : undefined}>
+    <header className={`${styles.topbar} ${!groupId ? styles.directoryTopbar : ''}`} data-community-topbar={groupId ? true : undefined}>
       <Link href={routeBase === '/group-original-preview' ? '/groups-preview' : '/dashboard'}>
         <span
           className={styles.topbarGhost}
@@ -453,7 +455,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       {filter!=='mine' && !creatorVerseStage.selected && <nav className={styles.pagination} aria-label="Group directory pages">{offset>0&&<button disabled={loading} onClick={()=>setOffset(Math.max(0,offset-24))}>Previous</button>}{groups.length===24&&<button disabled={loading} onClick={()=>setOffset(offset+24)}>Next</button>}</nav>}
       </>}
     </>:group?<>
-      <section className={`${styles.card} ${styles.groupHeader}`}>
+      <section className={`${styles.card} ${styles.groupHeader}`} data-community-header="group">
         <GroupCover banner path={group.cover_storage_path} name={group.name} load={groupsFetch} viewerId={userId} cacheable={group.visibility==='public'}/>
         <div className={styles.groupIdentity}>
   <GroupAvatarView path={group.avatar_storage_path ?? null} name={group.name} size={144}/>
@@ -488,9 +490,9 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         </div>
       </section>
       {selectedTab==='about'&&<section className={`${styles.aboutPanel} ${styles.groupTabContent}`} id="group-panel-about" role="tabpanel" aria-labelledby="group-tab-about" tabIndex={0}><GroupAbout group={group}/></section>}
-      {selectedTab==='media'&&canRead&&<section className={`${styles.mediaPanel} ${styles.groupTabContent}`} id="group-panel-media" role="tabpanel" aria-labelledby="group-tab-media" tabIndex={0}>
+      {selectedTab==='media'&&canRead&&<section className={`${styles.mediaPanel} ${styles.groupTabContent}`} data-community-media="group" id="group-panel-media" role="tabpanel" aria-labelledby="group-tab-media" tabIndex={0}>
         <h2>Photos & videos</h2><p className={styles.muted}>Media from the discussions you can access. Load older posts to explore more.</p>
-        <div className={styles.mediaGallery}>{posts.filter(post=>post.group_post_media.some(item=>['image','video'].includes(item.media_type))).map(post=><article data-posting key={post.id} className={`${posting.posting} ${styles.mediaCard}`}>
+        <div className={styles.mediaGallery} data-community-media-grid="group">{posts.filter(post=>post.group_post_media.some(item=>['image','video'].includes(item.media_type))).map(post=><article data-posting key={post.id} className={`${posting.posting} ${styles.mediaCard}`}>
           <GroupPostMedia groupId={group.id} postId={post.id} media={post.group_post_media} read={groupsFetch}/>
           <p className={styles.muted}><time dateTime={post.created_at}>{new Date(post.created_at).toLocaleDateString()}</time></p>
           <button className={styles.secondaryButton} onClick={()=>{setActiveTab('discussion');requestAnimationFrame(()=>document.getElementById(`group-post-${post.id}`)?.scrollIntoView({block:'start'}));}}>View discussion</button>
@@ -547,9 +549,9 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
           });
         }}
       />}
-      <div hidden={selectedTab!=='discussion'} className={`${styles.discussionLayout} ${styles.groupTabContent}`} id="group-panel-discussion" role="tabpanel" aria-labelledby="group-tab-discussion" tabIndex={0}>
+      <div data-community-columns="group" hidden={selectedTab!=='discussion'} className={`${styles.discussionLayout} ${styles.groupTabContent}`} id="group-panel-discussion" role="tabpanel" aria-labelledby="group-tab-discussion" tabIndex={0}>
       <aside className={styles.aboutSidebar}><GroupAbout group={group}/></aside>
-      <div className={styles.discussionColumn}>
+      <div className={styles.discussionColumn} data-community-primary="group">
       {canRead&&!approved&&<p className={styles.readingNotice}>You’re viewing a public discussion. Join this Group to participate.</p>}
       {approved && <GroupPostComposer userId={userId} profile={viewerProfile}
         groupName={group.name}
@@ -633,5 +635,20 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
 </article>)}{!posts.length&&!loading&&<p className={styles.empty}>No posts on this page yet.</p>}<div ref={feedEnd} className={styles.feedEnd} role="status">{loadingMore?'Loading more posts…':!hasMore&&posts.length>0?'You’re all caught up.':''}</div>{moreError&&<div role="alert" className={styles.alert}>{moreError} <button disabled={loadingMore} onClick={()=>void loadMore()}>Try again</button></div>}</section>}
       </div></div>
     </>:!loading&&<p className={styles.empty}>This Group is unavailable.</p>}
-  </div></main>;
+  </div>
+  {groupId && group && <CommunityMobileBottomNav
+    viewerId={userId}
+    avatarUrl={viewerProfile?.avatar_url}
+    avatarInitial={(viewerProfile?.username || viewerProfile?.full_name || '?').charAt(0)}
+    onCreateHere={approved ? () => {
+      setActiveTab('discussion');
+      requestAnimationFrame(() => {
+        const textarea = document.querySelector<HTMLTextAreaElement>('[aria-label="Create a Group post"] textarea');
+        textarea?.scrollIntoView({block:'center',behavior:'smooth'});
+        textarea?.focus();
+      });
+    } : undefined}
+    createHereLabel="Create a Group post"
+  />}
+  </main>;
 }

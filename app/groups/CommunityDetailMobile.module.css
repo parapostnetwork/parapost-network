@@ -1,0 +1,54 @@
+/* Mobile Group and CreatorVerse detail parity only. No directory or desktop/tablet overrides. */
+.mobileCommunity {}
+@media (max-width: 700px) {
+  .mobileCommunity { width:100%; max-width:100%; min-height:100dvh;
+    padding-left:0!important; padding-right:0!important;
+    padding-bottom:calc(115px + env(safe-area-inset-bottom))!important; }
+  .mobileCommunity [data-community-detail-container] { box-sizing:border-box;
+    width:100%!important; max-width:100%!important; margin:0!important;
+    padding-left:0!important;padding-right:0!important; }
+  .mobileCommunity [data-community-topbar] { padding-left:14px!important;
+    padding-right:14px!important; margin:0!important; }
+  .mobileCommunity [data-community-header] { box-sizing:border-box;
+    width:100%!important;max-width:none!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;box-shadow:none!important;
+    background:transparent!important;overflow:visible!important; }
+  .mobileCommunity [data-community-header] > [data-community-banner],
+  .mobileCommunity [data-community-header] > :first-child { box-sizing:border-box;
+    width:100%!important;height:clamp(170px,52vw,280px)!important;
+    max-height:none!important;min-height:0!important;aspect-ratio:auto!important;
+    border:0!important;border-radius:0!important;overflow:hidden!important; }
+  .mobileCommunity [data-community-header] > :nth-child(2) { box-sizing:border-box;
+    width:100%!important; padding:0 14px 16px!important; margin:0!important;
+    gap:10px!important; flex-wrap:wrap; align-items:flex-start; background:transparent; }
+  .mobileCommunity [data-community-header] > :nth-child(2) > :first-child { position:relative;z-index:1;
+    width:82px!important;height:82px!important; min-width:82px!important;min-height:82px!important;
+    flex:0 0 82px!important; margin-top:-30px!important; border-radius:50%!important;
+    border:3px solid var(--background,#07090d)!important;overflow:hidden!important; }
+  .mobileCommunity [data-community-header] > :nth-child(2) > :first-child img { width:100%!important;height:100%!important;object-fit:cover; }
+  .mobileCommunity [data-community-header] h1 { font-size:clamp(23px,6vw,29px);line-height:1.2; }
+  .mobileCommunity [data-community-columns]:not([hidden]) { display:block!important; width:100%!important;
+    max-width:100%!important;margin:0!important;padding:0!important;gap:0!important; }
+  .mobileCommunity [data-community-columns][hidden] { display:none!important; }
+  .mobileCommunity [data-community-sidebar] { display:none!important; }
+  .mobileCommunity [data-community-primary] { width:100%!important;max-width:none!important;
+    min-width:0!important;margin:0!important;padding:0!important;
+    border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important; }
+  .mobileCommunity [data-community-media] { width:100%!important;margin:0!important;padding:14px 0!important;
+    border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important; }
+  .mobileCommunity [data-community-media] > :is(h2,p,button) { margin-left:14px;margin-right:14px; }
+  .mobileCommunity [data-community-media-grid] { display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;gap:0!important; }
+  .mobileCommunity [data-community-media-grid] > [data-posting] {
+    border-bottom:1px solid color-mix(in srgb,var(--parapost-accent-1,#8b5cf6) 25%,transparent)!important; }
+  .mobileCommunity [data-community-primary] > :is(h2,p) { padding-left:14px;padding-right:14px; }
+  .mobileCommunity [data-community-primary] > section > h2 { padding-left:14px;padding-right:14px; }
+  .mobileCommunity [data-posting] { box-sizing:border-box; width:100%!important;max-width:100%!important;
+    margin:0!important;padding:14px 12px!important;border:0!important;
+    border-bottom:1px solid color-mix(in srgb,var(--parapost-accent-1,#8b5cf6) 25%,transparent)!important;
+    border-radius:0!important;box-shadow:none!important;background:transparent!important; }
+  .mobileCommunity [data-posting] :is(img,video) { max-width:100%; }
+  .mobileCommunity [data-posting] :is(button,input,textarea) { max-width:100%; }
+  .mobileCommunity [data-posting] :is(button,a):focus-visible { outline-offset:2px; }
+  .mobileCommunity [data-community-header] [role="tablist"] { margin:0!important; }
+}
