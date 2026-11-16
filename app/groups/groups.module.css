@@ -1840,3 +1840,28 @@
     box-shadow: none;
   }
 }
+
+/* STEP 117: MOBILE SETTINGS SCROLL FIX */
+
+@media (max-width: 700px) {
+  .settingsOverlay {
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .settingsModal {
+    box-sizing: border-box;
+    min-height: 0;
+    max-height: calc(100dvh - 24px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: max(
+      104px,
+      calc(24px + env(safe-area-inset-bottom, 0px))
+    );
+    scroll-padding-bottom: 104px;
+  }
+}

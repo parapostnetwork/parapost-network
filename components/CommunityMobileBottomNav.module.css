@@ -41,3 +41,11 @@
     font-family:inherit;font-size:13px;text-align:left;text-decoration:none!important; }
   .menu :is(button,a):hover { background:#443153; }
 }
+
+/* STEP 117: MOBILE SETTINGS SCROLL FIX */
+
+@media (max-width: 700px) {
+  body:has([role="dialog"][aria-modal="true"], dialog[open]) .nav {
+    display: none !important;
+  }
+}

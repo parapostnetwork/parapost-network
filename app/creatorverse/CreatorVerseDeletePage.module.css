@@ -45,3 +45,23 @@
 .actions .delete { background: #9c2735; border: 1px solid #ce5863; font-weight: 700; }
 .actions .delete:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 480px) { .dialog { padding: 18px; } .actions button { flex: 1 1 100%; } }
+
+/* STEP 117: MOBILE SETTINGS SCROLL FIX */
+
+@media (max-width: 700px) {
+  .dialog {
+    box-sizing: border-box;
+    min-height: 0;
+    max-height: calc(100dvh - 24px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: max(
+      104px,
+      calc(24px + env(safe-area-inset-bottom, 0px))
+    );
+    scroll-padding-bottom: 104px;
+  }
+}
