@@ -552,7 +552,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         }}
       />}
       <div data-community-columns="group" hidden={selectedTab!=='discussion'} className={`${styles.discussionLayout} ${styles.groupTabContent}`} id="group-panel-discussion" role="tabpanel" aria-labelledby="group-tab-discussion" tabIndex={0}>
-      <aside className={styles.aboutSidebar}><GroupAbout group={group}/></aside>
+      <aside className={styles.aboutSidebar} data-community-sidebar="group"><GroupAbout group={group}/></aside>
       <div className={styles.discussionColumn} data-community-primary="group">
       {canRead&&!approved&&<p className={styles.readingNotice}>You’re viewing a public discussion. Join this Group to participate.</p>}
       {approved && <GroupPostComposer userId={userId} profile={viewerProfile}
