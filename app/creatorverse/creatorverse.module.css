@@ -77,3 +77,30 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* Owner-only CreatorVerse actions, under the existing three-dot menu. */
+.ownerMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 25;
+  display: grid;
+  min-width: min(260px, calc(100vw - 32px));
+  padding: 6px;
+  border: 1px solid #70558b;
+  border-radius: 12px;
+  background: #28193b;
+  box-shadow: 0 12px 28px #0008;
+}
+.ownerMenu button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  white-space: normal;
+}
+.ownerMenu button:hover { background: #422b5c; }
+.ownerMenu .ownerMenuDanger { color: #ffb1b1; }
+.ownerMenu .ownerMenuDanger:hover { background: #5b2635; }

@@ -6,6 +6,7 @@ import groupTabStyles from './CreatorVerseGroupTabs.module.css';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import CreatorVerseEditDetails from './CreatorVerseEditDetails';
+import CreatorVerseDeletePage from './CreatorVerseDeletePage';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -36,6 +37,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
   const [section, setSection] = useState<Section>('Posts');
   const [canManage, setCanManage] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [coverAvailable, setCoverAvailable] = useState(false);
   const [logoAvailable, setLogoAvailable] = useState(false);
   const [imageRevision, setImageRevision] = useState(0);
@@ -210,12 +212,25 @@ export default function CreatorVersePage({ id }: { id: string }) {
                 >
                   ⋯
                 </summary>
-                <div style={{
-                  position: 'absolute', right: 0, top: '100%',
-                  minWidth: 140
-                }}>
-                  <button type="button" onClick={() => setEditing(true)}>
+                <div className={styles.ownerMenu}>
+                  <button
+                    type="button"
+                    onClick={event => {
+                      event.currentTarget.closest('details')?.removeAttribute('open');
+                      setEditing(true);
+                    }}
+                  >
                     Edit Page
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.ownerMenuDanger}
+                    onClick={event => {
+                      event.currentTarget.closest('details')?.removeAttribute('open');
+                      setDeleting(true);
+                    }}
+                  >
+                    Delete CreatorVerse Page
                   </button>
                 </div>
               </details>
@@ -236,6 +251,13 @@ export default function CreatorVersePage({ id }: { id: string }) {
           </div>
         <CreatorVerseFollowButton pageId={id} isOwner={canManage} />
         </header>
+
+        {deleting && canManage && (
+          <CreatorVerseDeletePage
+            page={page}
+            onCancel={() => setDeleting(false)}
+          />
+        )}
 
         {editing && canManage && (
           <CreatorVerseEditDetails

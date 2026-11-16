@@ -1,0 +1,47 @@
+.dialog {
+  width: min(94vw, 500px);
+  max-height: min(86vh, 680px);
+  overflow: auto;
+  padding: 26px;
+  border: 1px solid #665082;
+  border-radius: 18px;
+  background: #20142d;
+  color: #f7f1ff;
+  box-shadow: 0 20px 65px #0009;
+}
+.dialog::backdrop { background: #090311d9; }
+.dialog h2 { margin: 0 0 14px; font-size: 23px; }
+.dialog p { margin: 12px 0; line-height: 1.55; }
+.notice {
+  padding: 12px;
+  background: #32223f;
+  border: 1px solid #84699f;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.label { display: block; margin: 20px 0 8px; font-size: 14px; }
+.input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: #130e1a;
+  border: 1px solid #8c72ab;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 16px;
+}
+.input:focus-visible { outline: 2px solid #c49cff; outline-offset: 2px; }
+.error { color: #ffb5b5; font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 22px; }
+.actions button {
+  min-height: 44px;
+  padding: 10px 15px;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+}
+.actions .cancel { background: #342746; border: 1px solid #806b98; }
+.actions .delete { background: #9c2735; border: 1px solid #ce5863; font-weight: 700; }
+.actions .delete:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 480px) { .dialog { padding: 18px; } .actions button { flex: 1 1 100%; } }
