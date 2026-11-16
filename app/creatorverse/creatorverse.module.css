@@ -104,3 +104,11 @@
 .ownerMenu button:hover { background: #422b5c; }
 .ownerMenu .ownerMenuDanger { color: #ffb1b1; }
 .ownerMenu .ownerMenuDanger:hover { background: #5b2635; }
+
+
+/* STEP 112: Hide old CreatorVerse detail header on mobile */
+@media (max-width: 700px) {
+  .navigation[data-community-topbar="creatorverse"] {
+    display: none !important;
+  }
+}

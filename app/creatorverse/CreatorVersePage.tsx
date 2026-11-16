@@ -9,6 +9,7 @@ import CreatorVerseEditDetails from './CreatorVerseEditDetails';
 import CreatorVerseDeletePage from './CreatorVerseDeletePage';
 import Image from 'next/image';
 import Link from 'next/link';
+import CommunityMobileTopbar from '@/components/CommunityMobileTopbar';
 
 import { usePublicRead } from '@/lib/creatorverse/usePublicRead';
 import { CREATORVERSE_CATEGORIES, type PageResult } from '@/lib/creatorverse/types';
@@ -156,6 +157,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
           <Link href="/groups?tab=creatorverse">← Back to Groups</Link>
           <Link href="/dashboard" prefetch={false}>Dashboard</Link>
         </nav>
+        <CommunityMobileTopbar />
 
         <header className={`${groupStyles.card} ${groupStyles.groupHeader} ${draftStyles.header}`} data-community-header="creatorverse">
           <div className={`${groupStyles.cover} ${groupStyles.banner} ${draftStyles.cover}`} data-community-banner="creatorverse">

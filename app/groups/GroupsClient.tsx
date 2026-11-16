@@ -12,6 +12,7 @@ import { postCardStyle, postHeaderStyle, postAuthorStyle, postContentStyle, dots
 import { supabase } from '@/lib/supabase';
 import { createContext, useContext, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import CommunityMobileTopbar from '@/components/CommunityMobileTopbar';
 import { useRouter } from 'next/navigation';
 import { liveGroupsTransport, type GroupsTransport } from '@/lib/groups/transport';
 import { validateGroupFields, validateUpload } from '@/lib/groups/validation';
@@ -401,7 +402,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   if(!authReady)return <GroupsLoadingView title={groupId ? 'Groups' : 'Discover Groups'} />;
   if(!userId)return <main className={styles.page}><h1>Groups</h1><p>Sign in to discover and participate in Groups.</p><Link href="/">Sign in</Link></main>;
   return <main className={`${styles.page} ${groupId ? communityDetail.mobileCommunity : ''}`}><div className={`${styles.shell} ${!groupId ? styles.directoryShell : ''}`} data-community-detail-container={groupId ? 'group' : undefined}>
-    <header className={`${styles.topbar} ${!groupId ? styles.directoryTopbar : ''}`} data-community-topbar={groupId ? true : undefined}>
+    <header className={`${styles.topbar} ${!groupId ? styles.directoryTopbar : ''}`} data-community-topbar={groupId ? 'group' : undefined}>
       <Link href={routeBase === '/group-original-preview' ? '/groups-preview' : '/dashboard'}>
         <span
           className={styles.topbarGhost}
@@ -418,6 +419,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         {groupId ? '← Dashboard' : <><span className={styles.directoryDashboardDesktop}>Dashboard</span><span className={styles.directoryDashboardMobile}>Dashboard</span></>}
       </Link>
     </header>
+    {groupId && <CommunityMobileTopbar />}
     {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p className={groupId?styles.groupStatusToast:undefined} role="status">{notice}</p>}
     {loading&&groupId&&!group&&<p role="status">Loading Groups…</p>}
     {!groupId?<>

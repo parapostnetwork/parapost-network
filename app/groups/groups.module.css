@@ -1773,3 +1773,11 @@
   content: none !important;
   display: none !important;
 }
+
+
+/* STEP 112: Hide old Group detail header on mobile */
+@media (max-width: 700px) {
+  .page [data-community-topbar="group"] {
+    display: none !important;
+  }
+}
