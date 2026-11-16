@@ -1597,6 +1597,7 @@
 .desktopDirectoryFilter, .desktopDirectoryResultsHeading, .desktopDirectoryCardDescription { display: none; }
 
 @media (min-width: 701px) {
+  .page .directoryBrowser .mobileDirectorySearch { display: none; }
   .page .directoryShell { max-width: 1360px; }
   .page .directoryTopbar { min-height: 78px; font-size: 15px; font-weight: 500; }
   .page .directoryTopbar > [aria-hidden="true"] { display: none; }
