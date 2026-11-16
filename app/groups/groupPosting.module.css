@@ -36,7 +36,7 @@
 .singleMedia .mediaTile { min-height: 0 !important; }
 .singleMedia img, .singleMedia video { height: auto; max-height: 680px; object-fit: contain; }
 .mediaPlaceholder { display: grid; place-items: center; min-height: 140px; margin: 0; padding: 20px; color: #9ca3af; font-size: 13px; }
-.stats { display: flex; justify-content: space-between; gap: 12px; margin-top: 13px; padding-bottom: 11px; color: #d1d5db; border-bottom: 1px solid #ffffff1a; font-size: 13px; }
+.stats { display: flex; justify-content: space-between; gap: 12px; margin-top: 13px; padding-bottom: 11px; color: #d1d5db; border-bottom: 0; font-size: 13px; }
 .stats button { border: 0; background: transparent; color: inherit; font: inherit; padding: 0; }
 .actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 12px; }
 .actions[data-private=true] { grid-template-columns: repeat(2,minmax(0,1fr)); }

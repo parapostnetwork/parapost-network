@@ -1,7 +1,7 @@
 .section {
   margin-top: 14px;
   padding-top: 10px;
-  border-top: 1px solid var(--parapost-accent-border, #573f6f);
+  border-top: 0;
 }
 
 .actions {
