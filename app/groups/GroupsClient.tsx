@@ -413,7 +413,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
             </Link>
           : <span aria-hidden="true" />}
       <Link href={routeBase === '/group-original-preview' ? '/' : '/dashboard'}>
-        {groupId ? '← Dashboard' : <><span className={styles.directoryDashboardDesktop}>Dashboard</span><span className={styles.directoryDashboardMobile}>← Dashboard</span></>}
+        {groupId ? '← Dashboard' : <><span className={styles.directoryDashboardDesktop}>Dashboard</span><span className={styles.directoryDashboardMobile}>Dashboard</span></>}
       </Link>
     </header>
     {error&&<p className={styles.alert} role="alert">{error}</p>}{notice&&<p className={groupId?styles.groupStatusToast:undefined} role="status">{notice}</p>}
