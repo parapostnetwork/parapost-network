@@ -1781,3 +1781,11 @@
     display: none !important;
   }
 }
+
+
+/* STEP 113: Use shared header on desktop and tablet Group pages */
+@media (min-width: 701px) {
+  .page [data-community-topbar="group"] {
+    display: none !important;
+  }
+}

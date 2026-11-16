@@ -112,3 +112,11 @@
     display: none !important;
   }
 }
+
+
+/* STEP 113: Use shared header on desktop and tablet CreatorVerse pages */
+@media (min-width: 701px) {
+  .navigation[data-community-topbar="creatorverse"] {
+    display: none !important;
+  }
+}

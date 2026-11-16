@@ -75,3 +75,57 @@
     flex: 0 0 106px !important;
   }
 }
+
+
+/* STEP 113: Shared desktop and tablet community navigation */
+@media (min-width: 701px) {
+  .bar {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    margin: 0;
+    padding: 8px 24px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .bar a {
+    color: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .bar a:focus-visible {
+    outline: 2px solid #a855f7;
+    outline-offset: 2px;
+  }
+
+  .ghost {
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .ghost img {
+    display: block;
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+  }
+
+  .groups {
+    justify-self: center;
+  }
+
+  .dashboard {
+    justify-self: end;
+  }
+}
