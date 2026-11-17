@@ -241,3 +241,12 @@
 }
 
 /* END PARAPOST COMPACT FEED MEDIA V2 */
+
+
+/* Phase 4 CreatorVerse mobile post alignment */
+@media (max-width: 700px) {
+  .posts {
+    gap: 0 !important;
+    min-width: 0;
+  }
+}
