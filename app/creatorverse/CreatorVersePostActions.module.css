@@ -191,3 +191,29 @@
     cursor: default !important;
   }
 }
+
+
+/* Phase 4: evenly spaced mobile CreatorVerse actions */
+@media (max-width: 700px) {
+  .actions {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .actions > button {
+    display: inline-flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: auto;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 4px;
+  }
+}
