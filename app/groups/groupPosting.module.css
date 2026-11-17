@@ -431,3 +431,44 @@
 }
 
 /* END PARAPOST COMPACT FEED MEDIA V2 */
+
+
+/* STEP 119: FULL-WIDTH SINGLE GROUP PHOTOS */
+@media (min-width: 701px) {
+  .mediaGrid.singleMedia:has(> .mediaTile > .mediaOpen) {
+    display: block !important;
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+
+  .mediaGrid.singleMedia:has(> .mediaTile > .mediaOpen)
+  > .mediaTile {
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+
+  .mediaGrid.singleMedia:has(> .mediaTile > .mediaOpen)
+  .mediaOpen {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    line-height: 0;
+  }
+
+  .mediaGrid.singleMedia:has(> .mediaTile > .mediaOpen)
+  .mediaOpen img {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: min(680px, 80dvh) !important;
+    object-fit: contain !important;
+  }
+}
