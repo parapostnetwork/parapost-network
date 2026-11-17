@@ -1865,3 +1865,75 @@
     scroll-padding-bottom: 104px;
   }
 }
+
+
+/* STEP 123: UNIFIED GROUP DETAIL TABS */
+
+/* Match CreatorVerse on desktop, tablet and mobile */
+.page .groupTabs {
+  box-sizing: border-box;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch;
+  gap: 0 !important;
+  width: 100%;
+  max-width: 100%;
+  margin: 12px 0 0;
+  padding: 0 8px !important;
+  overflow-x: visible !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(185, 150, 225, .20) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.page .groupTabs > button {
+  box-sizing: border-box;
+  display: flex !important;
+  flex: 1 1 0 !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 0 !important;
+  width: 100%;
+  min-height: 48px !important;
+  margin: 0 !important;
+  padding: 12px 8px !important;
+  border: 0 !important;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #c9c3d5 !important;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap !important;
+  text-align: center;
+  cursor: pointer;
+}
+
+.page .groupTabs > button[aria-selected="true"] {
+  color: #fff !important;
+  border-bottom-color:
+    var(--parapost-accent-1, #8b5cf6) !important;
+  background: transparent !important;
+}
+
+.page .groupTabs > button:focus-visible {
+  outline: 2px solid #c49aff;
+  outline-offset: -4px;
+}
+
+/* Compact spacing for phones */
+@media (max-width: 700px) {
+  .page .groupTabs {
+    padding: 0 4px !important;
+  }
+
+  .page .groupTabs > button {
+    min-height: 46px !important;
+    padding: 10px 2px !important;
+    font-size: clamp(11px, 3vw, 13px) !important;
+  }
+}
