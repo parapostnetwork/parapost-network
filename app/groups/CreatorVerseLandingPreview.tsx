@@ -9,7 +9,7 @@ import { filterDiscoveryPages, LOCAL_DRAFT, type DiscoveryFilter } from '@/lib/c
 import { CREATORVERSE_SAMPLES } from '@/app/groups-local-preview/creatorverse/samples';
 import CreatorVersePageForm from '@/app/creatorverse/CreatorVersePageForm';
 import CreatorVerseStagingResults from './CreatorVerseStagingResults';
-import { createCreatorVersePageDraft } from '@/lib/creatorverse/create-page-draft';
+import CreatorVerseRecoveryForm from '@/app/creatorverse/CreatorVerseRecoveryForm';
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import type { PageFields } from '@/lib/creatorverse/types';
 import { validatePageFields } from '@/lib/creatorverse/validation';
@@ -58,6 +58,8 @@ function LocalCreatorVerseDraftForm({
     return <p>Loading local draft...</p>;
   }
 
+  if (REAL_PAGE_DRAFTS_APPROVED) return <CreatorVerseRecoveryForm />;
+
   return (
     <CreatorVersePageForm
         stagingPageCreation={REAL_PAGE_DRAFTS_APPROVED}
@@ -65,16 +67,6 @@ function LocalCreatorVerseDraftForm({
       buttonLabel={REAL_PAGE_DRAFTS_APPROVED ? "Create Staging Page" : "Save Draft"}
       successMessage={REAL_PAGE_DRAFTS_APPROVED ? "Page activated in staging. Images and extra details are not saved yet." : "Draft saved in this browser. Image files were not saved."}
       onSave={async (fields, images) => {
-          if (REAL_PAGE_DRAFTS_APPROVED) {
-            const id = await createCreatorVersePageDraft(
-              fields, images
-            );
-            window.localStorage.removeItem(DRAFT_KEY);
-            window.location.assign(
-              `/creatorverse/${encodeURIComponent(id)}`
-            );
-            return;
-          }
         window.localStorage.setItem(
           DRAFT_KEY,
           JSON.stringify(fields)
@@ -94,7 +86,7 @@ export default function CreatorVerseLandingPreview({
 }) {
   const [savedDraft, setSavedDraft] = useState<PageFields | null>(null);
   const ready = useClientReady();
-  const visibleDraft = savedDraft ?? (ready ? readSavedDraft() : null);
+  const visibleDraft = SHOW_STAGING_DATA ? null : savedDraft ?? (ready ? readSavedDraft() : null);
   if (formOpen) return <section className={styles.root}>
     <button type="button" className={styles.backButton} onClick={onCancelForm}>← Back to CreatorVerse</button>
     <LocalCreatorVerseDraftForm onSaved={setSavedDraft} />

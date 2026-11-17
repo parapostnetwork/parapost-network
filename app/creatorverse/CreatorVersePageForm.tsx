@@ -13,11 +13,15 @@ import {
   validatePageFields,
 } from '@/lib/creatorverse/validation';
 import styles from './CreatorVersePageForm.module.css';
+import type { DraftInput } from '@/lib/creatorverse/draft-recovery';
 
 type Images = { logo: File | null; cover: File | null };
 
 type Props = {
   initial?: PageFields;
+  initialLinkLabel?: string;
+  initialLinkUrl?: string;
+  onDraftChange?: (input: DraftInput, images: Images) => void;
   onSave?: (fields: PageFields, images: Images) => Promise<void>;
   heading?: string;
   buttonLabel?: string;
@@ -38,6 +42,9 @@ const empty: PageFields = {
 
 export default function CreatorVersePageForm({
   initial,
+  initialLinkLabel = '',
+  initialLinkUrl = '',
+  onDraftChange,
   onSave,
   heading = 'Create your CreatorVerse page',
   buttonLabel = 'Save Page',
@@ -53,8 +60,8 @@ export default function CreatorVersePageForm({
   const [cover, setCover] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [linkLabel, setLinkLabel] = useState('');
-  const [linkUrl, setLinkUrl] = useState('');
+  const [linkLabel, setLinkLabel] = useState(initialLinkLabel);
+  const [linkUrl, setLinkUrl] = useState(initialLinkUrl);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -63,6 +70,10 @@ export default function CreatorVersePageForm({
     if (logoPreview) URL.revokeObjectURL(logoPreview);
     if (coverPreview) URL.revokeObjectURL(coverPreview);
   }, [logoPreview, coverPreview]);
+
+  useEffect(() => {
+    onDraftChange?.({ fields, linkLabel, linkUrl }, { logo, cover });
+  }, [fields, linkLabel, linkUrl, logo, cover, onDraftChange]);
 
   function update<K extends keyof PageFields>(
     key: K,

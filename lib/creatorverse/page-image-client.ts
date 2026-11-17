@@ -21,7 +21,8 @@ export type PageImagePurpose = 'logo' | 'cover';
 export async function uploadCreatorVersePageImage(
   pageIdentifier: string,
   purpose: PageImagePurpose,
-  file: File
+  file: File,
+  expectedOwner?: string
 ): Promise<{ mediaId: string; verification: 'verified' }> {
   if (!pageImageUploadsApproved()) {
     throw new Error('CreatorVerse page image uploads are not enabled yet.');
@@ -62,7 +63,7 @@ export async function uploadCreatorVersePageImage(
 
   const token = sessionData.session?.access_token;
 
-  if (sessionError || !token) {
+  if (sessionError || !token || (expectedOwner && sessionData.session?.user.id !== expectedOwner)) {
     throw new Error('Sign in to upload your page image.');
   }
 
