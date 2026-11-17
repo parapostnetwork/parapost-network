@@ -1937,3 +1937,53 @@
     font-size: clamp(11px, 3vw, 13px) !important;
   }
 }
+
+
+/* STEP 128: COMPACT RESPONSIVE DIRECTORY CARDS */
+@media (min-width: 768px) {
+  .directoryBrowser .directoryResults,
+  .directoryBrowser .directorySection,
+  .directoryBrowser .directoryCardGrid {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+
+  .directoryBrowser .directoryCardGrid {
+    display: grid !important;
+    gap: 12px !important;
+    width: 100%;
+    align-items: start;
+    justify-items: stretch;
+  }
+
+  .directoryBrowser .directoryCardGrid .directoryCard {
+    width: 100%;
+    max-width: 320px !important;
+    min-width: 0;
+    height: auto;
+    box-sizing: border-box;
+  }
+
+  .page .directoryBrowser .directoryCardGrid .directoryOpen {
+    min-height: 96px;
+    padding: 10px 26px 10px 10px;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 1200px) {
+  .directoryBrowser .directoryCardGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    max-width: 1316px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .directoryBrowser .directoryCardGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    max-width: 984px;
+  }
+}
