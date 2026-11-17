@@ -1987,3 +1987,29 @@
     max-width: 984px;
   }
 }
+
+
+@media (min-width: 701px) {
+  .directoryBrowser .myGroupsSearchSort {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .directoryBrowser .myGroupsSearchSort > .search {
+    display: block;
+    flex: 1 1 auto;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .directoryBrowser .myGroupsSearchSort > .desktopGroupSort {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+}

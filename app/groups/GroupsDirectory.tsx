@@ -144,7 +144,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
           setMineView('all');
           onTab(value);
         }}><span className={styles.directoryTabIcon}><DirectoryTabIcon value={value}/></span><span className={styles.directoryTabLabel}>{label}</span></button>)}</nav>
-      <div className={styles.desktopDirectorySearch}>
+      <div className={`${styles.desktopDirectorySearch} ${mine ? styles.myGroupsSearchSort : ""}`}>
         {showCreatorVerse
           ? (creatorVerseSearch ?? (stage.enabled
               ? <DiscoverySearch value={stageFilter.search} onChange={value => setStageFilter(current => ({ ...current, search: value }))} />
@@ -153,6 +153,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg>
               <input type="search" maxLength={100} placeholder={mine ? 'Search your groups…' : 'Search by name or description'} value={search} onChange={event => onSearch(event.target.value)}/>
             </span></label>}
+        {mine && <label className={`${styles.directorySort} ${styles.desktopGroupSort}`}>Sort by:<select value={sort} onChange={event => setSort(event.target.value as DirectorySort)}><option value="name">Name A–Z</option><option value="members">Member count</option><option value="visited">Recently visited</option></select></label>}
       </div>
       <details className={styles.desktopDirectoryFilter} style={mine ? { visibility: "hidden" } : undefined}>
         <summary><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Filter</summary>
@@ -197,7 +198,6 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
           onChange={setMineView}
         />
         <div className={styles.myGroupsFilters} role="group" aria-label="My Groups filters">{filters.map(([value, label]) => <button key={value} aria-pressed={mineView === value} onClick={() => setMineView(value)}>{label}{loading ? ' (…)' : ` (${select(value, '').length})`}</button>)}</div>
-        <label className={`${styles.directorySort} ${styles.desktopGroupSort}`}>Sort by:<select value={sort} onChange={event => setSort(event.target.value as DirectorySort)}><option value="name">Name A–Z</option><option value="members">Member count</option><option value="visited">Recently visited</option></select></label>
         <ContainedGroupMobileMenu
           label="Sort by"
           value={sort}
