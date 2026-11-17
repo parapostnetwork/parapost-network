@@ -472,3 +472,15 @@
     object-fit: contain !important;
   }
 }
+
+
+/* STEP 120: DESKTOP ENGAGEMENT CURSOR FIX */
+@media (min-width: 701px) {
+  .posting .action:not(:disabled) {
+    cursor: pointer !important;
+  }
+
+  .posting .action:disabled {
+    cursor: default !important;
+  }
+}

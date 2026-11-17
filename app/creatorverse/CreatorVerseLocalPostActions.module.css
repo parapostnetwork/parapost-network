@@ -56,3 +56,15 @@
 .commentTop time { white-space: normal; overflow-wrap: anywhere; }
 .commentDelete { appearance: none !important; background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none !important; padding: 4px 6px !important; border-radius: 4px !important; color: #c8b6e4 !important; font-size: 12px !important; }
 .commentDelete:hover:not(:disabled) { color: #fff !important; text-decoration: underline; }
+
+
+/* STEP 120: DESKTOP ENGAGEMENT CURSOR FIX */
+@media (min-width: 701px) {
+  .cleanAction:not(:disabled) {
+    cursor: pointer !important;
+  }
+
+  .cleanAction:disabled {
+    cursor: default !important;
+  }
+}

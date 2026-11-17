@@ -179,3 +179,15 @@
 .section .actions > button[aria-expanded="true"] {
   color: var(--parapost-accent-readable-text, #d8b4fe);
 }
+
+
+/* STEP 120: DESKTOP ENGAGEMENT CURSOR FIX */
+@media (min-width: 701px) {
+  .section .actions > button:not(:disabled) {
+    cursor: pointer !important;
+  }
+
+  .section .actions > button:disabled {
+    cursor: default !important;
+  }
+}
