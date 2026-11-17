@@ -281,7 +281,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
           />
         )}
 
-        {editing && canManage && (
+        {editing && (
           <CreatorVerseEditDetails
             page={page}
             onCancel={() => setEditing(false)}

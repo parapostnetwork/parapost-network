@@ -145,7 +145,11 @@ export default function CreatorVerseEditDetails({
     <dialog
       ref={dialogRef}
       className={styles.dialog}
-      onClose={onCancel}
+      onCancel={event => {
+          // Require an explicit close action while editing.
+          event.preventDefault();
+        }}
+        onClose={onCancel}
       aria-label="Edit CreatorVerse page"
     >
       <div className={styles.topbar}>
