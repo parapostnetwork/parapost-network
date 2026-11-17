@@ -162,7 +162,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
               <option value="">All CreatorVerse pages</option>
               {Object.entries(CREATORVERSE_CATEGORIES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
-          </label> : <label>Sort Groups
+          </label> : mine ? null : <label>Sort Groups
             <select value={sort} onChange={event => setSort(event.target.value as DirectorySort)}>
               <option value="name">Name A–Z</option>
               <option value="members">Most members</option>
