@@ -52,8 +52,16 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
     async function verify(token?: string) {
       const current = ++sequence;
-      if (active) setCanManage(false);
-      if (token == null) return;
+
+      // Preserve verified ownership during routine session refreshes.
+      // Clear editing access when the user actually signs out.
+      if (token == null) {
+        if (active && current === sequence) {
+          setCanManage(false);
+          setEditing(false);
+        }
+        return;
+      }
 
       try {
         const response = await fetch(
@@ -63,7 +71,12 @@ export default function CreatorVersePage({ id }: { id: string }) {
             headers: { Authorization: `Bearer ${token}` }
           }
         );
-        if (response.ok === false) return;
+        if (response.ok === false) {
+          if (active && current === sequence) {
+            setCanManage(false);
+          }
+          return;
+        }
         const permissions = await response.json();
         if (active && current === sequence) {
           setCanManage((permissions.can_edit_details === true));
