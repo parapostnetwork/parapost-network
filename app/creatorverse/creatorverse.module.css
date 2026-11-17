@@ -120,3 +120,20 @@
     display: none !important;
   }
 }
+
+
+/* STEP 202: CREATORVERSE MOBILE POST SEPARATORS */
+@media (max-width: 700px) {
+  .post[data-posting] {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 12px 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
