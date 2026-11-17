@@ -21,15 +21,16 @@ export async function readDirectory(client: SupabaseClient, params: URLSearchPar
   const rows = data ?? [];
   return { pages: rows.slice(0, limit).map(publicPage), nextOffset: rows.length > limit ? offset + limit : null };
 }
-export async function readPublicPage(client: SupabaseClient, id: string): Promise<PageResult> {
+export async function readPublicPage(client: SupabaseClient, id: string, offset = 0): Promise<PageResult> {
   pageId(id);
   const { data, error } = await client.from('creatorverse_pages').select(columns).eq('id', id).eq('status', 'active').maybeSingle();
   if (error) throw new CreatorVerseError(503, 'CreatorVerse is temporarily unavailable.');
   if (!data) throw new CreatorVerseError(404, 'This page is not available.');
   const result = await client.from('creatorverse_posts').select('id,page_id,content,created_at,comments_enabled')
-    .eq('page_id', id).eq('status', 'published').order('created_at', { ascending: false }).order('id', { ascending: false }).limit(20);
+    .eq('page_id', id).eq('status', 'published').order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + 20);
   if (result.error) throw new CreatorVerseError(503, 'Posts are temporarily unavailable.');
-  const posts: CreatorVersePost[] = (result.data ?? []).map(post => ({
+  const rows = result.data ?? [];
+  const posts: CreatorVersePost[] = rows.slice(0, 20).map(post => ({
     id: post.id,
     page_id: post.page_id,
     content: post.content,
@@ -80,5 +81,5 @@ export async function readPublicPage(client: SupabaseClient, id: string): Promis
     }
   }
 
-  return { page: publicPage(data), posts };
+  return { page: publicPage(data), posts, nextPostsOffset: rows.length > 20 ? offset + 20 : null };
 }

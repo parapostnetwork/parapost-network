@@ -47,5 +47,5 @@ export type CreatorVerseComment = {
   id: string; post_id: string; author_id: string; parent_id: string | null;
   content: string; created_at: string;
 };
-export type PageResult = { page: PublicPage; posts: CreatorVersePost[] };
+export type PageResult = { page: PublicPage; posts: CreatorVersePost[]; nextPostsOffset?: number | null };
 export type DirectoryResult = { pages: PublicPage[]; nextOffset: number | null };

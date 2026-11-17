@@ -3,7 +3,7 @@ import ExpandablePostText from '@/components/ExpandablePostText';
 
 import groupTabStyles from './CreatorVerseGroupTabs.module.css';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import CreatorVerseEditDetails from './CreatorVerseEditDetails';
 import CreatorVerseDeletePage from './CreatorVerseDeletePage';
@@ -12,7 +12,7 @@ import Link from 'next/link';
 import CommunityMobileTopbar from '@/components/CommunityMobileTopbar';
 
 import { usePublicRead } from '@/lib/creatorverse/usePublicRead';
-import { CREATORVERSE_CATEGORIES, type PageResult } from '@/lib/creatorverse/types';
+import { CREATORVERSE_CATEGORIES, type PageResult, type CreatorVersePost } from '@/lib/creatorverse/types';
 import { postCardStyle, postContentStyle } from '@/components/postPresentation';
 
 import groupStyles from '@/app/groups/groups.module.css';
@@ -144,6 +144,83 @@ export default function CreatorVersePage({ id }: { id: string }) {
     `/api/creatorverse?page=${encodeURIComponent(id)}`
   );
 
+  const [olderPosts, setOlderPosts] = useState<CreatorVersePost[]>([]);
+  const [nextPostsOffset, setNextPostsOffset] = useState<number | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState('');
+  const olderLock = useRef(false);
+  const pageRevision = useRef(0);
+
+  useEffect(() => {
+    pageRevision.current += 1;
+    olderLock.current = false;
+    setOlderPosts([]);
+    setNextPostsOffset(data?.nextPostsOffset ?? null);
+    setLoadingOlder(false);
+    setOlderError('');
+  }, [data, id]);
+
+  async function loadOlderPosts() {
+    if (!data || nextPostsOffset === null || olderLock.current) return;
+
+    const revision = pageRevision.current;
+    olderLock.current = true;
+    setLoadingOlder(true);
+    setOlderError('');
+
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      const token = auth.session?.access_token;
+
+      const response = await fetch(
+        `/api/creatorverse?page=${encodeURIComponent(id)}&posts_offset=${nextPostsOffset}`,
+        {
+          cache: 'no-store',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
+      );
+
+      if (!response.ok) throw new Error('Unable to load older posts.');
+
+      const result = await response.json() as PageResult;
+      if (!Array.isArray(result.posts) || result.page?.id !== id) {
+        throw new Error('Invalid older-post response.');
+      }
+
+      if (revision !== pageRevision.current) return;
+
+      setOlderPosts(previous => {
+        const seen = new Set([
+          ...data.posts.map(post => post.id),
+          ...previous.map(post => post.id),
+        ]);
+
+        const additions = result.posts.filter(post => {
+          if (seen.has(post.id)) return false;
+          seen.add(post.id);
+          return true;
+        });
+
+        return [...previous, ...additions];
+      });
+
+      setNextPostsOffset(result.nextPostsOffset ?? null);
+    } catch (failure) {
+      if (revision === pageRevision.current) {
+        setOlderError(
+          failure instanceof Error
+            ? failure.message
+            : 'Unable to load older posts.'
+        );
+      }
+    } finally {
+      if (revision === pageRevision.current) {
+        olderLock.current = false;
+        setLoadingOlder(false);
+      }
+    }
+  }
+
   if (loading) return <p role="status">Loading this page…</p>;
 
   if (error || !data) {
@@ -156,7 +233,12 @@ export default function CreatorVersePage({ id }: { id: string }) {
     );
   }
 
-  const { page, posts } = data;
+  const { page } = data;
+  const loadedIds = new Set(data.posts.map(post => post.id));
+  const posts = [
+    ...data.posts,
+    ...olderPosts.filter(post => !loadedIds.has(post.id)),
+  ];
 
   const imageBase =
     `/api/creatorverse/pages/${encodeURIComponent(page.id)}/images`;
@@ -438,6 +520,22 @@ export default function CreatorVersePage({ id }: { id: string }) {
                 <p>No videos have been published on this page yet.</p>
               )}
             </section>
+          )}
+
+          {section !== 'About' && nextPostsOffset !== null && (
+            <div style={{ marginTop: 20, textAlign: 'center' }}>
+              <button
+                type="button"
+                disabled={loadingOlder}
+                onClick={() => void loadOlderPosts()}
+              >
+                {loadingOlder ? 'Loading…' : 'Load older posts'}
+              </button>
+            </div>
+          )}
+
+          {section !== 'About' && olderError && (
+            <p role="alert">{olderError}</p>
           )}
 
           {section === 'About' && (
