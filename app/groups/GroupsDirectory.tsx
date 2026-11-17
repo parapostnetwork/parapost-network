@@ -115,7 +115,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
     requestAnimationFrame(() => results.current?.focus({ preventScroll: true }));
   }
   return <div className={styles.directoryBrowser}>
-    <div className={styles.directoryControls}>
+    <div className={styles.directoryControls} style={mine ? { gridTemplateColumns: "minmax(0, 1fr)", gridTemplateAreas: "none" } : undefined}>
       <label className={styles.mobileDirectorySearch}>
         <span className={styles.visuallyHidden}>{showCreatorVerse ? 'Search CreatorVerse' : 'Search Groups'}</span>
         <span className={styles.mobileDirectorySearchField}>
@@ -154,7 +154,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
               <input type="search" maxLength={100} placeholder={mine ? 'Search your groups…' : 'Search by name or description'} value={search} onChange={event => onSearch(event.target.value)}/>
             </span></label>}
       </div>
-      <details className={styles.desktopDirectoryFilter}>
+      {!mine && <details className={styles.desktopDirectoryFilter}>
         <summary><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Filter</summary>
         <div className={styles.desktopFilterOptions}>
           {showCreatorVerse ? <label>CreatorVerse category
@@ -170,7 +170,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
             </select>
           </label>}
         </div>
-      </details>
+      </details>}
     </div>
     <div className={styles.mobileDiscoveryBar}>
       <h2>{showCreatorVerse ? 'Discover CreatorVerse' : mine ? 'My Groups' : 'Discover Groups'}</h2>
@@ -180,7 +180,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
         Filter
       </button>
     </div>
-    <div id="groups-mobile-filter-panel" className={styles.mobileFilterPanel} hidden={!mobileFiltersOpen}>
+    <div id="groups-mobile-filter-panel" className={styles.mobileFilterPanel} hidden={!mobileFiltersOpen || mine}>
       {!mine && !showCreatorVerse && <label>Sort results on this page
         <select value={sort === 'members' ? 'members' : 'name'} onChange={event => setSort(event.target.value as DirectorySort)}>
           <option value="name">Default order</option><option value="members">Most members</option>
