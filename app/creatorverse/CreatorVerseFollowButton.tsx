@@ -16,6 +16,7 @@ export default function CreatorVerseFollowButton({
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [retryVersion, setRetryVersion] = useState(0);
 
   const staging =
     process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
@@ -42,29 +43,32 @@ export default function CreatorVerseFollowButton({
         return;
       }
 
-      const { data, error: failure } = await supabase
-        .from('creatorverse_follows')
-        .select('page_id')
-        .eq('page_id', pageId)
-        .eq('user_id', userId)
-        .maybeSingle();
+      try {
+        const { data, error: failure } = await supabase
+          .from('creatorverse_follows')
+          .select('page_id')
+          .eq('page_id', pageId)
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      if (!active || sequence !== current) return;
-
-      if (failure) {
-        setError(failure.message);
-      } else {
+        if (!active || sequence !== current) return;
+        if (failure) throw failure;
         setFollowing(Boolean(data));
+      } catch {
+        if (active && sequence === current) {
+          setError('Unable to check follow status. Please retry.');
+        }
+      } finally {
+        if (active && sequence === current) setReady(true);
       }
-
-      setReady(true);
     }
 
-    void supabase.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then(({ data, error: failure }) => {
+      if (failure) throw failure;
       if (active) void load(data.session?.user?.id ?? null);
     }).catch(() => {
       if (active) {
-        setError('Unable to check your session.');
+        setError('Unable to check your session. Please retry.');
         setReady(true);
       }
     });
@@ -81,10 +85,10 @@ export default function CreatorVerseFollowButton({
       sequence++;
       subscription.subscription.unsubscribe();
     };
-  }, [pageId, staging]);
+  }, [pageId, staging, retryVersion]);
 
   async function toggleFollow() {
-    if (!viewerId || !ready || busy || isOwner) return;
+    if (!viewerId || !ready || busy || isOwner || error) return;
 
     setBusy(true);
     setError('');
@@ -115,12 +119,8 @@ export default function CreatorVerseFollowButton({
       if (verification.error) throw verification.error;
 
       setFollowing(Boolean(verification.data));
-    } catch (failure) {
-      setError(
-        failure instanceof Error
-          ? failure.message
-          : 'Unable to update follow status.'
-      );
+    } catch {
+      setError('Unable to confirm follow status. Retry to check before trying again.');
     } finally {
       setBusy(false);
     }
@@ -134,7 +134,10 @@ export default function CreatorVerseFollowButton({
       flexDirection: 'column',
       alignItems: 'flex-end',
       gap: 8,
-      padding: '0 20px 14px'
+      padding: '0 20px 14px',
+      minWidth: 0,
+      maxWidth: '100%',
+      boxSizing: 'border-box'
     }}>
       {!viewerId && ready ? (
         <Link href="/" style={{
@@ -168,12 +171,21 @@ export default function CreatorVerseFollowButton({
         </button>
       )}
       {error && (
+        <>
         <span role="alert" style={{
           color: '#ffb6b6',
-          fontSize: 12
+          fontSize: 12,
+          overflowWrap: 'anywhere'
         }}>
           {error}
         </span>
+        <button type="button" disabled={busy || !ready} onClick={() => {
+          setReady(false);
+          setRetryVersion(value => value + 1);
+        }} style={{ minHeight: 44, padding: '9px 18px' }}>
+          Retry follow status
+        </button>
+        </>
       )}
     </div>
   );

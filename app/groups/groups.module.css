@@ -1990,7 +1990,8 @@
 
 
 @media (min-width: 701px) {
-  .directoryBrowser .myGroupsSearchSort {
+  .page .directoryBrowser .desktopDirectorySearch.myGroupsSearchSort {
+    grid-column: 1 / -1;
     display: flex;
     align-items: center;
     gap: 18px;

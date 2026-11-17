@@ -155,7 +155,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
             </span></label>}
         {mine && <label className={`${styles.directorySort} ${styles.desktopGroupSort}`}>Sort by:<select value={sort} onChange={event => setSort(event.target.value as DirectorySort)}><option value="name">Name A–Z</option><option value="members">Member count</option><option value="visited">Recently visited</option></select></label>}
       </div>
-      <details className={styles.desktopDirectoryFilter} style={mine ? { visibility: "hidden" } : undefined}>
+      {!mine && <details className={styles.desktopDirectoryFilter}>
         <summary><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Filter</summary>
         <div className={styles.desktopFilterOptions}>
           {showCreatorVerse ? <label>CreatorVerse category
@@ -171,7 +171,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
             </select>
           </label>}
         </div>
-      </details>
+      </details>}
     </div>
     <div className={styles.mobileDiscoveryBar}>
       <h2>{showCreatorVerse ? 'Discover CreatorVerse' : mine ? 'My Groups' : 'Discover Groups'}</h2>
