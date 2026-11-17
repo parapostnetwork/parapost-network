@@ -2615,8 +2615,13 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [sharedPostPosts, setSharedPostPosts] = useState<SharedProfilePost[]>([]);
   const { shares: groupSharedPostPosts, loading: groupSharesLoading, error: groupSharesError, refresh: refreshGroupShares } = useSharedGroupFeed(profileId, 60);
-  const { shares: creatorVerseSharedPostPosts } =
-    useSharedCreatorVerseFeed(profileId, 60);
+  const {
+    shares: creatorVerseSharedPostPosts,
+    hasMore: creatorVerseSharesHasMore,
+    loading: creatorVerseSharesLoading,
+    loadingMore: creatorVerseSharesLoadingMore,
+    loadMore: loadMoreCreatorVerseShares
+  } = useSharedCreatorVerseFeed(profileId, 60);
   const [sharedReelPosts, setSharedReelPosts] = useState<ReelShareProfilePost[]>([]);
   const [profileLiveStreams, setProfileLiveStreams] = useState<ProfileLiveStream[]>([]);
   const [reels, setReels] = useState<Reel[]>([]);
@@ -3422,7 +3427,7 @@ const profileFeedItems = useMemo<ProfileFeedItem[]>(() => {
       new Date(b.created_at).getTime() -
       new Date(a.created_at).getTime()
   );
-}, [profileThought, posts, sharedPostPosts, groupSharedPostPosts, sharedReelPosts, profileAchievementActivity, profileBadges, profileLiveStreams]);
+}, [profileThought, posts, sharedPostPosts, creatorVerseSharedPostPosts, groupSharedPostPosts, sharedReelPosts, profileAchievementActivity, profileBadges, profileLiveStreams]);
 
 
 const showFriendStatus = useCallback((message: string) => {
@@ -19388,6 +19393,19 @@ return (
 
                   {groupSharesError && <p role="alert">{groupSharesError} <button type="button" onClick={refreshGroupShares}>Retry Group shares</button></p>}
                   {groupSharesLoading && groupSharedPostPosts.length === 0 && <p role="status">Loading Group shares…</p>}
+                  {!isProfileContentLocked && creatorVerseSharesHasMore && (
+                    <div style={{ textAlign: "center", padding: "10px 0" }}>
+                      <button
+                        type="button"
+                        disabled={creatorVerseSharesLoading}
+                        onClick={loadMoreCreatorVerseShares}
+                      >
+                        {creatorVerseSharesLoadingMore
+                          ? "Loading older CreatorVerse shares…"
+                          : "Load older CreatorVerse shares"}
+                      </button>
+                    </div>
+                  )}
                   {errorMessage ? (
                     <div style={messageBoxStyle}>{errorMessage}</div>
                   ) : !profile && !profileMissingForOwner ? (

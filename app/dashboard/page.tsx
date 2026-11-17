@@ -2078,8 +2078,16 @@ export default function DashboardPage() {
     shares: creatorVerseSharedPostItems,
     loading: creatorVerseSharesLoading,
     error: creatorVerseSharesError,
-    refresh: refreshCreatorVerseShares
+    refresh: refreshCreatorVerseShares,
+    hasMore: creatorVerseSharesHasMore,
+    loadingMore: creatorVerseSharesLoadingMore,
+    loadMore: loadMoreCreatorVerseShares
   } = useSharedCreatorVerseFeed(null, DASHBOARD_FEED_ITEM_LIMIT);
+
+  const [
+    creatorVerseFeedVisibleLimit,
+    setCreatorVerseFeedVisibleLimit
+  ] = useState(DASHBOARD_FEED_ITEM_LIMIT);
   const [sharedReelItems, setSharedReelItems] = useState<SharedReelItem[]>([]);
   const [liveFeedStreams, setLiveFeedStreams] = useState<DashboardLiveStreamItem[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfilePreview>>({});
@@ -2606,8 +2614,8 @@ export default function DashboardPage() {
 
         return feedPriority[b.type] - feedPriority[a.type];
       }
-    ).slice(0, DASHBOARD_FEED_ITEM_LIMIT);
-  }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, groupSharedPostItems, creatorVerseSharedPostItems, sharedReelItems]);
+    ).slice(0, creatorVerseFeedVisibleLimit);
+  }, [blockedUserIds, liveFeedStreams, posts, sharedPostItems, groupSharedPostItems, creatorVerseSharedPostItems, sharedReelItems, creatorVerseFeedVisibleLimit]);
 
   const filteredFeedItems = useMemo(() => {
     if (feedMode === "live") {
@@ -6274,6 +6282,24 @@ export default function DashboardPage() {
               {groupSharesLoading && groupSharedPostItems.length === 0 && <p role="status">Loading Group shares…</p>}
               {creatorVerseSharesError && <p role="alert">{creatorVerseSharesError} <button type="button" onClick={refreshCreatorVerseShares}>Retry CreatorVerse shares</button></p>}
               {creatorVerseSharesLoading && creatorVerseSharedPostItems.length === 0 && <p role="status">Loading CreatorVerse shares…</p>}
+              {creatorVerseSharesHasMore && (
+                <div style={{ textAlign: "center", padding: "10px 0" }}>
+                  <button
+                    type="button"
+                    disabled={creatorVerseSharesLoading}
+                    onClick={() => {
+                      loadMoreCreatorVerseShares();
+                      setCreatorVerseFeedVisibleLimit(
+                        count => count + DASHBOARD_FEED_ITEM_LIMIT
+                      );
+                    }}
+                  >
+                    {creatorVerseSharesLoadingMore
+                      ? "Loading older CreatorVerse shares…"
+                      : "Load older CreatorVerse shares"}
+                  </button>
+                </div>
+              )}
               {fetchingPosts ? (
                 <DashboardEmptyState title="Loading your feed" text="Parapost Network is pulling in posts, shared reels, and profile activity." />
               ) : filteredFeedItems.length === 0 && (groupSharesLoading || creatorVerseSharesLoading) ? null : filteredFeedItems.length === 0 ? (

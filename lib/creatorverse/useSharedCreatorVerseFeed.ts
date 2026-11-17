@@ -22,6 +22,7 @@ type FeedState = {
   shares: SharedCreatorVersePost[];
   loading: boolean;
   error: string;
+  hasMore: boolean;
 };
 
 const stagingEnabled =
@@ -55,17 +56,42 @@ export function useSharedCreatorVerseFeed(
   limit = 60
 ) {
   const scope = JSON.stringify([sharerId, limit]);
+  const batchSize = Math.min(Math.max(Math.floor(limit), 1), 60);
+
   const [revision, setRevision] = useState(0);
+  const [pageRequest, setPageRequest] = useState({
+    scope,
+    pages: 1
+  });
+
+  const pagesToLoad =
+    pageRequest.scope === scope ? pageRequest.pages : 1;
+
   const [state, setState] = useState<FeedState>({
     scope: "",
     shares: [],
     loading: true,
-    error: ""
+    error: "",
+    hasMore: false
   });
 
   const refresh = useCallback(() => {
     setRevision(value => value + 1);
   }, []);
+
+  const loadMore = useCallback(() => {
+    if (
+      !stagingEnabled ||
+      state.scope !== scope ||
+      state.loading ||
+      !state.hasMore
+    ) return;
+
+    setPageRequest(previous => ({
+      scope,
+      pages: previous.scope === scope ? previous.pages + 1 : 2
+    }));
+  }, [scope, state.scope, state.loading, state.hasMore]);
 
   useEffect(() => {
     if (!stagingEnabled) return;
@@ -75,6 +101,17 @@ export function useSharedCreatorVerseFeed(
 
     async function reload() {
       const current = ++sequence;
+
+      setState(previous => previous.scope === scope
+        ? { ...previous, loading: true, error: "" }
+        : {
+            scope,
+            shares: [],
+            loading: true,
+            error: "",
+            hasMore: false
+          }
+      );
 
       try {
         const { data: auth, error: authError } =
@@ -87,44 +124,59 @@ export function useSharedCreatorVerseFeed(
             scope,
             shares: [],
             loading: false,
-            error: ""
+            error: "",
+            hasMore: false
           });
           return;
         }
 
-        const { data, error } = await supabase.rpc(
-          "creatorverse_shared_feed",
-          {
-            p_sharer_id: sharerId,
-            p_limit: Math.min(Math.max(limit, 1), 60),
-            p_offset: 0
-          }
-        );
+        const shares: SharedCreatorVersePost[] = [];
+        const seen = new Set<string>();
+        let hasMore = false;
 
-        if (!active || current !== sequence) return;
-
-        if (error) throw error;
-
-        const shares = (Array.isArray(data) ? data : [])
-          .filter(validShare)
-          .filter(share =>
-            !sharerId || share.sharer_id === sharerId
+        for (let page = 0; page < pagesToLoad; page++) {
+          const { data, error } = await supabase.rpc(
+            "creatorverse_shared_feed",
+            {
+              p_sharer_id: sharerId,
+              p_limit: batchSize,
+              p_offset: page * batchSize
+            }
           );
+
+          if (!active || current !== sequence) return;
+          if (error) throw error;
+
+          const rows: unknown[] = Array.isArray(data) ? data : [];
+          hasMore = rows.length === batchSize;
+
+          for (const row of rows) {
+            if (!validShare(row)) continue;
+            if (sharerId && row.sharer_id !== sharerId) continue;
+            if (seen.has(row.share_id)) continue;
+
+            seen.add(row.share_id);
+            shares.push(row);
+          }
+
+          if (!hasMore) break;
+        }
 
         setState({
           scope,
           shares,
           loading: false,
-          error: ""
+          error: "",
+          hasMore
         });
-
       } catch {
         if (active && current === sequence) {
           setState({
             scope,
             shares: [],
             loading: false,
-            error: "CreatorVerse shares could not be loaded."
+            error: "CreatorVerse shares could not be loaded.",
+            hasMore: false
           });
         }
       }
@@ -150,7 +202,8 @@ export function useSharedCreatorVerseFeed(
           scope,
           shares: [],
           loading: true,
-          error: ""
+          error: "",
+          hasMore: false
         });
       } else {
         void reload();
@@ -175,6 +228,7 @@ export function useSharedCreatorVerseFeed(
 
       subscription.subscription.unsubscribe();
       window.clearInterval(timer);
+
       window.removeEventListener("focus", onRefresh);
       window.removeEventListener(
         "parapost-creatorverse-shared",
@@ -185,20 +239,20 @@ export function useSharedCreatorVerseFeed(
         onVisibility
       );
     };
-  }, [scope, sharerId, limit, revision]);
+  }, [scope, sharerId, batchSize, pagesToLoad, revision]);
+
+  const current = stagingEnabled && state.scope === scope;
 
   return {
-    shares:
-      stagingEnabled && state.scope === scope
-        ? state.shares
-        : [],
-    loading:
-      stagingEnabled &&
-      (state.scope !== scope || state.loading),
-    error:
-      stagingEnabled && state.scope === scope
-        ? state.error
-        : "",
+    shares: current ? state.shares : [],
+    loading: stagingEnabled &&
+      (!current || state.loading),
+    error: current ? state.error : "",
+    hasMore: current && state.hasMore,
+    loadingMore: current &&
+      state.loading &&
+      pagesToLoad > 1,
+    loadMore,
     refresh
   };
 }
