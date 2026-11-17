@@ -2013,3 +2013,71 @@
     margin-left: auto;
   }
 }
+
+
+/* Step 136: Contained mobile-only sorting. */
+@media (max-width: 700px) {
+  .containedMobileSort {
+    display: grid;
+    gap: 7px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .containedMobileSort > span {
+    font-size: 12px;
+    color: #d0c5dc;
+  }
+
+  .containedMobileSortMenu {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    border: 1px solid rgba(174,124,229,.45);
+    border-radius: 10px;
+    background: #15101f;
+  }
+
+  .containedMobileSortMenu > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 10px 12px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 13px;
+    color: #f5f1fc;
+  }
+
+  .containedMobileSortMenu > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .containedMobileSortOptions {
+    display: grid;
+    gap: 4px;
+    padding: 5px;
+    border-top: 1px solid rgba(174,124,229,.25);
+  }
+
+  .page .containedMobileSortOptions > button {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #f5f1fc;
+    text-align: left;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .page .containedMobileSortOptions > button[aria-pressed="true"] {
+    background: rgba(139,92,246,.25);
+    color: #ffffff;
+  }
+}

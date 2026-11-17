@@ -182,11 +182,39 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
       </button>
     </div>
     {!mine && <div id="groups-mobile-filter-panel" className={styles.mobileFilterPanel} hidden={!mobileFiltersOpen}>
-      {!mine && !showCreatorVerse && <label>Sort results on this page
-        <select value={sort === 'members' ? 'members' : 'name'} onChange={event => setSort(event.target.value as DirectorySort)}>
-          <option value="name">Default order</option><option value="members">Most members</option>
-        </select>
-      </label>}
+      {!mine && !showCreatorVerse && (
+      <div className={styles.containedMobileSort}>
+        <span>Sort results on this page</span>
+        <details className={styles.containedMobileSortMenu}>
+          <summary>
+            {sort === 'members' ? 'Most members' : 'Default order'}
+            <span aria-hidden="true">⌄</span>
+          </summary>
+          <div className={styles.containedMobileSortOptions}>
+            <button
+              type="button"
+              aria-pressed={sort !== 'members'}
+              onClick={event => {
+                setSort('name');
+                event.currentTarget.closest('details')?.removeAttribute('open');
+              }}
+            >
+              Default order
+            </button>
+            <button
+              type="button"
+              aria-pressed={sort === 'members'}
+              onClick={event => {
+                setSort('members');
+                event.currentTarget.closest('details')?.removeAttribute('open');
+              }}
+            >
+              Most members
+            </button>
+          </div>
+        </details>
+      </div>
+    )}
       {showCreatorVerse && <p>Choose a CreatorVerse category below.</p>}
     </div>}
     {mine && <>
