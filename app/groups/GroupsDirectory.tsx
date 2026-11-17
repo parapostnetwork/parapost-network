@@ -154,7 +154,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
               <input type="search" maxLength={100} placeholder={mine ? 'Search your groups…' : 'Search by name or description'} value={search} onChange={event => onSearch(event.target.value)}/>
             </span></label>}
       </div>
-      <details className={styles.desktopDirectoryFilter}>
+      <details className={styles.desktopDirectoryFilter} style={mine ? { visibility: "hidden" } : undefined}>
         <summary><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Filter</summary>
         <div className={styles.desktopFilterOptions}>
           {showCreatorVerse ? <label>CreatorVerse category
@@ -175,21 +175,21 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
     <div className={styles.mobileDiscoveryBar}>
       <h2>{showCreatorVerse ? 'Discover CreatorVerse' : mine ? 'My Groups' : 'Discover Groups'}</h2>
       <button type="button" className={styles.mobileFilterToggle} aria-expanded={mobileFiltersOpen}
-        aria-controls="groups-mobile-filter-panel" onClick={() => setMobileFiltersOpen(value => !value)}>
+        aria-controls={mine ? "groups-mine-filter-row" : "groups-mobile-filter-panel"} onClick={() => setMobileFiltersOpen(value => !value)}>
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/></svg>
         Filter
       </button>
     </div>
-    <div id="groups-mobile-filter-panel" className={styles.mobileFilterPanel} hidden={!mobileFiltersOpen}>
+    {!mine && <div id="groups-mobile-filter-panel" className={styles.mobileFilterPanel} hidden={!mobileFiltersOpen}>
       {!mine && !showCreatorVerse && <label>Sort results on this page
         <select value={sort === 'members' ? 'members' : 'name'} onChange={event => setSort(event.target.value as DirectorySort)}>
           <option value="name">Default order</option><option value="members">Most members</option>
         </select>
       </label>}
       {showCreatorVerse && <p>Choose a CreatorVerse category below.</p>}
-    </div>
+    </div>}
     {mine && <>
-      <div className={`${styles.directoryFilterRow} ${mobileFiltersOpen ? styles.mobileFilterContentOpen : styles.mobileFilterContentClosed}`}>
+      <div id="groups-mine-filter-row" className={`${styles.directoryFilterRow} ${mobileFiltersOpen ? styles.mobileFilterContentOpen : styles.mobileFilterContentClosed}`}>
         <ContainedGroupMobileMenu
           label="Filter My Groups"
           value={mineView}
