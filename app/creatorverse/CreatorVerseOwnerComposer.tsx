@@ -96,7 +96,11 @@ export default function CreatorVerseOwnerComposer({
   async function publish() {
     const text = content.trim();
 
-    if (busy || !text || text.length > 5000) return;
+    if (
+      busy ||
+      (text.length === 0 && attachments.length === 0) ||
+      text.length > 5000
+    ) return;
 
     setBusy(true);
     setError('');
@@ -376,7 +380,7 @@ export default function CreatorVerseOwnerComposer({
         <button
           type="button"
           style={publishButtonStyle}
-          disabled={busy || !content.trim()}
+          disabled={busy || (!content.trim() && attachments.length === 0)}
           onClick={() => void publish()}
         >
           {busy ? 'Publishing…' : 'Publish Post'}

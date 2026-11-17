@@ -115,13 +115,12 @@ export async function parseCreatorVersePostRequest(
   const content = fields.content.trim();
 
   if (
-    !content ||
     content.length > MAX_TEXT_LENGTH ||
     /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(content)
   ) {
     throw new CreatorVerseError(
       400,
-      'Post text must contain 1 to 5,000 valid characters.'
+      'Post text must not exceed 5,000 valid characters.'
     );
   }
 

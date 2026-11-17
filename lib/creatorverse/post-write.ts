@@ -31,20 +31,19 @@ function validatePostContent(input: unknown): string {
   const content = input.trim();
 
   if (
-    !content ||
     content.length > 5000 ||
     /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(content)
   ) {
     throw new CreatorVerseError(
       400,
-      'Post text must contain 1 to 5,000 valid characters.'
+      'Post text must not exceed 5,000 valid characters.'
     );
   }
 
   return content;
 }
 
-/** Text-only draft preparation; media-only posts come later. */
+/** Draft preparation; media-only drafts require verified media before publication. */
 export async function createCreatorVersePostDraft(
   request: Request,
   pageIdentifier: string,
