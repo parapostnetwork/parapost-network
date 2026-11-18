@@ -21,12 +21,26 @@
     outline: 2px solid var(--parapost-accent-1,#8b5cf6); outline-offset: 2px; }
   .icon { display:grid; place-items:center; width:28px; height:28px; }
   .label { max-width:100%; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .create { width:58px!important; height:58px!important; min-height:58px!important;
-    margin:0!important; transform:translateY(-18px); border-radius:50%!important;
-    display:grid; place-items:center; color:#0b1020!important; background:#fff!important;
-    border:4px solid var(--parapost-accent-1,#8b5cf6)!important;
-    box-shadow: 0 0 0 4px color-mix(in srgb,var(--parapost-accent-3,#a855f7) 32%,transparent),0 16px 38px var(--parapost-accent-strong-glow,#8b5cf655)!important;
-    cursor:pointer; padding:0!important; font:inherit; justify-self:center; }
+  /* STEP 222: MATCH DASHBOARD/PROFILE PLAIN PLUS ICON */
+  .create {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0 !important;
+    border-radius: 16px !important;
+    background: transparent !important;
+    color: #dbe4f0 !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    font: inherit;
+  }
   .createSpacer { display:none; }
   .avatar { width:26px; height:26px; display:block; border-radius:999px; object-fit:cover;
     border:1.5px solid rgba(255,255,255,.72); box-shadow:0 0 0 2px var(--parapost-accent-soft,#8b5cf633); }
