@@ -1,4 +1,5 @@
 'use client';
+import profileStyles from './CreatorVerseProfileHeader.module.css';
 import ExpandablePostText from '@/components/ExpandablePostText';
 
 import groupTabStyles from './CreatorVerseGroupTabs.module.css';
@@ -218,7 +219,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
             )}
           </div>
 
-          <div className={draftStyles.identity}>
+          <div className={`${draftStyles.identity} ${!canManage ? profileStyles.identity : ""}`}>
             <div className={draftStyles.avatar}>
               {logoAvailable ? (
                 <Image
@@ -240,13 +241,18 @@ export default function CreatorVersePage({ id }: { id: string }) {
               )}
             </div>
 
-            <div className={draftStyles.identityText}>
+            <div className={`${draftStyles.identityText} ${!canManage ? profileStyles.info : ""}`}>
               <p className={draftStyles.category}>
                 {CREATORVERSE_CATEGORIES[page.category]}
               </p>
               <h1>{page.name}</h1>
               <p>{page.short_bio}</p>
             </div>
+            {!canManage && (
+              <div className={profileStyles.followAction}>
+                <CreatorVerseFollowButton pageId={id} isOwner={canManage} />
+              </div>
+            )}
             {canManage && (
               <details style={{
                 position: 'absolute', right: 24, top: 76, zIndex: 10
@@ -282,7 +288,6 @@ export default function CreatorVersePage({ id }: { id: string }) {
             )}
           </div>
 
-          <CreatorVerseFollowButton pageId={id} isOwner={canManage} />
 
           <div className={groupTabStyles.tabs} role="group" aria-label="CreatorVerse sections">
             {(['Posts', 'Photos', 'Videos', 'About'] as Section[]).map(tab => (

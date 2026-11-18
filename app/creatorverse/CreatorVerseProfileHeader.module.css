@@ -1,0 +1,53 @@
+
+/* STEP 337: Compact responsive CreatorVerse profile header */
+
+:global([data-community-header="creatorverse"]) .identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 8px;
+  min-height: 0;
+  padding-bottom: 14px;
+}
+
+:global([data-community-header="creatorverse"]) .info {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+:global([data-community-header="creatorverse"]) .followAction {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: center;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+@media (max-width: 900px) {
+  :global([data-community-header="creatorverse"]) .identity {
+    column-gap: 12px;
+    row-gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  :global([data-community-header="creatorverse"]) .info {
+    flex: 1 1 160px;
+  }
+
+  :global([data-community-header="creatorverse"]) .followAction {
+    flex: 1 1 100%;
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  :global([data-community-header="creatorverse"]) .identity {
+    column-gap: 10px;
+    padding-bottom: 10px;
+  }
+}

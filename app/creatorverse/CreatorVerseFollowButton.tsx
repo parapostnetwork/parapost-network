@@ -134,7 +134,7 @@ export default function CreatorVerseFollowButton({
       flexDirection: 'column',
       alignItems: 'flex-end',
       gap: 8,
-      padding: '0 20px 14px',
+      padding: 0,
       minWidth: 0,
       maxWidth: '100%',
       boxSizing: 'border-box'
