@@ -86,6 +86,25 @@ export default function CreatorVersePage({ id }: { id: string }) {
     `/api/creatorverse?page=${encodeURIComponent(id)}`
   );
 
+  // Preserve the displayed page during a post-publish refresh.
+  const lastLoadedPage = useRef<{
+    pageId: string;
+    result: PageResult;
+  } | null>(null);
+
+  useEffect(() => {
+    if (data) {
+      lastLoadedPage.current = { pageId: id, result: data };
+    }
+  }, [data, id]);
+
+  const visibleData =
+    data ?? (
+      lastLoadedPage.current?.pageId === id
+        ? lastLoadedPage.current.result
+        : null
+    );
+
   const [olderPosts, setOlderPosts] = useState<CreatorVersePost[]>([]);
   const [nextPostsOffset, setNextPostsOffset] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -163,9 +182,9 @@ export default function CreatorVersePage({ id }: { id: string }) {
     }
   }
 
-  if (loading) return <p role="status">Loading this page…</p>;
+  if (loading && !visibleData) return <p role="status">Loading this page…</p>;
 
-  if (error || !data) {
+  if (error || !visibleData) {
     return (
       <section className={styles.empty}>
         <h1>Page unavailable</h1>
@@ -175,10 +194,10 @@ export default function CreatorVersePage({ id }: { id: string }) {
     );
   }
 
-  const { page } = data;
-  const loadedIds = new Set(data.posts.map(post => post.id));
+  const { page } = visibleData;
+  const loadedIds = new Set(visibleData.posts.map(post => post.id));
   const posts = [
-    ...data.posts,
+    ...visibleData.posts,
     ...olderPosts.filter(post => !loadedIds.has(post.id)),
   ];
 
