@@ -93,6 +93,22 @@ function GroupsView({groupId,routeBase}:{groupId?:string;routeBase:string}) {
   const {read:groupsFetch,action:groupAction,upload:groupUpload}=transport;
   const router=useRouter();
   const creatorVerseStage=useCreatorVerseStaging();
+
+  // STEP 228: RESTORE CREATORVERSE RETURN TAB
+  useEffect(() => {
+    if (groupId || !creatorVerseStage.enabled) return;
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('tab') === 'creatorverse') {
+      creatorVerseStage.setSelected(true);
+    }
+  }, [
+    groupId,
+    creatorVerseStage.enabled,
+    creatorVerseStage.setSelected
+  ]);
+
   const [userId,setUserId]=useState('');
   const [viewerProfile,setViewerProfile]=useState<{
     full_name:string|null;
