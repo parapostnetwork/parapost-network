@@ -2082,3 +2082,39 @@
     color: #ffffff;
   }
 }
+
+
+/* STEP 225: CARD ALIGNMENT */
+.page .directoryBrowser .directoryCard {
+  position: relative;
+  min-width: 0;
+}
+
+.page .directoryBrowser .directoryCard .directoryOpen {
+  padding-right: 44px !important;
+  min-width: 0;
+}
+
+.page .directoryBrowser .directoryCard .directoryCardText {
+  min-width: 0;
+  padding-right: 0 !important;
+}
+
+.page .directoryBrowser .directoryCard .directoryCardText h3 {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.page .directoryBrowser .directoryCard .favoriteToggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .page .directoryBrowser .directoryCard .directoryOpen {
+    min-height: 104px;
+  }
+}

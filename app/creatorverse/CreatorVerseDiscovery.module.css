@@ -285,3 +285,15 @@
     max-width: 984px;
   }
 }
+
+
+/* STEP 225: CARD ALIGNMENT */
+.discovery .card .open {
+  min-height: 104px;
+}
+
+@media (max-width: 700px) {
+  .discovery .card .open {
+    min-height: 124px;
+  }
+}
