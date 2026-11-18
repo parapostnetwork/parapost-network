@@ -137,3 +137,71 @@
     box-shadow: none !important;
   }
 }
+
+
+/* STEP 320: CREATORVERSE DETAIL HEADER ALIGNMENT */
+
+/* Remove the duplicate outer spacing on individual pages.
+   The existing Groups page wrapper handles page spacing. */
+.shell:has([data-community-detail-container="creatorverse"]) {
+  padding: 0;
+}
+
+/* Use the existing shared navigation, not a second header. */
+.shell:has([data-community-detail-container="creatorverse"])
+  :global(nav[aria-label="Community page navigation"]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Parapost ghost: left */
+.shell:has([data-community-detail-container="creatorverse"])
+  :global(nav[aria-label="Community page navigation"] > a:first-child) {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Groups: true centre */
+.shell:has([data-community-detail-container="creatorverse"])
+  :global(nav[aria-label="Community page navigation"] > a:nth-child(2)) {
+  justify-self: center;
+  white-space: nowrap;
+}
+
+/* Dashboard: right */
+.shell:has([data-community-detail-container="creatorverse"])
+  :global(nav[aria-label="Community page navigation"] > a:last-child) {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+/* Consistent official ghost sizing. */
+.shell:has([data-community-detail-container="creatorverse"])
+  :global(nav[aria-label="Community page navigation"] > a:first-child img) {
+  display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+@media (max-width: 700px) {
+  .shell:has([data-community-detail-container="creatorverse"])
+    :global(nav[aria-label="Community page navigation"]) {
+    min-height: 56px;
+    gap: 8px;
+  }
+
+  .shell:has([data-community-detail-container="creatorverse"])
+    :global(nav[aria-label="Community page navigation"] > a:first-child img) {
+    width: 36px;
+    height: 36px;
+  }
+}
