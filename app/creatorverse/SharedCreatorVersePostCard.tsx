@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import type { SharedCreatorVersePost } from "@/lib/creatorverse/useSharedCreatorVerseFeed";
 import CreatorVersePostActions from "./CreatorVersePostActions";
 import CreatorVerseSharedPostMenu from "./CreatorVerseSharedPostMenu";
+import sharedStyles from "./SharedCreatorVersePostCard.module.css";
 import CreatorVersePublishedMedia from "./CreatorVersePublishedMedia";
 import type {
   CreatorVersePublishedMedia as PublishedMedia
@@ -169,6 +170,7 @@ export default function SharedCreatorVersePostCard({
 
   return (
     <article
+      className={sharedStyles.card}
       style={postCardStyle}
       aria-label="Shared CreatorVerse post"
     >
