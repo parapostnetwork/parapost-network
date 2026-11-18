@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useRef, useState, type ReactNode } from 'react';
 import type { Group } from '@/lib/groups/types';
-import { ownsGroup, selectMyGroups, type DirectorySort, type GroupPreferences, type MineFilter } from '@/lib/groups/directory';
+import { ownsGroup, selectMyGroups, sortDirectoryGroups, type DirectorySort, type GroupPreferences, type MineFilter } from '@/lib/groups/directory';
 import styles from './groups.module.css';
 import creatorCardStyles from '@/app/creatorverse/CreatorVerseDiscovery.module.css';
 import { GroupsLoadingCards } from './GroupsLoadingView';
@@ -103,9 +103,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
   const mine = tab === 'mine' && !showCreatorVerse;
   const owned = (group: Group) => ownsGroup(group, viewerId);
   const select = (filter: MineFilter, query = search) => selectMyGroups(groups, viewerId, preferences, filter, query, sort);
-  const sortedDirectoryGroups = sort === 'members'
-    ? [...groups].sort((a, b) => (b.member_count ?? 0) - (a.member_count ?? 0))
-    : groups;
+  const sortedDirectoryGroups = sortDirectoryGroups(groups, sort);
   const sections = mine
     ? (mineView === 'all' ? (['owned', 'favorites', 'recent', 'joined'] as MineFilter[]) : [mineView]).map(key => ({ key, title: filters.find(([value]) => value === key)![1], items: select(key) }))
     : [{ key: 'directory', title: '', items: sortedDirectoryGroups }];
@@ -170,6 +168,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
               {mine && <option value="visited">Recently visited</option>}
             </select>
           </label>}
+          {!showCreatorVerse && (search || sort !== 'name') && <button type="button" onClick={() => { onSearch(''); setSort('name'); }}>Reset filters</button>}
         </div>
       </details>}
     </div>
@@ -187,7 +186,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
         <span>Sort results on this page</span>
         <details className={styles.containedMobileSortMenu}>
           <summary>
-            {sort === 'members' ? 'Most members' : 'Default order'}
+            {sort === 'members' ? 'Most members' : 'Name A–Z'}
             <span aria-hidden="true">⌄</span>
           </summary>
           <div className={styles.containedMobileSortOptions}>
@@ -199,7 +198,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
                 event.currentTarget.closest('details')?.removeAttribute('open');
               }}
             >
-              Default order
+              Name A–Z
             </button>
             <button
               type="button"
@@ -215,6 +214,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
         </details>
       </div>
     )}
+      {!showCreatorVerse && (search || sort !== 'name') && <button type="button" onClick={() => { onSearch(''); setSort('name'); }}>Reset filters</button>}
       {showCreatorVerse && <p>Choose a CreatorVerse category below.</p>}
     </div>}
     {mine && <>

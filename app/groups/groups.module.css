@@ -1465,7 +1465,7 @@
    Preserve the existing compact CreatorVerse-sized cards. */
 .directorySection .directoryCardGrid .directoryCard .directoryOpenAvatarFit {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 12px;
+  grid-template-columns: 44px minmax(0, 1fr) 12px;
   column-gap: 8px;
   align-items: center;
 }
@@ -1724,16 +1724,15 @@
     min-height: 124px;
   }
   .page .directoryBrowser .directoryCard .directoryAvatar {
-    width: 66px !important; height: 66px !important;
-    min-width: 66px !important; min-height: 66px !important;
-    border-radius: 13px !important;
+    width: 44px !important; height: 44px !important;
+    min-width: 44px !important; min-height: 44px !important;
+    border-radius: 50% !important;
   }
   .page .directoryBrowser .directoryCard .directoryAvatar > * { width: 100%; height: 100%; }
   .page .directoryBrowser .directoryCard .directoryCardText { padding-right: 14px; }
   .page .directoryBrowser .directoryCard .directoryCardText h3 {
     font-size: 14px; line-height: 1.3; margin-bottom: 6px;
-    white-space: normal; display: -webkit-box; -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical; overflow: hidden;
+    white-space: normal; display: block; overflow-wrap: anywhere;
   }
   .page .directoryBrowser .desktopDirectoryCardDescription {
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -1755,8 +1754,8 @@
   .page .directoryBrowser .directoryCardGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .page .directoryBrowser .directoryCard .directoryOpen { grid-template-columns: 56px minmax(0,1fr) 9px; }
   .page .directoryBrowser .directoryCard .directoryAvatar {
-    width: 56px !important; height: 56px !important;
-    min-width: 56px !important; min-height: 56px !important;
+    width: 44px !important; height: 44px !important;
+    min-width: 44px !important; min-height: 44px !important;
   }
   .page .directoryBrowser .directoryResults { padding: 14px; }
 }
@@ -1940,7 +1939,7 @@
 
 
 /* STEP 128: COMPACT RESPONSIVE DIRECTORY CARDS */
-@media (min-width: 768px) {
+@media (min-width: 701px) {
   .directoryBrowser .directoryResults,
   .directoryBrowser .directorySection,
   .directoryBrowser .directoryCardGrid {
@@ -1981,7 +1980,7 @@
   }
 }
 
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: 701px) and (max-width: 1199px) {
   .directoryBrowser .directoryCardGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     max-width: 984px;
@@ -2084,43 +2083,8 @@
 }
 
 
-/* STEP 225: CARD ALIGNMENT */
-.page .directoryBrowser .directoryCard {
-  position: relative;
-  min-width: 0;
-}
-
-.page .directoryBrowser .directoryCard .directoryOpen {
-  padding-right: 44px !important;
-  min-width: 0;
-}
-
-.page .directoryBrowser .directoryCard .directoryCardText {
-  min-width: 0;
-  padding-right: 0 !important;
-}
-
-.page .directoryBrowser .directoryCard .directoryCardText h3 {
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
-.page .directoryBrowser .directoryCard .favoriteToggle {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  margin: 0;
-}
-
-@media (min-width: 768px) {
-  .page .directoryBrowser .directoryCard .directoryOpen {
-    min-height: 104px;
-  }
-}
-
-/* PHASE 5: GROUP FAVORITE STAR SPACING */
-.directorySection .directoryCard {
+/* Directory card geometry: keep the star gutter separate from the text. */
+.page .directoryBrowser .directorySection .directoryCard {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -2130,29 +2094,53 @@
   box-sizing: border-box;
 }
 
-.directorySection .directoryCard > .directoryOpenAvatarFit {
+.page .directoryBrowser .directorySection .directoryCard > .directoryOpenAvatarFit {
+  grid-template-columns: 44px minmax(0, 1fr) 12px;
   width: 100%;
   min-width: 0;
+  min-height: 104px;
+  padding: 10px 12px;
   box-sizing: border-box;
 }
 
-.directorySection .directoryCard:has(> .favoriteToggle)
-  > .directoryOpenAvatarFit {
+.page .directoryBrowser .directorySection .directoryCard:has(> .favoriteToggle) > .directoryOpenAvatarFit {
   padding-right: 54px;
 }
 
-.directorySection .directoryCardText {
+.page .directoryBrowser .directoryCard .directoryCardText {
   min-width: 0;
+  padding-right: 0;
 }
 
-.directorySection .directoryCardText h3 {
+.page .directoryBrowser .directoryCard .directoryCardText h3 {
   overflow-wrap: anywhere;
+  white-space: normal;
   word-break: normal;
 }
 
-.directorySection .directoryCard > .favoriteToggle {
+.page .directoryBrowser .directoryCard > .favoriteToggle {
   position: absolute;
   top: 8px;
   right: 8px;
+  margin: 0;
   z-index: 2;
+  transform: none;
+}
+
+@media (max-width: 700px) {
+  .page .directoryBrowser .directorySection .directoryCard {
+    max-width: none;
+  }
+  .page .directoryBrowser .directoryCardGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page .directoryBrowser .directorySection .directoryCard > .directoryOpenAvatarFit {
+    min-height: 124px;
+  }
+}
+
+@media (min-width: 701px) and (max-width: 899px) {
+  .directoryBrowser .directoryCardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }

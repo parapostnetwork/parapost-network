@@ -38,6 +38,8 @@
 
 .panel {
   display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
   gap: 10px;
   margin-top: 12px;
   padding: 14px;
@@ -64,6 +66,7 @@
 
 .controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
 }

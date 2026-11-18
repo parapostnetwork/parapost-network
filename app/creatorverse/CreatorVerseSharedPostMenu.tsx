@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useGroupSession } from "@/lib/groups/useGroupSession";
 import { supabase } from "@/lib/supabase";
 
 const stagingEnabled =
@@ -17,48 +18,14 @@ export default function CreatorVerseSharedPostMenu({
   shareId,
   sharerId,
 }: Props) {
-  const [viewerId, setViewerId] = useState<string | null>(null);
+  const { userId: viewerId, ready } = useGroupSession();
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    if (!stagingEnabled) return;
-
-    let active = true;
-
-    async function verifyViewer() {
-      try {
-        const { data, error } = await supabase.auth.getUser();
-
-        if (active) {
-          setViewerId(
-            error ? null : (data.user?.id ?? null)
-          );
-        }
-      } catch {
-        if (active) setViewerId(null);
-      }
-    }
-
-    void verifyViewer();
-
-    const { data: listener } =
-      supabase.auth.onAuthStateChange((_event, session) => {
-        if (active) {
-          setViewerId(session?.user?.id ?? null);
-        }
-      });
-
-    return () => {
-      active = false;
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
   const isOwnShare =
     stagingEnabled &&
-    viewerId !== null &&
+    ready && !!viewerId &&
     viewerId === sharerId;
 
   async function removeShare() {

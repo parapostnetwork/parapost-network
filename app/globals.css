@@ -958,3 +958,54 @@ main {
     box-shadow: none !important;
   }
 }
+
+/* Phone feed presentation shared by personal posts, Reels, Showcases and community shares.
+   Scope to feed articles so desktop cards, dialogs and profile headers stay unchanged. */
+@media (max-width: 760px) {
+  html body .dashboard-main-column > article:is(.dashboard-feed-card, .dashboard-live-feed-card, [data-posting], [aria-label="Shared CreatorVerse post"]),
+  html body .profile-polish-surface .profile-feed-list-all-posts > article:is(.profile-feed-card, [data-posting], [aria-label="Shared CreatorVerse post"]) {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 12px max(12px, env(safe-area-inset-right)) 16px max(12px, env(safe-area-inset-left)) !important;
+    border: 0 !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--parapost-accent-1, #8b5cf6) 25%, transparent) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    transform: none !important;
+  }
+
+  html body .dashboard-main-column > article :is(.dashboard-post-actions, [data-post-actions]),
+  html body .profile-polish-surface .profile-feed-list-all-posts > article :is(.profile-post-actions.dashboard-post-actions, [data-post-actions]) {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-items: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0;
+    gap: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  html body .dashboard-main-column > article :is(.dashboard-post-actions, [data-post-actions]) > button,
+  html body .profile-polish-surface .profile-feed-list-all-posts > article :is(.profile-post-actions.dashboard-post-actions, [data-post-actions]) > button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  html body .dashboard-main-column > article :is(.dashboard-post-actions, [data-post-actions]) svg,
+  html body .profile-polish-surface .profile-feed-list-all-posts > article :is(.profile-post-actions.dashboard-post-actions, [data-post-actions]) svg {
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0;
+  }
+}

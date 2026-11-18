@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectMyGroups, parseGroupPreferences } from '../lib/groups/directory.ts';
+import { selectMyGroups, parseGroupPreferences, sortDirectoryGroups } from '../lib/groups/directory.ts';
 import { groupsPreviewAllowed } from '../lib/groups/previewAccess.ts';
 const groups = [
   {id:'owned',name:'Alpha',description:'Equipment',owner_id:'viewer',membership_role:'owner',membership_status:'approved',member_count:2},
@@ -31,4 +31,11 @@ test('sample preview fails closed for every deployed and non-loopback context',(
  for(const env of ['production','test',undefined])assert.equal(groupsPreviewAllowed(env,undefined,'localhost:3100'),false);
  assert.equal(groupsPreviewAllowed('development','1','localhost:3100'),false);
  for(const host of ['parapost-network.vercel.app','localhost.evil.test','192.168.2.16:3100',undefined])assert.equal(groupsPreviewAllowed('development',undefined,host),false);
+});
+
+test('directory sorting orders names and member counts without mutating server order',()=>{
+ const rows=[{...groups[1],name:'Zulu'}, {...groups[0],name:'Alpha'}, {...groups[2],name:'Unknown'}];
+ assert.deepEqual(sortDirectoryGroups(rows,'name').map(g=>g.name),['Alpha','Unknown','Zulu']);
+ assert.deepEqual(sortDirectoryGroups(rows,'members').map(g=>g.name),['Zulu','Alpha','Unknown']);
+ assert.equal(rows[0].name,'Zulu');
 });

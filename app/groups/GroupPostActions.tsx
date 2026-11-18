@@ -360,7 +360,7 @@ export default function GroupPostActions({
           : 'Shares'}
       </span>
     </div>
-    <div className={styles.actions} data-private={!canShare&&!privateSharing}>
+    <div className={styles.actions} data-post-actions data-private={!canShare&&!privateSharing}>
       <button type="button" className={styles.action} disabled={!canInteract || !stats || busy}
         aria-label={stats?.liked ? 'Unlike post' : 'Like post'} aria-pressed={stats?.liked ?? false} onClick={() => void toggleLike()}>
         <HeartIcon filled={stats?.liked ?? false} />

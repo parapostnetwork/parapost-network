@@ -33,3 +33,14 @@ export function selectMyGroups(groups: Group[], viewerId: string, preferences: G
       return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
     });
 }
+
+/** Sort only the supplied directory page; never mutate the cached response. */
+export function sortDirectoryGroups(groups: readonly Group[], sort: DirectorySort) {
+  return [...groups].sort((a, b) => {
+    if (sort === 'members') {
+      const difference = (b.member_count ?? -1) - (a.member_count ?? -1);
+      if (difference) return difference;
+    }
+    return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+  });
+}

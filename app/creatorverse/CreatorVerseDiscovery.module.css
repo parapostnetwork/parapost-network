@@ -253,7 +253,7 @@
 
 
 /* STEP 128: COMPACT RESPONSIVE DIRECTORY CARDS */
-@media (min-width: 768px) {
+@media (min-width: 701px) {
   .discovery .cardGrid {
     display: grid !important;
     gap: 12px !important;
@@ -279,7 +279,7 @@
   }
 }
 
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: 701px) and (max-width: 1199px) {
   .discovery .cardGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     max-width: 984px;
@@ -295,5 +295,11 @@
 @media (max-width: 700px) {
   .discovery .card .open {
     min-height: 124px;
+  }
+}
+
+@media (min-width: 701px) and (max-width: 899px) {
+  .discovery .cardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }

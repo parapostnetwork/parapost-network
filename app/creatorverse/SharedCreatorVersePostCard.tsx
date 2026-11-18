@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import type { SharedCreatorVersePost } from "@/lib/creatorverse/useSharedCreatorVerseFeed";
 import CreatorVersePostActions from "./CreatorVersePostActions";
 import CreatorVerseSharedPostMenu from "./CreatorVerseSharedPostMenu";
@@ -31,55 +30,6 @@ export default function SharedCreatorVersePostCard({
 }) {
   const pageHref = `/creatorverse/${share.page_id}`;
   const settingKey = `${share.page_id}:${share.post_id}`;
-
-  const [commentSetting, setCommentSetting] = useState<{
-    key: string;
-    enabled: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadCommentSetting = async () => {
-      try {
-        const { data, error } = await supabase.rpc(
-          "creatorverse_post_engagement",
-          {
-            p_page_id: share.page_id,
-            p_post_id: share.post_id,
-          }
-        );
-
-        if (!active) return;
-
-        const enabled =
-          !error &&
-          data !== null &&
-          typeof data === "object" &&
-          !Array.isArray(data) &&
-          "comments_enabled" in data &&
-          data.comments_enabled === true;
-
-        setCommentSetting({
-          key: settingKey,
-          enabled,
-        });
-      } catch {
-        if (active) {
-          setCommentSetting({
-            key: settingKey,
-            enabled: false,
-          });
-        }
-      }
-    };
-
-    void loadCommentSetting();
-
-    return () => {
-      active = false;
-    };
-  }, [share.page_id, share.post_id, settingKey]);
 
   const mediaHost = useRef<HTMLDivElement>(null);
   const [mediaVisible, setMediaVisible] = useState(false);
@@ -164,10 +114,6 @@ export default function SharedCreatorVersePostCard({
   const visibleMedia =
     mediaState?.scope === settingKey ? mediaState.items : [];
 
-  const commentsEnabled =
-    commentSetting?.key === settingKey &&
-    commentSetting.enabled;
-
   return (
     <article
       className={sharedStyles.card}
@@ -243,7 +189,6 @@ export default function SharedCreatorVersePostCard({
       <CreatorVersePostActions
         pageId={share.page_id}
         postId={share.post_id}
-        commentsEnabled={commentsEnabled}
       />
     </article>
   );

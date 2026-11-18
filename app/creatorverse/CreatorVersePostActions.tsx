@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useGroupSession } from '@/lib/groups/useGroupSession';
+import { parseCreatorVerseEngagement } from '@/lib/creatorverse/engagement';
 import { usePublicRead } from '@/lib/creatorverse/usePublicRead';
 import {
   submitCreatorVerseInteraction,
@@ -13,27 +14,10 @@ import {
 import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
 import styles from './CreatorVersePostActions.module.css';
 
-type Comment = {
-  id: string;
-  author_id: string;
-  post_id: string;
-  parent_id: string | null;
-  content: string;
-  created_at: string;
-};
-
-type Engagement = {
-  like_count: number;
-  comment_count: number;
-  share_count: number;
-  liked_by_me: boolean;
-  comments: Comment[];
-};
-
 type Props = {
   pageId: string;
   postId: string;
-  commentsEnabled: boolean;
+  commentsEnabled?: boolean;
 };
 
 const stagingSocialReady =
@@ -52,10 +36,12 @@ export default function CreatorVersePostActions(props: Props) {
 
 function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
   Props & { viewerId: string }) {
-  const read = usePublicRead<Engagement>(
+  const read = usePublicRead<unknown>(
     `/api/creatorverse/${encodeURIComponent(pageId)}/posts/${encodeURIComponent(postId)}/interactions`
   );
-  const engagement = read.data;
+  const engagement = parseCreatorVerseEngagement(read.data, postId);
+  const readFailed = read.error || (!read.loading && read.data !== null && !engagement);
+  const allowComments = commentsEnabled ?? engagement?.comments_enabled === true;
   const active = useRef(true);
   const sending = useRef(false);
   const pending = useRef<CreatorVerseSocialRequest | null>(null);
@@ -159,7 +145,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
         </span>
       </div>
 
-      <div className={styles.actions}>
+      <div className={styles.actions} data-post-actions>
 
         <button
           type="button"
@@ -173,7 +159,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
           <HeartIcon filled={engagement?.liked_by_me ?? false} />
         </button>
 
-        {commentsEnabled && (
+        {allowComments && (
           <button
             type="button"
             disabled={busy || retryPending}
@@ -197,7 +183,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
 
       </div>
 
-      {showComments && commentsEnabled && (
+      {showComments && allowComments && (
 
         <div className={styles.panel}>
 
@@ -341,7 +327,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
       )}
 
       {read.loading && <p role="status">Loading interactions…</p>}
-      {read.error && (
+      {readFailed && (
         <div role="alert" className={styles.error}>
           <p>Post interactions could not be loaded. Please try again.</p>
           <button type="button" disabled={busy} onClick={read.retry}>Retry loading</button>
