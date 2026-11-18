@@ -1,7 +1,5 @@
 'use client';
 import ExpandablePostText from '@/components/ExpandablePostText';
-import ContainedMobileSelect from './ContainedMobileSelect';
-import mobileSelectStyles from './ContainedMobileSelect.module.css';
 
 import { DotsIcon } from "@/components/PostActionIcons";
 import ResponsiveMediaImage from '@/components/ResponsiveMediaImage';
@@ -25,7 +23,6 @@ import GroupCover from './GroupCover';
 import GroupAvatarView from './GroupAvatarView';
 import GroupAvatarSettings from './GroupAvatarSettings';
 import GroupShareButton from './GroupShareButton';
-import GroupPromotionSettings from './GroupPromotionSettings';
 import GroupPostActions from './GroupPostActions';
 import GroupMembersPanel from './GroupMembersPanel';
 import GroupsDirectory, { DirectoryHeading, type DirectoryTab } from './GroupsDirectory';
@@ -55,31 +52,14 @@ export function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:
   const {read}=useContext(TransportContext);
   const [name,setName]=useState(group?.name ?? '');
   const [description,setDescription]=useState(group?.description ?? '');
-  const [visibility,setVisibility]=useState(group?.visibility ?? 'public');
+  const visibility = group?.visibility ?? 'public';
   const [file,setFile]=useState<File>();
   const [error,setError]=useState('');
   return <form className={`${styles.form} ${!group ? styles.createGroupForm : ''}`} onSubmit={async event => {event.preventDefault();setError('');try {const nextVisibility=group?visibility:'public';validateGroupFields(name,description,nextVisibility);if(file)validateUpload(file.type,file.size,true);await onSubmit(name,description,nextVisibility,file);}catch(e){setError(e instanceof Error?e.message:'Unable to save.');}}}>
     {!group&&<h2>Create a Group</h2>}<GroupCover path={group ? group.cover_storage_path : null} file={file} load={read} name={name||'New Group'} viewerId={viewerId} cacheable={!!group&&group.visibility==='public'&&!file}/>
     <label>Name<input required minLength={3} maxLength={100} value={name} onChange={e=>setName(e.target.value)} /></label>
     <label>Description<textarea maxLength={5000} value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></label>
-    {group
-      ? <>
-      <label className={mobileSelectStyles.desktopOnly}>
-        Visibility
-        <select value={visibility} disabled={group.membership_role!=='owner'} onChange={e=>setVisibility(e.target.value as 'public'|'private')}><option value="public">Public — authenticated users can read; members can post</option><option value="private">Private — approval required to read or post</option></select>
-      </label>
-      <ContainedMobileSelect
-        label="Visibility"
-        value={visibility}
-        disabled={group.membership_role !== 'owner'}
-        options={[
-          {value: 'public', label: 'Public — authenticated users can read; members can post'},
-          {value: 'private', label: 'Private — approval required to read or post'}
-        ]}
-        onChange={value => setVisibility(value as 'public' | 'private')}
-      />
-    </>
-      : <p className={styles.muted}>Public Group — authenticated users can read; members can post.</p>}
+    {!group && <p className={styles.muted}>Public Group — authenticated users can read; members can post.</p>}
     <label>
       Cover image
       <span className={styles.coverPickerControl}>
@@ -118,7 +98,7 @@ export function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:
         </button>
       </div>
     )}
-    <p className={styles.muted}>{group ? "Public Group information appears in the directory. For private Groups, the owner’s sharing settings control the promotional details nonmembers can see. Recommended cover: 1640 × 856 pixels (1.91:1). Directory previews show the full image; the wide Group banner crops to fit. Images: up to 8 MB. Changing a private Group to public makes its existing discussions visible to eligible authenticated users." : "Public Groups appear in the directory. Recommended cover: 1640 × 856 pixels (1.91:1). Directory previews show the full image; the wide Group banner crops to fit. Images: up to 8 MB."}</p>
+    <p className={styles.muted}>Recommended cover: 1640 × 856 pixels (1.91:1). Directory previews show the full image; the wide Group banner crops to fit. Images: up to 8 MB.</p>
     {error && <p role="alert">{error}</p>}<button disabled={busy} type="submit">{busy?'Saving…':group?'Save changes':'Create Group'}</button>
   </form>;
 }
@@ -583,7 +563,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   disabled={busy}
   onChange={path=>setGroups(current=>current.map(item=>item.id===group.id?{...item,avatar_storage_path:path}:item))}
 />}
-{group.cover_storage_path&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove_cover',group.id);setNotice('Custom cover removed. ParaGhost is restored.');})}>Remove cover and restore ParaGhost</button>}<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} viewerId={userId} busy={busy} onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');setSettings(false);setDeleteName('');});}}/>{owner&&<GroupPromotionSettings groupId={group.id} read={groupsFetch}/>} {owner&&<section className={`${styles.form} ${styles.settingsDanger}`}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</div></div>}
+{group.cover_storage_path&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove_cover',group.id);setNotice('Custom cover removed. ParaGhost is restored.');})}>Remove cover and restore ParaGhost</button>}<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} viewerId={userId} busy={busy} onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');setSettings(false);setDeleteName('');});}}/>{owner&&<section className={`${styles.form} ${styles.settingsDanger}`}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</div></div>}
       {admin&&management&&<GroupMembersPanel
         members={members}
         viewerId={userId}
