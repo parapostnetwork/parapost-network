@@ -486,7 +486,11 @@ export default function CreatorVersePage({ id }: { id: string }) {
                   )}
                 </div>
               ) : (
-                <p>No photos have been published on this page yet.</p>
+                <p>
+                  {nextPostsOffset !== null
+                    ? 'No photos in the loaded posts yet. Load older posts to see more.'
+                    : 'No photos have been published on this page yet.'}
+                </p>
               )}
             </section>
           )}
@@ -517,7 +521,11 @@ export default function CreatorVersePage({ id }: { id: string }) {
                   )}
                 </div>
               ) : (
-                <p>No videos have been published on this page yet.</p>
+                <p>
+                  {nextPostsOffset !== null
+                    ? 'No videos in the loaded posts yet. Load older posts to see more.'
+                    : 'No videos have been published on this page yet.'}
+                </p>
               )}
             </section>
           )}
