@@ -638,6 +638,14 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       </div></div>
     </>:!loading&&<p className={styles.empty}>This Group is unavailable.</p>}
   </div>
+  {/* STEP 220: DIRECTORY MOBILE BOTTOM NAV */}
+  {!groupId && (
+    <CommunityMobileBottomNav
+      viewerId={userId}
+      avatarUrl={viewerProfile?.avatar_url}
+      avatarInitial={(viewerProfile?.username || viewerProfile?.full_name || '?').charAt(0)}
+    />
+  )}
   {groupId && group && <CommunityMobileBottomNav
     viewerId={userId}
     avatarUrl={viewerProfile?.avatar_url}
