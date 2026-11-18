@@ -129,3 +129,57 @@
     justify-self: end;
   }
 }
+
+
+/* STEP 209: SHARED MOBILE HEADER SPACING */
+@media (max-width: 700px) {
+  .bar {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    padding-inline: 14px;
+  }
+
+  .ghost {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .groups,
+  .dashboard {
+    min-height: 44px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .groups {
+    justify-self: start;
+  }
+
+  .groups::before {
+    content: "← ";
+  }
+
+  .dashboard {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 360px) {
+  .bar {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .groups,
+  .dashboard {
+    font-size: 12px;
+  }
+}
