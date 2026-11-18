@@ -241,7 +241,6 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
     </>}
     <div className={styles.desktopDirectoryResultsHeading}>
       <h2>{showCreatorVerse ? 'CreatorVerse pages' : mine ? 'My Groups' : `Groups (${sections[0].items.length})`}</h2>
-      {!showCreatorVerse && <span>Sort: {sort === 'members' ? 'Most members' : sort === 'visited' ? 'Recently visited' : 'Name A–Z'}</span>}
     </div>
     <div ref={results} tabIndex={-1} aria-busy={loading} data-groups-directory-preview={showCreatorVerse ? 'true' : undefined}
       className={styles.directoryResults}
