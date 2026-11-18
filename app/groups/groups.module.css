@@ -2118,3 +2118,41 @@
     min-height: 104px;
   }
 }
+
+/* PHASE 5: GROUP FAVORITE STAR SPACING */
+.directorySection .directoryCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.directorySection .directoryCard > .directoryOpenAvatarFit {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.directorySection .directoryCard:has(> .favoriteToggle)
+  > .directoryOpenAvatarFit {
+  padding-right: 54px;
+}
+
+.directorySection .directoryCardText {
+  min-width: 0;
+}
+
+.directorySection .directoryCardText h3 {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.directorySection .directoryCard > .favoriteToggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
