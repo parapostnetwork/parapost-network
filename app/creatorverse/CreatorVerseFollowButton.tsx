@@ -49,11 +49,11 @@ export default function CreatorVerseFollowButton({
           .select('page_id')
           .eq('page_id', pageId)
           .eq('user_id', userId)
-          .maybeSingle();
+          .limit(1);
 
         if (!active || sequence !== current) return;
         if (failure) throw failure;
-        setFollowing(Boolean(data));
+        setFollowing(Boolean(data?.length));
       } catch {
         if (active && sequence === current) {
           setError('Unable to check follow status. Please retry.');
@@ -114,11 +114,11 @@ export default function CreatorVerseFollowButton({
         .select('page_id')
         .eq('page_id', pageId)
         .eq('user_id', viewerId)
-        .maybeSingle();
+        .limit(1);
 
       if (verification.error) throw verification.error;
 
-      setFollowing(Boolean(verification.data));
+      setFollowing(Boolean(verification.data?.length));
     } catch {
       setError('Unable to confirm follow status. Retry to check before trying again.');
     } finally {
