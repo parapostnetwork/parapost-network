@@ -80,7 +80,44 @@ export function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:
       />
     </>
       : <p className={styles.muted}>Public Group — authenticated users can read; members can post.</p>}
-    <label>Cover image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const selected=e.target.files?.[0];try{if(selected)validateUpload(selected.type,selected.size,true);setFile(selected);setError('');}catch(err){setFile(undefined);setError(err instanceof Error?err.message:'Invalid cover');}}}/></label>{file&&<p className={styles.muted}>{file.name} · selected cover preview</p>}
+    <label>
+      Cover image
+      <span className={styles.coverPickerControl}>
+        {file ? 'Change image' : 'Choose image'}
+        <input
+          className={styles.coverFileInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          aria-label="Select Group cover image"
+          disabled={busy}
+          onChange={e => {
+            const selected = e.currentTarget.files?.[0];
+            e.currentTarget.value = '';
+            if (!selected) return;
+            try {
+              validateUpload(selected.type, selected.size, true);
+              setFile(selected);
+              setError('');
+            } catch (err) {
+              setFile(undefined);
+              setError(err instanceof Error ? err.message : 'Invalid cover');
+            }
+          }}
+        />
+      </span>
+    </label>
+    {file && (
+      <div className={styles.coverSelected}>
+        <span>{file.name} · Image selected</span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setFile(undefined)}
+        >
+          Remove selection
+        </button>
+      </div>
+    )}
     <p className={styles.muted}>{group ? "Public Group information appears in the directory. For private Groups, the owner’s sharing settings control the promotional details nonmembers can see. Recommended cover: 1640 × 856 pixels (1.91:1). Directory previews show the full image; the wide Group banner crops to fit. Images: up to 8 MB. Changing a private Group to public makes its existing discussions visible to eligible authenticated users." : "Public Groups appear in the directory. Recommended cover: 1640 × 856 pixels (1.91:1). Directory previews show the full image; the wide Group banner crops to fit. Images: up to 8 MB."}</p>
     {error && <p role="alert">{error}</p>}<button disabled={busy} type="submit">{busy?'Saving…':group?'Save changes':'Create Group'}</button>
   </form>;
