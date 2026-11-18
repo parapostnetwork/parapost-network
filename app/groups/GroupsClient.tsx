@@ -48,7 +48,7 @@ function GroupAbout({group}:{group:Group}) {
 
 const TransportContext=createContext<GroupsTransport>(liveGroupsTransport);
 
-export function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:(name:string,description:string,visibility:string,file?:File)=>Promise<void>;busy:boolean;viewerId?:string}) {
+export function GroupForm({group,onSubmit,busy,viewerId,onRestoreCover}:{group?:Group;onSubmit:(name:string,description:string,visibility:string,file?:File)=>Promise<void>;busy:boolean;viewerId?:string;onRestoreCover?:()=>void}) {
   const {read}=useContext(TransportContext);
   const [name,setName]=useState(group?.name ?? '');
   const [description,setDescription]=useState(group?.description ?? '');
@@ -56,14 +56,22 @@ export function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:
   const [file,setFile]=useState<File>();
   const [error,setError]=useState('');
   return <form className={`${styles.form} ${!group ? styles.createGroupForm : ''}`} onSubmit={async event => {event.preventDefault();setError('');try {const nextVisibility=group?visibility:'public';validateGroupFields(name,description,nextVisibility);if(file)validateUpload(file.type,file.size,true);await onSubmit(name,description,nextVisibility,file);}catch(e){setError(e instanceof Error?e.message:'Unable to save.');}}}>
-    {!group&&<h2>Create a Group</h2>}<GroupCover path={group ? group.cover_storage_path : null} file={file} load={read} name={name||'New Group'} viewerId={viewerId} cacheable={!!group&&group.visibility==='public'&&!file}/>
+    {!group&&<h2>Create a Group</h2>}{!group && <GroupCover path={null} file={file} load={read} name={name||'New Group'} viewerId={viewerId}/>}
+    {group && <h3 className={styles.settingsSectionHeading}>Group Details</h3>}
     <label>Name<input required minLength={3} maxLength={100} value={name} onChange={e=>setName(e.target.value)} /></label>
     <label>Description<textarea maxLength={5000} value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></label>
     {!group && <p className={styles.muted}>Public Group — authenticated users can read; members can post.</p>}
-    <label>
-      Cover image
-      <span className={styles.coverPickerControl}>
-        {file ? 'Change image' : 'Choose image'}
+    <section className={group ? styles.settingsCoverSection : styles.createCoverSection}>
+      {group && <>
+        <h3 className={styles.settingsSectionHeading}>Group Cover</h3>
+        <div className={styles.settingsCoverPreview}>
+          <GroupCover banner path={group.cover_storage_path} file={file} load={read} name={name||'Group'} viewerId={viewerId} cacheable={!file}/>
+        </div>
+      </>}
+      <div className={styles.settingsCoverActions}>
+        <label className={styles.settingsCoverPicker}>
+          <span className={styles.coverPickerControl}>
+        {group ? 'Change Cover' : file ? 'Change image' : 'Choose image'}
         <input
           className={styles.coverFileInput}
           type="file"
@@ -84,8 +92,19 @@ export function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:
             }
           }}
         />
-      </span>
-    </label>
+          </span>
+        </label>
+        {group && onRestoreCover && group.cover_storage_path && (
+          <button
+            type="button"
+            className={styles.settingsRestoreButton}
+            disabled={busy}
+            onClick={onRestoreCover}
+          >
+            Restore Default
+          </button>
+        )}
+      </div>
     {file && (
       <div className={styles.coverSelected}>
         <span>{file.name} · Image selected</span>
@@ -98,7 +117,8 @@ export function GroupForm({group,onSubmit,busy,viewerId}:{group?:Group;onSubmit:
         </button>
       </div>
     )}
-    <p className={styles.muted}>Recommended cover: 1640 × 856 pixels (1.91:1). Directory previews show the full image; the wide Group banner crops to fit. Images: up to 8 MB.</p>
+    <p className={styles.muted}>Recommended: 1640 × 856 pixels (1.91:1). JPEG, PNG or WebP, up to 8 MB.</p>
+    </section>
     {error && <p role="alert">{error}</p>}<button disabled={busy} type="submit">{busy?'Saving…':group?'Save changes':'Create Group'}</button>
   </form>;
 }
@@ -549,7 +569,10 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
             aria-modal="true"
             aria-labelledby="group-settings-heading">
             <header className={styles.settingsModalHeader}>
-              <h2 id="group-settings-heading">Group settings</h2>
+              <div className={styles.settingsHeading}>
+                <h2 id="group-settings-heading">Group Settings</h2>
+                <p>Manage your group's appearance and information</p>
+              </div>
               <button type="button" ref={settingsCloseRef} disabled={busy}
                 onClick={()=>{
                   setSettings(false);
@@ -563,7 +586,19 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   disabled={busy}
   onChange={path=>setGroups(current=>current.map(item=>item.id===group.id?{...item,avatar_storage_path:path}:item))}
 />}
-{group.cover_storage_path&&<button disabled={busy} onClick={()=>void perform(async()=>{await groupAction('remove_cover',group.id);setNotice('Custom cover removed. ParaGhost is restored.');})}>Remove cover and restore ParaGhost</button>}<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} viewerId={userId} busy={busy} onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');setSettings(false);setDeleteName('');});}}/>{owner&&<section className={`${styles.form} ${styles.settingsDanger}`}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</div></div>}
+<GroupForm key={JSON.stringify([group.id,group.name,group.description,group.visibility,group.cover_storage_path])} group={group} viewerId={userId} busy={busy}
+  onRestoreCover={owner && group.cover_storage_path
+    ? () => void perform(async () => {
+        await groupAction('remove_cover',group.id);
+        setGroups(current => current.map(item =>
+          item.id === group.id
+            ? {...item,cover_storage_path:null}
+            : item
+        ));
+        setNotice('Default cover restored.');
+      })
+    : undefined}
+  onSubmit={async(name,description,visibility,file)=>{await perform(async()=>{await groupAction('edit',group.id,{name,description,visibility});if(file)await groupUpload(group.id,file);setNotice('Group saved.');setSettings(false);setDeleteName('');});}}/>{owner&&<section className={`${styles.form} ${styles.settingsDanger}`}><h2>Delete Group</h2><p>This permanently removes the Group, memberships and posts. Ownership transfer is not supported.</p><label>Type “{group.name}” to confirm<input value={deleteName} onChange={e=>setDeleteName(e.target.value)}/></label><button disabled={busy||deleteName!==group.name} onClick={()=>void perform(async()=>{await groupAction('delete',group.id,{confirmation:deleteName});router.push(routeBase);})}>Delete Group permanently</button></section>}</div></div>}
       {admin&&management&&<GroupMembersPanel
         members={members}
         viewerId={userId}

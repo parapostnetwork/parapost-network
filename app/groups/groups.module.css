@@ -2195,3 +2195,231 @@
   color: #d7b7ff;
   font-size: 12px;
 }
+
+
+/* GROUP SETTINGS REDESIGN 314 */
+.settingsModal {
+  width: min(720px, 100%);
+  max-width: 100%;
+  padding: 0;
+  background: #0d0a15;
+  overflow-x: hidden;
+}
+
+.settingsModalHeader {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 18px 24px;
+  background: #0d0a15;
+  border-bottom: 1px solid #41344f;
+}
+
+.settingsHeading { min-width: 0; }
+
+.settingsHeading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.settingsHeading p {
+  margin: 5px 0 0;
+  color: #bcb0c9;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settingsModal > .form {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 24px;
+  gap: 16px;
+}
+
+.settingsSectionHeading {
+  margin: 0;
+  color: #f7f2ff;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.settingsModal .form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.settingsModal .form > label input,
+.settingsModal .form > label textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.settingsAvatarSection {
+  margin: 0 24px;
+  padding: 22px 0;
+  border-bottom: 1px solid #41344f;
+  min-width: 0;
+}
+
+.settingsAvatarSection :is(button, input[type=file]) {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.settingsAvatarSection button {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+.settingsCoverSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  border-top: 1px solid #41344f;
+  padding-top: 22px;
+}
+
+.settingsCoverPreview {
+  width: 100%;
+  height: clamp(132px, 23vw, 190px);
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid #44374f;
+  background: #050505;
+  box-sizing: border-box;
+}
+
+.settingsCoverPreview .cover {
+  height: 100%;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
+.settingsCoverPreview img {
+  max-height: 100%;
+  object-fit: cover;
+}
+
+.settingsCoverActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.settingsModal .form .settingsCoverPicker {
+  display: inline-flex;
+  width: auto;
+  align-self: auto;
+  margin: 0;
+}
+
+.settingsModal .coverPickerControl {
+  margin: 0;
+  min-width: 140px;
+  min-height: 44px;
+  padding: 9px 16px;
+  box-sizing: border-box;
+}
+
+.settingsModal .settingsRestoreButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: auto;
+  min-width: 140px;
+  min-height: 44px;
+  padding: 9px 16px;
+  background: transparent;
+  border: 1px solid #69507e;
+  border-radius: 10px;
+  color: #f7f2ff;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settingsModal .form > button[type=submit] {
+  align-self: flex-end;
+  min-height: 44px;
+  margin-top: 6px;
+}
+
+.settingsModal > .settingsDanger {
+  box-sizing: border-box;
+  width: auto;
+  max-width: none;
+  margin: 0 24px 24px;
+  padding: 22px 0 0;
+  border-top: 1px solid #9f394b;
+}
+
+.settingsModal .settingsDanger h2 {
+  font-size: 18px;
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .settingsModal {
+    width: min(680px, 100%);
+  }
+  .settingsModalHeader,
+  .settingsModal > .form {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .settingsAvatarSection {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+  .settingsModal > .settingsDanger {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .settingsModal {
+    width: 100%;
+    border-radius: 14px;
+  }
+  .settingsModalHeader {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .settingsHeading h2 { font-size: 19px; }
+  .settingsHeading p { font-size: 11px; }
+  .settingsModal > .form {
+    padding: 18px 16px;
+    gap: 14px;
+  }
+  .settingsAvatarSection {
+    margin: 0 16px;
+    padding: 18px 0;
+  }
+  .settingsCoverPreview {
+    height: clamp(120px, 38vw, 160px);
+  }
+  .settingsCoverActions {
+    align-items: stretch;
+    gap: 8px;
+  }
+  .settingsModal .coverPickerControl,
+  .settingsModal .settingsRestoreButton {
+    min-width: 0;
+    min-height: 44px;
+  }
+  .settingsModal > .settingsDanger {
+    margin: 0 16px 18px;
+    padding-top: 18px;
+  }
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import GroupAvatarControl from './GroupAvatarControl';
+import styles from './groups.module.css';
 import { useGroupAvatarUrl } from './GroupAvatarView';
 import {
   uploadGroupAvatar,
@@ -33,19 +34,7 @@ export default function GroupAvatarSettings({
   }, []);
 
   return (
-    <section
-      aria-label="Group avatar settings"
-      style={{
-        padding: '16px 0',
-        borderBottom: '1px solid rgba(255,255,255,0.12)'
-      }}
-    >
-      <h3>Group avatar</h3>
-      <p>
-        Upload a separate Group profile image.
-        Recommended: 512 × 512 pixels.
-        The avatar always displays as a perfect circle.
-      </p>
+    <section aria-label="Group avatar settings" className={styles.settingsAvatarSection}>
 
       <GroupAvatarControl
         groupName={groupName}
