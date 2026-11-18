@@ -18,6 +18,13 @@ export type CreatorVerseSocialRequest = {
   content?: string;
 };
 
+export class CreatorVerseInteractionError extends Error {
+  constructor(message: string, readonly uncertain = false) {
+    super(message);
+    this.name = 'CreatorVerseInteractionError';
+  }
+}
+
 type SocialResult = {
   id: string;
 };
@@ -45,24 +52,24 @@ export async function submitCreatorVerseInteraction({
   requestId,
   targetId,
   content,
-}: CreatorVerseSocialRequest): Promise<SocialResult> {
+}: CreatorVerseSocialRequest, expectedUserId?: string): Promise<SocialResult> {
   if (
     !validId(pageId) ||
     !validId(postId) ||
     !validId(requestId)
   ) {
-    throw new Error('Invalid interaction identifier.');
+    throw new CreatorVerseInteractionError('Invalid interaction identifier.');
   }
 
   if (targetId != null && !validId(targetId)) {
-    throw new Error('Invalid comment identifier.');
+    throw new CreatorVerseInteractionError('Invalid comment identifier.');
   }
 
   if (
     action === 'delete_comment' &&
     !targetId
   ) {
-    throw new Error('Select a comment to delete.');
+    throw new CreatorVerseInteractionError('Select a comment to delete.');
   }
 
   if (
@@ -70,7 +77,7 @@ export async function submitCreatorVerseInteraction({
     action !== 'delete_comment' &&
     targetId != null
   ) {
-    throw new Error('Unexpected comment target.');
+    throw new CreatorVerseInteractionError('Unexpected comment target.');
   }
 
   const text = content?.trim() ?? '';
@@ -80,7 +87,7 @@ export async function submitCreatorVerseInteraction({
     (action === 'share' && text.length > 1000) ||
     (!['comment', 'share'].includes(action) && text.length > 0)
   ) {
-    throw new Error('Invalid interaction text.');
+    throw new CreatorVerseInteractionError('Invalid interaction text.');
   }
 
   const { data, error: authError } =
@@ -89,7 +96,11 @@ export async function submitCreatorVerseInteraction({
   const token = data.session?.access_token;
 
   if (authError || !token) {
-    throw new Error('Sign in to interact with this post.');
+    throw new CreatorVerseInteractionError('Sign in to interact with this post.');
+  }
+
+  if (expectedUserId && data.session?.user.id !== expectedUserId) {
+    throw new CreatorVerseInteractionError('Your account changed. Reopen this post to continue.');
   }
 
   const url =
@@ -124,7 +135,7 @@ export async function submitCreatorVerseInteraction({
         ? result.error
         : 'Unable to complete the interaction.';
 
-    throw new Error(message);
+    throw new CreatorVerseInteractionError(message, response.status >= 500);
   }
 
   if (
@@ -134,7 +145,7 @@ export async function submitCreatorVerseInteraction({
     typeof result.id !== 'string' ||
     !validId(result.id)
   ) {
-    throw new Error('Interaction response could not be verified.');
+    throw new CreatorVerseInteractionError('Interaction response could not be verified.', true);
   }
 
   return { id: result.id };

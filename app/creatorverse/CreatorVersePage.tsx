@@ -11,6 +11,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import CommunityMobileTopbar from '@/components/CommunityMobileTopbar';
 
+import { useCreatorVersePermissions } from '@/lib/creatorverse/useCreatorVersePermissions';
 import { usePublicRead } from '@/lib/creatorverse/usePublicRead';
 import { CREATORVERSE_CATEGORIES, type PageResult, type CreatorVersePost } from '@/lib/creatorverse/types';
 import { postCardStyle, postContentStyle } from '@/components/postPresentation';
@@ -38,8 +39,7 @@ const publishedMediaReady =
 
 export default function CreatorVersePage({ id }: { id: string }) {
   const [section, setSection] = useState<Section>('Posts');
-  const [canManage, setCanManage] = useState(false);
-  const [viewerId, setViewerId] = useState('');
+  const { canManage, viewerId } = useCreatorVersePermissions(id);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [coverAvailable, setCoverAvailable] = useState(false);
@@ -47,68 +47,9 @@ export default function CreatorVersePage({ id }: { id: string }) {
   const [imageRevision, setImageRevision] = useState(0);
 
   useEffect(() => {
-    let active = true;
-    let sequence = 0;
-
-    async function verify(token?: string) {
-      const current = ++sequence;
-
-      // Preserve verified ownership during routine session refreshes.
-      // Clear editing access when the user actually signs out.
-      if (token == null) {
-        if (active && current === sequence) {
-          setCanManage(false);
-          setEditing(false);
-        }
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `/api/creatorverse/${encodeURIComponent(id)}/permissions`,
-          {
-            cache: 'no-store',
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-        if (response.ok === false) {
-          if (active && current === sequence) {
-            setCanManage(false);
-          }
-          return;
-        }
-        const permissions = await response.json();
-        if (active && current === sequence) {
-          setCanManage((permissions.can_edit_details === true));
-        }
-      } catch {
-        if (active && current === sequence) setCanManage(false);
-      }
-    }
-
-    void supabase.auth.getSession().then(({ data }) => {
-      if (active) {
-        setViewerId(data.session?.user?.id ?? '');
-        void verify(data.session?.access_token);
-      }
-    }).catch(() => {
-      if (active) setCanManage(false);
-    });
-
-    const { data } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (active) setViewerId(session?.user?.id ?? '');
-        void verify(session?.access_token);
-      }
-    );
-
-    return () => {
-      active = false;
-      sequence++;
-      data.subscription.unsubscribe();
-    };
-  }, [id]);
-
+    setEditing(false);
+    setDeleting(false);
+  }, [id, viewerId]);
 
   useEffect(() => {
     let active = true;
@@ -363,7 +304,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
           />
         )}
 
-        {editing && (
+        {editing && canManage && (
           <CreatorVerseEditDetails
             page={page}
             onCancel={() => setEditing(false)}

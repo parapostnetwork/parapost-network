@@ -1,10 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useGroupSession } from '@/lib/groups/useGroupSession';
+import { usePublicRead } from '@/lib/creatorverse/usePublicRead';
 import {
   submitCreatorVerseInteraction,
+  CreatorVerseInteractionError,
+  type CreatorVerseSocialRequest,
   type CreatorVerseSocialAction
 } from '@/lib/creatorverse/social-client';
 import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
@@ -33,19 +36,34 @@ type Props = {
   commentsEnabled: boolean;
 };
 
-export default function CreatorVersePostActions({
-  pageId,
-  postId,
-  commentsEnabled
-}: Props) {
+const stagingSocialReady =
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
+    'https://vmgelrgrtpghmvqgufzz.supabase.co' &&
+  process.env.NEXT_PUBLIC_CREATORVERSE_SOCIAL_UI_ENABLED === 'true';
 
-  const stagingSocialReady =
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
-      'https://vmgelrgrtpghmvqgufzz.supabase.co' &&
-    process.env.NEXT_PUBLIC_CREATORVERSE_SOCIAL_UI_ENABLED === 'true';
+export default function CreatorVersePostActions(props: Props) {
+  const session = useGroupSession();
+  if (!stagingSocialReady || !session.ready) return null;
 
-  const [engagement, setEngagement] = useState<Engagement | null>(null);
-  const [viewerId, setViewerId] = useState<string | null>(null);
+  // Reset drafts and pending actions on identity/source changes, not token refreshes.
+  return <ViewerPostActions key={`${props.pageId}:${props.postId}:${session.userId}`}
+    {...props} viewerId={session.userId} />;
+}
+
+function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
+  Props & { viewerId: string }) {
+  const read = usePublicRead<Engagement>(
+    `/api/creatorverse/${encodeURIComponent(pageId)}/posts/${encodeURIComponent(postId)}/interactions`
+  );
+  const engagement = read.data;
+  const active = useRef(true);
+  const sending = useRef(false);
+  const pending = useRef<CreatorVerseSocialRequest | null>(null);
+  const [retryPending, setRetryPending] = useState(false);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [comment, setComment] = useState('');
@@ -54,115 +72,58 @@ export default function CreatorVersePostActions({
   const [showShare, setShowShare] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-
-    setViewerId(data.session?.user?.id ?? null);
-
-    const response = await fetch(
-      `/api/creatorverse/${encodeURIComponent(pageId)}/posts/${encodeURIComponent(postId)}/interactions`,
-      {
-        cache: 'no-store',
-        headers: token
-          ? { Authorization: `Bearer ${token}` }
-          : {}
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Post interactions are unavailable.');
-    }
-
-    const result: unknown = await response.json();
-
-    if (!result || typeof result !== 'object' || Array.isArray(result)) {
-      throw new Error('Invalid engagement response.');
-    }
-
-    const item = result as Partial<Engagement>;
-
-    if (!Array.isArray(item.comments)) {
-      throw new Error('Invalid comments response.');
-    }
-
-    setEngagement({
-      like_count: Number(item.like_count ?? 0),
-      comment_count: Number(item.comment_count ?? 0),
-      share_count: Number(item.share_count ?? 0),
-      liked_by_me: item.liked_by_me === true,
-      comments: item.comments
-    });
-
-  }, [pageId, postId]);
-
-  useEffect(() => {
-    if (!stagingSocialReady) return;
-
-    let active = true;
-
-    void refresh().catch(() => {
-      if (active) setEngagement(null);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [refresh, stagingSocialReady]);
-
   async function act(
     action: CreatorVerseSocialAction,
     content = '',
     targetId: string | null = null
   ) {
-
-    if (busy) return;
-
+    if (sending.current || !viewerId) return;
+    // An uncertain result must be retried with the same payload and request ID.
+    if (pending.current && (pending.current.action !== action ||
+        pending.current.content !== content || pending.current.targetId !== targetId)) {
+      setError('Retry the previous action before sending another.');
+      return;
+    }
+    const request = pending.current ?? {
+      pageId, postId, action, content, targetId, requestId: crypto.randomUUID(),
+    };
+    pending.current = request;
+    sending.current = true;
     setBusy(true);
     setError('');
 
     try {
+      await submitCreatorVerseInteraction(request, viewerId);
+      if (!active.current) return;
+      pending.current = null;
+      setRetryPending(false);
 
-      await submitCreatorVerseInteraction({
-        pageId,
-        postId,
-        action,
-        requestId: crypto.randomUUID(),
-        content,
-        ...(targetId ? { targetId } : {})
-      });
-
-      await refresh();
-
+      // A failed count refresh must never make a successful write look unsent.
       if (action === 'comment') {
         setComment('');
         setReplyTo(null);
         setShowComments(true);
       }
-
       if (action === 'share') {
         window.dispatchEvent(new Event('parapost-creatorverse-shared'));
         setShareCaption('');
         setShowShare(false);
       }
-
+      read.retry();
     } catch (failure) {
-
-      setError(
-        failure instanceof Error
-          ? failure.message
-          : 'Unable to complete this action.'
-      );
-
+      if (!active.current) return;
+      if (failure instanceof CreatorVerseInteractionError && !failure.uncertain) {
+        pending.current = null;
+      }
+      setRetryPending(pending.current !== null);
+      setError(failure instanceof Error ? failure.message : 'Unable to complete this action.');
     } finally {
-      setBusy(false);
+      sending.current = false;
+      if (active.current) setBusy(false);
     }
   }
 
   const comments = engagement?.comments ?? [];
-
-  if (!stagingSocialReady) return null;
 
   return (
     <section className={styles.section} aria-label="Post interactions">
@@ -202,7 +163,7 @@ export default function CreatorVersePostActions({
 
         <button
           type="button"
-          disabled={busy || !viewerId}
+          disabled={busy || retryPending || read.loading || !engagement || !viewerId}
           aria-label={engagement?.liked_by_me ? 'Unlike post' : 'Like post'}
           aria-pressed={engagement?.liked_by_me ?? false}
           onClick={() =>
@@ -215,7 +176,7 @@ export default function CreatorVersePostActions({
         {commentsEnabled && (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || retryPending}
             aria-label="Comments"
             aria-expanded={showComments}
             onClick={() => setShowComments(value => !value)}
@@ -226,7 +187,7 @@ export default function CreatorVersePostActions({
 
         <button
           type="button"
-          disabled={busy || !viewerId}
+          disabled={busy || retryPending || read.loading || !engagement || !viewerId}
           aria-label="Share post"
           aria-expanded={showShare}
           onClick={() => setShowShare(value => !value)}
@@ -265,9 +226,9 @@ export default function CreatorVersePostActions({
               {viewerId && (
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || retryPending}
                   onClick={() => {
-                    setReplyTo(item.id);
+                    setReplyTo(item.parent_id ?? item.id);
                     setComment('');
                   }}
                 >
@@ -279,7 +240,7 @@ export default function CreatorVersePostActions({
 
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || retryPending}
                   onClick={() =>
                     void act('delete_comment', '', item.id)
                   }
@@ -306,7 +267,7 @@ export default function CreatorVersePostActions({
                 value={comment}
                 placeholder="Write a comment..."
                 onChange={event => setComment(event.target.value)}
-                disabled={busy}
+                disabled={busy || retryPending}
               />
 
               <div className={styles.controls}>
@@ -322,7 +283,7 @@ export default function CreatorVersePostActions({
 
                 <button
                   type="button"
-                  disabled={busy || !comment.trim()}
+                  disabled={busy || retryPending || read.loading || !engagement || !comment.trim()}
                   onClick={() =>
                     void act('comment', comment.trim(), replyTo)
                   }
@@ -351,7 +312,7 @@ export default function CreatorVersePostActions({
             maxLength={1000}
             value={shareCaption}
             onChange={event => setShareCaption(event.target.value)}
-            disabled={busy}
+            disabled={busy || retryPending}
           />
 
           <div className={styles.controls}>
@@ -365,7 +326,7 @@ export default function CreatorVersePostActions({
 
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || retryPending}
               onClick={() =>
                 void act('share', shareCaption.trim())
               }
@@ -379,6 +340,22 @@ export default function CreatorVersePostActions({
 
       )}
 
+      {read.loading && <p role="status">Loading interactions…</p>}
+      {read.error && (
+        <div role="alert" className={styles.error}>
+          <p>Post interactions could not be loaded. Please try again.</p>
+          <button type="button" disabled={busy} onClick={read.retry}>Retry loading</button>
+        </div>
+      )}
+      {retryPending && (
+        <div className={styles.panel}>
+          <p>The previous action could not be confirmed. Retry it before sending another.</p>
+          <button type="button" disabled={busy} onClick={() => {
+            const request = pending.current;
+            if (request) void act(request.action, request.content, request.targetId);
+          }}>Retry action</button>
+        </div>
+      )}
       {error && (
         <p className={styles.error} role="alert">
           {error}
