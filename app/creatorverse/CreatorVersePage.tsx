@@ -282,6 +282,8 @@ export default function CreatorVersePage({ id }: { id: string }) {
             )}
           </div>
 
+          <CreatorVerseFollowButton pageId={id} isOwner={canManage} />
+
           <div className={groupTabStyles.tabs} role="group" aria-label="CreatorVerse sections">
             {(['Posts', 'Photos', 'Videos', 'About'] as Section[]).map(tab => (
               <button
@@ -294,7 +296,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
               </button>
             ))}
           </div>
-        <CreatorVerseFollowButton pageId={id} isOwner={canManage} />
+
         </header>
 
         {deleting && canManage && (
