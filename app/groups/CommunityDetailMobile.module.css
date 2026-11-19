@@ -88,7 +88,7 @@
 @media (max-width: 700px) {
   .mobileCommunity [data-community-detail-container]
   nav[aria-label="Community page navigation"] > a:first-child {
-    transform: translateY(-9px);
+    transform: translateY(-2px);
   }
 }
 
