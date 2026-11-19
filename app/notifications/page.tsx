@@ -1879,7 +1879,7 @@ export default function NotificationsPage() {
     showStatus("All notifications deleted.");
   };
 
-  const handleOpenNotification = (notification: NotificationCard) => {
+  const handleOpenNotification = async (notification: NotificationCard) => {
     const href = getNotificationHref(notification);
     const notificationIds = notification.groupedNotificationIds?.length
       ? notification.groupedNotificationIds
@@ -1909,6 +1909,59 @@ export default function NotificationsPage() {
     }
 
     const type = notification.type || "";
+
+    if (
+      type.startsWith("group_") ||
+      type.startsWith("creatorverse_")
+    ) {
+      try {
+        const { data: destinationRow, error: destinationError } =
+          await supabase
+            .from("notifications")
+            .select("id, type, group_id, creatorverse_page_id, community_post_id, community_comment_id")
+            .eq("id", notification.id)
+            .eq("user_id", notification.user_id)
+            .maybeSingle();
+
+        if (destinationError || !destinationRow) {
+          window.alert(
+            "Could not retrieve Group notification destination: " +
+            (destinationError?.message || "Notification not found")
+          );
+          return;
+        }
+
+        const destination = getNotificationHref({
+          ...notification,
+          ...destinationRow,
+        });
+
+        const expectedPrefix = type.startsWith("group_")
+          ? "/groups/"
+          : "/creatorverse/";
+
+        const requiresPost =
+          type === "group_like" ||
+          type === "group_comment";
+
+        if (
+          !destination.startsWith(expectedPrefix) ||
+          (requiresPost && !destination.includes("post="))
+        ) {
+          window.alert(
+            "The notification has no valid Group post destination."
+          );
+          return;
+        }
+
+        window.location.assign(destination);
+        return;
+      } catch (error) {
+        console.error("Community notification navigation failed:", error);
+        window.alert("Unable to open the Group notification.");
+        return;
+      }
+    }
 
     if (notification.post_id && !type.startsWith("reel_")) {
       setPostOverlayExpanded(false);
