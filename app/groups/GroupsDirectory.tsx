@@ -118,7 +118,7 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
         <span className={styles.visuallyHidden}>{showCreatorVerse ? 'Search CreatorVerse' : 'Search Groups'}</span>
         <span className={styles.mobileDirectorySearchField}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg>
-          <input type="search" maxLength={100} placeholder="Search anything on Parapost" value={showCreatorVerse ? stageFilter.search : search}
+          <input type="search" maxLength={100} placeholder="Search by name or description" value={showCreatorVerse ? stageFilter.search : search}
             onChange={event => showCreatorVerse
               ? setStageFilter(current => ({ ...current, search: event.target.value }))
               : onSearch(event.target.value)} />
