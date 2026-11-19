@@ -91,3 +91,31 @@
     transform: translateY(-9px);
   }
 }
+
+
+/* Step 402: center community navigation */
+@media (max-width: 700px) {
+  .mobileCommunity nav[aria-label="Community page navigation"] {
+    display: grid !important;
+    grid-template-columns:
+      minmax(0, 1fr) auto minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 0 !important;
+    width: 100%;
+  }
+
+  .mobileCommunity nav[aria-label="Community page navigation"] > a:first-child {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .mobileCommunity nav[aria-label="Community page navigation"] > a:nth-child(2) {
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .mobileCommunity nav[aria-label="Community page navigation"] > a:last-child {
+    grid-column: 3;
+    justify-self: end;
+  }
+}
