@@ -62,6 +62,45 @@ export default function GroupPostActions({
   const [caption, setCaption] = useState('');
   const [shareError, setShareError] = useState('');
 
+  const focusedNotificationCommentRef = useRef('');
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+
+    if (query.get('post') === postId && query.get('comment')) {
+      setCommentsOpen(true);
+    }
+  }, [postId]);
+
+  useEffect(() => {
+    if (!commentsOpen || !stats) return;
+
+    const query = new URLSearchParams(window.location.search);
+    const commentId = query.get('comment');
+
+    if (
+      query.get('post') !== postId ||
+      !commentId ||
+      focusedNotificationCommentRef.current === commentId ||
+      !stats.comments.some(comment => comment.id === commentId)
+    ) return;
+
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(`group-comment-${commentId}`);
+
+      if (target) {
+        target.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+        focusedNotificationCommentRef.current = commentId;
+      }
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [postId, commentsOpen, stats]);
+
+
   function closeShare() {
     setShareOpen(false);
     setShareError('');
@@ -275,7 +314,7 @@ export default function GroupPostActions({
     </form>
   );
   const renderComment = (comment: GroupComment) => (
-    <div style={dashboardCommentRowStyle}>
+    <div id={`group-comment-${comment.id}`} style={dashboardCommentRowStyle}>
       <PostAvatar id={comment.author_id} profile={profiles[comment.author_id]} size={32} />
       <div className={styles.commentBody}>
         <div style={dashboardCommentBubbleStyle}>

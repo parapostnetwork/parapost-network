@@ -1920,6 +1920,12 @@ export default function NotificationsPage() {
       return;
     }
 
+    if (href.startsWith("/groups/") ||
+        href.startsWith("/creatorverse/")) {
+      window.location.assign(href);
+      return;
+    }
+
     router.push(href);
   };
 

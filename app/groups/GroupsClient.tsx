@@ -270,6 +270,30 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   const moderator=approved&&['owner','admin','moderator'].includes(group?.membership_role ?? '');
   const canRead=!!group && (approved || (group.visibility==='public' && !['rejected','removed','banned'].includes(group.membership_status ?? '')));
   const selectedTab=(activeTab==='members'&&!admin)||(activeTab==='media'&&!canRead)?'discussion':activeTab;
+
+  const routedNotificationPostRef = useRef('');
+
+  useEffect(() => {
+    if (!groupId || loading) return;
+
+    const postId = new URLSearchParams(window.location.search).get('post');
+    if (!postId || routedNotificationPostRef.current === postId) return;
+
+    const target = document.getElementById(`group-post-${postId}`);
+    if (!target) return;
+
+    routedNotificationPostRef.current = postId;
+
+    const timer = window.setTimeout(() => {
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }, 100);
+
+    return () => window.clearTimeout(timer);
+  }, [groupId, loading, posts]);
+
   useEffect(()=>{
     let active=true;
     setViewerProfile(null);
