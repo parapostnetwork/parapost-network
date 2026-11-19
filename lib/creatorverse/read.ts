@@ -58,13 +58,21 @@ export async function readDirectory(client: SupabaseClient, params: URLSearchPar
     nextOffset: rows.length > limit ? offset + limit : null
   };
 }
-export async function readPublicPage(client: SupabaseClient, id: string, offset = 0): Promise<PageResult> {
+export async function readPublicPage(client: SupabaseClient, id: string, offset = 0, targetPostId: string | null = null): Promise<PageResult> {
   pageId(id);
   const { data, error } = await client.from('creatorverse_pages').select(columns).eq('id', id).eq('status', 'active').maybeSingle();
   if (error) throw new CreatorVerseError(503, 'CreatorVerse is temporarily unavailable.');
   if (!data) throw new CreatorVerseError(404, 'This page is not available.');
-  const result = await client.from('creatorverse_posts').select('id,page_id,content,created_at,comments_enabled')
-    .eq('page_id', id).eq('status', 'published').order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + 20);
+  const postQuery = client.from('creatorverse_posts')
+    .select('id,page_id,content,created_at,comments_enabled')
+    .eq('page_id', id)
+    .eq('status', 'published');
+
+  const result = targetPostId
+    ? await postQuery.eq('id', targetPostId).limit(1)
+    : await postQuery.order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(offset, offset + 20);
   if (result.error) throw new CreatorVerseError(503, 'Posts are temporarily unavailable.');
   const rows = result.data ?? [];
   const posts: CreatorVersePost[] = rows.slice(0, 20).map(post => ({
@@ -118,5 +126,5 @@ export async function readPublicPage(client: SupabaseClient, id: string, offset 
     }
   }
 
-  return { page: publicPage(data), posts, nextPostsOffset: rows.length > 20 ? offset + 20 : null };
+  return { page: publicPage(data), posts, nextPostsOffset: !targetPostId && rows.length > 20 ? offset + 20 : null };
 }

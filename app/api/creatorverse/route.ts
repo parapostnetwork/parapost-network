@@ -1,6 +1,7 @@
 import { creatorVerseClient, creatorVerseErrorResponse, creatorVerseHeaders } from '@/lib/creatorverse/server';
 import { readDirectory, readPublicPage } from '@/lib/creatorverse/read';
 import { CreatorVerseError } from '@/lib/creatorverse/permissions';
+import { UUID } from '@/lib/creatorverse/validation';
 export const dynamic = 'force-dynamic';
 /** Phase 1 is read-only. Next returns 405 for unsupported write methods. */
 export async function GET(request: Request) {
@@ -9,6 +10,10 @@ export async function GET(request: Request) {
     const { client } = await creatorVerseClient(request);
     const id = params.get('page');
     const rawOffset = params.get('posts_offset') ?? '0';
+    const targetPostId = params.get('post');
+    if (targetPostId !== null && !UUID.test(targetPostId)) {
+      throw new CreatorVerseError(400, 'Invalid post identifier.');
+    }
     if (id !== null && (
       !/^(0|[1-9][0-9]*)$/.test(rawOffset) ||
       !Number.isSafeInteger(Number(rawOffset)) ||
@@ -18,7 +23,7 @@ export async function GET(request: Request) {
       throw new CreatorVerseError(400, 'Invalid posts offset.');
     }
     const data = id !== null
-      ? await readPublicPage(client, id, Number(rawOffset))
+      ? await readPublicPage(client, id, Number(rawOffset), targetPostId)
       : await readDirectory(client, params);
     return Response.json(data, { headers: creatorVerseHeaders });
   } catch (error) { return creatorVerseErrorResponse(error); }

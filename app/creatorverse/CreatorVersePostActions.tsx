@@ -110,6 +110,38 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
   }
 
   const comments = engagement?.comments ?? [];
+  const focusedComment = useRef('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('post') === postId && params.get('comment')) {
+      setShowComments(true);
+    }
+  }, [postId]);
+
+  useEffect(() => {
+    if (!showComments || read.loading || !engagement) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('post') !== postId) return;
+
+    const commentId = params.get('comment');
+    if (!commentId || focusedComment.current === commentId) return;
+    if (!engagement.comments.some(item => item.id === commentId)) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(
+        `creatorverse-comment-${commentId}`
+      );
+      if (!target) return;
+
+      target.style.scrollMarginTop = '112px';
+      target.scrollIntoView({ behavior: 'auto', block: 'center' });
+      focusedComment.current = commentId;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [postId, showComments, read.loading, engagement]);
 
   return (
     <section className={styles.section} aria-label="Post interactions">
@@ -230,7 +262,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
 
           {comments.map(item => (
 
-            <div className={styles.comment} key={item.id}>
+            <div className={styles.comment} key={item.id} id={`creatorverse-comment-${item.id}`}>
 
               <div className={styles.commentHeading}>
 

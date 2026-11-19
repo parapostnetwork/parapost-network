@@ -125,6 +125,98 @@ export default function CreatorVersePage({ id }: { id: string }) {
   const [olderError, setOlderError] = useState('');
   const olderLock = useRef(false);
   const pageRevision = useRef(0);
+  const [linkedPost, setLinkedPost] = useState<{
+    pageId: string;
+    post: CreatorVersePost;
+  } | null>(null);
+  const [linkedPostError, setLinkedPostError] = useState('');
+  const scrolledLinkedPost = useRef('');
+
+  useEffect(() => {
+    if (!data || data.page.id !== id) return;
+
+    const targetId = new URLSearchParams(window.location.search).get('post');
+    if (!targetId) return;
+
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuid.test(targetId)) {
+      setLinkedPostError('Invalid CreatorVerse post link.');
+      return;
+    }
+
+    if (data.posts.some(post => post.id === targetId)) return;
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    async function loadLinkedPost() {
+      try {
+        const { data: auth, error: authError } =
+          await supabase.auth.getSession();
+
+        if (authError) throw authError;
+        if (cancelled) return;
+
+        const token = auth.session?.access_token;
+
+        const response = await fetch(
+          `/api/creatorverse?page=${encodeURIComponent(id)}&post=${encodeURIComponent(targetId!)}`,
+          {
+            cache: 'no-store',
+            signal: controller.signal,
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }
+        );
+
+        if (!response.ok) throw new Error('Post unavailable');
+
+        const result = await response.json() as PageResult;
+        if (cancelled) return;
+
+        const found = result.page?.id === id &&
+          result.posts.length === 1 &&
+          result.posts[0].id === targetId;
+
+        if (!found) {
+          setLinkedPostError('This CreatorVerse post is unavailable.');
+          return;
+        }
+
+        setLinkedPost({ pageId: id, post: result.posts[0] });
+        setLinkedPostError('');
+      } catch {
+        if (!cancelled) {
+          setLinkedPostError('Unable to open the linked CreatorVerse post.');
+        }
+      }
+    }
+
+    void loadLinkedPost();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [id, data]);
+
+  useEffect(() => {
+    const targetId = new URLSearchParams(window.location.search).get('post');
+    if (!targetId || !data || data.page.id !== id) return;
+
+    const key = `${id}:${targetId}`;
+    if (scrolledLinkedPost.current === key) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(`creatorverse-post-${targetId}`);
+      if (!target) return;
+
+      target.style.scrollMarginTop = '112px';
+      target.scrollIntoView({ behavior: 'auto', block: 'start' });
+      scrolledLinkedPost.current = key;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [id, data, linkedPost, olderPosts, publishedFeed, section]);
 
   // Refresh only the feed after successful publication.
   // Do not trigger the page-wide loading state.
@@ -303,9 +395,16 @@ export default function CreatorVersePage({ id }: { id: string }) {
     ? postChanges
     : null;
 
+  const extraPosts = olderPosts.filter(post => !loadedIds.has(post.id));
+  const exactPost = linkedPost?.pageId === id ? linkedPost.post : null;
+  const includeExactPost = exactPost &&
+    !loadedIds.has(exactPost.id) &&
+    !extraPosts.some(post => post.id === exactPost.id);
+
   const posts = [
+    ...(includeExactPost && exactPost ? [exactPost] : []),
     ...topPosts,
-    ...olderPosts.filter(post => !loadedIds.has(post.id)),
+    ...extraPosts,
   ]
     .filter(post => !changes?.deleted.includes(post.id))
     .map(post => ({
@@ -504,9 +603,13 @@ export default function CreatorVersePage({ id }: { id: string }) {
               {postRefreshMessage && (
                 <p role="status">{postRefreshMessage}</p>
               )}
+              {linkedPostError && (
+                <p role="alert">{linkedPostError}</p>
+              )}
               {posts.length ? posts.map(post => (
                 <article
                   key={post.id}
+                  id={`creatorverse-post-${post.id}`}
                   style={{
                     ...postCardStyle,
                     position: 'relative',
