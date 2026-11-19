@@ -427,7 +427,7 @@ function getNotificationHref(notification: NotificationCard) {
       : community.group_id;
 
     const validUuid =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     if (!containerId || !validUuid.test(containerId)) {
       return "/notifications";
