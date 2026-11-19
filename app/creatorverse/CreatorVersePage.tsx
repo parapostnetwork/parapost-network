@@ -507,7 +507,11 @@ export default function CreatorVersePage({ id }: { id: string }) {
               {posts.length ? posts.map(post => (
                 <article
                   key={post.id}
-                  style={postCardStyle}
+                  style={{
+                    ...postCardStyle,
+                    position: 'relative',
+                    overflow: 'visible',
+                  }}
                   className={styles.post}
                   data-posting
                 >

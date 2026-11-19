@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { DotsIcon } from '@/components/PostActionIcons';
+import {
+  dotsButtonStyle,
+  postMenuStyle,
+  menuItemStyle,
+} from '@/components/postPresentation';
 
 type Props = {
   pageId: string;
@@ -120,35 +126,47 @@ export default function CreatorVersePostOwnerMenu({
   }
 
   return (
-    <div style={{ position: 'relative', marginTop: 6 }}>
-      <details ref={menu}>
+    <div style={{ position: 'static' }}>
+      <details
+        ref={menu}
+        style={{
+          position: 'absolute',
+          top: 14,
+          right: 16,
+          zIndex: 30,
+        }}
+      >
         <summary
           aria-label="Post options"
+          title="Post options"
           style={{
-            cursor: 'pointer',
-            width: 'fit-content',
-            marginLeft: 'auto',
-            padding: '4px 10px',
-            fontWeight: 700,
+            ...dotsButtonStyle,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             listStyle: 'none',
+            cursor: 'pointer',
+            margin: 0,
           }}
         >
-          •••
+          <DotsIcon />
         </summary>
 
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          padding: 10,
-          marginLeft: 'auto',
-          width: 'fit-content',
-          background: 'var(--card-bg, #242833)',
-          border: '1px solid var(--border-color, #555)',
-          borderRadius: 8,
-        }}>
+        <div
+          style={{
+            ...postMenuStyle,
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            right: 0,
+            margin: 0,
+            width: 180,
+            maxWidth: 'calc(100vw - 24px)',
+            zIndex: 50,
+          }}
+        >
           <button
             type="button"
+            style={menuItemStyle}
             disabled={busy}
             onClick={() => {
               setDraft(content);
@@ -162,6 +180,7 @@ export default function CreatorVersePostOwnerMenu({
 
           <button
             type="button"
+            style={menuItemStyle}
             disabled={busy}
             onClick={() => void remove()}
           >
