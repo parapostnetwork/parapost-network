@@ -2455,3 +2455,49 @@
   }
   .page .membershipActions > button.leaveButton { display: none; }
 }
+
+
+/* Step 404: mobile Group card details and favorites */
+@media (max-width: 700px) {
+
+  /* Show the existing Group description beneath its name. */
+  .page .directoryBrowser .directorySection
+  .directoryCard .desktopDirectoryCardDescription {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    margin: 1px 0 5px;
+    color: #d3c7e2;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  /* Make the existing favourite star easy to see and tap. */
+  .page .directoryBrowser .directorySection
+  .directoryCard > .favoriteToggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px;
+    top: 4px !important;
+    right: 4px !important;
+    font-size: 28px !important;
+    color: #f5edff !important;
+    opacity: 1 !important;
+    background: rgba(139, 92, 246, .14) !important;
+    border-radius: 12px;
+    z-index: 3;
+    cursor: pointer;
+  }
+
+  /* Gold star when favourited. */
+  .page .directoryBrowser .directorySection
+  .directoryCard > .favoriteToggle[aria-pressed="true"] {
+    color: #facc15 !important;
+    background: rgba(250, 204, 21, .12) !important;
+  }
+
+}
