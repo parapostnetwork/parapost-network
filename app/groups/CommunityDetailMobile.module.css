@@ -82,3 +82,12 @@
     filter: grayscale(1) brightness(3.6) contrast(1.1);
   }
 }
+
+
+/* Step 401: align mobile ParaGhost */
+@media (max-width: 700px) {
+  .mobileCommunity [data-community-detail-container]
+  nav[aria-label="Community page navigation"] > a:first-child {
+    transform: translateY(-9px);
+  }
+}
