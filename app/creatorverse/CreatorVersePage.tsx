@@ -23,6 +23,7 @@ import tabStyles from '@/app/groups-local-preview/creatorverse/[id]/SampleCreato
 import CreatorVersePublisherOnly from './CreatorVersePublisherOnly';
 import CreatorVerseOwnerComposer from './CreatorVerseOwnerComposer';
 import CreatorVersePostActions from './CreatorVersePostActions';
+import CreatorVersePostOwnerMenu from './CreatorVersePostOwnerMenu';
 import CreatorVersePublishedMedia from './CreatorVersePublishedMedia';
 import CreatorVerseFollowButton from './CreatorVerseFollowButton';
 import styles from './creatorverse.module.css';
@@ -40,7 +41,16 @@ const publishedMediaReady =
 
 export default function CreatorVersePage({ id }: { id: string }) {
   const [section, setSection] = useState<Section>('Posts');
-  const { canManage, viewerId } = useCreatorVersePermissions(id);
+  const [postChanges, setPostChanges] = useState<{
+    pageId: string;
+    edited: Record<string, string>;
+    deleted: string[];
+  }>({
+    pageId: id,
+    edited: {},
+    deleted: [],
+  });
+  const { canManage, canPublish, viewerId } = useCreatorVersePermissions(id);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [coverAvailable, setCoverAvailable] = useState(false);
@@ -290,10 +300,19 @@ export default function CreatorVersePage({ id }: { id: string }) {
       : visibleData.posts;
 
   const loadedIds = new Set(topPosts.map(post => post.id));
+  const changes = postChanges.pageId === id
+    ? postChanges
+    : null;
+
   const posts = [
     ...topPosts,
     ...olderPosts.filter(post => !loadedIds.has(post.id)),
-  ];
+  ]
+    .filter(post => !changes?.deleted.includes(post.id))
+    .map(post => ({
+      ...post,
+      content: changes?.edited[post.id] ?? post.content,
+    }));
 
   const imageBase =
     `/api/creatorverse/pages/${encodeURIComponent(page.id)}/images`;
@@ -496,6 +515,30 @@ export default function CreatorVersePage({ id }: { id: string }) {
                   <time dateTime={post.created_at}>
                     {new Date(post.created_at).toLocaleDateString()}
                   </time>
+                  {canPublish && (
+                    <CreatorVersePostOwnerMenu
+                      pageId={id}
+                      postId={post.id}
+                      content={post.content}
+                      hasMedia={post.media.length > 0}
+                      onEdited={content => setPostChanges(previous => ({
+                        pageId: id,
+                        edited: {
+                          ...(previous.pageId === id ? previous.edited : {}),
+                          [post.id]: content,
+                        },
+                        deleted: previous.pageId === id ? previous.deleted : [],
+                      }))}
+                      onDeleted={() => setPostChanges(previous => ({
+                        pageId: id,
+                        edited: previous.pageId === id ? previous.edited : {},
+                        deleted: [
+                          ...(previous.pageId === id ? previous.deleted : []),
+                          post.id,
+                        ],
+                      }))}
+                    />
+                  )}
                   <ExpandablePostText text={post.content} style={postContentStyle} />
                   {publishedMediaReady && post.media.length > 0 && (
                     <div style={{
