@@ -404,6 +404,55 @@ function getNotificationHref(notification: NotificationCard) {
     return "/friends";
   }
 
+  // Route Group and CreatorVerse activity to its content.
+  const community = notification as NotificationCard & {
+    group_id?: string | null;
+    creatorverse_page_id?: string | null;
+    community_post_id?: string | null;
+    community_comment_id?: string | null;
+  };
+
+  if (
+    type.startsWith("group_") ||
+    type.startsWith("creatorverse_") ||
+    community.group_id ||
+    community.creatorverse_page_id
+  ) {
+    const creatorverse =
+      type.startsWith("creatorverse_") ||
+      (!community.group_id && Boolean(community.creatorverse_page_id));
+
+    const containerId = creatorverse
+      ? community.creatorverse_page_id
+      : community.group_id;
+
+    const validUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (!containerId || !validUuid.test(containerId)) {
+      return "/notifications";
+    }
+
+    const base = creatorverse
+      ? `/creatorverse/${containerId}`
+      : `/groups/${containerId}`;
+
+    const params = new URLSearchParams();
+
+    if (community.community_post_id &&
+        validUuid.test(community.community_post_id)) {
+      params.set("post", community.community_post_id);
+    }
+
+    if (community.community_comment_id &&
+        validUuid.test(community.community_comment_id)) {
+      params.set("comment", community.community_comment_id);
+    }
+
+    const query = params.toString();
+    return query ? `${base}?${query}` : base;
+  }
+
   // Reels page already supports targeting a specific Reel with ?reel=<id>.
   // This keeps notifications landing on the actual Reel instead of only the profile tab.
   if (type.startsWith("reel_")) {
@@ -1653,7 +1702,7 @@ export default function NotificationsPage() {
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, user_id, actor_id, type, post_id, comment_id, share_id, friend_request_id, reel_id, message, is_read, created_at")
+        .select("id, user_id, actor_id, type, post_id, comment_id, share_id, friend_request_id, reel_id, message, is_read, created_at, group_id, creatorverse_page_id, community_post_id, community_comment_id")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(100);
