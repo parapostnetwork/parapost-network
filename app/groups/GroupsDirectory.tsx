@@ -280,16 +280,23 @@ export default function GroupsDirectory({ groups, viewerId, tab, onTab, search, 
             <h3>{group.name}</h3>
             {group.description && <p className={styles.desktopDirectoryCardDescription}>{group.description}</p>}
             <p className={creatorCardStyles.description}>{group.member_count !== null ? `${group.member_count} ${group.member_count === 1 ? 'member' : 'members'}` : 'Member count unavailable'}</p>
-            <div className={styles.directoryCardLabel}>{owned(group) && <span className={styles.ownerTag}>Owner</span>}
-              {favorite && <span className={styles.favoriteTag}>★ Favorite</span>}
-              {section.key === 'recent' && <span className={styles.visitedTag}>◷ Recently visited</span>}
-              <span className={styles.privacyTag}><PrivacyIcon privateGroup={group.visibility === 'private'}/>{group.visibility === 'private' ? 'Private' : 'Public'}</span>
-            </div>
           </div><span className={styles.directoryChevron} aria-hidden="true">›</span></>;
           return <article key={group.id} className={`${styles.directoryCard} ${creatorCardStyles.card}`}>
             {onOpen ? <button className={`${styles.directoryOpen} ${creatorCardStyles.open} ${styles.directoryOpenAvatarFit}`} onClick={() => { recordVisit(group.id); onOpen(group); }} aria-label={`Open ${group.name}`}>{cardContents}</button>
               : <Link className={`${styles.directoryOpen} ${creatorCardStyles.open} ${styles.directoryOpenAvatarFit}`} href={`${routeBase}/${group.id}`} onClick={() => { if (approved) recordVisit(group.id); }} aria-label={`Open ${group.name}`}>{cardContents}</Link>}
-            {approved && <button className={styles.favoriteToggle} aria-pressed={favorite} aria-label={`${favorite ? 'Remove' : 'Add'} ${group.name} ${favorite ? 'from' : 'to'} favorites`} onClick={() => toggleFavorite(group.id)}>{favorite ? '★' : '☆'}</button>}
+            {approved && <button className={styles.favoriteToggle} style={{
+              width: 28,
+              height: 28,
+              top: 8,
+              right: 8,
+              padding: 0,
+              border: 'none',
+              background: 'transparent',
+              boxShadow: 'none',
+              fontSize: 20,
+              lineHeight: 1,
+              opacity: favorite ? 1 : 0.75
+            }} aria-pressed={favorite} aria-label={`${favorite ? 'Remove' : 'Add'} ${group.name} ${favorite ? 'from' : 'to'} favorites`} onClick={() => toggleFavorite(group.id)}>{favorite ? '★' : '☆'}</button>}
 
           </article>;
         })}</div>
