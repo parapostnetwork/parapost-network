@@ -125,7 +125,7 @@ export default function CreatorVerseDiscovery({ rows, filter, onFilter, mobileFi
         return <article key={page.id.toLowerCase()} className={`${groupStyles.directoryCard} ${styles.card}`}>
           <Link href={sample ? samplePageHref(page.id) : creatorVersePageHref(page.id)} prefetch={false} className={`${groupStyles.directoryOpen} ${styles.open}`} aria-label={`Open ${page.name}`}>
             <CreatorVerseCardAvatar pageId={page.id} sample={sample} />
-            <div className={styles.content}><h3>{page.name}</h3><p className={styles.description}>{page.short_bio || page.description || 'Explore this CreatorVerse page.'}</p><span className={styles.category}>{CREATORVERSE_CATEGORIES[page.category]}</span>{sample && <span className={styles.sample}>Sample page</span>}</div>
+            <div className={styles.content}><h3>{page.name}</h3><p className={styles.description}>{page.short_bio || page.description || 'Explore this CreatorVerse page.'}</p>{!sample && <p className={styles.description}>{page.member_count ?? 0} {(page.member_count ?? 0) === 1 ? 'member' : 'members'}</p>}<span className={styles.category}>{CREATORVERSE_CATEGORIES[page.category]}</span>{sample && <span className={styles.sample}>Sample page</span>}</div>
             <span className={groupStyles.directoryChevron} aria-hidden="true">›</span>
           </Link>
           {creator && <p className={styles.creator}>By {profile ? <Link href={profile} prefetch={false}>{creator.name}</Link> : creator.name}</p>}

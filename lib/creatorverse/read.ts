@@ -19,7 +19,44 @@ export async function readDirectory(client: SupabaseClient, params: URLSearchPar
   const { data, error } = await query.order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + limit);
   if (error) throw new CreatorVerseError(503, 'CreatorVerse is temporarily unavailable.');
   const rows = data ?? [];
-  return { pages: rows.slice(0, limit).map(publicPage), nextOffset: rows.length > limit ? offset + limit : null };
+  const visibleRows = rows.slice(0, limit);
+  const memberCounts = new Map<string, number>();
+
+  if (visibleRows.length > 0) {
+    const result = await client.rpc(
+      'creatorverse_directory_member_counts',
+      { p_page_ids: visibleRows.map(row => row.id) }
+    );
+
+    if (result.error || !Array.isArray(result.data)) {
+      throw new CreatorVerseError(503, 'CreatorVerse member counts are temporarily unavailable.');
+    }
+
+    for (const item of result.data) {
+      const count = Number(item.member_count);
+      if (
+        typeof item.page_id !== 'string' ||
+        !Number.isSafeInteger(count) ||
+        count < 0
+      ) {
+        throw new CreatorVerseError(503, 'Invalid CreatorVerse member count.');
+      }
+      memberCounts.set(item.page_id, count);
+    }
+  }
+
+  const pages = visibleRows.map(row => {
+    const count = memberCounts.get(row.id);
+    if (count === undefined) {
+      throw new CreatorVerseError(503, 'CreatorVerse member count is unavailable.');
+    }
+    return { ...publicPage(row), member_count: count };
+  });
+
+  return {
+    pages,
+    nextOffset: rows.length > limit ? offset + limit : null
+  };
 }
 export async function readPublicPage(client: SupabaseClient, id: string, offset = 0): Promise<PageResult> {
   pageId(id);

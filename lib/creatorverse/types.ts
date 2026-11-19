@@ -22,7 +22,7 @@ export type PageFields = {
   location: string;
 };
 /** Deliberately excludes owner identity, account email, moderation and storage internals. */
-export type PublicPage = PageFields & { id: string; created_at: string };
+export type PublicPage = PageFields & { id: string; created_at: string; member_count?: number };
 export type PageOwnership = { id: string; owner_id: string; status: PageStatus };
 export type PagePermissions = { can_manage: boolean; can_publish: boolean };
 export type CreatorVersePublishedMedia = {
