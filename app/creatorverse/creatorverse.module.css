@@ -205,3 +205,11 @@
     height: 36px;
   }
 }
+
+
+/* Step 399: hide redundant Posts title on mobile only. */
+@media (max-width: 700px) {
+  .mobileDuplicateHeading {
+    display: none;
+  }
+}

@@ -587,7 +587,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
             data-community-primary="creatorverse"
             aria-label={`${section} section`}
           >
-          <h2>{section}</h2>
+          <h2 className={section === 'Posts' ? styles.mobileDuplicateHeading : undefined}>{section}</h2>
 
           {section === 'Posts' && (
             <section aria-label="Page posts">
