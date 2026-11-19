@@ -185,7 +185,48 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
 
       {showComments && allowComments && (
 
-        <div className={styles.panel}>
+        <div className={`${styles.panel} ${styles.commentsPanel}`}>
+
+          {viewerId && (
+            <>
+              <label htmlFor={`cv-comment-${postId}`}>
+                {replyTo ? 'Write a reply' : 'Write a comment'}
+              </label>
+
+              <textarea
+                id={`cv-comment-${postId}`}
+                maxLength={1200}
+                rows={1}
+                value={comment}
+                placeholder="Write a comment..."
+                onChange={event => setComment(event.target.value)}
+                disabled={busy || retryPending}
+              />
+
+              <div className={styles.controls}>
+
+                {replyTo && (
+                  <button
+                    type="button"
+                    onClick={() => setReplyTo(null)}
+                  >
+                    Cancel reply
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={busy || retryPending || read.loading || !engagement || !comment.trim()}
+                  onClick={() =>
+                    void act('comment', comment.trim(), replyTo)
+                  }
+                >
+                  {busy ? 'Sending...' : 'Post comment'}
+                </button>
+
+              </div>
+            </>
+          )}
 
           {comments.map(item => (
 
@@ -240,46 +281,6 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
 
           ))}
 
-          {viewerId && (
-            <>
-              <label htmlFor={`cv-comment-${postId}`}>
-                {replyTo ? 'Write a reply' : 'Write a comment'}
-              </label>
-
-              <textarea
-                id={`cv-comment-${postId}`}
-                maxLength={1200}
-                rows={3}
-                value={comment}
-                placeholder="Write a comment..."
-                onChange={event => setComment(event.target.value)}
-                disabled={busy || retryPending}
-              />
-
-              <div className={styles.controls}>
-
-                {replyTo && (
-                  <button
-                    type="button"
-                    onClick={() => setReplyTo(null)}
-                  >
-                    Cancel reply
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  disabled={busy || retryPending || read.loading || !engagement || !comment.trim()}
-                  onClick={() =>
-                    void act('comment', comment.trim(), replyTo)
-                  }
-                >
-                  {busy ? 'Sending...' : 'Post comment'}
-                </button>
-
-              </div>
-            </>
-          )}
 
         </div>
       )}

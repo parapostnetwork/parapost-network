@@ -308,7 +308,7 @@ export default function GroupPostActions({
         aria-label={parentId ? 'Write a reply' : 'Write a comment'}
         placeholder={parentId ? 'Write a reply...' : 'Write a comment...'}
         value={draft} onChange={event => setDraft(event.target.value)} maxLength={1200}
-        rows={2} disabled={!canInteract || busy} style={dashboardCommentTextareaStyle} autoFocus={!!parentId} />
+        rows={1} disabled={!canInteract || busy} style={dashboardCommentTextareaStyle} autoFocus={!!parentId} />
       <button type="submit" style={dashboardCommentSubmitButtonStyle}
         disabled={!canInteract || busy || !draft.trim()}>{busy ? 'Posting…' : parentId ? 'Reply' : 'Post'}</button>
     </form>

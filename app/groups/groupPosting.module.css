@@ -503,3 +503,57 @@
     background: transparent !important;
   }
 }
+
+
+/* STEP 397P: Compact Public Group comments only */
+.comments[id^="group-comments-"] {
+  margin-top: 10px;
+  padding: 12px 0 0;
+  background: transparent;
+  border-radius: 0;
+  border-top: 1px solid rgba(255,255,255,.10);
+}
+.comments[id^="group-comments-"] .commentsHeader {
+  margin-bottom: 6px;
+}
+.comments[id^="group-comments-"] .commentForm {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+.comments[id^="group-comments-"] .commentForm textarea {
+  box-sizing: border-box;
+  min-height: 42px !important;
+  padding: 8px 12px !important;
+  border-radius: 20px !important;
+  font-size: 16px;
+}
+.comments[id^="group-comments-"] .commentForm button {
+  min-height: 42px;
+  justify-self: end;
+}
+.comments[id^="group-comments-"] .thread {
+  gap: 8px;
+  margin-top: 8px;
+}
+.comments[id^="group-comments-"] .commentActions {
+  gap: 8px 12px;
+  margin-top: 3px;
+}
+.comments[id^="group-comments-"] .replies {
+  margin-top: 6px;
+}
+@media (max-width:600px) {
+  .comments[id^="group-comments-"] {
+    padding: 10px 0 0;
+  }
+  .comments[id^="group-comments-"] .commentForm {
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 6px;
+  }
+  .comments[id^="group-comments-"] .commentForm button {
+    padding: 0 12px;
+  }
+}

@@ -220,3 +220,104 @@
     padding: 8px 4px;
   }
 }
+
+
+/* STEP 397P: Compact CreatorVerse comments only */
+.commentsPanel {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: start;
+  column-gap: 8px;
+  row-gap: 8px;
+  margin-top: 10px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(255,255,255,.10);
+  border-radius: 0;
+  background: transparent;
+}
+.commentsPanel > label {
+  grid-column: 1 / -1;
+  color: #a1a1aa;
+  font-size: 12px;
+}
+.commentsPanel > textarea {
+  grid-column: 1;
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
+  max-height: 120px;
+  resize: vertical;
+  border-radius: 20px;
+  padding: 9px 12px;
+  font-size: 16px;
+  background: rgba(6,8,15,.55);
+}
+.commentsPanel > .controls {
+  grid-column: 2;
+  align-self: start;
+  justify-content: flex-end;
+}
+.commentsPanel > .controls button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 14px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    var(--parapost-accent-1),
+    var(--parapost-accent-2)
+  );
+}
+.commentsPanel > .controls button:first-child:not(:last-child) {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.16);
+}
+.commentsPanel > .controls:has(button + button) {
+  grid-column: 1 / -1;
+}
+.commentsPanel > .comment {
+  grid-column: 1 / -1;
+  border: 0;
+  padding: 3px 0 5px;
+  min-width: 0;
+}
+.commentsPanel .commentHeading {
+  opacity: 1;
+  color: #a1a1aa;
+  gap: 8px;
+}
+.commentsPanel .commentHeading a {
+  color: #f9fafb;
+  font-weight: 800;
+  text-decoration: none;
+}
+.commentsPanel .comment p {
+  margin: 7px 0 4px;
+  padding: 9px 11px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.04);
+  color: #e5e7eb;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.commentsPanel .comment button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--parapost-accent-readable-text, #d8b4fe);
+  padding: 6px 4px;
+  margin-right: 10px;
+  min-height: 36px;
+  font-weight: 700;
+}
+@media (max-width:600px) {
+  .commentsPanel {
+    column-gap: 6px;
+  }
+  .commentsPanel > .controls button {
+    padding: 0 11px;
+  }
+}
