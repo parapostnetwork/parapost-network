@@ -57,6 +57,8 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
 
   async function act(
     action: CreatorVerseSocialAction,
@@ -89,6 +91,10 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
         setComment('');
         setReplyTo(null);
         setShowComments(true);
+      }
+      if (action === 'edit_comment' && targetId === editingId) {
+        setEditingId(null);
+        setEditDraft('');
       }
       if (action === 'share') {
         window.dispatchEvent(new Event('parapost-creatorverse-shared'));
@@ -280,7 +286,46 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
                 <span className={styles.replyLabel}>Reply</span>
               )}
 
-              <p>{item.content}</p>
+              {editingId === item.id ? (
+                <div className={styles.editComment}>
+                  <textarea
+                    aria-label="Edit comment or reply"
+                    value={editDraft}
+                    maxLength={1200}
+                    rows={2}
+                    disabled={busy || retryPending}
+                    onChange={event => setEditDraft(event.target.value)}
+                  />
+                  <div className={styles.commentEditActions}>
+                    <button type="button"
+                      disabled={busy || retryPending || !editDraft.trim()}
+                      onClick={() => void act('edit_comment', editDraft.trim(), item.id)}>
+                      Save
+                    </button>
+                    <button type="button" disabled={busy || retryPending}
+                      onClick={() => { setEditingId(null); setEditDraft(''); }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p>{item.content}
+                  {item.updated_at && new Date(item.updated_at).getTime() >
+                    new Date(item.created_at).getTime() + 1500 &&
+                    <small> · Edited</small>}
+                </p>
+              )}
+
+              {viewerId && (
+                <button type="button"
+                  disabled={busy || retryPending || read.loading || !engagement}
+                  aria-label={item.liked_by_me ? 'Unlike comment or reply' : 'Like comment or reply'}
+                  aria-pressed={item.liked_by_me ?? false}
+                  onClick={() => void act(item.liked_by_me ? 'unlike_comment' : 'like_comment', '', item.id)}>
+                  {item.liked_by_me ? 'Liked' : 'Like'}
+                  {typeof item.like_count === 'number' && item.like_count > 0 ? ` · ${item.like_count}` : ''}
+                </button>
+              )}
 
               {viewerId && (
                 <button
@@ -296,17 +341,26 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
               )}
 
               {viewerId === item.author_id && (
-
-                <button
-                  type="button"
-                  disabled={busy || retryPending}
-                  onClick={() =>
-                    void act('delete_comment', '', item.id)
-                  }
-                >
-                  Delete
-                </button>
-
+                <>
+                  <button type="button"
+                    disabled={busy || retryPending}
+                    onClick={() => {
+                      setEditingId(item.id);
+                      setEditDraft(item.content);
+                    }}>
+                    Edit
+                  </button>
+                  <button type="button"
+                    disabled={busy || retryPending}
+                    onClick={() => {
+                      if (!window.confirm(item.parent_id
+                        ? 'Delete this reply permanently?'
+                        : 'Delete this comment permanently?')) return;
+                      void act('delete_comment', '', item.id);
+                    }}>
+                    Delete
+                  </button>
+                </>
               )}
 
             </div>

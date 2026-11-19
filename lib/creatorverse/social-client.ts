@@ -7,6 +7,9 @@ export type CreatorVerseSocialAction =
   | 'unlike'
   | 'comment'
   | 'delete_comment'
+  | 'edit_comment'
+  | 'like_comment'
+  | 'unlike_comment'
   | 'share';
 
 export type CreatorVerseSocialRequest = {
@@ -65,27 +68,23 @@ export async function submitCreatorVerseInteraction({
     throw new CreatorVerseInteractionError('Invalid comment identifier.');
   }
 
-  if (
-    action === 'delete_comment' &&
-    !targetId
-  ) {
-    throw new CreatorVerseInteractionError('Select a comment to delete.');
+  const commentTargetActions = new Set<CreatorVerseSocialAction>([
+    'delete_comment', 'edit_comment', 'like_comment', 'unlike_comment',
+  ]);
+  if (commentTargetActions.has(action) && !targetId) {
+    throw new CreatorVerseInteractionError('Select a comment or reply.');
   }
 
-  if (
-    action !== 'comment' &&
-    action !== 'delete_comment' &&
-    targetId != null
-  ) {
+  if (action !== 'comment' && !commentTargetActions.has(action) && targetId != null) {
     throw new CreatorVerseInteractionError('Unexpected comment target.');
   }
 
   const text = content?.trim() ?? '';
 
   if (
-    (action === 'comment' && (!text || text.length > 1200)) ||
+    (['comment', 'edit_comment'].includes(action) && (!text || text.length > 1200)) ||
     (action === 'share' && text.length > 1000) ||
-    (!['comment', 'share'].includes(action) && text.length > 0)
+    (!['comment', 'edit_comment', 'share'].includes(action) && text.length > 0)
   ) {
     throw new CreatorVerseInteractionError('Invalid interaction text.');
   }

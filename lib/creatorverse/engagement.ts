@@ -1,6 +1,7 @@
 export type CreatorVerseComment = {
   id: string; author_id: string; post_id?: string; parent_id: string | null;
   content: string; created_at: string;
+  like_count?: number; liked_by_me?: boolean; updated_at?: string | null;
 };
 export type CreatorVerseEngagement = {
   like_count: number; comment_count: number; share_count: number;
@@ -18,6 +19,11 @@ export function parseCreatorVerseEngagement(value: unknown, postId: string): Cre
     typeof comment.id === 'string' && typeof comment.author_id === 'string' &&
     (comment.post_id === undefined || comment.post_id === postId) &&
     (comment.parent_id === null || typeof comment.parent_id === 'string') &&
-    typeof comment.content === 'string' && typeof comment.created_at === 'string')) return null;
+    typeof comment.content === 'string' && typeof comment.created_at === 'string' &&
+    (comment.like_count === undefined ||
+      (typeof comment.like_count === 'number' && Number.isSafeInteger(comment.like_count) && comment.like_count >= 0)) &&
+    (comment.liked_by_me === undefined || typeof comment.liked_by_me === 'boolean') &&
+    (comment.updated_at === undefined || comment.updated_at === null || typeof comment.updated_at === 'string')
+  )) return null;
   return item as CreatorVerseEngagement;
 }

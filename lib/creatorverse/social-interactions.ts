@@ -17,6 +17,9 @@ const actions = new Set([
   'unlike',
   'comment',
   'delete_comment',
+  'edit_comment',
+  'like_comment',
+  'unlike_comment',
   'share',
 ]);
 
@@ -127,11 +130,14 @@ export async function handleCreatorVerseInteraction(
       targetId = pageId(input.targetId);
     }
 
-    if (action === 'delete_comment' && !targetId) {
+    const commentTargetActions = [
+      'delete_comment', 'edit_comment', 'like_comment', 'unlike_comment',
+    ];
+    if (commentTargetActions.includes(action) && !targetId) {
       throw new CreatorVerseError(400, 'Comment ID required.');
     }
 
-    if (!['comment', 'delete_comment'].includes(action) &&
+    if (!['comment', ...commentTargetActions].includes(action) &&
         targetId !== null) {
       throw new CreatorVerseError(400, 'Unexpected target.');
     }
@@ -147,12 +153,12 @@ export async function handleCreatorVerseInteraction(
         : '';
 
     const maximum =
-      action === 'comment' ? 1200 :
+      ['comment', 'edit_comment'].includes(action) ? 1200 :
       action === 'share' ? 1000 : 0;
 
     if (
       content.length > maximum ||
-      (action === 'comment' && !content) ||
+      (['comment', 'edit_comment'].includes(action) && !content) ||
       /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(content)
     ) {
       throw new CreatorVerseError(400, 'Invalid content.');
