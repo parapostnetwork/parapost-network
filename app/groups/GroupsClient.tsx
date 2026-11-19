@@ -13,7 +13,7 @@ import Link from 'next/link';
 import CommunityMobileTopbar from '@/components/CommunityMobileTopbar';
 import { useRouter } from 'next/navigation';
 import { liveGroupsTransport, type GroupsTransport } from '@/lib/groups/transport';
-import { validateGroupFields, validateUpload } from '@/lib/groups/validation';
+import { UUID, validateGroupFields, validateUpload } from '@/lib/groups/validation';
 import { appendGroupPosts } from '@/lib/groups/feed';
 import type { Group, GroupMember, GroupPost } from '@/lib/groups/types';
 import styles from './groups.module.css';
@@ -282,16 +282,24 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
     const target = document.getElementById(`group-post-${postId}`);
     if (!target) return;
 
-    routedNotificationPostRef.current = postId;
+    const frame = window.requestAnimationFrame(() => {
+      const exactTarget = document.getElementById(
+        `group-post-${postId}`
+      );
 
-    const timer = window.setTimeout(() => {
-      target.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
+      if (!exactTarget) return;
+
+      exactTarget.style.scrollMarginTop = '112px';
+
+      exactTarget.scrollIntoView({
+        behavior: 'auto',
+        block: 'start'
       });
-    }, 100);
 
-    return () => window.clearTimeout(timer);
+      routedNotificationPostRef.current = postId;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [groupId, loading, posts]);
 
   useEffect(()=>{
@@ -399,7 +407,46 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         const current=list[0];
         const allowed=current.membership_status==='approved'||(current.visibility==='public'&&!['rejected','removed','banned'].includes(current.membership_status ?? ''));
         const feed:GroupPost[]=allowed?await(await groupsFetch(`/api/groups?kind=feed&group=${groupId}&offset=0`)).json():[];
-        if(number!==requestNumber.current)return;nextPosts=feed;nextHasMore=feed.length===20;
+        if(number!==requestNumber.current)return;
+        nextPosts=feed;
+        nextHasMore=feed.length===20;
+
+        const targetPostId = new URLSearchParams(
+          window.location.search
+        ).get('post');
+
+        if (
+          allowed &&
+          targetPostId &&
+          UUID.test(targetPostId) &&
+          !feed.some(post => post.id === targetPostId)
+        ) {
+          const targetParams = new URLSearchParams({
+            kind: 'feed',
+            group: groupId,
+            post: targetPostId
+          });
+
+          const response = await groupsFetch(
+            `/api/groups?${targetParams}`
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              'Unable to retrieve linked Group post.'
+            );
+          }
+
+          const targeted: GroupPost[] = await response.json();
+
+          if(number!==requestNumber.current)return;
+
+          if (targeted.length === 1) {
+            nextPosts = [targeted[0], ...feed];
+          } else {
+            setError('This Group post is not available.');
+          }
+        }
         if(management&&current.membership_status==='approved'&&['owner','admin'].includes(current.membership_role ?? '')) {
           const roster=await(await groupsFetch(`/api/groups?kind=members&group=${groupId}&offset=${memberOffset}`)).json();
           if(number!==requestNumber.current)return;nextMembers=roster;

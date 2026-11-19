@@ -31,10 +31,17 @@ export async function GET(request: Request) {
         `id,group_id,author_id,content,created_at,updated_at,group_post_media(${mediaFields})`
       )
         .eq('group_id',groupId).eq('published',true).eq('is_deleted',false);
-      const afterCreated=params.get('afterCreated');const afterId=params.get('afterId');
-      const cursor=groupFeedCursor(afterCreated,afterId);
-      if(cursor)query=query.or(cursor);
-      result=await query.order('created_at',{ascending:false}).order('id',{ascending:false}).range(afterId?0:offset,afterId?19:offset+19);
+      const targetPostId=params.get('post');
+      if(targetPostId !== null) {
+        if(!UUID.test(targetPostId))
+          throw new Error('Invalid Group post');
+        result=await query.eq('id',targetPostId).limit(1);
+      } else {
+        const afterCreated=params.get('afterCreated');const afterId=params.get('afterId');
+        const cursor=groupFeedCursor(afterCreated,afterId);
+        if(cursor)query=query.or(cursor);
+        result=await query.order('created_at',{ascending:false}).order('id',{ascending:false}).range(afterId?0:offset,afterId?19:offset+19);
+      }
     } else if (kind === 'interactions' && groupId) {
       const postId=params.get('post');
       if(!postId || !UUID.test(postId))
