@@ -20,7 +20,6 @@ import { postCardStyle, postContentStyle } from '@/components/postPresentation';
 import groupStyles from '@/app/groups/groups.module.css';
 import draftStyles from '@/app/groups-local-preview/creatorverse/draft/draft.module.css';
 import tabStyles from '@/app/groups-local-preview/creatorverse/[id]/SampleCreatorVerseClient.module.css';
-import CreatorVersePublisherOnly from './CreatorVersePublisherOnly';
 import CreatorVerseOwnerComposer from './CreatorVerseOwnerComposer';
 import CreatorVersePostActions from './CreatorVersePostActions';
 import CreatorVersePostOwnerMenu from './CreatorVersePostOwnerMenu';
@@ -494,13 +493,14 @@ export default function CreatorVersePage({ id }: { id: string }) {
           {section === 'Posts' && (
             <section aria-label="Page posts">
 
-              <CreatorVersePublisherOnly pageId={id}>
+              {canPublish && (
                 <CreatorVerseOwnerComposer
+                    key={`${id}:${viewerId}`}
                   pageId={id}
                   pageName={page.name}
                   onPublished={() => { void refreshPublishedPosts(); }}
                 />
-              </CreatorVersePublisherOnly>
+              )}
               {postRefreshMessage && (
                 <p role="status">{postRefreshMessage}</p>
               )}
