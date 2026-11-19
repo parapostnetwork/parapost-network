@@ -105,6 +105,11 @@ export default function CreatorVersePage({ id }: { id: string }) {
         : null
     );
 
+  const [publishedFeed, setPublishedFeed] = useState<{
+    pageId: string;
+    posts: CreatorVersePost[];
+  } | null>(null);
+  const [postRefreshMessage, setPostRefreshMessage] = useState('');
   const [olderPosts, setOlderPosts] = useState<CreatorVersePost[]>([]);
   const [nextPostsOffset, setNextPostsOffset] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -112,9 +117,93 @@ export default function CreatorVersePage({ id }: { id: string }) {
   const olderLock = useRef(false);
   const pageRevision = useRef(0);
 
+  // Refresh only the feed after successful publication.
+  // Do not trigger the page-wide loading state.
+  async function refreshPublishedPosts() {
+    const revision = pageRevision.current;
+
+    try {
+      const { data: auth, error: authError } =
+        await supabase.auth.getSession();
+
+      const token = auth.session?.access_token;
+      if (authError || !token) {
+        throw new Error('Session unavailable');
+      }
+
+      const response = await fetch(
+        `/api/creatorverse?page=${encodeURIComponent(id)}`,
+        {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Unable to refresh posts');
+      }
+
+      const result = await response.json() as PageResult;
+
+      if (result.page?.id !== id || !Array.isArray(result.posts)) {
+        throw new Error('Invalid post feed');
+      }
+
+      if (revision !== pageRevision.current) return;
+
+      const previousTop =
+        publishedFeed?.pageId === id
+          ? publishedFeed.posts
+          : visibleData?.posts ?? [];
+
+      const previousIds = new Set(
+        previousTop.map(post => post.id)
+      );
+
+      const addedCount = result.posts.filter(
+        post => !previousIds.has(post.id)
+      ).length;
+
+      // Keep posts displaced from the first page.
+      setOlderPosts(previous => {
+        const seen = new Set(
+          result.posts.map(post => post.id)
+        );
+
+        return [
+          ...previousTop,
+          ...previous,
+        ].filter(post => {
+          if (seen.has(post.id)) return false;
+          seen.add(post.id);
+          return true;
+        });
+      });
+
+      setNextPostsOffset(previous =>
+        previous === null ? null : previous + addedCount
+      );
+
+      setPublishedFeed({
+        pageId: id,
+        posts: result.posts,
+      });
+
+      setPostRefreshMessage('');
+    } catch {
+      if (revision === pageRevision.current) {
+        setPostRefreshMessage(
+          'Post published, but the feed could not refresh. Reload the page to see it.'
+        );
+      }
+    }
+  }
+
   useEffect(() => {
     pageRevision.current += 1;
     olderLock.current = false;
+    setPublishedFeed(null);
+    setPostRefreshMessage('');
     setOlderPosts([]);
     setNextPostsOffset(data?.nextPostsOffset ?? null);
     setLoadingOlder(false);
@@ -195,9 +284,14 @@ export default function CreatorVersePage({ id }: { id: string }) {
   }
 
   const { page } = visibleData;
-  const loadedIds = new Set(visibleData.posts.map(post => post.id));
+  const topPosts =
+    publishedFeed?.pageId === id
+      ? publishedFeed.posts
+      : visibleData.posts;
+
+  const loadedIds = new Set(topPosts.map(post => post.id));
   const posts = [
-    ...visibleData.posts,
+    ...topPosts,
     ...olderPosts.filter(post => !loadedIds.has(post.id)),
   ];
 
@@ -385,9 +479,12 @@ export default function CreatorVersePage({ id }: { id: string }) {
                 <CreatorVerseOwnerComposer
                   pageId={id}
                   pageName={page.name}
-                  onPublished={retry}
+                  onPublished={() => { void refreshPublishedPosts(); }}
                 />
               </CreatorVersePublisherOnly>
+              {postRefreshMessage && (
+                <p role="status">{postRefreshMessage}</p>
+              )}
               {posts.length ? posts.map(post => (
                 <article
                   key={post.id}
