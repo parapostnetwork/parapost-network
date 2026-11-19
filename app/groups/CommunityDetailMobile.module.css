@@ -52,3 +52,33 @@
   .mobileCommunity [data-posting] :is(button,a):focus-visible { outline-offset:2px; }
   .mobileCommunity [data-community-header] [role="tablist"] { margin:0!important; }
 }
+
+
+/* Step 398: mobile detail pages only. The shared navigation contains an
+   arrow in its Groups link; retain the original accessible link but show
+   the compact Groups label, aligned with Dashboard and the ParaGhost. */
+@media (max-width: 700px) {
+  .mobileCommunity [data-community-detail-container] nav[aria-label="Community page navigation"] > a:nth-child(2) {
+    font-size: 0 !important;
+    transform: translateY(7px);
+    white-space: nowrap;
+  }
+  .mobileCommunity [data-community-detail-container] nav[aria-label="Community page navigation"] > a:nth-child(2)::after {
+    content: "Groups";
+    font-size: clamp(12px, 3.4vw, 15px);
+    font-weight: 700;
+  }
+  .mobileCommunity [data-community-detail-container] nav[aria-label="Community page navigation"] > a:nth-child(2) svg {
+    display: none;
+  }
+  .mobileCommunity [data-community-detail-container] nav[aria-label="Community page navigation"] > a:last-child {
+    transform: translateY(7px);
+  }
+
+  /* This specific uploaded Huntaphobia logo is dark grey/purple. Lighten
+     its artwork to white without affecting other groups or brand images. */
+  .mobileCommunity [data-community-header="group"] img[alt="Huntaphobia avatar"],
+  .mobileCommunity [data-community-header="creatorverse"] img[alt="Huntaphobia profile picture"] {
+    filter: grayscale(1) brightness(3.6) contrast(1.1);
+  }
+}

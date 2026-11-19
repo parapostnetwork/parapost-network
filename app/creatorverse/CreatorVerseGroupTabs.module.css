@@ -253,8 +253,8 @@
 @media (max-width: 420px) {
   .tabs {
     display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 6px !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0 !important;
     width: 100%;
     min-width: 0;
   }
@@ -267,10 +267,11 @@
     width: 100%;
     min-width: 0;
     min-height: 44px;
-    padding: 8px 6px;
+    padding: 8px 2px;
+    font-size: clamp(11px, 2.8vw, 13px);
     text-align: center;
     line-height: 1.2;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow-wrap: normal;
   }
 }

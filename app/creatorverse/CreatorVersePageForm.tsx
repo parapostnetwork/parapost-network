@@ -347,7 +347,7 @@ export default function CreatorVersePageForm({
 
       {message && <p role="status" className={styles.message}>{message}</p>}
 
-      <button style={{ marginTop: 20 }} type="submit" disabled={busy}>
+      <button className={styles.submitButton} type="submit" disabled={busy}>
         {busy ? 'Checking…' : onSave ? buttonLabel : 'Validate Draft'}
       </button>
       <p className={styles.note}>

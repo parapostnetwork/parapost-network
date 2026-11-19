@@ -2423,3 +2423,35 @@
     padding-top: 18px;
   }
 }
+
+
+/* Step 398: move the existing Leave Group action beside Share Group on phones. */
+.page .mobileHeaderLeave { display: none; }
+@media (max-width: 700px) {
+  .page .headerActionRow {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+  }
+  .page .headerActionRow > button.mobileHeaderLeave {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 0;
+    height: 44px;
+    min-height: 44px;
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .page .headerActionRow > button:first-child {
+    flex: 0 1 auto;
+    min-width: 0;
+    height: 44px;
+    min-height: 44px;
+  }
+  .page .membershipActions > button.leaveButton { display: none; }
+}

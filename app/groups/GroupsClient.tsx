@@ -592,6 +592,11 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
             <p className={styles.identityMeta}>{group.member_count!==null&&<>{group.member_count} {group.member_count===1?'member':'members'}</>}{group.owner_id&&<> <span aria-hidden="true">·</span> Owner: <Link href={`/profile/${group.owner_id}`}>{group.owner_name}</Link></>}</p>
             <div className={styles.headerActionRow}>
               {(group.visibility==='public'?canRead:approved)&&<GroupShareButton header groupId={group.id} read={groupsFetch}/>}
+              {group.membership_status==='approved' && group.membership_role!=='owner' &&
+                <button type="button" className={`${styles.leaveButton} ${styles.mobileHeaderLeave}`} disabled={busy} onClick={()=>{
+                  if(window.confirm('Are you sure you want to leave this Group? You may need approval to rejoin.'))
+                    void perform(async()=>{await groupAction('leave',group.id);});
+                }}>Leave Group</button>}
               {admin&&<button className={styles.secondaryButton} onClick={()=>setSettings(true)} aria-haspopup="dialog">Group settings</button>}
             </div>
           </div>
