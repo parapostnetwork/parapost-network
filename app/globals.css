@@ -1009,3 +1009,58 @@ main {
     flex-shrink: 0;
   }
 }
+
+
+/* Step 406: tablet scroll root and bottom navigation */
+@supports (overflow: clip) {
+  @media (min-width: 761px) and (max-width: 1180px) {
+
+    /* Avoid competing html/body vertical scroll containers. */
+    html {
+      overflow-x: clip !important;
+      overflow-y: auto !important;
+    }
+
+    html body {
+      overflow-x: clip !important;
+      overflow-y: visible !important;
+    }
+
+    /* The fixed layer, not its child nav, owns positioning. */
+    html body
+    .dashboard-tablet-nav-fixed-layer.dashboard-tablet-nav-fixed-layer,
+    html body
+    .profile-tablet-nav-fixed-layer.profile-tablet-nav-fixed-layer {
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      top: auto !important;
+      bottom: 0 !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      transform: none !important;
+      -webkit-transform: none !important;
+      z-index: 2147483000 !important;
+    }
+
+    /* Override the competing global fixed-nav rule. */
+    html body
+    .dashboard-tablet-nav-fixed-layer.dashboard-tablet-nav-fixed-layer
+    > nav.dashboard-bottom-nav[data-parapost-edge-nav="true"],
+    html body
+    .profile-tablet-nav-fixed-layer.profile-tablet-nav-fixed-layer
+    > nav.profile-stable-bottom-nav[data-parapost-edge-nav="true"] {
+      position: relative !important;
+      top: auto !important;
+      bottom: auto !important;
+      left: auto !important;
+      right: auto !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      transform: none !important;
+      -webkit-transform: none !important;
+    }
+  }
+}
