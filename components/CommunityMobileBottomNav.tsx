@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import styles from './CommunityMobileBottomNav.module.css';
 
 /** Group and CreatorVerse mobile navigation. Visual geometry mirrors the current Dashboard/Profile bar. */
@@ -19,7 +20,24 @@ export default function CommunityMobileBottomNav({
   createHereLabel?: string;
 }) {
   const [createOpen, setCreateOpen] = useState(false);
-  return (
+
+  // Anchor tablet navigation outside scrolling containers.
+  const [tabletPortal, setTabletPortal] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia(
+      '(min-width: 761px) and (max-width: 1180px)'
+    );
+
+    const update = () => setTabletPortal(query.matches);
+
+    update();
+    query.addEventListener('change', update);
+
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  const navContent = (
     <>
       <nav className={styles.nav} data-parapost-edge-nav="true" aria-label="Primary bottom navigation">
         <Link href="/dashboard" className={styles.item} aria-label="Home">
@@ -50,4 +68,8 @@ export default function CommunityMobileBottomNav({
       </div>}
     </>
   );
+
+  return tabletPortal
+    ? createPortal(navContent, document.body)
+    : navContent;
 }
