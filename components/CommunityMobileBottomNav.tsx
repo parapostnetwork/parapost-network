@@ -70,6 +70,11 @@ export default function CommunityMobileBottomNav({
   );
 
   return tabletPortal
-    ? createPortal(navContent, document.body)
+    ? createPortal(
+        <div className="community-tablet-nav-fixed-layer">
+          {navContent}
+        </div>,
+        document.body
+      )
     : navContent;
 }

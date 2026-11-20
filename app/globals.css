@@ -1064,3 +1064,56 @@ main {
     }
   }
 }
+
+
+/* Step 407: stable community tablet bottom navigation */
+@media (min-width: 761px) and (max-width: 1180px) {
+
+  /* Use the same fixed wrapper as Dashboard and Profile. */
+  html body
+  .community-tablet-nav-fixed-layer.community-tablet-nav-fixed-layer {
+    position: fixed !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-end !important;
+    transform: none !important;
+    -webkit-transform: none !important;
+    overflow: visible !important;
+    pointer-events: none !important;
+    z-index: 2147483000 !important;
+  }
+
+  /* The fixed wrapper owns positioning, not its child nav. */
+  html body
+  .community-tablet-nav-fixed-layer.community-tablet-nav-fixed-layer
+  > nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"][data-parapost-edge-nav="true"] {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    transform: none !important;
+    -webkit-transform: none !important;
+    will-change: auto !important;
+    contain: none !important;
+    backface-visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  html body
+  .community-tablet-nav-fixed-layer.community-tablet-nav-fixed-layer
+  > #community-mobile-create-menu {
+    pointer-events: auto !important;
+  }
+}
