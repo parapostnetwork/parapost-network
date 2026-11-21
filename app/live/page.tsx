@@ -496,9 +496,7 @@ export default function ParapostLivePage() {
           </p>
 
           <div style={heroActionRowStyle}>
-            <Link href="/live/create" style={primaryLinkStyle}>
-              Create Live Show
-            </Link>
+            <CreatorVerseAwareCreateLink />
 
             <button
               type="button"
@@ -1128,3 +1126,28 @@ const deleteButtonStyle: CSSProperties = {
   background: "rgba(127,29,29,0.20)",
 };
 
+
+function CreatorVerseAwareCreateLink() {
+  const [createHref, setCreateHref] = useState("/live/create");
+
+  useEffect(() => {
+    const pageId = new URLSearchParams(
+      window.location.search
+    ).get("creatorverse");
+
+    if (
+      pageId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId)
+    ) {
+      setCreateHref(
+        `/live/create?creatorverse=${encodeURIComponent(pageId)}`
+      );
+    }
+  }, []);
+
+  return (
+    <Link href={createHref} style={primaryLinkStyle}>
+      Create Live Show
+    </Link>
+  );
+}
