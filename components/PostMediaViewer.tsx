@@ -152,6 +152,9 @@ function Gallery({ viewer, onClose }: { viewer: PostMediaViewerState; onClose: (
         left: isTablet ? viewportBox.offsetLeft : viewportBox.left,
         width: viewportBox.width || "100vw",
         height: viewportBox.height || "100dvh",
+        // Above the Group/CreatorVerse full-post dialog (2147483000).
+        // Retain the Dashboard photo viewer and all its navigation controls.
+        zIndex: 2147483100,
         touchAction: isTablet ? "none" : "pan-y pinch-zoom",
       }}
     >
