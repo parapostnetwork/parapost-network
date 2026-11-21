@@ -500,7 +500,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                       event.currentTarget
                         .closest('details')
                         ?.removeAttribute('open');
-                      window.location.assign('/live');
+                      window.location.assign('/live?creatorverse=' + encodeURIComponent(id));
                     }}
                   >
                     Live Manager
