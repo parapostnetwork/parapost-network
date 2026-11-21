@@ -112,16 +112,121 @@ async function serve(
       return unavailable();
     }
 
+    const isVideo =
+      media.mime_type === 'video/mp4' ||
+      media.mime_type === 'video/webm';
+
     const headers = {
       'Content-Type': media.mime_type as string,
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Content-Disposition': 'inline',
-      'Accept-Ranges': 'none',
+      'Accept-Ranges': isVideo ? 'bytes' : 'none',
     };
 
     if (request.method === 'HEAD') {
-      return new Response(null, { status: 200, headers });
+      return new Response(null, {
+        status: 200,
+        headers: {
+          ...headers,
+          'Content-Length': String(media.byte_size),
+        },
+      });
+    }
+
+    const rangeHeader = request.headers.get('range');
+
+    if (isVideo && rangeHeader !== null) {
+      const total = media.byte_size as number;
+      const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+
+      const unsatisfiable = () => new Response(null, {
+        status: 416,
+        headers: {
+          ...headers,
+          'Content-Range': `bytes */${total}`,
+        },
+      });
+
+      if (!match || (!match[1] && !match[2])) {
+        return unsatisfiable();
+      }
+
+      const first = match[1] ? Number(match[1]) : null;
+      const last = match[2] ? Number(match[2]) : null;
+
+      if (
+        (first !== null && !Number.isSafeInteger(first)) ||
+        (last !== null && !Number.isSafeInteger(last))
+      ) {
+        return unsatisfiable();
+      }
+
+      let start: number;
+      let end: number;
+
+      if (first === null) {
+        if (last === null || last <= 0) {
+          return unsatisfiable();
+        }
+
+        start = Math.max(0, total - last);
+        end = total - 1;
+      } else {
+        start = first;
+        end = last === null ? total - 1 : Math.min(last, total - 1);
+      }
+
+      if (start >= total || end < start) {
+        return unsatisfiable();
+      }
+
+      // Keep individual video transfers bounded to 4 MiB.
+      const maxChunk = 4 * 1024 * 1024;
+      end = Math.min(end, start + maxChunk - 1);
+
+      const contentRange = `bytes ${start}-${end}/${total}`;
+      const contentLength = end - start + 1;
+
+      // This server-side request retains the private bucket.
+      const storageUrl =
+        `${url}/storage/v1/object/authenticated/creatorverse-media/${expectedPath}`;
+
+      const upstream = await fetch(storageUrl, {
+        method: 'GET',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Range: `bytes=${start}-${end}`,
+        },
+        cache: 'no-store',
+        redirect: 'error',
+      });
+
+      const upstreamLength = upstream.headers.get('content-length');
+
+      if (
+        upstream.status !== 206 ||
+        upstream.headers.get('content-range') !== contentRange ||
+        !upstream.body ||
+        (upstreamLength !== null &&
+          Number(upstreamLength) !== contentLength)
+      ) {
+        if (upstream.body) {
+          await upstream.body.cancel().catch(() => {});
+        }
+
+        return unavailable();
+      }
+
+      return new Response(upstream.body, {
+        status: 206,
+        headers: {
+          ...headers,
+          'Content-Range': contentRange,
+          'Content-Length': String(contentLength),
+        },
+      });
     }
 
     const { data: blob, error: downloadError } =
