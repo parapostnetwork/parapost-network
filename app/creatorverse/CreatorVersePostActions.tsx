@@ -170,11 +170,27 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
             : 'Likes'}
         </span>
 
-        <span style={{ marginLeft: 'auto' }}>
+        <button
+          type="button"
+          disabled={!allowComments || busy || retryPending}
+          aria-label={showComments ? 'Hide comments' : 'Show comments'}
+          aria-expanded={showComments}
+          aria-controls={`creatorverse-comments-${postId}`}
+          onClick={() => setShowComments(value => !value)}
+          style={{
+            marginLeft: 'auto',
+            padding: '4px 0',
+            border: 0,
+            background: 'transparent',
+            color: 'inherit',
+            font: 'inherit',
+            cursor: allowComments ? 'pointer' : 'default',
+          }}
+        >
           {engagement
             ? `${engagement.comment_count} ${engagement.comment_count === 1 ? 'Comment' : 'Comments'}`
             : 'Comments'}
-        </span>
+        </button>
 
         <span>
           {engagement
@@ -201,8 +217,9 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
           <button
             type="button"
             disabled={busy || retryPending}
-            aria-label="Comments"
+            aria-label={showComments ? 'Hide comments' : 'Show comments'}
             aria-expanded={showComments}
+            aria-controls={`creatorverse-comments-${postId}`}
             onClick={() => setShowComments(value => !value)}
           >
             <CommentIcon />
@@ -223,7 +240,37 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
 
       {showComments && allowComments && (
 
-        <div className={`${styles.panel} ${styles.commentsPanel}`}>
+        <div
+          id={`creatorverse-comments-${postId}`}
+          className={`${styles.panel} ${styles.commentsPanel}`}
+          role="region"
+          aria-label="CreatorVerse post comments"
+        >
+          <div style={{
+            gridColumn: '1 / -1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8
+          }}>
+            <strong style={{ fontSize: 14 }}>Comments</strong>
+            <button
+              type="button"
+              disabled={busy || retryPending}
+              onClick={() => setShowComments(false)}
+              aria-label="Hide comments"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                font: 'inherit',
+                padding: '6px 4px'
+              }}
+            >
+              Hide comments
+            </button>
+          </div>
 
           {viewerId && (
             <>

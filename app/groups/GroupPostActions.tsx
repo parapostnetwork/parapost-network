@@ -390,7 +390,11 @@ export default function GroupPostActions({
   return <div ref={marker}>
     <div className={styles.stats} aria-live="polite">
       <span>{stats ? `${stats.like_count} ${stats.like_count === 1 ? 'Like' : 'Likes'}` : 'Loading reactions…'}</span>
-      <button type="button" disabled={!stats} style={{ marginLeft: 'auto' }} onClick={() => setCommentsOpen(open => !open)}>
+      <button type="button" disabled={!stats} style={{ marginLeft: 'auto' }}
+        aria-label={commentsOpen ? 'Hide comments' : 'Show comments'}
+        aria-expanded={commentsOpen}
+        aria-controls={`group-comments-${postId}`}
+        onClick={() => setCommentsOpen(open => !open)}>
         {stats ? `${stats.comment_count} ${stats.comment_count === 1 ? 'Comment' : 'Comments'}` : 'Comments'}
       </button>
       <span>
@@ -428,7 +432,7 @@ export default function GroupPostActions({
     {shareNotice && <p role="status" className={styles.notice}>{shareNotice}</p>}
     {commentsOpen && <section className={styles.comments} id={`group-comments-${postId}`} aria-label="Group post comments">
       <div className={styles.commentsHeader}><h3>Comments</h3>
-        <button type="button" className={styles.textButton} onClick={() => setCommentsOpen(false)}>Hide</button></div>
+        <button type="button" className={styles.textButton} onClick={() => setCommentsOpen(false)}>Hide comments</button></div>
       {canInteract ? !replyTo && commentForm(null) : <p className={styles.empty}>Join this Group to comment.</p>}
       <div className={styles.thread}>
         {!stats?.comments.length && <p className={styles.empty}>No comments yet. Start the conversation.</p>}
