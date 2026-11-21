@@ -497,6 +497,17 @@ export default function CreatorVersePage({ id }: { id: string }) {
                   <button
                     type="button"
                     onClick={event => {
+                      event.currentTarget
+                        .closest('details')
+                        ?.removeAttribute('open');
+                      window.location.assign('/live');
+                    }}
+                  >
+                    Live Manager
+                  </button>
+                  <button
+                    type="button"
+                    onClick={event => {
                       event.currentTarget.closest('details')?.removeAttribute('open');
                       setEditing(true);
                     }}
