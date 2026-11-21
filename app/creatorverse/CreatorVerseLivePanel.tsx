@@ -12,7 +12,7 @@ import { postCardStyle } from '@/components/postPresentation';
 type Stream = {
   id: string;
   user_id: string;
-  title: string;
+  title: string | null;
   description: string | null;
   provider: string | null;
   embed_url: string | null;
@@ -29,6 +29,7 @@ type Props = {
   pageId: string;
   pageName: string;
   currentUserId: string | null;
+  providedStream?: Stream;
 };
 
 function safePlayerUrl(value: string | null): string | null {
@@ -78,11 +79,14 @@ export default function CreatorVerseLivePanel({
   pageId,
   pageName,
   currentUserId,
+  providedStream,
 }: Props) {
-  const [stream, setStream] = useState<Stream | null>(null);
+  const [fetchedStream, setStream] = useState<Stream | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
+    if (providedStream) return;
+
     const { data, error } = await supabase
       .from('live_streams')
       .select(
@@ -128,9 +132,11 @@ export default function CreatorVerseLivePanel({
 
     setStream(eligible[0] ?? null);
     setNow(timestamp);
-  }, [pageId]);
+  }, [pageId, providedStream]);
 
   useEffect(() => {
+    if (providedStream) return;
+
     void refresh();
 
     const channel = supabase
@@ -167,11 +173,12 @@ export default function CreatorVerseLivePanel({
       window.removeEventListener('focus', onFocus);
       void supabase.removeChannel(channel);
     };
-  }, [pageId, refresh]);
+  }, [pageId, refresh, providedStream]);
 
+  const stream = providedStream ?? fetchedStream;
   if (!stream) return null;
 
-  const status = getLiveDisplayStatus(stream, now);
+  const status = getLiveDisplayStatus(stream, providedStream ? Date.now() : now);
   const isLive = status === 'live';
 
   if (status !== 'live' && status !== 'upcoming') {

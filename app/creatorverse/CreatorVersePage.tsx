@@ -595,11 +595,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
           {section === 'Posts' && (
             <section aria-label="Page posts">
 
-              <CreatorVerseLivePanel
-                pageId={id}
-                pageName={page.name}
-                currentUserId={viewerId}
-              />
+
 
 
 
@@ -611,6 +607,12 @@ export default function CreatorVersePage({ id }: { id: string }) {
                   onPublished={() => { void refreshPublishedPosts(); }}
                 />
               )}
+              <CreatorVerseLivePanel
+                pageId={id}
+                pageName={page.name}
+                currentUserId={viewerId}
+              />
+
               {postRefreshMessage && (
                 <p role="status">{postRefreshMessage}</p>
               )}
@@ -825,6 +827,8 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
               <CreatorVerseLiveHub
                 pageId={id}
+                pageName={page.name}
+                currentUserId={viewerId}
                 onWatchLive={() => setSection('Posts')}
               />
             </section>

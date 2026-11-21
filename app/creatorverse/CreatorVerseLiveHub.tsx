@@ -3,10 +3,17 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import CreatorVerseReplayPlayer from './CreatorVerseReplayPlayer';
+import CreatorVerseLivePanel from './CreatorVerseLivePanel';
+import { getLiveDisplayStatus } from '@/lib/live/status';
 import liveStyles from './CreatorVerseLiveLayout.module.css';
 
 type LiveShow = {
   id: string;
+  user_id: string;
+  provider: string | null;
+  views: number;
+  visibility: string | null;
+  is_hidden: boolean | null;
   title: string | null;
   description: string | null;
   status: string;
@@ -61,9 +68,13 @@ function safeSourceUrl(value: string | null) {
 
 export default function CreatorVerseLiveHub({
   pageId,
+  pageName,
+  currentUserId,
   onWatchLive,
 }: {
   pageId: string;
+  pageName: string;
+  currentUserId: string | null;
   onWatchLive: () => void;
 }) {
   const [shows, setShows] = useState<LiveShow[]>([]);
@@ -78,7 +89,7 @@ export default function CreatorVerseLiveHub({
       const result = await supabase
         .from('live_streams')
         .select(
-          'id, title, description, status, scheduled_at, started_at, ended_at, updated_at, external_url, embed_url, thumbnail_url'
+          'id, user_id, provider, views, visibility, is_hidden, title, description, status, scheduled_at, started_at, ended_at, updated_at, external_url, embed_url, thumbnail_url'
         )
         .eq('creatorverse_page_id', pageId)
         .eq('visibility', 'public')
@@ -113,18 +124,18 @@ export default function CreatorVerseLiveHub({
   }, [pageId]);
 
   const activeShows = shows.filter(
-    show => show.status === 'live'
+    show => getLiveDisplayStatus(show) === 'live'
   );
 
   const upcomingShows = shows
-    .filter(show => show.status === 'upcoming')
+    .filter(show => getLiveDisplayStatus(show) === 'upcoming')
     .sort((a, b) =>
       (Date.parse(a.scheduled_at ?? '') || 0) -
       (Date.parse(b.scheduled_at ?? '') || 0)
     );
 
   const pastShows = shows
-    .filter(show => show.status === 'ended')
+    .filter(show => getLiveDisplayStatus(show) === 'ended')
     .sort((a, b) =>
       (Date.parse(b.ended_at ?? b.updated_at ?? '') || 0) -
       (Date.parse(a.ended_at ?? a.updated_at ?? '') || 0)
@@ -161,36 +172,30 @@ export default function CreatorVerseLiveHub({
           </p>
         ) : (
           activeShows.map(show => (
-            <article key={show.id} style={cardStyle}>
-              <p style={{
-                color: '#d3a5ff',
-                fontWeight: 800,
-                fontSize: 12,
-                marginTop: 0,
-              }}>
-                LIVE NOW
-              </p>
-
-              <h4 style={{ margin: '8px 0' }}>
-                {show.title || 'Live Broadcast'}
-              </h4>
-
+            <div key={show.id}>
+              <CreatorVerseLivePanel
+                pageId={pageId}
+                pageName={pageName}
+                currentUserId={currentUserId}
+                providedStream={show}
+              />
               <button
                 type="button"
                 onClick={onWatchLive}
                 style={{
                   padding: '10px 14px',
-                  border: '1px solid rgba(185,150,225,.5)',
+                  marginBottom: 16,
                   borderRadius: 9,
-                  background: '#8246c6',
-                  color: '#fff',
-                  fontWeight: 700,
+                  border: '1px solid rgba(185,150,225,.4)',
+                  background: 'transparent',
+                  color: 'inherit',
+                  fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >
-                Watch Live in Posts
+                View Live in Posts
               </button>
-            </article>
+            </div>
           ))
         )}
       </section>
@@ -209,28 +214,13 @@ export default function CreatorVerseLiveHub({
           </p>
         ) : (
           upcomingShows.map(show => (
-            <article key={show.id} style={cardStyle}>
-              <h4 style={{ margin: '0 0 8px' }}>
-                {show.title || 'Upcoming Broadcast'}
-              </h4>
-
-              <p style={{
-                opacity: 0.8,
-                fontSize: 13,
-                margin: '0 0 8px',
-              }}>
-                {formatDate(show.scheduled_at)}
-              </p>
-
-              {show.description && (
-                <p style={{
-                  marginBottom: 0,
-                  overflowWrap: 'anywhere',
-                }}>
-                  {show.description}
-                </p>
-              )}
-            </article>
+            <CreatorVerseLivePanel
+              key={show.id}
+              pageId={pageId}
+              pageName={pageName}
+              currentUserId={currentUserId}
+              providedStream={show}
+            />
           ))
         )}
       </section>
