@@ -113,7 +113,13 @@ export default function CreatorVerseLivePanel({
     };
   }, [pageId, refresh]);
 
-  if (!stream) return null;
+  if (!stream) {
+    return (
+      <p role="status" style={{ opacity: 0.75, padding: '14px 0' }}>
+        No live broadcast right now.
+      </p>
+    );
+  }
 
   const playerUrl = safePlayerUrl(stream.embed_url);
   const playerId = `creatorverse-live-player-${stream.id}`;

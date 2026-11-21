@@ -31,7 +31,7 @@ import layout from './CreatorVerseGroupsLayout.module.css';
 import CommunityMobileBottomNav from '@/components/CommunityMobileBottomNav';
 import communityDetail from '@/app/groups/CommunityDetailMobile.module.css';
 
-type Section = 'Posts' | 'Photos' | 'Videos' | 'About';
+type Section = 'Posts' | 'Photos' | 'Videos' | 'Live' | 'About';
 
 const publishedMediaReady =
   process.env.NEXT_PUBLIC_CREATORVERSE_POST_MEDIA_READ_ENABLED === 'true';
@@ -498,17 +498,6 @@ export default function CreatorVersePage({ id }: { id: string }) {
                   <button
                     type="button"
                     onClick={event => {
-                      event.currentTarget
-                        .closest('details')
-                        ?.removeAttribute('open');
-                      window.location.assign('/live?creatorverse=' + encodeURIComponent(id));
-                    }}
-                  >
-                    Live Manager
-                  </button>
-                  <button
-                    type="button"
-                    onClick={event => {
                       event.currentTarget.closest('details')?.removeAttribute('open');
                       setEditing(true);
                     }}
@@ -532,7 +521,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
 
           <div className={groupTabStyles.tabs} role="group" aria-label="CreatorVerse sections">
-            {(['Posts', 'Photos', 'Videos', 'About'] as Section[]).map(tab => (
+            {(['Posts', 'Photos', 'Videos', 'Live', 'About'] as Section[]).map(tab => (
               <button
                 key={tab}
                 type="button"
@@ -603,11 +592,6 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
           {section === 'Posts' && (
             <section aria-label="Page posts">
-              <CreatorVerseLivePanel
-                pageId={id}
-                pageName={page.name}
-                currentUserId={viewerId}
-              />
 
 
               {canPublish && (
@@ -762,7 +746,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
             </section>
           )}
 
-          {section !== 'About' && nextPostsOffset !== null && (
+          {section !== 'About' && section !== 'Live' && nextPostsOffset !== null && (
             <div style={{ marginTop: 20, textAlign: 'center' }}>
               <button
                 type="button"
@@ -774,11 +758,58 @@ export default function CreatorVersePage({ id }: { id: string }) {
             </div>
           )}
 
-          {section !== 'About' && olderError && (
+          {section !== 'About' && section !== 'Live' && olderError && (
             <p role="alert">{olderError}</p>
           )}
 
-          {section === 'About' && (
+
+          {section === 'Live' && (
+            <section aria-label="CreatorVerse live broadcasts">
+              {canPublish && (
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 10,
+                  marginBottom: 18,
+                }}>
+                  <Link
+                    href={`/live/create?creatorverse=${encodeURIComponent(id)}`}
+                    style={{
+                      padding: '11px 15px',
+                      borderRadius: 10,
+                      background: '#8246c6',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Create Live Show
+                  </Link>
+                  <Link
+                    href={`/live?creatorverse=${encodeURIComponent(id)}`}
+                    style={{
+                      padding: '11px 15px',
+                      borderRadius: 10,
+                      border: '1px solid rgba(185,150,225,0.35)',
+                      color: 'inherit',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Manage Live Shows
+                  </Link>
+                </div>
+              )}
+
+              <CreatorVerseLivePanel
+                pageId={id}
+                pageName={page.name}
+                currentUserId={viewerId}
+              />
+            </section>
+          )}
+
+{section === 'About' && (
             <div className={styles.about}>
               <p className={styles.description}>
                 {page.description || page.short_bio}

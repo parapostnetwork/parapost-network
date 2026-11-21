@@ -163,7 +163,7 @@
 @media (max-width: 700px) {
   .tabs {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     gap: 0 !important;
     width: 100% !important;
     padding: 0 4px !important;
@@ -200,7 +200,7 @@
   .tabs {
     box-sizing: border-box;
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     align-items: stretch;
     gap: 0 !important;
     width: 100% !important;
@@ -253,7 +253,7 @@
 @media (max-width: 420px) {
   .tabs {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     gap: 0 !important;
     width: 100%;
     min-width: 0;
@@ -273,5 +273,32 @@
     line-height: 1.2;
     white-space: nowrap;
     overflow-wrap: normal;
+  }
+}
+
+
+/* Five evenly spaced CreatorVerse tabs on all screen sizes */
+.tabs {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  width: 100%;
+  overflow: visible;
+}
+
+.tabs > * {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .tabs > * {
+    padding-left: 2px;
+    padding-right: 2px;
+    font-size: clamp(11px, 2.6vw, 14px);
   }
 }
