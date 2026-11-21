@@ -27,6 +27,7 @@ import CreatorVersePublishedMedia from './CreatorVersePublishedMedia';
 import CreatorVerseFollowButton from './CreatorVerseFollowButton';
 import CreatorVerseLivePanel from './CreatorVerseLivePanel';
 import CreatorVerseLiveHub from "./CreatorVerseLiveHub";
+import liveStyles from "./CreatorVerseLiveLayout.module.css";
 import styles from './creatorverse.module.css';
 import layout from './CreatorVerseGroupsLayout.module.css';
 import CommunityMobileBottomNav from '@/components/CommunityMobileBottomNav';
@@ -772,9 +773,22 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
 
           {section === 'Live' && (
-            <section aria-label="CreatorVerse live broadcasts">
+            <section aria-label="CreatorVerse live broadcasts" className={liveStyles.liveSection}>
+              <div className={liveStyles.liveIntro}>
+                <p>
+                  {canPublish
+                    ? "When you create a livestream through your CreatorVerse page, your broadcast will appear in CreatorVerse Posts, on the main Parapost Dashboard, and on your personal Profile while live."
+                    : "When this CreatorVerse page goes live, its broadcast can be watched in Posts and discovered on the main Parapost Dashboard and the creator's Profile."}
+                </p>
+                <p className={liveStyles.liveSubtext}>
+                  {canPublish
+                    ? "Create and manage broadcasts here, explore upcoming shows, and revisit previous broadcasts."
+                    : "Explore upcoming live shows and previous broadcasts below."}
+                </p>
+              </div>
+
               {canPublish && (
-                <div style={{
+                <div className={liveStyles.liveActions} style={{
                   display: 'flex',
                   flexWrap: 'wrap',
                   gap: 10,

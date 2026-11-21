@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import liveStyles from './CreatorVerseLiveLayout.module.css';
 
 type LiveShow = {
   id: string;
@@ -143,7 +144,7 @@ export default function CreatorVerseLiveHub({
   }
 
   return (
-    <div style={{ minWidth: 0 }}>
+    <div className={liveStyles.liveHub}>
       <section
         aria-label="Current live broadcasts"
         style={{ marginBottom: 28 }}
