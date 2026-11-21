@@ -174,6 +174,7 @@ export default function SharedCreatorVersePostCard({
                   pageId={share.page_id}
                   postId={share.post_id}
                   media={media}
+                  galleryMedia={visibleMedia}
                 />
               ))}
             </div>

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import GroupShareButton from './GroupShareButton';
 import { supabase } from '@/lib/supabase';
 import styles from './groupPosting.module.css';
+import CommunityCommentsOverlay from '@/components/CommunityCommentsOverlay';
 import { PostAvatar, profileName, type PostProfile } from './PostIdentity';
 import { dashboardCommentTextareaStyle, dashboardCommentSubmitButtonStyle, dashboardCommentRowStyle, dashboardCommentBubbleStyle, dashboardCommentTopLineStyle, dashboardCommentAuthorStyle, dashboardCommentTimeStyle, dashboardCommentTextStyle } from '@/components/postPresentation';
 import type { GroupsTransport } from '@/lib/groups/transport';
@@ -430,7 +431,7 @@ export default function GroupPostActions({
       </form>
     </section>}
     {shareNotice && <p role="status" className={styles.notice}>{shareNotice}</p>}
-    {commentsOpen && <section className={styles.comments} id={`group-comments-${postId}`} aria-label="Group post comments">
+    {commentsOpen && <CommunityCommentsOverlay title="Group post comments" onClose={() => setCommentsOpen(false)}><section className={styles.comments} id={`group-comments-${postId}`} aria-label="Group post comments">
       <div className={styles.commentsHeader}><h3>Comments</h3>
         <button type="button" className={styles.textButton} onClick={() => setCommentsOpen(false)}>Hide comments</button></div>
       {canInteract ? !replyTo && commentForm(null) : <p className={styles.empty}>Join this Group to comment.</p>}
@@ -449,7 +450,7 @@ export default function GroupPostActions({
         </div>)}
         {stats?.comments_limited && <p className={styles.empty}>Showing the first 100 comments.</p>}
       </div>
-    </section>}
+    </section></CommunityCommentsOverlay>}
     {error && <p role="alert" className={styles.error}>{error}{' '}
       <button type="button" className={styles.textButton} disabled={busy} onClick={() => void reload().catch(() => setError('Unable to load reactions.'))}>Refresh reactions</button></p>}
   </div>;

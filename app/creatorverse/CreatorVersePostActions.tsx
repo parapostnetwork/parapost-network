@@ -13,6 +13,7 @@ import {
 } from '@/lib/creatorverse/social-client';
 import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
 import styles from './CreatorVersePostActions.module.css';
+import CommunityCommentsOverlay from '@/components/CommunityCommentsOverlay';
 
 type Props = {
   pageId: string;
@@ -239,7 +240,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
       </div>
 
       {showComments && allowComments && (
-
+        <CommunityCommentsOverlay title="CreatorVerse post comments" onClose={() => setShowComments(false)}>
         <div
           id={`creatorverse-comments-${postId}`}
           className={`${styles.panel} ${styles.commentsPanel}`}
@@ -416,6 +417,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
 
 
         </div>
+        </CommunityCommentsOverlay>
       )}
 
       {showShare && viewerId && (

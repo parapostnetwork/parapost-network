@@ -678,6 +678,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                           pageId={id}
                           postId={post.id}
                           media={media}
+                          galleryMedia={post.media}
                         />
                       ))}
                     </div>
@@ -713,6 +714,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                           pageId={id}
                           postId={post.id}
                           media={media}
+                          galleryMedia={post.media}
                         />
                       ))
                   )}
@@ -748,6 +750,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                           pageId={id}
                           postId={post.id}
                           media={media}
+                          galleryMedia={post.media}
                         />
                       ))
                   )}

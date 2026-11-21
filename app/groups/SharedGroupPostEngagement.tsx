@@ -11,6 +11,7 @@ import { ShareDialog } from "./GroupShareButton";
 import { PostAvatar, type PostProfile } from './PostIdentity';
 import { dashboardCommentTextareaStyle, dashboardCommentSubmitButtonStyle } from '@/components/postPresentation';
 import styles from './groupPosting.module.css';
+import CommunityCommentsOverlay from '@/components/CommunityCommentsOverlay';
 
 type Comment = {
   id: string;
@@ -287,6 +288,7 @@ export default function SharedGroupPostEngagement({
       )}
 
       {commentsOpen && (
+        <CommunityCommentsOverlay title="Shared Group post comments" onClose={() => setCommentsOpen(false)}>
         <div className={styles.engagementThread}>
           {stats.comments.filter(comment => !comment.parent_id).flatMap(parent => [parent, ...stats.comments.filter(reply => reply.parent_id === parent.id)]).map(comment => {
             const own = comment.author_id === viewerId;
@@ -387,6 +389,7 @@ export default function SharedGroupPostEngagement({
             </button>
           </form>
         </div>
+        </CommunityCommentsOverlay>
       )}
     </section>
   );
