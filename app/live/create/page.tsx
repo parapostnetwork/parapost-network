@@ -15,6 +15,8 @@ type DetectedLiveMeta = {
   helper: string;
 };
 
+type OwnedCreatorVersePage = { id: string; name: string };
+
 type LiveStreamRow = {
   id: string;
   user_id: string;
@@ -27,6 +29,7 @@ type LiveStreamRow = {
   visibility: "private" | "friends" | "public" | string | null;
   is_hidden: boolean | null;
   is_featured: boolean | null;
+  creatorverse_page_id: string | null;
   scheduled_at: string | null;
   status: string | null;
   started_at: string | null;
@@ -168,6 +171,9 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
 export default function CreateLiveShowPage() {
   const [editingStreamId, setEditingStreamId] = useState("");
   const [creatorVersePageId, setCreatorVersePageId] = useState("");
+  const [ownedCreatorVersePages, setOwnedCreatorVersePages] = useState<OwnedCreatorVersePage[]>([]);
+  const [loadingCreatorVersePages, setLoadingCreatorVersePages] = useState(true);
+  const [creatorVersePagesError, setCreatorVersePagesError] = useState("");
   const [existingStream, setExistingStream] = useState<LiveStreamRow | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [title, setTitle] = useState("");
@@ -206,6 +212,85 @@ export default function CreateLiveShowPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const discoverPages = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const requestedPageId = params.get("creatorverse") || "";
+      const editingId = params.get("edit") || "";
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (cancelled) return;
+
+      if (authError || !authData.user) {
+        setCreatorVersePagesError("Sign in to choose a CreatorVerse page.");
+        setLoadingCreatorVersePages(false);
+        return;
+      }
+
+      const { data: rows, error: pagesError } = await supabase
+        .from("creatorverse_pages")
+        .select("id,name")
+        .eq("owner_id", authData.user.id)
+        .eq("status", "active")
+        .order("name", { ascending: true })
+        .limit(100);
+
+      if (cancelled) return;
+      if (pagesError) {
+        setCreatorVersePagesError("Could not load your CreatorVerse pages. Personal broadcasts are still available.");
+        setLoadingCreatorVersePages(false);
+        return;
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (sessionError || !sessionData.session) {
+        setCreatorVersePagesError("Sign in again to check CreatorVerse publishing permissions.");
+        setLoadingCreatorVersePages(false);
+        return;
+      }
+
+      const accessToken = sessionData.session.access_token;
+      const eligiblePages = await Promise.all(
+        (rows || []).map(async (page): Promise<OwnedCreatorVersePage | null> => {
+          try {
+            const response = await fetch(
+              `/api/creatorverse/${encodeURIComponent(page.id)}/permissions`,
+              {
+                cache: "no-store",
+                headers: { Authorization: `Bearer ${accessToken}` },
+              }
+            );
+            if (!response.ok) return null;
+            const permissions = await response.json();
+            return permissions?.can_publish === true
+              ? { id: page.id, name: page.name }
+              : null;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      if (cancelled) return;
+      const allowed = eligiblePages.filter((page): page is OwnedCreatorVersePage => page !== null);
+      setOwnedCreatorVersePages(allowed);
+      if (!editingId && requestedPageId) {
+        if (allowed.some((page) => page.id === requestedPageId)) {
+          setCreatorVersePageId(requestedPageId);
+        } else {
+          setCreatorVersePagesError("This CreatorVerse page could not be verified for broadcasting. Choose an available page or your personal profile.");
+        }
+      }
+      setLoadingCreatorVersePages(false);
+    };
+
+    void discoverPages();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     if (!editingStreamId) return;
 
     let cancelled = false;
@@ -230,7 +315,7 @@ export default function CreateLiveShowPage() {
 
       const { data, error: loadError } = await supabase
         .from("live_streams")
-        .select("id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, visibility, is_hidden, is_featured, scheduled_at, status, started_at, ended_at")
+        .select("id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, visibility, is_hidden, is_featured, creatorverse_page_id, scheduled_at, status, started_at, ended_at")
         .eq("id", editingStreamId)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -245,6 +330,8 @@ export default function CreateLiveShowPage() {
 
       const stream = data as LiveStreamRow;
       setExistingStream(stream);
+      // Editing preserves the originally published broadcast identity.
+      setCreatorVersePageId(stream.creatorverse_page_id || "");
       setTitle(stream.title || "");
       setDescription(stream.description || "");
       setProvider(stream.provider === "twitch" ? "twitch" : "youtube");
@@ -290,6 +377,10 @@ export default function CreateLiveShowPage() {
     // CreatorVerse broadcasts must be authorized by the server.
     // An ordinary personal Live show does not use this path.
     if (creatorVersePageId && !isEditing) {
+      if (loadingCreatorVersePages || !ownedCreatorVersePages.some((page) => page.id === creatorVersePageId)) {
+        setError("Select a verified CreatorVerse page before saving.");
+        return;
+      }
       const uuidPattern =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -411,6 +502,71 @@ export default function CreateLiveShowPage() {
         <form onSubmit={handleSubmit} style={formStyle} className="parapost-live-create-form">
           {loadingExisting ? <div style={successStyle}>Loading Live show...</div> : null}
 
+          <fieldset
+            disabled={isEditing || loadingExisting || saving}
+            style={{
+              margin: 0,
+              padding: "12px 14px 14px",
+              border: "1px solid rgba(216,180,254,0.24)",
+              borderRadius: 16,
+              minWidth: 0,
+              display: "grid",
+              gap: 10,
+            }}
+            aria-label="Broadcast as"
+          >
+            <legend style={{ padding: "0 7px", fontSize: 15, fontWeight: 800, color: "#f3e8ff" }}>
+              Broadcast as
+            </legend>
+            <label style={{ display: "flex", gap: 11, alignItems: "center", cursor: isEditing ? "default" : "pointer", minHeight: 35 }}>
+              <input
+                type="radio"
+                name="broadcast-identity"
+                checked={!creatorVersePageId}
+                onChange={() => { setCreatorVersePageId(""); setCreatorVersePagesError(""); }}
+                style={{ accentColor: "#c084fc", width: 18, height: 18, flexShrink: 0 }}
+              />
+              <span>My Personal Profile</span>
+            </label>
+            {ownedCreatorVersePages.map((page) => (
+              <label key={page.id} style={{ display: "flex", gap: 11, alignItems: "center", cursor: isEditing ? "default" : "pointer", minHeight: 35 }}>
+                <input
+                  type="radio"
+                  name="broadcast-identity"
+                  checked={creatorVersePageId === page.id}
+                  onChange={() => { setCreatorVersePageId(page.id); setCreatorVersePagesError(""); }}
+                  style={{ accentColor: "#c084fc", width: 18, height: 18, flexShrink: 0 }}
+                />
+                <span>My CreatorVerse Page — {page.name}</span>
+              </label>
+            ))}
+            {creatorVersePageId && !ownedCreatorVersePages.some((page) => page.id === creatorVersePageId) ? (
+              <label style={{ display: "flex", gap: 11, alignItems: "center", minHeight: 35, opacity: isEditing ? 1 : 0.55 }}>
+                <input type="radio" checked readOnly disabled={!isEditing} style={{ accentColor: "#c084fc", width: 18, height: 18, flexShrink: 0 }} />
+                <span>{isEditing ? "My CreatorVerse Page (existing show)" : "CreatorVerse page unavailable — choose another option"}</span>
+              </label>
+            ) : null}
+            {ownedCreatorVersePages.length === 0 && !creatorVersePageId ? (
+              <label style={{ display: "flex", gap: 11, alignItems: "center", minHeight: 35, opacity: 0.43, cursor: "not-allowed" }}>
+                <input type="radio" name="broadcast-identity" disabled checked={false} style={{ width: 18, height: 18, flexShrink: 0 }} />
+                <span>My CreatorVerse Page — {loadingCreatorVersePages ? "checking pages…" : "not available"}</span>
+              </label>
+            ) : null}
+            <p style={{ margin: 0, fontSize: 12, color: "#cbd5e1", lineHeight: 1.55 }}>
+              Personal shows appear on Dashboard and Profile. CreatorVerse shows also appear on your selected page’s Posts and Live tabs after publishing.
+            </p>
+            {creatorVersePagesError ? (
+              <p role="status" style={{ margin: 0, fontSize: 12, color: "#fbbf24", lineHeight: 1.5 }}>
+                {creatorVersePagesError}
+              </p>
+            ) : null}
+            {isEditing ? (
+              <p style={{ margin: 0, fontSize: 12, color: "#cbd5e1" }}>
+                Broadcast identity cannot be changed while editing an existing show.
+              </p>
+            ) : null}
+          </fieldset>
+
           <label style={labelStyle}>
             Live title
             <input
@@ -525,7 +681,7 @@ export default function CreateLiveShowPage() {
 
           <div style={actionsStyle} className="parapost-live-create-actions">
             <Link href="/live" style={cancelButtonStyle}>Cancel</Link>
-            <button type="submit" disabled={saving} style={saveButtonStyle}>
+            <button type="submit" disabled={saving || loadingExisting || (!isEditing && loadingCreatorVersePages)} style={saveButtonStyle}>
               {saving ? "Saving..." : isEditing ? "Update Show" : "Save Show"}
             </button>
           </div>
