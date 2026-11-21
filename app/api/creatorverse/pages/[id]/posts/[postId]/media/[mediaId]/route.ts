@@ -138,7 +138,7 @@ async function serve(
       return unavailable();
     }
 
-    return new Response(await blob.arrayBuffer(), {
+    return new Response(blob.stream(), {
       status: 200,
       headers: {
         ...headers,
