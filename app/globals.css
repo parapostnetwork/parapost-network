@@ -1010,80 +1010,31 @@ main {
   }
 }
 
-
-/* Step 406: tablet scroll root and bottom navigation */
-@supports (overflow: clip) {
-  @media (min-width: 761px) and (max-width: 1180px) {
-
-    /* Avoid competing html/body vertical scroll containers. */
-    html {
-      overflow-x: clip !important;
-      overflow-y: auto !important;
-    }
-
-    html body {
-      overflow-x: clip !important;
-      overflow-y: visible !important;
-    }
-
-    /* The fixed layer, not its child nav, owns positioning. */
-    html body
-    .dashboard-tablet-nav-fixed-layer.dashboard-tablet-nav-fixed-layer,
-    html body
-    .profile-tablet-nav-fixed-layer.profile-tablet-nav-fixed-layer {
-      position: fixed !important;
-      left: 0 !important;
-      right: 0 !important;
-      top: auto !important;
-      bottom: 0 !important;
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      transform: none !important;
-      -webkit-transform: none !important;
-      z-index: 2147483000 !important;
-    }
-
-    /* Override the competing global fixed-nav rule. */
-    html body
-    .dashboard-tablet-nav-fixed-layer.dashboard-tablet-nav-fixed-layer
-    > nav.dashboard-bottom-nav[data-parapost-edge-nav="true"],
-    html body
-    .profile-tablet-nav-fixed-layer.profile-tablet-nav-fixed-layer
-    > nav.profile-stable-bottom-nav[data-parapost-edge-nav="true"] {
-      position: relative !important;
-      top: auto !important;
-      bottom: auto !important;
-      left: auto !important;
-      right: auto !important;
-      width: 100% !important;
-      max-width: 100% !important;
-      margin: 0 !important;
-      transform: none !important;
-      -webkit-transform: none !important;
-    }
-  }
-}
-
-
-/* Step 407: stable community tablet bottom navigation */
+/* Step 409: one tablet positioning contract for every bottom navigation.
+   Dashboard, Profile, Public Groups, Discover Groups and CreatorVerse share
+   the same host class; each retains its original buttons and navigation. */
 @media (min-width: 761px) and (max-width: 1180px) {
+  html {
+    overflow-x: clip !important;
+    overflow-y: auto !important;
+  }
 
-  /* Use the same fixed wrapper as Dashboard and Profile. */
-  html body
-  .community-tablet-nav-fixed-layer.community-tablet-nav-fixed-layer {
+  html body {
+    overflow-x: clip !important;
+    overflow-y: visible !important;
+  }
+
+  html body .parapost-tablet-nav-layer.parapost-tablet-nav-layer {
     position: fixed !important;
-    top: auto !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
+    inset: auto 0 0 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-end !important;
+    box-sizing: border-box !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: flex-end !important;
     transform: none !important;
     -webkit-transform: none !important;
     overflow: visible !important;
@@ -1091,29 +1042,24 @@ main {
     z-index: 2147483000 !important;
   }
 
-  /* The fixed wrapper owns positioning, not its child nav. */
-  html body
-  .community-tablet-nav-fixed-layer.community-tablet-nav-fixed-layer
+  html body .parapost-tablet-nav-layer.parapost-tablet-nav-layer
   > nav[data-parapost-edge-nav="true"][data-parapost-edge-nav="true"][data-parapost-edge-nav="true"] {
+    display: grid !important;
     position: relative !important;
-    top: auto !important;
-    bottom: auto !important;
-    left: auto !important;
-    right: auto !important;
+    inset: auto !important;
+    box-sizing: border-box !important;
     width: 100% !important;
-    max-width: none !important;
+    max-width: 100% !important;
     margin: 0 !important;
     transform: none !important;
     -webkit-transform: none !important;
     will-change: auto !important;
     contain: none !important;
-    backface-visibility: visible !important;
     pointer-events: auto !important;
   }
 
-  html body
-  .community-tablet-nav-fixed-layer.community-tablet-nav-fixed-layer
-  > #community-mobile-create-menu {
+  html body .parapost-tablet-nav-layer.parapost-tablet-nav-layer
+  > [id="community-mobile-create-menu"] {
     pointer-events: auto !important;
   }
 }

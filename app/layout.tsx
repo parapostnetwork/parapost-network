@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ParapostPreferencesProvider from "@/components/ParapostPreferencesProvider";
-import TabletBottomNavViewportLock from "@/components/TabletBottomNavViewportLock";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
 import PushNotificationStartup from "@/components/pwa/PushNotificationStartup";
 import "./globals.css";
@@ -43,7 +42,6 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegistration />
-        <TabletBottomNavViewportLock />
         <PushNotificationStartup />
         <ParapostPreferencesProvider>{children}</ParapostPreferencesProvider>
       </body>

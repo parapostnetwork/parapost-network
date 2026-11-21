@@ -21551,51 +21551,8 @@ function ProfileStableBottomNav({
           }
         }
 
+        /* Shared tablet layer positioning lives in app/globals.css. */
         @media (min-width: 761px) and (max-width: 1180px) {
-          html body .profile-tablet-nav-fixed-layer {
-            position: fixed !important;
-            left: 0 !important;
-            right: 0 !important;
-            top: auto !important;
-            bottom: 0 !important;
-            z-index: 2147483000 !important;
-            display: flex !important;
-            justify-content: center !important;
-            align-items: flex-end !important;
-            width: 100% !important;
-            padding: 0 12px env(safe-area-inset-bottom) !important;
-            margin: 0 !important;
-            pointer-events: none !important;
-            transform: none !important;
-            -webkit-transform: none !important;
-            overflow: visible !important;
-          }
-
-          html body .profile-tablet-nav-fixed-layer > .profile-stable-bottom-nav {
-            display: grid !important;
-            position: relative !important;
-            left: auto !important;
-            right: auto !important;
-            top: auto !important;
-            bottom: auto !important;
-            width: 100% !important;
-            max-width: none !important;
-            margin: 0 !important;
-            transform: none !important;
-            -webkit-transform: none !important;
-            will-change: auto !important;
-            backface-visibility: visible !important;
-            -webkit-backface-visibility: visible !important;
-            contain: none !important;
-            overflow: visible !important;
-            isolation: isolate !important;
-            pointer-events: auto !important;
-          }
-
-          html body .profile-tablet-nav-fixed-layer .profile-stable-create-button {
-            z-index: 3 !important;
-          }
-
           .profile-page-shell,
           .profile-main-shell {
             padding-bottom: calc(118px + env(safe-area-inset-bottom)) !important;
@@ -22530,7 +22487,7 @@ function ProfileStableBottomNav({
 
   return useTabletPortal && typeof document !== "undefined"
     ? createPortal(
-        <div className="profile-tablet-nav-fixed-layer">
+        <div className="profile-tablet-nav-fixed-layer parapost-tablet-nav-layer">
           {navigation}
         </div>,
         document.body

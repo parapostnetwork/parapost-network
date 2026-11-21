@@ -71,7 +71,7 @@ export default function CommunityMobileBottomNav({
 
   return tabletPortal
     ? createPortal(
-        <div className="community-tablet-nav-fixed-layer">
+        <div className="community-tablet-nav-fixed-layer parapost-tablet-nav-layer">
           {navContent}
         </div>,
         document.body
