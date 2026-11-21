@@ -74,6 +74,22 @@ function OriginalGroupPostCard({ share, sharerName, authorName }: {
       <p className={styles.sharedContext}><Link href={`/groups/${share.group_id}`}>View discussion in {share.group_name}</Link></p>
     </div>
     <SharedGroupPostEngagement
+      postAuthorName={author ? profileName(author) : authorName || 'Original author'}
+      postPreview={<>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+          <PostAvatar id={share.original_author_id} profile={author} size={48} />
+          <div style={{display:'grid',gap:4}}>
+            <Link href={`/profile/${share.original_author_id}`} style={{fontWeight:900,color:'#fff'}}>
+              {author ? profileName(author) : authorName || 'Original author'}
+            </Link>
+            <time dateTime={share.original_created_at} style={{fontSize:12,color:'#9ca3af'}}>
+              {new Date(share.original_created_at).toLocaleString()}
+            </time>
+          </div>
+        </div>
+        {share.original_content && <p style={postContentStyle}>{share.original_content}</p>}
+        <GroupPostMedia groupId={share.group_id} postId={share.post_id} media={share.media ?? []}/>
+      </>}
       shareId={share.share_id}
       groupId={share.group_id}
       postId={share.post_id}

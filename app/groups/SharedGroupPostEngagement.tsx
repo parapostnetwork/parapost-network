@@ -1,7 +1,7 @@
 "use client";
 
 import { shareErrorMessage } from '@/lib/groups/shareErrors';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { groupsFetch, groupAction } from "@/lib/groups/client";
 import { supabase } from "@/lib/supabase";
 import { useGroupSession } from '@/lib/groups/useGroupSession';
@@ -11,7 +11,7 @@ import { ShareDialog } from "./GroupShareButton";
 import { PostAvatar, type PostProfile } from './PostIdentity';
 import { dashboardCommentTextareaStyle, dashboardCommentSubmitButtonStyle } from '@/components/postPresentation';
 import styles from './groupPosting.module.css';
-import CommunityCommentsOverlay from '@/components/CommunityCommentsOverlay';
+import CommunityCommentsOverlay, { CommunityOverlayActions } from '@/components/CommunityCommentsOverlay';
 
 type Comment = {
   id: string;
@@ -34,8 +34,10 @@ type Stats = {
 type Profile = PostProfile & { id: string };
 
 export default function SharedGroupPostEngagement({
-  shareId, groupId, postId, kind = "post", canShare = true
+  shareId, groupId, postId, kind = "post", canShare = true, postPreview, postAuthorName
 }: {
+  postPreview?: ReactNode;
+  postAuthorName?: string;
   shareId: string;
   groupId: string;
   postId?: string;
@@ -288,7 +290,31 @@ export default function SharedGroupPostEngagement({
       )}
 
       {commentsOpen && (
-        <CommunityCommentsOverlay title="Shared Group post comments" onClose={() => setCommentsOpen(false)}>
+        <CommunityCommentsOverlay
+          onClose={() => setCommentsOpen(false)}
+          title={`${postAuthorName || 'Group member'}'s post`}
+          postPreview={postPreview}
+          commentCount={stats.comment_count} likeCount={stats.like_count}
+          postActions={<CommunityOverlayActions
+            liked={stats.liked} disabled={busy || loading}
+            onLike={() => void interact(stats.liked ? 'unlike' : 'like')}
+            onComment={() => document.querySelector<HTMLTextAreaElement>(`[data-shared-group-comment="${shareId}"]`)?.focus()}
+            onShare={canShare ? () => { setCommentsOpen(false); setSharing(true); } : undefined}
+          />}
+          composer={<form onSubmit={submitComment} className={styles.engagementComposer}>
+            {replyTo && <p className={styles.engagementReplyLabel}>Writing a reply
+              <button type="button" onClick={() => { setReplyTo(null); setDraft(''); }}>Cancel reply</button>
+            </p>}
+            {viewerId && <PostAvatar id={viewerId} profile={profiles[viewerId]} size={32}/>}
+            <textarea data-shared-group-comment={shareId}
+              aria-label={replyTo ? 'Write a reply' : 'Write a comment'}
+              placeholder={replyTo ? 'Write a reply...' : 'Write a comment...'}
+              value={draft} maxLength={1200} rows={1} onChange={e => setDraft(e.target.value)}
+              style={dashboardCommentTextareaStyle}/>
+            <button type="submit" style={dashboardCommentSubmitButtonStyle}
+              disabled={busy || loading || !draft.trim()}>{replyTo ? 'Post reply' : 'Post comment'}</button>
+          </form>}
+        >
         <div className={styles.engagementThread}>
           {stats.comments.filter(comment => !comment.parent_id).flatMap(parent => [parent, ...stats.comments.filter(reply => reply.parent_id === parent.id)]).map(comment => {
             const own = comment.author_id === viewerId;
@@ -366,28 +392,7 @@ export default function SharedGroupPostEngagement({
             <p>Showing the first 150 comments.</p>
           )}
 
-          <form onSubmit={submitComment} className={styles.engagementComposer}>
-            {replyTo && (
-              <p className={styles.engagementReplyLabel}>
-                Writing a reply
-                <button type="button"
-                  onClick={() => { setReplyTo(null); setDraft(""); }}>Cancel reply</button>
-              </p>
-            )}
-            {viewerId && <PostAvatar id={viewerId} profile={profiles[viewerId]} size={32}/>}
-            <textarea
-              aria-label={replyTo ? "Write a reply" : "Write a comment"}
-              placeholder={replyTo ? "Write a reply..." : "Write a comment..."}
-              value={draft}
-              maxLength={1200}
-              rows={2}
-              onChange={e => setDraft(e.target.value)}
-              style={dashboardCommentTextareaStyle}
-            />
-            <button type="submit" style={dashboardCommentSubmitButtonStyle} disabled={busy || loading || !draft.trim()}>
-              {replyTo ? "Post reply" : "Post comment"}
-            </button>
-          </form>
+
         </div>
         </CommunityCommentsOverlay>
       )}

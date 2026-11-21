@@ -683,7 +683,25 @@ export default function CreatorVersePage({ id }: { id: string }) {
                       ))}
                     </div>
                   )}
-                  <CreatorVersePostActions pageId={id} postId={post.id} commentsEnabled={post.comments_enabled} />
+                  <CreatorVersePostActions pageId={id} postId={post.id}
+                    commentsEnabled={post.comments_enabled} postAuthorName={page.name}
+                    postPreview={<>
+                      <div style={{display:'grid',gap:4,marginBottom:12}}>
+                        <strong>{page.name}</strong>
+                        <time dateTime={post.created_at} style={{fontSize:12,color:'#9ca3af'}}>
+                          {new Date(post.created_at).toLocaleDateString()}
+                        </time>
+                      </div>
+                      <ExpandablePostText text={post.content} style={postContentStyle} />
+                      {publishedMediaReady && post.media.length > 0 && <div style={{
+                        display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,220px),1fr))',
+                        gap:10,marginTop:12,
+                      }}>
+                        {post.media.map(media => <CreatorVersePublishedMedia key={media.id}
+                          pageId={id} postId={post.id} media={media} galleryMedia={post.media} />)}
+                      </div>}
+                    </>}
+                  />
                 </article>
               )) : (
                 <p className={styles.empty}>

@@ -770,6 +770,26 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
         <GroupPostMedia groupId={group.id} postId={post.id} media={post.group_post_media} read={groupsFetch} />
 
       <GroupPostActions viewerId={userId} ownerId={group.owner_id}
+  postAuthorName={authorProfiles[post.author_id]?.full_name?.trim() || authorProfiles[post.author_id]?.username?.trim() || 'Member'}
+  postPreview={<>
+    <div style={{...postHeaderStyle, display:'flex',alignItems:'center',gap:12}}>
+      <Link href={`/profile/${post.author_id}`} className={posting.avatar} style={{width:48,height:48,flexShrink:0}}>
+        {authorProfiles[post.author_id]?.avatar_url
+          ? <ResponsiveMediaImage purpose="avatar" avatarSize={44}
+              src={authorProfiles[post.author_id].avatar_url!} alt="Post author"
+              style={{width:'100%',height:'100%',objectFit:'cover'}} />
+          : (authorProfiles[post.author_id]?.full_name || authorProfiles[post.author_id]?.username || 'M').trim().charAt(0).toUpperCase()}
+      </Link>
+      <div style={{display:'grid',gap:4}}>
+        <Link href={`/profile/${post.author_id}`} style={{fontWeight:900,color:'#fff'}}>
+          {authorProfiles[post.author_id]?.full_name?.trim() || authorProfiles[post.author_id]?.username?.trim() || 'Member'}
+        </Link>
+        <time dateTime={post.created_at} style={{fontSize:12,color:'#9ca3af'}}>{new Date(post.created_at).toLocaleString()}</time>
+      </div>
+    </div>
+    <ExpandablePostText text={post.content} style={postContentStyle} />
+    <GroupPostMedia groupId={group.id} postId={post.id} media={post.group_post_media} read={groupsFetch}/>
+  </>}
   groupId={group.id}
   postId={post.id}
   canInteract={approved}

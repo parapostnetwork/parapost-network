@@ -1,12 +1,13 @@
 'use client';
 
 import { shareErrorMessage } from '@/lib/groups/shareErrors';
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
 import Link from 'next/link';
 import GroupShareButton from './GroupShareButton';
 import { supabase } from '@/lib/supabase';
 import styles from './groupPosting.module.css';
+import { CommunityOverlayActions } from '@/components/CommunityCommentsOverlay';
 import CommunityCommentsOverlay from '@/components/CommunityCommentsOverlay';
 import { PostAvatar, profileName, type PostProfile } from './PostIdentity';
 import { dashboardCommentTextareaStyle, dashboardCommentSubmitButtonStyle, dashboardCommentRowStyle, dashboardCommentBubbleStyle, dashboardCommentTopLineStyle, dashboardCommentAuthorStyle, dashboardCommentTimeStyle, dashboardCommentTextStyle } from '@/components/postPresentation';
@@ -35,6 +36,8 @@ type Stats = {
 type Props = {
   groupId: string;
   postId: string;
+  postPreview?: ReactNode;
+  postAuthorName?: string;
   viewerId: string;
   ownerId: string | null;
   canInteract: boolean;
@@ -45,7 +48,7 @@ type Props = {
 };
 
 export default function GroupPostActions({
-  groupId, postId, viewerId, ownerId, canInteract, canShare, privateSharing=false, read, action
+  groupId, postId, postPreview, postAuthorName, viewerId, ownerId, canInteract, canShare, privateSharing=false, read, action
 }: Props) {
   const marker = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -431,21 +434,34 @@ export default function GroupPostActions({
       </form>
     </section>}
     {shareNotice && <p role="status" className={styles.notice}>{shareNotice}</p>}
-    {commentsOpen && <CommunityCommentsOverlay title="Group post comments" onClose={() => setCommentsOpen(false)}><section className={styles.comments} id={`group-comments-${postId}`} aria-label="Group post comments">
-      <div className={styles.commentsHeader}><h3>Comments</h3>
-        <button type="button" className={styles.textButton} onClick={() => setCommentsOpen(false)}>Hide comments</button></div>
-      {canInteract ? !replyTo && commentForm(null) : <p className={styles.empty}>Join this Group to comment.</p>}
+    {commentsOpen && <CommunityCommentsOverlay
+      onClose={() => setCommentsOpen(false)}
+      title={`${postAuthorName || 'Group member'}'s post`}
+      commentCount={stats?.comment_count}
+      likeCount={stats?.like_count}
+      shareCount={stats?.share_count}
+      postPreview={postPreview}
+      postActions={<CommunityOverlayActions
+        liked={stats?.liked ?? false} disabled={!canInteract || !stats || busy}
+        onLike={() => void toggleLike()}
+        onComment={() => document.getElementById(`group-comment-input-${postId}-${replyTo || 'new'}`)?.focus()}
+        onShare={canShare ? () => { setCommentsOpen(false); setShareOpen(true); } : undefined}
+      />}
+      composer={<div>
+        {replyTo && <div className={styles.replyLabel}>Replying to {profileName(profiles[replyingToAuthorId ?? ''])}
+          <button type="button" className={styles.textButton} onClick={() => {
+            setReplyTo(null); setReplyingToAuthorId(null); setDraft('');
+          }}>Cancel reply</button>
+        </div>}
+        {canInteract ? commentForm(replyTo) : <p className={styles.empty}>Join this Group to comment.</p>}
+      </div>}
+    ><section className={styles.comments} id={`group-comments-${postId}`} aria-label="Group post comments">
       <div className={styles.thread}>
         {!stats?.comments.length && <p className={styles.empty}>No comments yet. Start the conversation.</p>}
         {stats?.comments.filter(comment => !comment.parent_id).map(parent => <div key={parent.id}>
           {renderComment(parent)}
           <div className={styles.replies}>
             {stats.comments.filter(comment => comment.parent_id === parent.id).map(reply => <div key={reply.id}>{renderComment(reply)}</div>)}
-            {replyTo === parent.id && <div>
-              <div className={styles.replyLabel}>Replying to {profileName(profiles[replyingToAuthorId ?? parent.author_id])}
-                <button type="button" className={styles.textButton} disabled={busy} onClick={() => { setReplyTo(null); setReplyingToAuthorId(null); setDraft(''); }}>Cancel</button></div>
-              {commentForm(parent.id)}
-            </div>}
           </div>
         </div>)}
         {stats?.comments_limited && <p className={styles.empty}>Showing the first 100 comments.</p>}

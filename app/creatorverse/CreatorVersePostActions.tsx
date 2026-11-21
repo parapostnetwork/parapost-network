@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useGroupSession } from '@/lib/groups/useGroupSession';
 import { parseCreatorVerseEngagement } from '@/lib/creatorverse/engagement';
@@ -13,12 +13,14 @@ import {
 } from '@/lib/creatorverse/social-client';
 import { HeartIcon, CommentIcon, ShareIcon } from '@/components/PostActionIcons';
 import styles from './CreatorVersePostActions.module.css';
-import CommunityCommentsOverlay from '@/components/CommunityCommentsOverlay';
+import CommunityCommentsOverlay, { CommunityOverlayActions } from '@/components/CommunityCommentsOverlay';
 
 type Props = {
   pageId: string;
   postId: string;
   commentsEnabled?: boolean;
+  postPreview?: ReactNode;
+  postAuthorName?: string;
 };
 
 const stagingSocialReady =
@@ -35,7 +37,7 @@ export default function CreatorVersePostActions(props: Props) {
     {...props} viewerId={session.userId} />;
 }
 
-function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
+function ViewerPostActions({ pageId, postId, commentsEnabled, postPreview, postAuthorName, viewerId }:
   Props & { viewerId: string }) {
   const read = usePublicRead<unknown>(
     `/api/creatorverse/${encodeURIComponent(pageId)}/posts/${encodeURIComponent(postId)}/interactions`
@@ -240,80 +242,48 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, viewerId }:
       </div>
 
       {showComments && allowComments && (
-        <CommunityCommentsOverlay title="CreatorVerse post comments" onClose={() => setShowComments(false)}>
+        <CommunityCommentsOverlay
+          onClose={() => setShowComments(false)}
+          title={`${postAuthorName || 'CreatorVerse'}'s post`}
+          commentCount={engagement?.comment_count}
+          likeCount={engagement?.like_count}
+          shareCount={engagement?.share_count}
+          postPreview={postPreview}
+          postActions={<CommunityOverlayActions
+            liked={engagement?.liked_by_me ?? false}
+            disabled={busy || retryPending || read.loading || !engagement || !viewerId}
+            onLike={() => void act(engagement?.liked_by_me ? 'unlike' : 'like')}
+            onComment={() => document.getElementById(`cv-comment-${postId}`)?.focus()}
+            onShare={() => { setShowComments(false); setShowShare(true); }}
+          />}
+          composer={viewerId ? <div style={{display:'grid',gap:8}}>
+            {replyTo && <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <span>Write a reply</span>
+              <button type="button" onClick={() => setReplyTo(null)}>Cancel reply</button>
+            </div>}
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <textarea id={`cv-comment-${postId}`} maxLength={1200} rows={1}
+                aria-label={replyTo ? 'Write a reply' : 'Write a comment'}
+                value={comment} placeholder="Write a comment..."
+                onChange={event => setComment(event.target.value)}
+                disabled={busy || retryPending}
+                style={{flex:1,minWidth:0,padding:12,borderRadius:18,
+                  border:'1px solid rgba(255,255,255,.10)',background:'rgba(5,7,12,.8)',color:'#fff'}} />
+              <button type="button" disabled={busy || retryPending || read.loading || !engagement || !comment.trim()}
+                onClick={() => void act('comment', comment.trim(), replyTo)}
+                style={{padding:'12px 17px',borderRadius:24,border:0,
+                  background:'#7040b3',color:'#fff',fontWeight:850}}>
+                {busy ? 'Sending...' : 'Post'}
+              </button>
+            </div>
+          </div> : undefined}
+        >
         <div
           id={`creatorverse-comments-${postId}`}
           className={`${styles.panel} ${styles.commentsPanel}`}
           role="region"
           aria-label="CreatorVerse post comments"
         >
-          <div style={{
-            gridColumn: '1 / -1',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8
-          }}>
-            <strong style={{ fontSize: 14 }}>Comments</strong>
-            <button
-              type="button"
-              disabled={busy || retryPending}
-              onClick={() => setShowComments(false)}
-              aria-label="Hide comments"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'inherit',
-                cursor: 'pointer',
-                font: 'inherit',
-                padding: '6px 4px'
-              }}
-            >
-              Hide comments
-            </button>
-          </div>
-
-          {viewerId && (
-            <>
-              <label htmlFor={`cv-comment-${postId}`}>
-                {replyTo ? 'Write a reply' : 'Write a comment'}
-              </label>
-
-              <textarea
-                id={`cv-comment-${postId}`}
-                maxLength={1200}
-                rows={1}
-                value={comment}
-                placeholder="Write a comment..."
-                onChange={event => setComment(event.target.value)}
-                disabled={busy || retryPending}
-              />
-
-              <div className={styles.controls}>
-
-                {replyTo && (
-                  <button
-                    type="button"
-                    onClick={() => setReplyTo(null)}
-                  >
-                    Cancel reply
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  disabled={busy || retryPending || read.loading || !engagement || !comment.trim()}
-                  onClick={() =>
-                    void act('comment', comment.trim(), replyTo)
-                  }
-                >
-                  {busy ? 'Sending...' : 'Post comment'}
-                </button>
-
-              </div>
-            </>
-          )}
-
           {comments.map(item => (
 
             <div className={styles.comment} key={item.id} id={`creatorverse-comment-${item.id}`}>

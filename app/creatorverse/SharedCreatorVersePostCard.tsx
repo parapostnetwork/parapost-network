@@ -190,6 +190,24 @@ export default function SharedCreatorVersePostCard({
       <CreatorVersePostActions
         pageId={share.page_id}
         postId={share.post_id}
+        postAuthorName={share.page_name}
+        postPreview={<>
+          <div style={{display:'grid',gap:4,marginBottom:12}}>
+            <strong><Link href={pageHref}>{share.page_name}</Link></strong>
+            <time dateTime={share.shared_at} style={{fontSize:12,color:'#9ca3af'}}>
+              {new Date(share.shared_at).toLocaleString()}
+            </time>
+          </div>
+          {share.original_content && <p style={postContentStyle}>{share.original_content}</p>}
+          {visibleMedia.length > 0 && <div style={{
+            display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,220px),1fr))',
+            gap:10,marginTop:12,
+          }}>
+            {visibleMedia.map(media => <CreatorVersePublishedMedia key={media.id}
+              pageId={share.page_id} postId={share.post_id}
+              media={media} galleryMedia={visibleMedia}/>)}
+          </div>}
+        </>}
       />
     </article>
   );
