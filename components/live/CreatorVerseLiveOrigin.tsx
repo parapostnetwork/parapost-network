@@ -1,11 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { usePublicRead } from '@/lib/creatorverse/usePublicRead';
 
 type PageIdentity = {
   id: string;
   name: string;
+};
+
+type PublicPageResponse = {
+  page?: {
+    id: string;
+    name: string;
+    status?: string;
+  } | null;
 };
 
 export default function CreatorVerseLiveOrigin({
@@ -13,61 +22,41 @@ export default function CreatorVerseLiveOrigin({
 }: {
   pageId?: string | null;
 }) {
-  const [page, setPage] = useState<PageIdentity | null>(null);
+  if (!pageId) return null;
+
+  return (
+    <CreatorVerseLiveOriginPage
+      key={pageId}
+      pageId={pageId}
+    />
+  );
+}
+
+function CreatorVerseLiveOriginPage({
+  pageId,
+}: {
+  pageId: string;
+}) {
   const [logoAvailable, setLogoAvailable] = useState(true);
 
-  useEffect(() => {
-    setPage(null);
-    setLogoAvailable(true);
+  const { data } = usePublicRead<PublicPageResponse>(
+    `/api/creatorverse?page=${encodeURIComponent(pageId)}`
+  );
 
-    if (!pageId) return;
+  const identity = data?.page;
 
-    const controller = new AbortController();
-    let active = true;
-
-    async function loadPage() {
-      try {
-        const response = await fetch(
-          `/api/creatorverse?page=${encodeURIComponent(pageId!)}`,
-          {
-            cache: 'no-store',
-            signal: controller.signal,
-          }
-        );
-
-        if (!response.ok) return;
-
-        const result = await response.json();
-        const identity = result?.page;
-
-        if (
-          !active ||
-          identity?.id !== pageId ||
-          typeof identity?.name !== 'string' ||
-          !identity.name.trim() ||
-          identity?.status !== 'active'
-        ) {
-          return;
-        }
-
-        setPage({
+  const page: PageIdentity | null =
+    identity?.id === pageId &&
+    typeof identity.name === 'string' &&
+    identity.name.trim().length > 0 &&
+    (!identity.status || identity.status === 'active')
+      ? {
           id: identity.id,
           name: identity.name.trim(),
-        });
-      } catch {
-        // A missing or inaccessible page must not break Live.
-      }
-    }
+        }
+      : null;
 
-    void loadPage();
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [pageId]);
-
-  if (!pageId || !page) return null;
+  if (!page) return null;
 
   return (
     <div
