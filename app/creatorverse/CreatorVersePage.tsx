@@ -27,6 +27,7 @@ import CreatorVersePublishedMedia from './CreatorVersePublishedMedia';
 import CreatorVerseFollowButton from './CreatorVerseFollowButton';
 import CreatorVerseLivePanel from './CreatorVerseLivePanel';
 import CreatorVerseLiveHub from "./CreatorVerseLiveHub";
+import CreatorVerseReplayFeed from './CreatorVerseReplayFeed';
 import liveStyles from "./CreatorVerseLiveLayout.module.css";
 import styles from './creatorverse.module.css';
 import layout from './CreatorVerseGroupsLayout.module.css';
@@ -610,6 +611,10 @@ export default function CreatorVersePage({ id }: { id: string }) {
               <CreatorVerseLivePanel
                 pageId={id}
                 pageName={page.name}
+                currentUserId={viewerId}
+              />
+              <CreatorVerseReplayFeed
+                pageId={id}
                 currentUserId={viewerId}
               />
 

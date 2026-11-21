@@ -16,6 +16,7 @@ type Props = {
   thumbnailUrl: string | null;
   active: boolean;
   onToggle: () => void;
+  inline?: boolean;
 };
 
 function identifyReplay(
@@ -119,6 +120,7 @@ export default function CreatorVerseReplayPlayer({
   thumbnailUrl,
   active,
   onToggle,
+  inline = false,
 }: Props) {
   const [parentHost, setParentHost] = useState('');
 
@@ -151,7 +153,7 @@ export default function CreatorVerseReplayPlayer({
 
   return (
     <div className={styles.replay}>
-      {!active ? (
+      {!(active || inline) ? (
         <div className={styles.poster}>
           {poster && (
             <img
@@ -212,13 +214,15 @@ export default function CreatorVerseReplayPlayer({
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={onToggle}
-            className={styles.closeButton}
-          >
-            Close Replay
-          </button>
+          {!inline && (
+            <button
+              type="button"
+              onClick={onToggle}
+              className={styles.closeButton}
+            >
+              Close Replay
+            </button>
+          )}
         </>
       )}
     </div>

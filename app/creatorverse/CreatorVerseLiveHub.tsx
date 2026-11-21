@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import CreatorVerseReplayPlayer from './CreatorVerseReplayPlayer';
+import CreatorVerseReplayCard from './CreatorVerseReplayCard';
 import CreatorVerseLivePanel from './CreatorVerseLivePanel';
 import { getLiveDisplayStatus } from '@/lib/live/status';
 import liveStyles from './CreatorVerseLiveLayout.module.css';
@@ -26,46 +26,6 @@ type LiveShow = {
   thumbnail_url: string | null;
 };
 
-function formatDate(value: string | null) {
-  if (!value) return 'Date to be announced';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Date to be announced';
-  }
-
-  return date.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
-
-function safeSourceUrl(value: string | null) {
-  if (!value) return null;
-
-  try {
-    const url = new URL(value);
-    const host = url.hostname.toLowerCase();
-
-    if (
-      url.protocol === 'https:' &&
-      (
-        host === 'youtube.com' ||
-        host.endsWith('.youtube.com') ||
-        host === 'youtu.be' ||
-        host === 'twitch.tv' ||
-        host.endsWith('.twitch.tv')
-      )
-    ) {
-      return url.href;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
 export default function CreatorVerseLiveHub({
   pageId,
   pageName,
@@ -79,7 +39,6 @@ export default function CreatorVerseLiveHub({
 }) {
   const [shows, setShows] = useState<LiveShow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openReplayId, setOpenReplayId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -140,15 +99,6 @@ export default function CreatorVerseLiveHub({
       (Date.parse(b.ended_at ?? b.updated_at ?? '') || 0) -
       (Date.parse(a.ended_at ?? a.updated_at ?? '') || 0)
     );
-
-  const cardStyle: React.CSSProperties = {
-    border: '1px solid rgba(185,150,225,0.2)',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
-    background: 'rgba(255,255,255,0.025)',
-    overflowWrap: 'anywhere',
-  };
 
   if (loading) {
     return <p role="status">Loading live shows...</p>;
@@ -235,58 +185,13 @@ export default function CreatorVerseLiveHub({
             No previous broadcasts available yet.
           </p>
         ) : (
-          pastShows.map(show => {
-            const sourceUrl = safeSourceUrl(show.external_url);
-
-            return (
-              <article key={show.id} style={cardStyle}>
-                <h4 style={{ margin: '0 0 8px' }}>
-                  {show.title || 'Previous Broadcast'}
-                </h4>
-
-                <p style={{
-                  opacity: 0.75,
-                  fontSize: 13,
-                  margin: '0 0 10px',
-                }}>
-                  Ended {formatDate(show.ended_at || show.updated_at)}
-                </p>
-
-                {show.description && (
-                  <p style={{ overflowWrap: 'anywhere' }}>
-                    {show.description}
-                  </p>
-                )}
-
-                <CreatorVerseReplayPlayer
-                  title={show.title || 'Previous Broadcast'}
-                  externalUrl={show.external_url}
-                  embedUrl={show.embed_url}
-                  thumbnailUrl={show.thumbnail_url}
-                  active={openReplayId === show.id}
-                  onToggle={() =>
-                    setOpenReplayId(current =>
-                      current === show.id ? null : show.id
-                    )
-                  }
-                />
-
-                {sourceUrl && (
-                  <a
-                    href={sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: '#d3a5ff',
-                      fontWeight: 600,
-                    }}
-                  >
-                    Open original broadcast
-                  </a>
-                )}
-              </article>
-            );
-          })
+          pastShows.map(show => (
+            <CreatorVerseReplayCard
+              key={show.id}
+              show={show}
+              currentUserId={currentUserId}
+            />
+          ))
         )}
 
         {pastShows.length > 0 && (
