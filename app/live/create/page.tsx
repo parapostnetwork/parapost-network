@@ -167,6 +167,7 @@ function detectLiveMetadata(provider: LiveProvider, externalUrlInput: string): D
 
 export default function CreateLiveShowPage() {
   const [editingStreamId, setEditingStreamId] = useState("");
+  const [creatorVersePageId, setCreatorVersePageId] = useState("");
   const [existingStream, setExistingStream] = useState<LiveStreamRow | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [title, setTitle] = useState("");
@@ -192,9 +193,11 @@ export default function CreateLiveShowPage() {
 
     const params = new URLSearchParams(window.location.search);
     const editId = params.get("edit") || "";
+    const creatorVerseId = params.get("creatorverse") || "";
 
     const timeoutId = window.setTimeout(() => {
       setEditingStreamId(editId);
+      setCreatorVersePageId(creatorVerseId);
     }, 0);
 
     return () => {
@@ -283,6 +286,58 @@ export default function CreateLiveShowPage() {
       return;
     }
 
+
+    // CreatorVerse broadcasts must be authorized by the server.
+    // An ordinary personal Live show does not use this path.
+    if (creatorVersePageId && !isEditing) {
+      const uuidPattern =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      if (!uuidPattern.test(creatorVersePageId)) {
+        setError("Invalid CreatorVerse page.");
+        return;
+      }
+
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+
+      if (
+        sessionError ||
+        !sessionData.session ||
+        sessionData.session.user.id !== user.id
+      ) {
+        setError("Please sign in again to create a CreatorVerse Live show.");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/creatorverse/${encodeURIComponent(creatorVersePageId)}/permissions`,
+          {
+            cache: "no-store",
+            headers: {
+              Authorization: `Bearer ${sessionData.session.access_token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          setError("Could not verify CreatorVerse page permissions.");
+          return;
+        }
+
+        const permissions = await response.json();
+
+        if (permissions?.can_publish !== true) {
+          setError("You are not authorized to broadcast from this CreatorVerse page.");
+          return;
+        }
+      } catch {
+        setError("Could not verify CreatorVerse page permissions.");
+        return;
+      }
+    }
+
     setSaving(true);
 
     const scheduledValue = scheduledAt ? new Date(scheduledAt).toISOString() : null;
@@ -306,6 +361,9 @@ export default function CreateLiveShowPage() {
           .eq("user_id", user.id)
       : await supabase.from("live_streams").insert({
           ...basePayload,
+          ...(creatorVersePageId && !isEditing
+            ? { creatorverse_page_id: creatorVersePageId }
+            : {}),
           user_id: user.id,
           status: "draft",
           visibility: "private",
@@ -322,7 +380,9 @@ export default function CreateLiveShowPage() {
       return;
     }
 
-    setMessage(isEditing ? "Parapost Live show updated. Published shows stay public and visible after editing." : "Parapost Live show saved. Publish it from Live Manager when you are ready.");
+    setMessage(isEditing ? "Parapost Live show updated. Published shows stay public and visible after editing." : (creatorVersePageId
+      ? "CreatorVerse Live show saved. Publish it from Live Manager when you are ready."
+      : "Parapost Live show saved. Publish it from Live Manager when you are ready."));
 
     if (!isEditing) {
       setTitle("");
