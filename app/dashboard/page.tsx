@@ -28,6 +28,7 @@ import {
 import { createLikeReconciler } from "@/lib/dashboard/like-reconciliation";
 import { followMember } from "@/lib/followers";
 import LiveStreamViewCount from "@/components/live/LiveStreamViewCount";
+import CreatorVerseLiveOrigin from "@/components/live/CreatorVerseLiveOrigin";
 import { livePlayerUrl } from "@/lib/live/youtube-player";
 import {
   ChangeEvent,
@@ -221,11 +222,12 @@ type DashboardLiveStreamItem = {
   created_at: string;
   updated_at: string | null;
   views?: number | null;
+  creatorverse_page_id?: string | null;
   profile: ProfilePreview | null;
 };
 
 const DASHBOARD_LIVE_SELECT =
-  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at, views";
+  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at, views, creatorverse_page_id";
 
 
 type MixedFeedItem =
@@ -13586,6 +13588,7 @@ function DashboardLiveStreamCard({
             <span style={postMetaStyle}>
               @{creatorHandle} · {isLive ? "is live now" : isTwitchEnded ? "ended a live show" : isReplay ? "shared a replay" : "scheduled a live show"}
             </span>
+            <CreatorVerseLiveOrigin pageId={stream.creatorverse_page_id} />
           </div>
 
           {(isLive || isReplay || effectiveStatus === "upcoming") ? (

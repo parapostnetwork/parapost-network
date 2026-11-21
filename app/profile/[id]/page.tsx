@@ -25,6 +25,7 @@ import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimi
 
 import { followMember } from "@/lib/followers";
 import LiveStreamViewCount from "@/components/live/LiveStreamViewCount";
+import CreatorVerseLiveOrigin from "@/components/live/CreatorVerseLiveOrigin";
 import { livePlayerUrl } from "@/lib/live/youtube-player";
 import { ChangeEvent, CSSProperties, FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -230,10 +231,11 @@ type ProfileLiveStream = {
   created_at: string;
   updated_at: string | null;
   views?: number | null;
+  creatorverse_page_id?: string | null;
 };
 
 const PROFILE_LIVE_SELECT =
-  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at, views";
+  "id, user_id, title, description, provider, external_url, embed_url, thumbnail_url, status, visibility, is_hidden, is_featured, scheduled_at, started_at, ended_at, created_at, updated_at, views, creatorverse_page_id";
 
 
 type ProfileFeedItem =
@@ -19518,6 +19520,7 @@ return (
                                     <span style={postMetaStyle}>
                                       @{profileDisplayUsername || "new-member"} {isLive ? "is live now" : isTwitchEnded ? "ended a live show" : isReplay ? "shared a replay" : "scheduled a live show"} · {formatTimeAgo(item.created_at)}
                                     </span>
+                                    <CreatorVerseLiveOrigin pageId={item.creatorverse_page_id} />
                                   </div>
 
                                   {(isLive || isReplay || effectiveStatus === "upcoming") ? (
