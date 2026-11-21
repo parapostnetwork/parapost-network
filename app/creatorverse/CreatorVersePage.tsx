@@ -25,6 +25,7 @@ import CreatorVersePostActions from './CreatorVersePostActions';
 import CreatorVersePostOwnerMenu from './CreatorVersePostOwnerMenu';
 import CreatorVersePublishedMedia from './CreatorVersePublishedMedia';
 import CreatorVerseFollowButton from './CreatorVerseFollowButton';
+import CreatorVerseLivePanel from './CreatorVerseLivePanel';
 import styles from './creatorverse.module.css';
 import layout from './CreatorVerseGroupsLayout.module.css';
 import CommunityMobileBottomNav from '@/components/CommunityMobileBottomNav';
@@ -602,6 +603,12 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
           {section === 'Posts' && (
             <section aria-label="Page posts">
+              <CreatorVerseLivePanel
+                pageId={id}
+                pageName={page.name}
+                currentUserId={viewerId}
+              />
+
 
               {canPublish && (
                 <CreatorVerseOwnerComposer
