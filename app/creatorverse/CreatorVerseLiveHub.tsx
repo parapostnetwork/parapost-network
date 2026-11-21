@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import CreatorVerseReplayPlayer from './CreatorVerseReplayPlayer';
 import liveStyles from './CreatorVerseLiveLayout.module.css';
 
 type LiveShow = {
@@ -14,6 +15,8 @@ type LiveShow = {
   ended_at: string | null;
   updated_at: string | null;
   external_url: string | null;
+  embed_url: string | null;
+  thumbnail_url: string | null;
 };
 
 function formatDate(value: string | null) {
@@ -65,6 +68,7 @@ export default function CreatorVerseLiveHub({
 }) {
   const [shows, setShows] = useState<LiveShow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openReplayId, setOpenReplayId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -74,7 +78,7 @@ export default function CreatorVerseLiveHub({
       const result = await supabase
         .from('live_streams')
         .select(
-          'id, title, description, status, scheduled_at, started_at, ended_at, updated_at, external_url'
+          'id, title, description, status, scheduled_at, started_at, ended_at, updated_at, external_url, embed_url, thumbnail_url'
         )
         .eq('creatorverse_page_id', pageId)
         .eq('visibility', 'public')
@@ -263,6 +267,19 @@ export default function CreatorVerseLiveHub({
                     {show.description}
                   </p>
                 )}
+
+                <CreatorVerseReplayPlayer
+                  title={show.title || 'Previous Broadcast'}
+                  externalUrl={show.external_url}
+                  embedUrl={show.embed_url}
+                  thumbnailUrl={show.thumbnail_url}
+                  active={openReplayId === show.id}
+                  onToggle={() =>
+                    setOpenReplayId(current =>
+                      current === show.id ? null : show.id
+                    )
+                  }
+                />
 
                 {sourceUrl && (
                   <a
