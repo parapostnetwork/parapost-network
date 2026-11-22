@@ -133,6 +133,12 @@ BEGIN
     FROM public.creatorverse_comments c
     WHERE c.id = comment
       AND NOT c.is_deleted;
+
+  ELSIF TG_TABLE_NAME = 'group_comment_likes' THEN
+    SELECT c.post_id, c.author_id
+    INTO post, comment_author
+    FROM public.group_post_comments c
+    WHERE c.id = comment;
   END IF;
 
   IF kind = 'creatorverse' THEN
