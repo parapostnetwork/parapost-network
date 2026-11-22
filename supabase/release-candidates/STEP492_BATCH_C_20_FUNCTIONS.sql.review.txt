@@ -1,0 +1,951 @@
+-- REVIEW ONLY: BATCH 3
+
+CREATE OR REPLACE FUNCTION public.groups_available()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+ SELECT parapost_groups_private.enabled();
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_cleanup_ack(p_paths text[])
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+ DELETE FROM parapost_groups_private.media_cleanup WHERE storage_path=ANY(p_paths);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_cleanup_batch()
+ RETURNS SETOF text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE target record;
+BEGIN
+ FOR target IN SELECT g.id FROM public.groups g
+ WHERE EXISTS(SELECT 1 FROM public.group_posts p WHERE p.group_id=g.id AND NOT p.published AND p.created_at<now()-interval '24 hours')
+    OR EXISTS(SELECT 1 FROM parapost_groups_private.cover_uploads c WHERE c.group_id=g.id AND c.created_at<now()-interval '24 hours')
+ ORDER BY g.id LIMIT 100 FOR UPDATE LOOP
+   DELETE FROM public.group_posts WHERE group_id=target.id AND NOT published AND created_at<now()-interval '24 hours';
+   DELETE FROM parapost_groups_private.cover_uploads WHERE group_id=target.id AND created_at<now()-interval '24 hours';
+ END LOOP;
+ RETURN QUERY SELECT q.storage_path FROM parapost_groups_private.media_cleanup q
+ WHERE q.queued_at<now()-interval '24 hours'
+   AND NOT EXISTS(SELECT 1 FROM public.groups g WHERE g.cover_storage_path=q.storage_path)
+   AND NOT EXISTS(SELECT 1 FROM public.group_post_media m WHERE m.storage_path=q.storage_path)
+   AND NOT EXISTS(SELECT 1 FROM parapost_groups_private.cover_uploads c WHERE c.storage_path=q.storage_path)
+ ORDER BY q.queued_at LIMIT 100;
+END; $function$;
+
+CREATE OR REPLACE FUNCTION public.groups_command(p_action text, p_group_id uuid DEFAULT NULL::uuid, p_payload jsonb DEFAULT '{}'::jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+ SELECT parapost_groups_private.command(p_action,p_group_id,p_payload);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_comment_like_stats(p_group_id uuid, p_post_id uuid)
+ RETURNS TABLE(comment_id uuid, like_count bigint, liked boolean)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  WITH visible_comments AS (
+    SELECT c.id, c.created_at
+    FROM public.group_post_comments c
+    JOIN public.group_posts p ON p.id = c.post_id
+    WHERE c.post_id = p_post_id
+      AND p.group_id = p_group_id
+      AND p.published
+      AND NOT p.is_deleted
+      AND auth.uid() IS NOT NULL
+      AND parapost_groups_private.allowed(p_group_id, 'read')
+    ORDER BY c.created_at, c.id
+    LIMIT 100
+  )
+  SELECT
+    c.id,
+    (
+      SELECT count(*)
+      FROM public.group_comment_likes l
+      WHERE l.comment_id = c.id
+    ),
+    EXISTS (
+      SELECT 1
+      FROM public.group_comment_likes l
+      WHERE l.comment_id = c.id
+        AND l.user_id = auth.uid()
+    )
+  FROM visible_comments c
+  ORDER BY c.created_at, c.id;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_directory(p_search text DEFAULT ''::text, p_filter text DEFAULT 'all'::text, p_group_id uuid DEFAULT NULL::uuid, p_offset integer DEFAULT 0)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+ SELECT coalesce(jsonb_agg(row_to_json(x)),'[]'::jsonb) FROM (
+   SELECT g.*,coalesce(pr.display_name,pr.username,'Member') AS owner_name,
+     m.status AS membership_status,m.role AS membership_role,
+     (SELECT count(*) FROM public.group_members c WHERE c.group_id=g.id AND c.status='approved' AND NOT parapost_groups_private.blocked(c.user_id,g.owner_id)) AS member_count
+   FROM public.groups g LEFT JOIN public.group_members m ON m.group_id=g.id AND m.user_id=auth.uid()
+   LEFT JOIN public.profiles pr ON pr.id=g.owner_id
+   WHERE parapost_groups_private.allowed(g.id,'directory') AND (p_group_id IS NULL OR g.id=p_group_id)
+     AND (p_filter='all' OR p_filter=g.visibility OR (p_filter='mine' AND m.status='approved'))
+     AND (g.name || ' ' || g.description) ILIKE '%' || left(coalesce(p_search,''),100) || '%'
+   ORDER BY g.created_at DESC,g.id LIMIT 24 OFFSET greatest(0,least(coalesce(p_offset,0),100000))
+ ) x;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_interact(p_group_id uuid, p_post_id uuid, p_action text, p_content text DEFAULT NULL::text, p_parent_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_group public.groups;
+  v_post public.group_posts;
+  v_parent public.group_post_comments;
+  v_id uuid;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required' USING ERRCODE='42501';
+  END IF;
+
+  SELECT * INTO v_group
+  FROM public.groups
+  WHERE id=p_group_id
+  FOR UPDATE;
+
+  IF NOT FOUND OR NOT parapost_groups_private.allowed(p_group_id,'member') THEN
+    RAISE EXCEPTION 'Approved membership required'
+      USING ERRCODE='42501';
+  END IF;
+
+  SELECT * INTO v_post
+  FROM public.group_posts
+  WHERE id=p_post_id
+    AND group_id=p_group_id
+    AND published
+    AND NOT is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Post unavailable' USING ERRCODE='42501';
+  END IF;
+
+  IF p_action IN ('like','comment','reply','like_comment')
+     AND parapost_groups_private.blocked(v_uid,v_post.author_id) THEN
+    RAISE EXCEPTION 'Interaction unavailable'
+      USING ERRCODE='42501';
+  END IF;
+
+  IF p_action='like' THEN
+
+    INSERT INTO public.group_post_likes(post_id,user_id)
+    VALUES(p_post_id,v_uid)
+    ON CONFLICT (post_id,user_id) DO NOTHING;
+
+    RETURN jsonb_build_object('liked',true);
+
+  ELSIF p_action='unlike' THEN
+
+    DELETE FROM public.group_post_likes
+    WHERE post_id=p_post_id AND user_id=v_uid;
+
+    RETURN jsonb_build_object('liked',false);
+
+  ELSIF p_action IN ('like_comment','unlike_comment') THEN
+
+    IF p_parent_id IS NULL THEN
+      RAISE EXCEPTION 'Comment required';
+    END IF;
+
+    SELECT * INTO v_parent
+    FROM public.group_post_comments
+    WHERE id=p_parent_id AND post_id=p_post_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Comment unavailable'
+        USING ERRCODE='42501';
+    END IF;
+
+    IF p_action='like_comment' THEN
+
+      IF parapost_groups_private.blocked(v_uid,v_parent.author_id) THEN
+        RAISE EXCEPTION 'Comment Like unavailable'
+          USING ERRCODE='42501';
+      END IF;
+
+      INSERT INTO public.group_comment_likes
+        (comment_id,post_id,user_id)
+      VALUES (p_parent_id,p_post_id,v_uid)
+      ON CONFLICT (comment_id,user_id) DO NOTHING;
+
+      RETURN jsonb_build_object('liked',true);
+
+    ELSE
+
+      DELETE FROM public.group_comment_likes
+      WHERE comment_id=p_parent_id AND user_id=v_uid;
+
+      RETURN jsonb_build_object('liked',false);
+
+    END IF;
+
+  ELSIF p_action IN ('comment','reply') THEN
+
+    IF p_content IS NULL OR
+       char_length(btrim(p_content)) NOT BETWEEN 1 AND 1200 THEN
+      RAISE EXCEPTION 'Invalid comment';
+    END IF;
+
+    IF p_action='comment' AND p_parent_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Invalid comment parent';
+    END IF;
+
+    IF p_action='reply' THEN
+
+      IF p_parent_id IS NULL THEN
+        RAISE EXCEPTION 'Reply parent required';
+      END IF;
+
+      SELECT * INTO v_parent
+      FROM public.group_post_comments
+      WHERE id=p_parent_id AND post_id=p_post_id;
+
+      IF NOT FOUND OR v_parent.parent_id IS NOT NULL THEN
+        RAISE EXCEPTION 'Invalid reply parent';
+      END IF;
+
+      IF parapost_groups_private.blocked(v_uid,v_parent.author_id) THEN
+        RAISE EXCEPTION 'Reply unavailable'
+          USING ERRCODE='42501';
+      END IF;
+
+    END IF;
+
+    INSERT INTO public.group_post_comments
+      (post_id,author_id,parent_id,content)
+    VALUES (p_post_id,v_uid,p_parent_id,btrim(p_content))
+    RETURNING id INTO v_id;
+
+    RETURN jsonb_build_object('id',v_id);
+
+  ELSE
+    RAISE EXCEPTION 'Unknown interaction action';
+  END IF;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_members(p_group_id uuid, p_offset integer DEFAULT 0)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+ SELECT coalesce(jsonb_agg(row_to_json(x)),'[]'::jsonb) FROM (
+   SELECT m.*,coalesce(p.display_name,p.username,'Member') AS display_name
+   FROM public.group_members m LEFT JOIN public.profiles p ON p.id=m.user_id
+   WHERE m.group_id=p_group_id AND parapost_groups_private.allowed(p_group_id,'admin')
+   ORDER BY (m.status='pending') DESC,m.created_at,m.user_id LIMIT 50 OFFSET greatest(0,least(coalesce(p_offset,0),100000))
+ ) x;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_post_share_count(p_group_id uuid, p_post_id uuid)
+ RETURNS bigint
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_share_count bigint;
+BEGIN
+
+  IF auth.uid() IS NULL
+     OR NOT parapost_groups_private.allowed(
+       p_group_id, 'read'
+     )
+  THEN
+    RAISE EXCEPTION 'Group access denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.group_posts p
+    WHERE p.id = p_post_id
+      AND p.group_id = p_group_id
+      AND p.published = true
+      AND p.is_deleted = false
+      AND parapost_groups_private.author_visible_to_viewer(
+        p.author_id
+      )
+  ) THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT COUNT(*)
+  INTO v_share_count
+  FROM public.group_post_shares s
+  WHERE s.group_id = p_group_id
+    AND s.post_id = p_post_id;
+
+  RETURN v_share_count;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_promote(p_group_id uuid, p_post_id uuid DEFAULT NULL::uuid, p_caption text DEFAULT NULL::text, p_share_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN parapost_groups_private.promotion_share(
+    p_group_id, p_post_id, p_caption, p_share_id
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_promotion_cover(p_group_id uuid, p_cover_key text, p_share_id uuid DEFAULT NULL::uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN parapost_groups_private.promotion_cover(
+    p_group_id, p_cover_key, p_share_id
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_promotion_interact(p_share_id uuid, p_action text, p_content text DEFAULT NULL::text, p_parent_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  SELECT parapost_groups_private.promotion_interact(
+    p_share_id, p_action, p_content, p_parent_id
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_promotion_preview(p_group_id uuid, p_share_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN parapost_groups_private.promotion_preview(
+    p_group_id, p_share_id
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_promotion_settings(p_group_id uuid, p_settings jsonb DEFAULT NULL::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN parapost_groups_private.promotion_settings_command(
+    p_group_id, p_settings
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_promotion_stats(p_share_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+  SELECT parapost_groups_private.promotion_stats(p_share_id);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_promotional_feed(p_sharer_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 60, p_offset integer DEFAULT 0)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN parapost_groups_private.promotion_feed(
+    p_sharer_id, p_limit, p_offset
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_share_post(p_group_id uuid, p_post_id uuid, p_caption text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_group public.groups%ROWTYPE;
+  v_post public.group_posts%ROWTYPE;
+  v_share_id uuid;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Serialize sharing attempts across devices.
+  SELECT * INTO v_group
+  FROM public.groups
+  WHERE id = p_group_id
+  FOR UPDATE;
+
+  IF NOT FOUND
+     OR v_group.visibility <> 'public'
+     OR NOT parapost_groups_private.allowed(
+       p_group_id, 'member'
+     ) THEN
+    RAISE EXCEPTION 'Public Group membership required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_post
+  FROM public.group_posts
+  WHERE id = p_post_id
+    AND group_id = p_group_id
+    AND published
+    AND NOT is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF parapost_groups_private.blocked(
+    v_uid, v_post.author_id
+  ) THEN
+    RAISE EXCEPTION 'Sharing unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_caption IS NOT NULL
+     AND char_length(p_caption) > 1000 THEN
+    RAISE EXCEPTION 'Share caption too long';
+  END IF;
+
+  PERFORM parapost_groups_private.record_share_cooldown(
+    'post', p_post_id
+  );
+
+  INSERT INTO public.group_post_shares
+    (group_id, post_id, user_id, caption)
+  VALUES (
+    p_group_id, p_post_id, v_uid,
+    NULLIF(btrim(p_caption), '')
+  )
+  RETURNING id INTO v_share_id;
+
+  RETURN jsonb_build_object('id', v_share_id);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_shared_feed(p_sharer_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 60, p_offset integer DEFAULT 0)
+ RETURNS TABLE(share_id uuid, group_id uuid, post_id uuid, sharer_id uuid, caption text, shared_at timestamp with time zone, group_name text, original_author_id uuid, original_content text, original_created_at timestamp with time zone, media jsonb)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT
+    s.id,
+    s.group_id,
+    s.post_id,
+    s.user_id,
+    s.caption,
+    s.created_at,
+    g.name,
+    p.author_id,
+    p.content,
+    p.created_at,
+    COALESCE(media_items.items, '[]'::jsonb)
+  FROM public.group_post_shares s
+  JOIN public.groups g
+    ON g.id = s.group_id
+  JOIN public.group_posts p
+    ON p.id = s.post_id
+   AND p.group_id = s.group_id
+  LEFT JOIN LATERAL (
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'media_type', m.media_type,
+        'storage_path', m.storage_path,
+        'display_order', m.display_order
+      )
+      ORDER BY m.display_order, m.id
+    ) AS items
+    FROM public.group_post_media m
+    WHERE m.post_id = p.id
+      AND m.group_id = g.id
+  ) media_items ON true
+  WHERE auth.uid() IS NOT NULL
+    AND g.visibility = 'public'
+    AND p.published
+    AND NOT p.is_deleted
+    AND parapost_groups_private.allowed(
+      g.id, 'read'
+    )
+    AND NOT parapost_groups_private.blocked(
+      auth.uid(), s.user_id
+    )
+    AND NOT parapost_groups_private.blocked(
+      auth.uid(), p.author_id
+    )
+    AND (
+      p_sharer_id IS NULL
+      OR s.user_id = p_sharer_id
+    )
+  ORDER BY s.created_at DESC, s.id DESC
+  LIMIT LEAST(GREATEST(COALESCE(p_limit,60),1),100)
+  OFFSET LEAST(GREATEST(COALESCE(p_offset,0),0),10000);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_shared_post_interact(p_share_id uuid, p_action text, p_content text DEFAULT NULL::text, p_parent_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_share public.group_post_shares%ROWTYPE;
+  v_group public.groups%ROWTYPE;
+  v_post public.group_posts%ROWTYPE;
+  v_parent public.group_post_share_comments%ROWTYPE;
+  v_id uuid;
+  v_limit_kind text;
+  v_limit_max integer;
+  v_limit_now timestamptz;
+  v_limit_count integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_share
+  FROM public.group_post_shares
+  WHERE id = p_share_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_group
+  FROM public.groups
+  WHERE id = v_share.group_id
+  FOR SHARE;
+
+  IF NOT FOUND
+     OR v_group.visibility <> 'public'
+     OR NOT parapost_groups_private.allowed(
+       v_share.group_id, 'read'
+     )
+  THEN
+    RAISE EXCEPTION 'Group unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_post
+  FROM public.group_posts
+  WHERE id = v_share.post_id
+    AND group_id = v_share.group_id
+    AND NOT is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF parapost_groups_private.blocked(v_uid, v_share.user_id)
+     OR parapost_groups_private.blocked(
+       v_uid, v_post.author_id
+     )
+  THEN
+    RAISE EXCEPTION 'Interaction unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Atomic per-user limits across all shared Group posts.
+  IF p_action IN ('comment', 'reply') THEN
+    v_limit_kind := 'comment';
+    v_limit_max := 10;
+  ELSIF p_action IN (
+    'like', 'unlike', 'like_comment', 'unlike_comment'
+  ) THEN
+    v_limit_kind := 'reaction';
+    v_limit_max := 60;
+  END IF;
+
+  IF v_limit_kind IS NOT NULL THEN
+    v_limit_now := clock_timestamp();
+
+    INSERT INTO parapost_groups_private.shared_post_interaction_rate_limits AS rl
+      (user_id, action_kind, window_started_at, action_count)
+    VALUES (v_uid, v_limit_kind, v_limit_now, 1)
+    ON CONFLICT (user_id, action_kind)
+    DO UPDATE SET
+      window_started_at = CASE
+        WHEN rl.window_started_at <=
+             v_limit_now - interval '60 seconds'
+        THEN v_limit_now
+        ELSE rl.window_started_at
+      END,
+      action_count = CASE
+        WHEN rl.window_started_at <=
+             v_limit_now - interval '60 seconds'
+        THEN 1
+        ELSE rl.action_count + 1
+      END
+    WHERE rl.window_started_at <=
+          v_limit_now - interval '60 seconds'
+       OR rl.action_count < v_limit_max
+    RETURNING action_count INTO v_limit_count;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Rate limit exceeded. Try again shortly.'
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  IF p_action = 'like' THEN
+    INSERT INTO public.group_post_share_likes
+      (share_id, user_id)
+    VALUES (p_share_id, v_uid)
+    ON CONFLICT (share_id, user_id) DO NOTHING;
+
+    RETURN jsonb_build_object('liked', true);
+
+  ELSIF p_action = 'unlike' THEN
+    DELETE FROM public.group_post_share_likes
+    WHERE share_id = p_share_id
+      AND user_id = v_uid;
+
+    RETURN jsonb_build_object('liked', false);
+
+  ELSIF p_action = 'comment' THEN
+    IF p_parent_id IS NOT NULL
+       OR p_content IS NULL
+       OR char_length(btrim(p_content)) NOT BETWEEN 1 AND 1200
+    THEN
+      RAISE EXCEPTION 'Invalid comment';
+    END IF;
+
+    INSERT INTO public.group_post_share_comments
+      (share_id, author_id, content)
+    VALUES (p_share_id, v_uid, btrim(p_content))
+    RETURNING id INTO v_id;
+
+    RETURN jsonb_build_object('id', v_id);
+
+  ELSIF p_action IN (
+    'reply', 'like_comment', 'unlike_comment',
+    'edit_comment', 'delete_comment'
+  ) THEN
+    IF p_parent_id IS NULL THEN
+      RAISE EXCEPTION 'Comment required';
+    END IF;
+
+    SELECT * INTO v_parent
+    FROM public.group_post_share_comments
+    WHERE id = p_parent_id
+      AND share_id = p_share_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Comment unavailable'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF p_action = 'reply' THEN
+      IF v_parent.parent_id IS NOT NULL
+         OR parapost_groups_private.blocked(
+           v_uid, v_parent.author_id
+         )
+         OR p_content IS NULL
+         OR char_length(btrim(p_content)) NOT BETWEEN 1 AND 1200
+      THEN
+        RAISE EXCEPTION 'Reply unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      INSERT INTO public.group_post_share_comments
+        (share_id, author_id, parent_id, content)
+      VALUES (
+        p_share_id, v_uid, p_parent_id, btrim(p_content)
+      )
+      RETURNING id INTO v_id;
+
+      RETURN jsonb_build_object('id', v_id);
+
+    ELSIF p_action = 'like_comment' THEN
+      IF parapost_groups_private.blocked(
+        v_uid, v_parent.author_id
+      )
+      OR (
+        v_parent.parent_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.group_post_share_comments parent
+          WHERE parent.id = v_parent.parent_id
+            AND parent.share_id = p_share_id
+            AND parent.parent_id IS NULL
+            AND NOT parapost_groups_private.blocked(
+              v_uid, parent.author_id
+            )
+        )
+      ) THEN
+        RAISE EXCEPTION 'Comment Like unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      INSERT INTO public.group_post_share_comment_likes
+        (comment_id, share_id, user_id)
+      VALUES (p_parent_id, p_share_id, v_uid)
+      ON CONFLICT (comment_id, user_id) DO NOTHING;
+
+      RETURN jsonb_build_object('liked', true);
+
+    ELSIF p_action = 'unlike_comment' THEN
+      DELETE FROM public.group_post_share_comment_likes
+      WHERE comment_id = p_parent_id
+        AND share_id = p_share_id
+        AND user_id = v_uid;
+
+      RETURN jsonb_build_object('liked', false);
+
+    ELSIF p_action = 'edit_comment' THEN
+      IF v_parent.author_id <> v_uid
+         OR p_content IS NULL
+         OR char_length(btrim(p_content)) NOT BETWEEN 1 AND 1200
+      THEN
+        RAISE EXCEPTION 'Edit unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      UPDATE public.group_post_share_comments
+      SET content = btrim(p_content),
+          updated_at = now()
+      WHERE id = p_parent_id
+        AND share_id = p_share_id
+        AND author_id = v_uid;
+
+      RETURN jsonb_build_object('updated', true);
+
+    ELSIF p_action = 'delete_comment' THEN
+      IF v_parent.author_id <> v_uid THEN
+        RAISE EXCEPTION 'Delete unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      DELETE FROM public.group_post_share_comments
+      WHERE id = p_parent_id
+        AND share_id = p_share_id
+        AND author_id = v_uid;
+
+      RETURN jsonb_build_object('deleted', true);
+    END IF;
+  END IF;
+
+  RAISE EXCEPTION 'Unknown interaction action';
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.groups_shared_post_stats(p_share_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_group_id uuid;
+  v_sharer_id uuid;
+  v_author_id uuid;
+  v_comments jsonb;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT s.group_id, s.user_id, p.author_id
+  INTO v_group_id, v_sharer_id, v_author_id
+  FROM public.group_post_shares s
+  JOIN public.groups g ON g.id = s.group_id
+  JOIN public.group_posts p
+    ON p.id = s.post_id AND p.group_id = s.group_id
+  WHERE s.id = p_share_id
+    AND g.visibility = 'public'
+    AND NOT p.is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT parapost_groups_private.allowed(v_group_id, 'read')
+     OR parapost_groups_private.blocked(v_uid, v_sharer_id)
+     OR parapost_groups_private.blocked(v_uid, v_author_id)
+  THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', c.id,
+        'author_id', c.author_id,
+        'parent_id', c.parent_id,
+        'content', c.content,
+        'created_at', c.created_at,
+        'updated_at', c.updated_at,
+        'like_count', c.like_count,
+        'liked', c.liked
+      )
+      ORDER BY c.created_at, c.id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_comments
+  FROM (
+    SELECT
+      cm.*,
+      (
+        SELECT count(*)::integer
+        FROM public.group_post_share_comment_likes cl
+        WHERE cl.comment_id = cm.id
+          AND NOT parapost_groups_private.blocked(
+            v_uid, cl.user_id
+          )
+      ) AS like_count,
+      EXISTS (
+        SELECT 1
+        FROM public.group_post_share_comment_likes cl
+        WHERE cl.comment_id = cm.id
+          AND cl.user_id = v_uid
+      ) AS liked
+    FROM public.group_post_share_comments cm
+    WHERE cm.share_id = p_share_id
+      AND NOT parapost_groups_private.blocked(
+        v_uid, cm.author_id
+      )
+      AND (
+        cm.parent_id IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM public.group_post_share_comments parent
+          WHERE parent.id = cm.parent_id
+            AND parent.share_id = cm.share_id
+            AND parent.parent_id IS NULL
+            AND NOT parapost_groups_private.blocked(
+              v_uid, parent.author_id
+            )
+        )
+      )
+    ORDER BY cm.created_at, cm.id
+    LIMIT 150
+  ) c;
+
+  RETURN jsonb_build_object(
+    'liked', EXISTS (
+      SELECT 1
+      FROM public.group_post_share_likes l
+      WHERE l.share_id = p_share_id
+        AND l.user_id = v_uid
+    ),
+    'like_count', (
+      SELECT count(*)::integer
+      FROM public.group_post_share_likes l
+      WHERE l.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(
+          v_uid, l.user_id
+        )
+    ),
+    'comment_count', (
+      SELECT count(*)::integer
+      FROM public.group_post_share_comments c
+      WHERE c.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(
+          v_uid, c.author_id
+        )
+        AND (
+          c.parent_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM public.group_post_share_comments parent
+            WHERE parent.id = c.parent_id
+              AND parent.share_id = c.share_id
+              AND parent.parent_id IS NULL
+              AND NOT parapost_groups_private.blocked(
+                v_uid, parent.author_id
+              )
+          )
+        )
+    ),
+    'comments_limited', (
+      SELECT count(*) > 150
+      FROM public.group_post_share_comments c
+      WHERE c.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(
+          v_uid, c.author_id
+        )
+        AND (
+          c.parent_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM public.group_post_share_comments parent
+            WHERE parent.id = c.parent_id
+              AND parent.share_id = c.share_id
+              AND parent.parent_id IS NULL
+              AND NOT parapost_groups_private.blocked(
+                v_uid, parent.author_id
+              )
+          )
+        )
+    ),
+    'comments', v_comments
+  );
+END;
+$function$;

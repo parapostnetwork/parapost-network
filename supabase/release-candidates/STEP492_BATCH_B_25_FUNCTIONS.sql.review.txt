@@ -1,0 +1,1820 @@
+-- REVIEW ONLY: BATCH 2
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.initialize_owner()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  INSERT INTO public.group_members (
+    group_id,
+    user_id,
+    role,
+    status,
+    approved_at
+  )
+  VALUES (
+    NEW.id,
+    NEW.owner_id,
+    'owner',
+    'approved',
+    now()
+  );
+
+  RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.lock_group_owner()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
+    RAISE EXCEPTION
+      'Group ownership cannot be reassigned';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.notify_owner_new_post_release()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    recipient_id uuid;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.notifications
+        WHERE group_id = OLD.group_id
+          AND community_post_id = OLD.id
+          AND (type = 'group_post' OR community_event_key IS NOT NULL);
+        RETURN OLD;
+    END IF;
+
+    IF NEW.published IS NOT TRUE
+       OR NEW.is_deleted IS TRUE
+    THEN
+        DELETE FROM public.notifications
+        WHERE group_id = NEW.group_id
+          AND community_post_id = NEW.id
+          AND (type = 'group_post' OR community_event_key IS NOT NULL);
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        IF OLD.published IS TRUE
+           AND OLD.is_deleted IS NOT TRUE
+        THEN
+            RETURN NEW;
+        END IF;
+    END IF;
+
+    SELECT owner_id INTO recipient_id
+    FROM public.groups
+    WHERE id = NEW.group_id;
+
+    IF recipient_id IS NULL
+       OR NEW.author_id IS NULL
+       OR recipient_id = NEW.author_id
+    THEN
+        RETURN NEW;
+    END IF;
+
+    IF parapost_groups_private.blocked(
+        recipient_id, NEW.author_id
+    ) THEN
+        RETURN NEW;
+    END IF;
+
+    BEGIN
+        INSERT INTO public.notifications (
+            user_id,
+            actor_id,
+            type,
+            group_id,
+            community_post_id,
+            message,
+            is_read
+        )
+        VALUES (
+            recipient_id,
+            NEW.author_id,
+            'group_post',
+            NEW.group_id,
+            NEW.id,
+            'A member published a new Group post.',
+            false
+        )
+        ON CONFLICT DO NOTHING;
+
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING
+            'Group post notification failed: %',
+            SQLERRM;
+    END;
+
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'Group owner post notification failed: %', SQLERRM;
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.promotion_actor(gid uuid, actor uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT actor IS NOT NULL AND EXISTS (
+    SELECT 1
+    FROM public.groups g
+    LEFT JOIN public.group_members m
+      ON m.group_id = g.id AND m.user_id = actor
+    LEFT JOIN parapost_groups_private.promotion_settings s
+      ON s.group_id = g.id
+    WHERE g.id = gid
+      AND NOT parapost_groups_private.blocked(actor, g.owner_id)
+      AND coalesce(
+        m.status NOT IN ('rejected','removed','banned'), true
+      )
+      AND (
+        g.visibility = 'public'
+        OR (
+          m.status = 'approved'
+          AND coalesce(s.enabled, false)
+        )
+      )
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.promotion_cover(gid uuid, cover_key text, source_id uuid DEFAULT NULL::uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  preview jsonb;
+BEGIN
+  preview := parapost_groups_private.promotion_preview(
+    gid, source_id
+  );
+
+  IF preview IS NULL
+     OR preview->>'cover_key' IS DISTINCT FROM cover_key
+     OR cover_key IS NULL
+  THEN
+    RAISE EXCEPTION 'Cover unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN (
+    SELECT cover_storage_path
+    FROM public.groups
+    WHERE id = gid
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.promotion_feed(sharer uuid DEFAULT NULL::uuid, page_limit integer DEFAULT 60, page_offset integer DEFAULT 0)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT coalesce(
+    jsonb_agg(x.item ORDER BY x.created_at DESC, x.id DESC),
+    '[]'::jsonb
+  )
+  FROM (
+    SELECT
+      s.id,
+      s.created_at,
+      jsonb_build_object(
+        'share_id', s.id,
+        'group_id', s.group_id,
+        'post_id', NULL,
+        'sharer_id', s.user_id,
+        'caption', s.caption,
+        'shared_at', s.created_at,
+        'group_name', preview->>'name',
+        'original_author_id', NULL,
+        'original_content', NULL,
+        'original_created_at', NULL,
+        'media', '[]'::jsonb,
+        'promotion', preview
+      ) AS item
+    FROM public.group_promotional_shares s
+    CROSS JOIN LATERAL (
+      SELECT parapost_groups_private.promotion_preview(
+        s.group_id, s.id
+      ) AS preview
+    ) p
+    WHERE parapost_groups_private.enabled()
+      AND (sharer IS NULL OR s.user_id = sharer)
+      AND preview IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.group_post_shares legacy
+        JOIN public.groups g ON g.id = s.group_id
+        WHERE g.visibility = 'public'
+          AND legacy.post_id = s.post_id
+          AND legacy.user_id = s.user_id
+      )
+    ORDER BY s.created_at DESC, s.id DESC
+    LIMIT least(greatest(coalesce(page_limit,60),1),100)
+    OFFSET least(greatest(coalesce(page_offset,0),0),10000)
+  ) x;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.promotion_interact(p_share_id uuid, p_action text, p_content text DEFAULT NULL::text, p_parent_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_share public.group_promotional_shares%ROWTYPE;
+  v_group public.groups%ROWTYPE;
+  v_parent public.group_promotion_share_comments%ROWTYPE;
+  v_id uuid;
+  v_limit_kind text;
+  v_limit_max integer;
+  v_limit_now timestamptz;
+  v_limit_count integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_share
+  FROM public.group_promotional_shares
+  WHERE id = p_share_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_group
+  FROM public.groups
+  WHERE id = v_share.group_id
+  FOR SHARE;
+
+  PERFORM 1
+  FROM public.group_promotional_shares
+  WHERE id = p_share_id
+  FOR SHARE;
+
+  IF NOT FOUND
+     OR parapost_groups_private.promotion_preview(
+       v_share.group_id, p_share_id
+     ) IS NULL THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_action IN ('comment', 'reply') THEN
+    v_limit_kind := 'comment';
+    v_limit_max := 10;
+  ELSIF p_action IN (
+    'like', 'unlike', 'like_comment', 'unlike_comment'
+  ) THEN
+    v_limit_kind := 'reaction';
+    v_limit_max := 60;
+  END IF;
+
+  IF v_limit_kind IS NOT NULL THEN
+    v_limit_now := clock_timestamp();
+
+    INSERT INTO parapost_groups_private.shared_post_interaction_rate_limits AS rl
+      (user_id, action_kind, window_started_at, action_count)
+    VALUES (v_uid, v_limit_kind, v_limit_now, 1)
+    ON CONFLICT (user_id, action_kind)
+    DO UPDATE SET
+      window_started_at = CASE
+        WHEN rl.window_started_at <=
+             v_limit_now - interval '60 seconds'
+        THEN v_limit_now
+        ELSE rl.window_started_at
+      END,
+      action_count = CASE
+        WHEN rl.window_started_at <=
+             v_limit_now - interval '60 seconds'
+        THEN 1
+        ELSE rl.action_count + 1
+      END
+    WHERE rl.window_started_at <=
+          v_limit_now - interval '60 seconds'
+       OR rl.action_count < v_limit_max
+    RETURNING action_count INTO v_limit_count;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Rate limit exceeded. Try again shortly.'
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  IF p_action = 'like' THEN
+    INSERT INTO public.group_promotion_share_likes
+      (share_id, user_id)
+    VALUES (p_share_id, v_uid)
+    ON CONFLICT (share_id, user_id) DO NOTHING;
+
+    RETURN jsonb_build_object('liked', true);
+
+  ELSIF p_action = 'unlike' THEN
+    DELETE FROM public.group_promotion_share_likes
+    WHERE share_id = p_share_id
+      AND user_id = v_uid;
+
+    RETURN jsonb_build_object('liked', false);
+
+  ELSIF p_action = 'comment' THEN
+    IF p_parent_id IS NOT NULL
+       OR p_content IS NULL
+       OR char_length(btrim(p_content))
+          NOT BETWEEN 1 AND 1200 THEN
+      RAISE EXCEPTION 'Invalid comment';
+    END IF;
+
+    INSERT INTO public.group_promotion_share_comments
+      (share_id, author_id, content)
+    VALUES (p_share_id, v_uid, btrim(p_content))
+    RETURNING id INTO v_id;
+
+    RETURN jsonb_build_object('id', v_id);
+
+  ELSIF p_action IN (
+    'reply', 'like_comment', 'unlike_comment',
+    'edit_comment', 'delete_comment'
+  ) THEN
+    IF p_parent_id IS NULL THEN
+      RAISE EXCEPTION 'Comment required';
+    END IF;
+
+    SELECT * INTO v_parent
+    FROM public.group_promotion_share_comments
+    WHERE id = p_parent_id
+      AND share_id = p_share_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Comment unavailable'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF parapost_groups_private.blocked(
+      v_uid, v_parent.author_id
+    )
+       OR (
+         v_parent.parent_id IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1
+           FROM public.group_promotion_share_comments parent
+           WHERE parent.id = v_parent.parent_id
+             AND parent.share_id = p_share_id
+             AND parent.parent_id IS NULL
+             AND NOT parapost_groups_private.blocked(
+               v_uid, parent.author_id
+             )
+         )
+       ) THEN
+      RAISE EXCEPTION 'Comment unavailable'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF p_action = 'reply' THEN
+      IF v_parent.parent_id IS NOT NULL
+         OR parapost_groups_private.blocked(
+           v_uid, v_parent.author_id
+         )
+         OR p_content IS NULL
+         OR char_length(btrim(p_content))
+            NOT BETWEEN 1 AND 1200 THEN
+        RAISE EXCEPTION 'Reply unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      INSERT INTO public.group_promotion_share_comments
+        (share_id, author_id, parent_id, content)
+      VALUES (
+        p_share_id, v_uid, p_parent_id, btrim(p_content)
+      )
+      RETURNING id INTO v_id;
+
+      RETURN jsonb_build_object('id', v_id);
+
+    ELSIF p_action = 'like_comment' THEN
+      IF parapost_groups_private.blocked(
+        v_uid, v_parent.author_id
+      )
+      OR (
+        v_parent.parent_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.group_promotion_share_comments parent
+          WHERE parent.id = v_parent.parent_id
+            AND parent.share_id = p_share_id
+            AND parent.parent_id IS NULL
+            AND NOT parapost_groups_private.blocked(
+              v_uid, parent.author_id
+            )
+        )
+      ) THEN
+        RAISE EXCEPTION 'Comment Like unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      INSERT INTO public.group_promotion_share_comment_likes
+        (comment_id, share_id, user_id)
+      VALUES (p_parent_id, p_share_id, v_uid)
+      ON CONFLICT (comment_id, user_id) DO NOTHING;
+
+      RETURN jsonb_build_object('liked', true);
+
+    ELSIF p_action = 'unlike_comment' THEN
+      DELETE FROM public.group_promotion_share_comment_likes
+      WHERE comment_id = p_parent_id
+        AND share_id = p_share_id
+        AND user_id = v_uid;
+
+      RETURN jsonb_build_object('liked', false);
+
+    ELSIF p_action = 'edit_comment' THEN
+      IF v_parent.author_id <> v_uid
+         OR p_content IS NULL
+         OR char_length(btrim(p_content))
+            NOT BETWEEN 1 AND 1200 THEN
+        RAISE EXCEPTION 'Edit unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      UPDATE public.group_promotion_share_comments
+      SET content = btrim(p_content),
+          updated_at = now()
+      WHERE id = p_parent_id
+        AND share_id = p_share_id
+        AND author_id = v_uid;
+
+      RETURN jsonb_build_object('updated', true);
+
+    ELSIF p_action = 'delete_comment' THEN
+      IF v_parent.author_id <> v_uid THEN
+        RAISE EXCEPTION 'Delete unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      DELETE FROM public.group_promotion_share_comments
+      WHERE id = p_parent_id
+        AND share_id = p_share_id
+        AND author_id = v_uid;
+
+      RETURN jsonb_build_object('deleted', true);
+    END IF;
+  END IF;
+
+  RAISE EXCEPTION 'Unknown interaction action';
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.promotion_preview(gid uuid, source_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  g public.groups;
+  s parapost_groups_private.promotion_settings;
+  m public.group_members;
+  source public.group_promotional_shares;
+  post public.group_posts;
+  expose boolean;
+BEGIN
+  IF NOT parapost_groups_private.enabled() THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT * INTO g
+  FROM public.groups
+  WHERE id = gid;
+
+  IF NOT FOUND
+     OR parapost_groups_private.blocked(auth.uid(), g.owner_id)
+  THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT * INTO m
+  FROM public.group_members
+  WHERE group_id = gid AND user_id = auth.uid();
+
+  IF m.status IN ('rejected','removed','banned') THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT * INTO s
+  FROM parapost_groups_private.promotion_settings
+  WHERE group_id = gid;
+
+  IF g.visibility = 'private'
+     AND NOT coalesce(s.enabled, false)
+  THEN
+    RETURN NULL;
+  END IF;
+
+  IF source_id IS NOT NULL THEN
+    SELECT * INTO source
+    FROM public.group_promotional_shares
+    WHERE id = source_id AND group_id = gid;
+
+    IF NOT FOUND
+       OR parapost_groups_private.blocked(
+         auth.uid(), source.user_id
+       )
+       OR NOT parapost_groups_private.promotion_actor(
+         gid, source.user_id
+       )
+    THEN
+      RETURN NULL;
+    END IF;
+
+    IF source.post_id IS NOT NULL THEN
+      SELECT * INTO post
+      FROM public.group_posts
+      WHERE id = source.post_id
+        AND group_id = gid
+        AND published
+        AND NOT is_deleted;
+
+      IF NOT FOUND
+         OR parapost_groups_private.blocked(
+           auth.uid(), post.author_id
+         )
+         OR parapost_groups_private.blocked(
+           source.user_id, post.author_id
+         )
+         OR NOT EXISTS (
+           SELECT 1 FROM public.group_members
+           WHERE group_id = gid
+             AND user_id = source.user_id
+             AND status = 'approved'
+         )
+      THEN
+        RETURN NULL;
+      END IF;
+    END IF;
+  END IF;
+
+  expose := g.visibility = 'public';
+
+  RETURN jsonb_build_object(
+    'group_id', gid,
+    'visibility', g.visibility,
+    'name',
+      CASE WHEN expose OR s.show_name
+        THEN g.name ELSE 'Private Group' END,
+    'description',
+      CASE WHEN expose OR s.show_description
+        THEN g.description ELSE NULL END,
+    'member_count',
+      CASE WHEN expose THEN (
+        SELECT count(*)
+        FROM public.group_members
+        WHERE group_id = gid AND status = 'approved'
+      ) ELSE NULL END,
+    'cover_key',
+      CASE
+        WHEN (expose OR s.show_cover)
+          AND g.cover_storage_path IS NOT NULL
+        THEN md5(g.cover_storage_path)
+        ELSE NULL
+      END,
+    'can_share',
+      parapost_groups_private.promotion_actor(
+        gid, auth.uid()
+      ) AND (
+        source.post_id IS NULL
+        OR (
+          m.status = 'approved'
+          AND NOT parapost_groups_private.blocked(
+            auth.uid(), post.author_id
+          )
+        )
+      ),
+    'approved', coalesce(m.status = 'approved', false),
+    'post_id',
+      CASE WHEN m.status = 'approved'
+        THEN source.post_id ELSE NULL END,
+    'kind',
+      CASE WHEN source.post_id IS NULL
+        THEN 'group' ELSE 'invitation' END
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.promotion_settings_command(gid uuid, changes jsonb DEFAULT NULL::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  s parapost_groups_private.promotion_settings;
+BEGIN
+  PERFORM 1
+  FROM public.groups
+  WHERE id = gid
+  FOR UPDATE;
+
+  IF NOT parapost_groups_private.allowed(gid, 'owner') THEN
+    RAISE EXCEPTION 'Not authorized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF changes IS NOT NULL THEN
+    IF jsonb_typeof(changes) <> 'object'
+       OR EXISTS (
+         SELECT 1
+         FROM jsonb_each(changes) e
+         WHERE e.key NOT IN (
+           'enabled','show_name','show_cover','show_description'
+         )
+         OR jsonb_typeof(e.value) <> 'boolean'
+       )
+       OR NOT (
+         changes ?& ARRAY[
+           'enabled','show_name','show_cover','show_description'
+         ]
+       )
+    THEN
+      RAISE EXCEPTION 'Invalid settings';
+    END IF;
+
+    INSERT INTO parapost_groups_private.promotion_settings
+      (group_id, enabled, show_name, show_cover, show_description)
+    VALUES (
+      gid,
+      (changes->>'enabled')::boolean,
+      (changes->>'show_name')::boolean,
+      (changes->>'show_cover')::boolean,
+      (changes->>'show_description')::boolean
+    )
+    ON CONFLICT (group_id)
+    DO UPDATE SET
+      enabled = EXCLUDED.enabled,
+      show_name = EXCLUDED.show_name,
+      show_cover = EXCLUDED.show_cover,
+      show_description = EXCLUDED.show_description;
+  END IF;
+
+  SELECT * INTO s
+  FROM parapost_groups_private.promotion_settings
+  WHERE group_id = gid;
+
+  RETURN jsonb_build_object(
+    'enabled', coalesce(s.enabled, false),
+    'show_name', coalesce(s.show_name, false),
+    'show_cover', coalesce(s.show_cover, false),
+    'show_description', coalesce(s.show_description, false)
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.promotion_share(gid uuid, pid uuid DEFAULT NULL::uuid, message text DEFAULT NULL::text, source_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  sid uuid;
+  source public.group_promotional_shares;
+  author uuid;
+BEGIN
+  PERFORM 1 FROM public.groups
+  WHERE id = gid FOR UPDATE;
+
+  IF NOT parapost_groups_private.enabled()
+     OR NOT parapost_groups_private.promotion_actor(
+       gid, auth.uid()
+     ) THEN
+    RAISE EXCEPTION 'Sharing unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Only approved members may create Group shares.
+  IF NOT parapost_groups_private.allowed(gid, 'member') THEN
+    RAISE EXCEPTION 'Sharing unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF char_length(message) > 1000 THEN
+    RAISE EXCEPTION 'Message too long';
+  END IF;
+
+  IF source_id IS NOT NULL THEN
+    IF parapost_groups_private.promotion_preview(
+      gid, source_id
+    ) IS NULL THEN
+      RAISE EXCEPTION 'Share unavailable'
+        USING ERRCODE = '42501';
+    END IF;
+
+    SELECT * INTO source
+    FROM public.group_promotional_shares
+    WHERE id = source_id AND group_id = gid;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Share unavailable'
+        USING ERRCODE = '42501';
+    END IF;
+
+    pid := source.post_id;
+  END IF;
+
+  IF pid IS NOT NULL THEN
+    SELECT author_id INTO author
+    FROM public.group_posts
+    WHERE id = pid
+      AND group_id = gid
+      AND published
+      AND NOT is_deleted;
+
+    IF NOT FOUND
+       OR NOT parapost_groups_private.allowed(
+         gid, 'member'
+       )
+       OR parapost_groups_private.blocked(
+         auth.uid(), author
+       ) THEN
+      RAISE EXCEPTION 'Post unavailable'
+        USING ERRCODE = '42501';
+    END IF;
+
+    -- Preserve existing public-post sharing.
+    IF (
+      SELECT visibility FROM public.groups WHERE id = gid
+    ) = 'public' THEN
+      RETURN public.groups_share_post(gid, pid, message);
+    END IF;
+  END IF;
+
+  PERFORM parapost_groups_private.record_share_cooldown(
+    CASE WHEN pid IS NULL THEN 'group' ELSE 'post' END,
+    COALESCE(pid, gid)
+  );
+
+  INSERT INTO public.group_promotional_shares
+    (group_id, post_id, user_id, caption)
+  VALUES (
+    gid, pid, auth.uid(), NULLIF(btrim(message), '')
+  )
+  RETURNING id INTO sid;
+
+  RETURN jsonb_build_object('id', sid);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.promotion_stats(p_share_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_group_id uuid;
+  v_sharer_id uuid;
+  v_comments jsonb;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT group_id, user_id INTO v_group_id, v_sharer_id
+  FROM public.group_promotional_shares
+  WHERE id = p_share_id;
+
+  IF NOT FOUND
+     OR parapost_groups_private.promotion_preview(
+       v_group_id, p_share_id
+     ) IS NULL THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', c.id,
+        'author_id', c.author_id,
+        'parent_id', c.parent_id,
+        'content', c.content,
+        'created_at', c.created_at,
+        'updated_at', c.updated_at,
+        'like_count', c.like_count,
+        'liked', c.liked
+      )
+      ORDER BY c.created_at, c.id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_comments
+  FROM (
+    SELECT
+      cm.*,
+      (
+        SELECT count(*)::integer
+        FROM public.group_promotion_share_comment_likes cl
+        WHERE cl.comment_id = cm.id
+          AND NOT parapost_groups_private.blocked(
+            v_uid, cl.user_id
+          )
+      ) AS like_count,
+      EXISTS (
+        SELECT 1
+        FROM public.group_promotion_share_comment_likes cl
+        WHERE cl.comment_id = cm.id
+          AND cl.user_id = v_uid
+      ) AS liked
+    FROM public.group_promotion_share_comments cm
+    WHERE cm.share_id = p_share_id
+      AND NOT parapost_groups_private.blocked(
+        v_uid, cm.author_id
+      )
+      AND (
+        cm.parent_id IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM public.group_promotion_share_comments parent
+          WHERE parent.id = cm.parent_id
+            AND parent.share_id = cm.share_id
+            AND parent.parent_id IS NULL
+            AND NOT parapost_groups_private.blocked(
+              v_uid, parent.author_id
+            )
+        )
+      )
+    ORDER BY cm.created_at, cm.id
+    LIMIT 150
+  ) c;
+
+  RETURN jsonb_build_object(
+    'liked', EXISTS (
+      SELECT 1
+      FROM public.group_promotion_share_likes l
+      WHERE l.share_id = p_share_id
+        AND l.user_id = v_uid
+    ),
+    'like_count', (
+      SELECT count(*)::integer
+      FROM public.group_promotion_share_likes l
+      WHERE l.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(
+          v_uid, l.user_id
+        )
+    ),
+    'comment_count', (
+      SELECT count(*)::integer
+      FROM public.group_promotion_share_comments c
+      WHERE c.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(
+          v_uid, c.author_id
+        )
+        AND (
+          c.parent_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM public.group_promotion_share_comments parent
+            WHERE parent.id = c.parent_id
+              AND parent.share_id = c.share_id
+              AND parent.parent_id IS NULL
+              AND NOT parapost_groups_private.blocked(
+                v_uid, parent.author_id
+              )
+          )
+        )
+    ),
+    'comments_limited', (
+      SELECT count(*) > 150
+      FROM public.group_promotion_share_comments c
+      WHERE c.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(
+          v_uid, c.author_id
+        )
+        AND (
+          c.parent_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM public.group_promotion_share_comments parent
+            WHERE parent.id = c.parent_id
+              AND parent.share_id = c.share_id
+              AND parent.parent_id IS NULL
+              AND NOT parapost_groups_private.blocked(
+                v_uid, parent.author_id
+              )
+          )
+        )
+    ),
+    'comments', v_comments
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.queue_cover_reservation()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public.groups WHERE cover_storage_path=OLD.storage_path) THEN
+   INSERT INTO parapost_groups_private.media_cleanup(storage_path) VALUES(OLD.storage_path) ON CONFLICT DO NOTHING;
+ END IF;
+ RETURN OLD;
+END; $function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.queue_media_cleanup()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+ IF TG_TABLE_NAME='group_post_media' THEN
+   INSERT INTO parapost_groups_private.media_cleanup(storage_path) VALUES (OLD.storage_path) ON CONFLICT DO NOTHING;
+ ELSE
+   IF OLD.cover_storage_path IS NOT NULL AND (TG_OP='DELETE' OR OLD.cover_storage_path IS DISTINCT FROM NEW.cover_storage_path) THEN
+     INSERT INTO parapost_groups_private.media_cleanup(storage_path) VALUES (OLD.cover_storage_path) ON CONFLICT DO NOTHING;
+   END IF;
+ END IF;
+ RETURN OLD;
+END; $function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.record_share_cooldown(p_target_type text, p_target_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_previous timestamptz;
+  v_gap interval;
+  v_remaining_seconds integer;
+BEGIN
+  IF auth.uid() IS NULL
+     OR p_target_id IS NULL
+     OR p_target_type IS NULL
+     OR p_target_type NOT IN ('group', 'post') THEN
+    RAISE EXCEPTION 'Sharing unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  v_gap := CASE
+    WHEN p_target_type = 'group'
+      THEN interval '72 hours'
+    ELSE interval '7 days'
+  END;
+
+  SELECT last_shared_at INTO v_previous
+  FROM parapost_groups_private.group_share_cooldowns
+  WHERE user_id = auth.uid()
+    AND target_type = p_target_type
+    AND target_id = p_target_id
+  FOR UPDATE;
+
+  IF v_previous IS NOT NULL
+     AND now() < v_previous + v_gap THEN
+
+    v_remaining_seconds := CEIL(
+      EXTRACT(EPOCH FROM (v_previous + v_gap - now()))
+    )::integer;
+
+    RAISE EXCEPTION 'GROUP_SHARE_COOLDOWN'
+      USING
+        ERRCODE = 'P0001',
+        DETAIL = jsonb_build_object(
+          'kind', p_target_type,
+          'retry_after_seconds', v_remaining_seconds
+        )::text;
+  END IF;
+
+  INSERT INTO parapost_groups_private.group_share_cooldowns
+    (user_id, target_type, target_id, last_shared_at)
+  VALUES (auth.uid(), p_target_type, p_target_id, now())
+  ON CONFLICT (user_id, target_type, target_id)
+  DO UPDATE SET last_shared_at = EXCLUDED.last_shared_at;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.request_membership(p_group_id uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_visibility text;
+  v_owner_id uuid;
+  v_status text;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required'
+      USING ERRCODE = '28000';
+  END IF;
+
+  SELECT g.visibility, g.owner_id
+    INTO v_visibility, v_owner_id
+  FROM public.groups g
+  WHERE g.id = p_group_id
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group unavailable';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.blocked_users b
+    WHERE
+      (b.blocker_id = v_user_id
+       AND b.blocked_id = v_owner_id)
+      OR
+      (b.blocked_id = v_user_id
+       AND b.blocker_id = v_owner_id)
+  ) THEN
+    RAISE EXCEPTION 'Membership unavailable';
+  END IF;
+
+  INSERT INTO public.group_members (
+    group_id,
+    user_id,
+    role,
+    status,
+    approved_at
+  )
+  VALUES (
+    p_group_id,
+    v_user_id,
+    'member',
+    CASE
+      WHEN v_visibility = 'public'
+      THEN 'approved'
+      ELSE 'pending'
+    END,
+    CASE
+      WHEN v_visibility = 'public'
+      THEN now()
+      ELSE NULL
+    END
+  )
+  ON CONFLICT (group_id, user_id)
+  DO NOTHING;
+
+  SELECT gm.status
+    INTO v_status
+  FROM public.group_members gm
+  WHERE gm.group_id = p_group_id
+    AND gm.user_id = v_user_id;
+
+  IF v_status NOT IN ('approved', 'pending')
+     OR v_status IS NULL THEN
+    RAISE EXCEPTION 'Membership unavailable';
+  END IF;
+
+  RETURN v_status;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.review_membership(p_group_id uuid, p_target_user_id uuid, p_decision text)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_reviewer uuid := auth.uid();
+  v_owner_id uuid;
+  v_reviewer_role text;
+  v_final_status text;
+BEGIN
+  IF v_reviewer IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  IF p_group_id IS NULL
+     OR p_target_user_id IS NULL
+     OR p_decision IS NULL
+     OR p_decision NOT IN ('approved', 'rejected') THEN
+    RAISE EXCEPTION 'Invalid membership review';
+  END IF;
+
+  SELECT g.owner_id
+    INTO v_owner_id
+  FROM public.groups g
+  WHERE g.id = p_group_id
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group unavailable';
+  END IF;
+
+  SELECT gm.role
+    INTO v_reviewer_role
+  FROM public.group_members gm
+  WHERE gm.group_id = p_group_id
+    AND gm.user_id = v_reviewer
+    AND gm.status = 'approved'
+    AND gm.role IN ('owner', 'admin')
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Not authorized to review membership';
+  END IF;
+
+  IF p_decision = 'approved' AND EXISTS (
+    SELECT 1
+    FROM public.blocked_users b
+    WHERE
+      (
+        b.blocker_id = p_target_user_id
+        AND b.blocked_id IN (v_owner_id, v_reviewer)
+      )
+      OR
+      (
+        b.blocked_id = p_target_user_id
+        AND b.blocker_id IN (v_owner_id, v_reviewer)
+      )
+  ) THEN
+    RAISE EXCEPTION 'Membership unavailable';
+  END IF;
+
+  UPDATE public.group_members gm
+  SET
+    status = p_decision,
+    approved_at = CASE
+      WHEN p_decision = 'approved'
+      THEN now()
+      ELSE NULL
+    END
+  WHERE gm.group_id = p_group_id
+    AND gm.user_id = p_target_user_id
+    AND gm.role = 'member'
+    AND gm.status = 'pending'
+  RETURNING gm.status INTO v_final_status;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Pending membership unavailable';
+  END IF;
+
+  RETURN v_final_status;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.storage_allowed(path text, operation text)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+
+SELECT parapost_groups_private.enabled() AND (
+  CASE
+    WHEN operation = 'read' THEN
+      EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.cover_storage_path = path
+          AND parapost_groups_private.allowed(
+            g.id, 'directory'
+          )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.avatar_storage_path = path
+          AND parapost_groups_private.allowed(
+            g.id, 'directory'
+          )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.group_post_media m
+        JOIN public.group_posts p
+          ON p.id = m.post_id
+         AND p.group_id = m.group_id
+        WHERE (
+          m.storage_path = path
+          OR (
+            m.poster_path = path
+            AND m.media_type = 'video'
+            AND m.poster_path = m.storage_path || '.poster.jpg'
+          )
+        )
+          AND NOT p.is_deleted
+          AND parapost_groups_private.allowed(
+            p.group_id, 'read'
+          )
+
+          -- Blocked-user privacy protection
+          AND parapost_groups_private.author_visible_to_viewer(
+            p.author_id
+          )
+
+          AND (
+            p.published
+            OR (
+              p.author_id = auth.uid()
+              AND parapost_groups_private.allowed(
+                p.group_id, 'member'
+              )
+            )
+          )
+      )
+
+    WHEN operation = 'insert' THEN
+      EXISTS (
+        SELECT 1
+        FROM parapost_groups_private.cover_uploads c
+        WHERE c.storage_path = path
+          AND c.uploader_id = auth.uid()
+          AND c.created_at > now() - interval '1 hour'
+          AND parapost_groups_private.allowed(
+            c.group_id, 'admin'
+          )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM parapost_groups_private.avatar_uploads a
+        JOIN public.groups g ON g.id = a.group_id
+        WHERE a.storage_path = path
+          AND a.uploader_id = auth.uid()
+          AND g.owner_id = auth.uid()
+          AND a.created_at > now() - interval '1 hour'
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.group_post_media m
+        JOIN public.group_posts p
+          ON p.id = m.post_id
+         AND p.group_id = m.group_id
+        WHERE (
+          m.storage_path = path
+          OR (
+            m.poster_path = path
+            AND m.media_type = 'video'
+            AND m.poster_path = m.storage_path || '.poster.jpg'
+          )
+        )
+          AND m.uploader_id = auth.uid()
+          AND p.author_id = auth.uid()
+          AND NOT p.published
+          AND NOT p.is_deleted
+          AND p.created_at > now() - interval '1 hour'
+          AND parapost_groups_private.allowed(
+            p.group_id, 'member'
+          )
+      )
+    ELSE false
+  END
+);
+
+$function$;
+
+CREATE OR REPLACE FUNCTION public.community_notification_for_push(p_notification_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    n public.notifications;
+BEGIN
+    SELECT * INTO n
+    FROM public.notifications
+    WHERE id = p_notification_id;
+
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+
+    IF (
+        n.type IN ('creatorverse_follow', 'creatorverse_like', 'creatorverse_comment', 'creatorverse_reply', 'creatorverse_share', 'creatorverse_comment_like', 'group_post', 'group_like', 'group_comment', 'group_reply', 'group_share', 'group_comment_like')
+    )
+    AND NOT creatorverse_private.community_notification_visible(n)
+    THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN to_jsonb(n);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.creatorverse_cancel_page_media(p_page_id uuid, p_media_id uuid, p_owner_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_media record;
+BEGIN
+  IF current_user <> 'service_role'
+     OR p_page_id IS NULL
+     OR p_media_id IS NULL
+     OR p_owner_id IS NULL
+  THEN
+    RAISE EXCEPTION 'Not authorized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Keep lock order consistent with page ownership.
+  PERFORM 1
+  FROM public.creatorverse_pages
+  WHERE id = p_page_id
+    AND owner_id = p_owner_id
+    AND status IN ('draft', 'active')
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+
+  SELECT id, purpose, verification
+  INTO v_media
+  FROM public.creatorverse_media
+  WHERE id = p_media_id
+    AND page_id = p_page_id
+    AND purpose IN ('logo', 'cover')
+    AND post_id IS NULL
+    AND media_type = 'image'
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_media.verification <> 'pending' THEN
+    RETURN false;
+  END IF;
+
+  -- Prevent any further upload through the reservation.
+  UPDATE creatorverse_private.upload_reservations
+  SET expires_at = pg_catalog.statement_timestamp()
+  WHERE page_id = p_page_id
+    AND media_id = p_media_id
+    AND owner_id = p_owner_id
+    AND consumed_at IS NULL;
+
+  UPDATE public.creatorverse_media
+  SET verification = 'rejected'
+  WHERE id = p_media_id
+    AND page_id = p_page_id
+    AND verification = 'pending';
+
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+
+  -- Never remove storage.objects here.
+  -- Cleanup must account for late uploads and retries.
+  RETURN true;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.creatorverse_delete_post(p_page_id uuid, p_post_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+  v_post uuid;
+BEGIN
+  IF v_user IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+     OR NOT creatorverse_private.read_page(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Post management unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM 1
+  FROM public.creatorverse_pages
+  WHERE id = p_page_id
+  FOR UPDATE;
+
+  SELECT id INTO v_post
+  FROM public.creatorverse_posts
+  WHERE id = p_post_id
+    AND page_id = p_page_id
+    AND author_id = v_user
+    AND status = 'published'
+  FOR UPDATE;
+
+  IF v_post IS NULL THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE public.creatorverse_posts
+  SET status = 'deleted',
+      updated_at = now()
+  WHERE id = v_post
+  RETURNING id INTO v_post;
+
+  RETURN v_post;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.creatorverse_directory_member_counts(p_page_ids uuid[])
+ RETURNS TABLE(page_id uuid, member_count bigint)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT
+    p.id,
+    COUNT(f.user_id)::bigint
+  FROM public.creatorverse_pages AS p
+  LEFT JOIN public.creatorverse_follows AS f
+    ON f.page_id = p.id
+  WHERE cardinality(p_page_ids) BETWEEN 1 AND 25
+    AND p.id = ANY(p_page_ids)
+    AND p.status = 'active'
+    AND creatorverse_private.read_page(p.id)
+  GROUP BY p.id;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.creatorverse_edit_post(p_page_id uuid, p_post_id uuid, p_content text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+  v_post uuid;
+  v_content text := btrim(p_content);
+BEGIN
+  IF v_user IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+     OR NOT creatorverse_private.read_page(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Post management unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM 1
+  FROM public.creatorverse_pages
+  WHERE id = p_page_id
+  FOR UPDATE;
+
+  SELECT id INTO v_post
+  FROM public.creatorverse_posts
+  WHERE id = p_post_id
+    AND page_id = p_page_id
+    AND author_id = v_user
+    AND status = 'published'
+  FOR UPDATE;
+
+  IF v_post IS NULL THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF v_content IS NULL
+     OR char_length(v_content) > 5000
+     OR translate(v_content, E'\n\r\t', '') ~ '[[:cntrl:]]'
+  THEN
+    RAISE EXCEPTION 'Invalid post content'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF v_content = '' AND NOT EXISTS (
+    SELECT 1
+    FROM public.creatorverse_media
+    WHERE page_id = p_page_id
+      AND post_id = p_post_id
+      AND purpose = 'post'
+      AND verification = 'verified'
+  ) THEN
+    RAISE EXCEPTION 'Post cannot be empty'
+      USING ERRCODE = '23514';
+  END IF;
+
+  UPDATE public.creatorverse_posts
+  SET content = v_content,
+      updated_at = now()
+  WHERE id = v_post
+  RETURNING id INTO v_post;
+
+  RETURN v_post;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.creatorverse_finalize_page_media(p_media_id uuid, p_verified_bytes bigint, p_detected_mime_type text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_media record;
+  v_owner uuid;
+  v_page_status text;
+  v_reservation uuid;
+  v_extension text;
+BEGIN
+  IF current_user <> 'service_role' THEN
+    RAISE EXCEPTION 'Not authorized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Read the page identifier without locking media.
+  -- It is immutable because of the existing foreign key.
+  SELECT page_id
+  INTO v_media
+  FROM public.creatorverse_media
+  WHERE id = p_media_id
+    AND purpose IN ('logo', 'cover')
+    AND post_id IS NULL
+    AND media_type = 'image';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Pending page image not found';
+  END IF;
+
+  -- Acquire locks consistently: page, media, reservation.
+  SELECT owner_id, status
+  INTO v_owner, v_page_status
+  FROM public.creatorverse_pages
+  WHERE id = v_media.page_id
+  FOR UPDATE;
+
+  IF NOT FOUND
+     OR v_page_status NOT IN ('draft', 'active')
+  THEN
+    RAISE EXCEPTION 'Page unavailable';
+  END IF;
+
+  SELECT page_id, purpose, mime_type,
+         storage_path, verification
+  INTO v_media
+  FROM public.creatorverse_media
+  WHERE id = p_media_id
+    AND page_id = v_media.page_id
+    AND purpose IN ('logo', 'cover')
+    AND post_id IS NULL
+    AND media_type = 'image'
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_media.verification <> 'pending' THEN
+    RAISE EXCEPTION 'Pending page image not found';
+  END IF;
+
+  SELECT id
+  INTO v_reservation
+  FROM creatorverse_private.upload_reservations
+  WHERE media_id = p_media_id
+    AND page_id = v_media.page_id
+    AND owner_id = v_owner
+    AND consumed_at IS NULL
+    AND expires_at > pg_catalog.statement_timestamp()
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Reservation expired or consumed';
+  END IF;
+
+  v_extension := CASE v_media.mime_type
+    WHEN 'image/jpeg' THEN 'jpg'
+    WHEN 'image/png' THEN 'png'
+    WHEN 'image/webp' THEN 'webp'
+    ELSE NULL
+  END;
+
+  IF v_extension IS NULL
+     OR p_detected_mime_type IS DISTINCT FROM v_media.mime_type
+     OR p_verified_bytes IS NULL
+     OR p_verified_bytes NOT BETWEEN 1 AND 8388608
+  THEN
+    RAISE EXCEPTION 'Invalid image verification';
+  END IF;
+
+  IF v_media.storage_path IS DISTINCT FROM (
+    v_media.page_id::text || '/' ||
+    v_media.purpose || '/' ||
+    p_media_id::text || '.' || v_extension
+  ) THEN
+    RAISE EXCEPTION 'Invalid image storage path';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM storage.objects
+    WHERE bucket_id = 'creatorverse-media'
+      AND name = v_media.storage_path
+  ) THEN
+    RAISE EXCEPTION 'Uploaded image missing';
+  END IF;
+
+  UPDATE creatorverse_private.upload_reservations
+  SET consumed_at = pg_catalog.statement_timestamp()
+  WHERE id = v_reservation
+    AND consumed_at IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Reservation consumption failed';
+  END IF;
+
+  UPDATE public.creatorverse_media
+  SET verification = 'verified',
+      byte_size = p_verified_bytes
+  WHERE id = p_media_id
+    AND verification = 'pending';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Image finalization failed';
+  END IF;
+
+  IF v_media.purpose = 'logo' THEN
+    UPDATE public.creatorverse_pages
+    SET logo_media_id = p_media_id
+    WHERE id = v_media.page_id
+      AND owner_id = v_owner
+      AND status IN ('draft', 'active');
+  ELSE
+    UPDATE public.creatorverse_pages
+    SET cover_media_id = p_media_id
+    WHERE id = v_media.page_id
+      AND owner_id = v_owner
+      AND status IN ('draft', 'active');
+  END IF;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Image attachment failed';
+  END IF;
+
+  RETURN true;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.creatorverse_page_access(p_page_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+  SELECT jsonb_build_object(
+    'can_manage',creatorverse_private.write_enabled() AND creatorverse_private.owns(p_page_id),
+    'can_publish',creatorverse_private.write_enabled() AND creatorverse_private.owns(p_page_id) AND creatorverse_private.read_page(p_page_id)
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.creatorverse_reserve_page_media(p_page_id uuid, p_purpose text, p_mime_type text, p_byte_size bigint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+  v_id uuid;
+  v_extension text;
+  v_path text;
+  v_now timestamptz := pg_catalog.statement_timestamp();
+BEGIN
+  IF v_user IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Page image reservation unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Lock page to serialize owner reservations.
+  PERFORM 1
+  FROM public.creatorverse_pages
+  WHERE id = p_page_id
+    AND owner_id = v_user
+    AND status IN ('draft', 'active')
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Page unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_purpose NOT IN ('logo', 'cover')
+     OR p_purpose IS NULL
+  THEN
+    RAISE EXCEPTION 'Invalid page image purpose'
+      USING ERRCODE = '22023';
+  END IF;
+
+  v_extension := CASE p_mime_type
+    WHEN 'image/jpeg' THEN 'jpg'
+    WHEN 'image/png' THEN 'png'
+    WHEN 'image/webp' THEN 'webp'
+    ELSE NULL
+  END;
+
+  IF v_extension IS NULL
+     OR p_byte_size IS NULL
+     OR p_byte_size NOT BETWEEN 1 AND 8388608
+  THEN
+    RAISE EXCEPTION 'Invalid image format or size'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Limit pending unexpired reservations for each image purpose.
+  IF (
+    SELECT count(*)
+    FROM public.creatorverse_media m
+    JOIN creatorverse_private.upload_reservations r
+      ON r.media_id = m.id
+     AND r.page_id = m.page_id
+    WHERE m.page_id = p_page_id
+      AND m.purpose = p_purpose
+      AND m.verification = 'pending'
+      AND r.owner_id = v_user
+      AND r.consumed_at IS NULL
+      AND r.expires_at > v_now
+  ) >= 3 THEN
+    RAISE EXCEPTION 'Too many pending page image uploads'
+      USING ERRCODE = '42901';
+  END IF;
+
+  -- Bound reservation attempts within one hour.
+  IF (
+    SELECT count(*)
+    FROM public.creatorverse_media
+    WHERE page_id = p_page_id
+      AND purpose IN ('logo', 'cover')
+      AND created_at > v_now - interval '1 hour'
+  ) >= 12 THEN
+    RAISE EXCEPTION 'Page image reservation limit reached'
+      USING ERRCODE = '42901';
+  END IF;
+
+  v_id := pg_catalog.gen_random_uuid();
+
+  v_path :=
+    p_page_id::text || '/' ||
+    p_purpose || '/' ||
+    v_id::text || '.' || v_extension;
+
+  INSERT INTO public.creatorverse_media (
+    id,
+    page_id,
+    post_id,
+    purpose,
+    media_type,
+    mime_type,
+    storage_path,
+    verification,
+    display_order
+  )
+  VALUES (
+    v_id,
+    p_page_id,
+    NULL,
+    p_purpose,
+    'image',
+    p_mime_type,
+    v_path,
+    'pending',
+    0
+  );
+
+  INSERT INTO creatorverse_private.upload_reservations (
+    page_id,
+    media_id,
+    owner_id,
+    expires_at
+  )
+  VALUES (
+    p_page_id,
+    v_id,
+    v_user,
+    v_now + interval '30 minutes'
+  );
+
+  RETURN pg_catalog.jsonb_build_object(
+    'media_id', v_id,
+    'storage_path', v_path,
+    'verification', 'pending'
+  );
+END;
+$function$;
