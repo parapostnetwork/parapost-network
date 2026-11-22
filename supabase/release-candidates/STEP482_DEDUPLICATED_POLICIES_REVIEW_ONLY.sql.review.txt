@@ -1,0 +1,329 @@
+-- PARAPOST NETWORK - STEP 482
+-- DEDUPLICATED COMMUNITY POLICY CANDIDATES
+-- REVIEW ONLY. DO NOT EXECUTE.
+-- Conflicting definitions are excluded pending resolution.
+-- No existing production policy is dropped.
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_comment_likes.creatorverse_comment_like_create
+CREATE POLICY creatorverse_comment_like_create
+ON public.creatorverse_comment_likes FOR INSERT
+TO authenticated
+WITH CHECK (
+  creatorverse_private.write_enabled()
+  AND user_id = auth.uid()
+  AND creatorverse_private.read_comment(comment_id)
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_comment_likes.creatorverse_comment_like_delete
+CREATE POLICY creatorverse_comment_like_delete
+ON public.creatorverse_comment_likes FOR DELETE
+TO authenticated
+USING (
+  creatorverse_private.write_enabled()
+  AND user_id = auth.uid()
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_comment_likes.creatorverse_comment_like_read
+CREATE POLICY creatorverse_comment_like_read
+ON public.creatorverse_comment_likes FOR SELECT
+TO authenticated
+USING (
+  creatorverse_private.read_comment(comment_id)
+  AND NOT creatorverse_private.blocked(user_id)
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_comments.creatorverse_comment_create
+CREATE POLICY creatorverse_comment_create
+ON public.creatorverse_comments FOR INSERT
+TO authenticated
+WITH CHECK (
+  author_id = auth.uid()
+  AND NOT is_deleted
+  AND creatorverse_private.comment_allowed(
+    post_id, parent_id
+  )
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_comments.creatorverse_comment_edit
+CREATE POLICY creatorverse_comment_edit
+ON public.creatorverse_comments FOR UPDATE
+TO authenticated
+USING (
+  creatorverse_private.write_enabled()
+  AND author_id = auth.uid()
+  AND creatorverse_private.read_comment(id)
+)
+WITH CHECK (
+  author_id = auth.uid()
+  AND creatorverse_private.comment_allowed(
+    post_id, parent_id
+  )
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_comments.creatorverse_comment_read
+CREATE POLICY creatorverse_comment_read
+ON public.creatorverse_comments FOR SELECT
+TO anon, authenticated
+USING (creatorverse_private.read_comment(id));
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_follows.creatorverse_follow_create
+CREATE POLICY creatorverse_follow_create
+ON public.creatorverse_follows FOR INSERT
+TO authenticated
+WITH CHECK (
+  creatorverse_private.write_enabled()
+  AND user_id = auth.uid()
+  AND creatorverse_private.read_page(page_id)
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_follows.creatorverse_follow_delete
+CREATE POLICY creatorverse_follow_delete
+ON public.creatorverse_follows FOR DELETE
+TO authenticated
+USING (
+  creatorverse_private.write_enabled()
+  AND user_id = auth.uid()
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_follows.creatorverse_follow_read
+CREATE POLICY creatorverse_follow_read
+ON public.creatorverse_follows FOR SELECT
+TO authenticated
+USING (
+  creatorverse_private.read_page(page_id)
+  AND (
+    user_id = auth.uid()
+    OR creatorverse_private.owns(page_id)
+  )
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_media.creatorverse_media_owner_read
+CREATE POLICY creatorverse_media_owner_read
+ON public.creatorverse_media FOR SELECT
+TO authenticated
+USING (creatorverse_private.owns(page_id));
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_pages.creatorverse_page_create
+CREATE POLICY creatorverse_page_create
+ON public.creatorverse_pages FOR INSERT
+TO authenticated
+WITH CHECK (
+  creatorverse_private.write_enabled()
+  AND owner_id = auth.uid()
+  AND status = 'draft'
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_pages.creatorverse_page_edit
+CREATE POLICY creatorverse_page_edit
+ON public.creatorverse_pages FOR UPDATE
+TO authenticated
+USING (
+  creatorverse_private.write_enabled()
+  AND creatorverse_private.owns(id)
+)
+WITH CHECK (
+  creatorverse_private.write_enabled()
+  AND owner_id = auth.uid()
+  AND status IN ('draft', 'active', 'deleted')
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_pages.creatorverse_page_owner_read
+CREATE POLICY creatorverse_page_owner_read
+ON public.creatorverse_pages FOR SELECT
+TO authenticated
+USING (creatorverse_private.owns(id));
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_pages.creatorverse_page_read
+CREATE POLICY creatorverse_page_read
+ON public.creatorverse_pages FOR SELECT
+TO anon, authenticated
+USING (creatorverse_private.read_page(id));
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_post_likes.creatorverse_post_like_create
+CREATE POLICY creatorverse_post_like_create
+ON public.creatorverse_post_likes FOR INSERT
+TO authenticated
+WITH CHECK (
+  creatorverse_private.write_enabled()
+  AND user_id = auth.uid()
+  AND creatorverse_private.read_post(post_id)
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_post_likes.creatorverse_post_like_delete
+CREATE POLICY creatorverse_post_like_delete
+ON public.creatorverse_post_likes FOR DELETE
+TO authenticated
+USING (
+  creatorverse_private.write_enabled()
+  AND user_id = auth.uid()
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_post_likes.creatorverse_post_like_read
+CREATE POLICY creatorverse_post_like_read
+ON public.creatorverse_post_likes FOR SELECT
+TO authenticated
+USING (
+  creatorverse_private.read_post(post_id)
+  AND NOT creatorverse_private.blocked(user_id)
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_posts.creatorverse_post_create
+CREATE POLICY creatorverse_post_create
+ON public.creatorverse_posts FOR INSERT
+TO authenticated
+WITH CHECK (
+  creatorverse_private.write_enabled()
+  AND creatorverse_private.owns(page_id)
+  AND author_id = auth.uid()
+  AND status = 'draft'
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_posts.creatorverse_post_edit
+CREATE POLICY creatorverse_post_edit
+ON public.creatorverse_posts FOR UPDATE
+TO authenticated
+USING (
+  creatorverse_private.write_enabled()
+  AND creatorverse_private.owns(page_id)
+  AND author_id = auth.uid()
+  AND status = 'draft'
+)
+WITH CHECK (
+  creatorverse_private.write_enabled()
+  AND creatorverse_private.owns(page_id)
+  AND author_id = auth.uid()
+  AND status = 'draft'
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_posts.creatorverse_post_owner_read
+CREATE POLICY creatorverse_post_owner_read
+ON public.creatorverse_posts FOR SELECT
+TO authenticated
+USING (creatorverse_private.owns(page_id));
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_posts.creatorverse_post_read
+CREATE POLICY creatorverse_post_read
+ON public.creatorverse_posts FOR SELECT
+TO anon, authenticated
+USING (creatorverse_private.read_post(id));
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_shares.creatorverse_share_create
+CREATE POLICY creatorverse_share_create
+ON public.creatorverse_shares FOR INSERT
+TO authenticated
+WITH CHECK (
+  creatorverse_private.write_enabled()
+  AND sharer_id = auth.uid()
+  AND creatorverse_private.read_post(post_id)
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_shares.creatorverse_share_delete
+CREATE POLICY creatorverse_share_delete
+ON public.creatorverse_shares FOR DELETE
+TO authenticated
+USING (
+  creatorverse_private.write_enabled()
+  AND sharer_id = auth.uid()
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: public.creatorverse_shares.creatorverse_share_read
+CREATE POLICY creatorverse_share_read
+ON public.creatorverse_shares FOR SELECT
+TO anon, authenticated
+USING (
+  creatorverse_private.read_post(post_id)
+  AND NOT creatorverse_private.blocked(sharer_id)
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: storage.buckets.groups_bucket_delete_guard
+CREATE POLICY groups_bucket_delete_guard
+ON storage.buckets AS RESTRICTIVE FOR DELETE
+TO public
+USING (id <> 'group-media');
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: storage.buckets.groups_bucket_insert_guard
+CREATE POLICY groups_bucket_insert_guard
+ON storage.buckets AS RESTRICTIVE FOR INSERT
+TO public
+WITH CHECK (id <> 'group-media');
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: storage.buckets.groups_bucket_update_guard
+CREATE POLICY groups_bucket_update_guard
+ON storage.buckets AS RESTRICTIVE FOR UPDATE
+TO public
+USING (id <> 'group-media')
+WITH CHECK (id <> 'group-media');
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: storage.objects.cv_media_lock_delete
+CREATE POLICY cv_media_lock_delete
+ON storage.objects AS RESTRICTIVE FOR DELETE
+TO public
+USING (bucket_id <> 'creatorverse-media');
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: storage.objects.cv_media_lock_insert
+CREATE POLICY cv_media_lock_insert
+ON storage.objects AS RESTRICTIVE FOR INSERT
+TO public
+WITH CHECK (
+  bucket_id <> 'creatorverse-media'
+  OR (
+    auth.uid() IS NOT NULL
+    AND storage.allow_only_operation('object.upload')
+    AND creatorverse_private.storage_allowed(name, 'upload')
+  )
+);
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: storage.objects.cv_media_lock_select
+CREATE POLICY cv_media_lock_select
+ON storage.objects AS RESTRICTIVE FOR SELECT
+TO public
+USING (bucket_id <> 'creatorverse-media');
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: storage.objects.cv_media_lock_update
+CREATE POLICY cv_media_lock_update
+ON storage.objects AS RESTRICTIVE FOR UPDATE
+TO public
+USING (bucket_id <> 'creatorverse-media')
+WITH CHECK (bucket_id <> 'creatorverse-media');
+
+-- SOURCE: STEP481_COMMUNITY_POLICIES_REVIEW_ONLY.sql.review.txt
+-- POLICY: storage.objects.cv_media_owner_upload
+CREATE POLICY cv_media_owner_upload
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'creatorverse-media'
+  AND storage.allow_only_operation('object.upload')
+  AND creatorverse_private.storage_allowed(name, 'upload')
+);

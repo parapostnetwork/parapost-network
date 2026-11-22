@@ -1,0 +1,21 @@
+-- PARAPOST NETWORK - STEP 482
+-- MINIMAL TABLE GRANT CANDIDATES
+-- REVIEW ONLY. DO NOT EXECUTE.
+--
+-- Derived from local policy operation/role declarations.
+-- NOT independently verified against staging ACLs.
+-- No Storage, notifications or private-schema grants.
+-- RLS and all required functions must exist first.
+
+GRANT SELECT, INSERT, DELETE ON TABLE public.creatorverse_comment_likes TO authenticated;
+GRANT SELECT ON TABLE public.creatorverse_comments TO anon;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.creatorverse_comments TO authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE public.creatorverse_follows TO authenticated;
+GRANT SELECT ON TABLE public.creatorverse_media TO authenticated;
+GRANT SELECT ON TABLE public.creatorverse_pages TO anon;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.creatorverse_pages TO authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE public.creatorverse_post_likes TO authenticated;
+GRANT SELECT ON TABLE public.creatorverse_posts TO anon;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.creatorverse_posts TO authenticated;
+GRANT SELECT ON TABLE public.creatorverse_shares TO anon;
+GRANT SELECT, INSERT, DELETE ON TABLE public.creatorverse_shares TO authenticated;
