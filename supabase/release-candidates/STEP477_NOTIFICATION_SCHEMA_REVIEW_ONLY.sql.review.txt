@@ -22,6 +22,31 @@ ALTER TABLE public.notifications
 -- The following replacement matches the staging type list,
 -- but is NOT yet approved for production execution.
 
+-- STEP 480: Verify the exact existing production
+-- notification constraint before replacing it.
+-- Abort safely if another deployment has changed it.
+
+DO $step480$
+DECLARE
+  v_definition text;
+BEGIN
+  SELECT pg_get_constraintdef(c.oid)
+  INTO v_definition
+  FROM pg_constraint c
+  WHERE c.conrelid = 'public.notifications'::regclass
+    AND c.conname = 'notifications_type_check'
+    AND c.contype = 'c';
+
+  IF v_definition IS NULL
+     OR md5(v_definition)
+        <> '6ccef9f14736d3947b8682d9d7873b3e'
+  THEN
+    RAISE EXCEPTION
+      'Production notification constraint changed; release stopped';
+  END IF;
+END;
+$step480$;
+
 ALTER TABLE public.notifications
   DROP CONSTRAINT notifications_type_check;
 
