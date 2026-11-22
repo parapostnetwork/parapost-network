@@ -1,4 +1,5 @@
 'use client';
+import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -24,8 +25,7 @@ type Props = {
 };
 
 const stagingSocialReady =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
-    'https://vmgelrgrtpghmvqgufzz.supabase.co' &&
+  communityClientTargetAllowed() &&
   process.env.NEXT_PUBLIC_CREATORVERSE_SOCIAL_UI_ENABLED === 'true';
 
 export default function CreatorVersePostActions(props: Props) {

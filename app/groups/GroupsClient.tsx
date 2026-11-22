@@ -1,4 +1,5 @@
 'use client';
+import { communityStorageNamespace } from '@/lib/community/release-target';
 import ExpandablePostText from '@/components/ExpandablePostText';
 
 import { DotsIcon } from "@/components/PostActionIcons";
@@ -376,7 +377,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
   const serverSearch=filter==='mine'?'':search;
   useEffect(()=>{
     if(!groupId||!group?.id||!approved||!userId)return;
-    const key=`parapost:groups:vmgelrgrtpghmvqgufzz:${userId}`;
+    const key=`parapost:groups:${communityStorageNamespace()}:${userId}`;
     try{const preferences=parseGroupPreferences(localStorage.getItem(key));preferences.visits[group.id]=Date.now();localStorage.setItem(key,JSON.stringify(preferences));}catch{/* Browser storage is optional. */}
   },[groupId,group?.id,approved,userId]);
 

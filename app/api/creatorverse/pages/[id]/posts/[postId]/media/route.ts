@@ -1,3 +1,5 @@
+import { creatorVerseEnabled } from '@/lib/creatorverse/config';
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { createClient } from "@supabase/supabase-js";
 import { pageId } from "@/lib/creatorverse/validation";
 
@@ -36,7 +38,8 @@ export async function GET(
 
   if (
     process.env.CREATORVERSE_POST_MEDIA_READ_ENABLED !== "true" ||
-    url !== "https://vmgelrgrtpghmvqgufzz.supabase.co" ||
+    !url || !communityServerTargetAllowed(url) ||
+    !creatorVerseEnabled() ||
     !key
   ) {
     return unavailable();

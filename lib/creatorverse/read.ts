@@ -1,3 +1,5 @@
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
+import { creatorVerseEnabled } from '@/lib/creatorverse/config';
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CreatorVerseError } from './permissions';
@@ -86,8 +88,7 @@ export async function readPublicPage(client: SupabaseClient, id: string, offset 
 
   if (
     process.env.CREATORVERSE_POST_MEDIA_READ_ENABLED === 'true' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL ===
-      'https://vmgelrgrtpghmvqgufzz.supabase.co' &&
+    communityServerTargetAllowed() && creatorVerseEnabled() &&
     posts.length > 0
   ) {
     const mediaResult = await client

@@ -1,3 +1,4 @@
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { CreatorVerseError } from '@/lib/creatorverse/permissions';
 import { pageId } from '@/lib/creatorverse/validation';
 import {
@@ -18,7 +19,7 @@ export const dynamic = 'force-dynamic';
  */
 const PAGE_IMAGE_RESERVATIONS_ENABLED = (
     process.env.CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://vmgelrgrtpghmvqgufzz.supabase.co'
+    communityServerTargetAllowed()
 );
 
 type RouteContext = {

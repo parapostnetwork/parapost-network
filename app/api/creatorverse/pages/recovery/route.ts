@@ -1,3 +1,4 @@
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { createClient } from '@supabase/supabase-js';
 import { creatorVerseClient, creatorVerseErrorResponse, creatorVerseHeaders } from '@/lib/creatorverse/server';
 import { CreatorVerseError } from '@/lib/creatorverse/permissions';
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
     const id = rawId ? pageId(rawId) : null;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (url !== 'https://vmgelrgrtpghmvqgufzz.supabase.co' || !key) {
+    if (!url || !communityServerTargetAllowed(url) || !key) {
       throw new CreatorVerseError(503, 'Draft recovery is unavailable in this environment.');
     }
     const admin = createClient(url, key, {

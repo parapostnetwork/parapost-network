@@ -1,4 +1,5 @@
 'use client';
+import { isCommunityProductionTarget } from '@/lib/community/release-target';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGroupSession } from '@/lib/groups/useGroupSession';
@@ -85,7 +86,9 @@ function AccountDraft({ owner }: { owner: string }) {
       <CreatorVersePageForm key={`${owner}:${revision}`} stagingPageCreation
         initial={initial?.fields} initialLinkLabel={initial?.linkLabel} initialLinkUrl={initial?.linkUrl}
         onDraftChange={preserve}
-        buttonLabel={initial?.pageId || initial?.creation ? 'Resume Staging Page' : 'Create Staging Page'}
+        buttonLabel={isCommunityProductionTarget(process.env.NEXT_PUBLIC_SUPABASE_URL)
+          ? (initial?.pageId || initial?.creation ? 'Resume Page' : 'Create Page')
+          : (initial?.pageId || initial?.creation ? 'Resume Staging Page' : 'Create Staging Page')}
         successMessage="Page activation confirmed."
         onSave={async (fields, images) => {
           setBusy(true);

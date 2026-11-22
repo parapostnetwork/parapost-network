@@ -1,4 +1,5 @@
 'use client';
+import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import { supabase } from '@/lib/supabase';
 import {
@@ -12,7 +13,7 @@ const uuidPattern =
 export function pageImageUploadsApproved(): boolean {
   return (
     process.env.NEXT_PUBLIC_CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://vmgelrgrtpghmvqgufzz.supabase.co'
+    communityClientTargetAllowed()
   );
 }
 

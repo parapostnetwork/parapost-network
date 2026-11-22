@@ -1,4 +1,5 @@
 "use client";
+import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -13,8 +14,7 @@ import type {
 
 const mediaEnabled =
   process.env.NEXT_PUBLIC_CREATORVERSE_POST_MEDIA_READ_ENABLED === "true" &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ===
-    "https://vmgelrgrtpghmvqgufzz.supabase.co";
+  communityClientTargetAllowed();
 import {
   postCardStyle,
   postContentStyle,

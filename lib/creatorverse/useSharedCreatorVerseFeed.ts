@@ -1,5 +1,6 @@
 
 "use client";
+import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -26,8 +27,7 @@ type FeedState = {
 };
 
 const stagingEnabled =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ===
-    "https://vmgelrgrtpghmvqgufzz.supabase.co" &&
+  communityClientTargetAllowed() &&
   process.env.NEXT_PUBLIC_CREATORVERSE_SOCIAL_UI_ENABLED === "true";
 
 function validShare(value: unknown): value is SharedCreatorVersePost {

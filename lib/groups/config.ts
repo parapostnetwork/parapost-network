@@ -1,15 +1,24 @@
-/** Hard stop for production, independent of the feature flags. */
-export function isGroupsTestTarget(value: string | undefined): boolean {
-  try {
-    const url = new URL(value ?? '');
-    return (url.protocol === 'https:' && url.hostname === 'vmgelrgrtpghmvqgufzz.supabase.co' && !url.port)
-      || (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname));
-  } catch { return false; }
+import {
+  communityClientTargetAllowed,
+  communityServerTargetAllowed,
+  isCommunityStagingTarget,
+  isCommunityLocalTarget
+} from '@/lib/community/release-target';
+
+export function isGroupsTestTarget(
+  value: string | undefined
+): boolean {
+  return isCommunityStagingTarget(value) ||
+    isCommunityLocalTarget(value);
 }
+
 export function groupsNavigationEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_GROUPS_ENABLED === 'true'
-    && isGroupsTestTarget(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  return process.env.NEXT_PUBLIC_GROUPS_ENABLED === 'true' &&
+    communityClientTargetAllowed();
 }
+
 export function groupsServerEnabled(): boolean {
-  return process.env.GROUPS_ENABLED === 'true' && groupsNavigationEnabled();
+  return process.env.GROUPS_ENABLED === 'true' &&
+    groupsNavigationEnabled() &&
+    communityServerTargetAllowed();
 }

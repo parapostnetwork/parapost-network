@@ -1,4 +1,5 @@
 'use client';
+import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -19,8 +20,7 @@ export default function CreatorVerseFollowButton({
   const [retryVersion, setRetryVersion] = useState(0);
 
   const staging =
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
-      'https://vmgelrgrtpghmvqgufzz.supabase.co' &&
+    communityClientTargetAllowed() &&
     process.env.NEXT_PUBLIC_CREATORVERSE_SOCIAL_UI_ENABLED === 'true';
 
   useEffect(() => {

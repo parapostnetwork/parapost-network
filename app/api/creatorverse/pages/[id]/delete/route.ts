@@ -1,3 +1,4 @@
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { createClient } from '@supabase/supabase-js';
 import {
   creatorVerseClient,
@@ -64,7 +65,7 @@ export async function DELETE(
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (
-      url !== 'https://vmgelrgrtpghmvqgufzz.supabase.co' ||
+      !url || !communityServerTargetAllowed(url) ||
       !serviceKey
     ) {
       throw new CreatorVerseError(503, 'Page deletion is not available in this environment.');

@@ -1,4 +1,5 @@
 'use client';
+import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import Link from 'next/link';
 
@@ -17,11 +18,9 @@ import { validatePageFields } from '@/lib/creatorverse/validation';
 
 const DRAFT_KEY = 'parapost.creatorverse.localDraft.v1';
 const SHOW_STAGING_DATA =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
-    'https://vmgelrgrtpghmvqgufzz.supabase.co';
+  communityClientTargetAllowed();
 const REAL_PAGE_DRAFTS_APPROVED =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ===
-  'https://vmgelrgrtpghmvqgufzz.supabase.co';
+  communityClientTargetAllowed();
 
 const subscribeHydration = () => () => {};
 

@@ -1,3 +1,4 @@
+import { communityStorageNamespace } from '@/lib/community/release-target';
 import type { PageFields } from './types';
 
 export type DraftInput = { fields: PageFields; linkLabel: string; linkUrl: string };
@@ -16,7 +17,7 @@ export type RecoveryPage = {
   pending: { id: string; purpose: 'logo' | 'cover' }[];
 };
 export const recoveryKey = (owner: string) =>
-  `parapost:creatorverse:vmgelrgrtpghmvqgufzz:page-recovery:v1:${owner}`;
+  `parapost:creatorverse:${communityStorageNamespace()}:page-recovery:v1:${owner}`;
 
 export function readRecovery(owner: string): Recovery | null {
   const raw = localStorage.getItem(recoveryKey(owner));

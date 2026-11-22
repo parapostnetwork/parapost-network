@@ -1,12 +1,12 @@
 "use client";
+import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import { useState } from "react";
 import { useGroupSession } from "@/lib/groups/useGroupSession";
 import { supabase } from "@/lib/supabase";
 
 const stagingEnabled =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ===
-    "https://vmgelrgrtpghmvqgufzz.supabase.co" &&
+  communityClientTargetAllowed() &&
   process.env.NEXT_PUBLIC_CREATORVERSE_SOCIAL_UI_ENABLED === "true";
 
 type Props = {

@@ -1,10 +1,11 @@
 'use client';
+import { communityStorageNamespace } from '@/lib/community/release-target';
 import { useEffect, useState } from 'react';
 import { emptyGroupPreferences, parseGroupPreferences, type GroupPreferences } from '@/lib/groups/directory';
 
 // Store identifiers only; current authorized API results supply every displayed Group.
 export function useGroupPreferences(viewerId: string) {
-  const key = viewerId ? `parapost:groups:vmgelrgrtpghmvqgufzz:${viewerId}` : '';
+  const key = viewerId ? `parapost:groups:${communityStorageNamespace()}:${viewerId}` : '';
   const [saved, setSaved] = useState<{ key: string; value: GroupPreferences }>({ key: '', value: emptyGroupPreferences() });
   const [storageError, setStorageError] = useState('');
   useEffect(() => {

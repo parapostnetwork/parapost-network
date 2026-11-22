@@ -1,3 +1,4 @@
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { createClient } from '@supabase/supabase-js';
 import {
   requireCreatorVerseOwner,
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic';
 function pageImageVerificationApproved(): boolean {
   return (
     process.env.CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://vmgelrgrtpghmvqgufzz.supabase.co'
+    communityServerTargetAllowed()
   );
 }
 

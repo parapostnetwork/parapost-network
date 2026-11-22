@@ -1,3 +1,5 @@
+import { creatorVerseEnabled } from '@/lib/creatorverse/config';
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { createClient } from '@supabase/supabase-js';
 import { pageId } from '@/lib/creatorverse/validation';
 import { PAGE_IMAGE_FORMATS } from '@/lib/creatorverse/page-image-validation';
@@ -36,7 +38,8 @@ async function serveImage(
 
   if (
     process.env.CREATORVERSE_PAGE_IMAGES_ENABLED !== 'true' ||
-    url !== 'https://vmgelrgrtpghmvqgufzz.supabase.co' ||
+    !url || !communityServerTargetAllowed(url) ||
+    !creatorVerseEnabled() ||
     !key
   ) {
     return unavailable();
