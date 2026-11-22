@@ -1,0 +1,298 @@
+{
+  "step": 467,
+  "status": "REVIEW_ONLY",
+  "baseline_commit": "4a82dee",
+  "live_staging_verified": false,
+  "production_approved": false,
+  "migration_source_files": 21,
+  "draft_source_files": 9,
+  "unique_definition_keys": 20,
+  "existing_migration_keys": 20,
+  "draft_only_keys": 0,
+  "overlapping_keys": 0,
+  "conflicting_source_keys": 0,
+  "notification_declarations": 1,
+  "storage_policy_declarations": 6,
+  "unresolved_trigger_handlers": [],
+  "cooldown_source_files": [],
+  "definitions": [
+    {
+      "kind": "policy",
+      "name": "group_members_read",
+      "target": "public.group_members",
+      "handler": null,
+      "operation": "SELECT",
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 797,
+      "fingerprint": "b0cf48b0db87f94b2981c67c00e02d7107a8f0a3c4928088d2f0a68570e54f1b",
+      "flags": []
+    },
+    {
+      "kind": "policy",
+      "name": "group_post_comments_read",
+      "target": "public.group_post_comments",
+      "handler": null,
+      "operation": "SELECT",
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261023040500_group_post_interactions.sql",
+      "line": 47,
+      "fingerprint": "674f4cb9166f6abaed63661bb938400d37b62a571bde41a0d868105f198a22b8",
+      "flags": []
+    },
+    {
+      "kind": "policy",
+      "name": "group_post_likes_read",
+      "target": "public.group_post_likes",
+      "handler": null,
+      "operation": "SELECT",
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261023040500_group_post_interactions.sql",
+      "line": 38,
+      "fingerprint": "e3d23e0a66f44010d9d6872d6b6a1ea42f38e86c4763e7e33a7ca39499a66ac8",
+      "flags": []
+    },
+    {
+      "kind": "policy",
+      "name": "group_post_media_read",
+      "target": "public.group_post_media",
+      "handler": null,
+      "operation": "SELECT",
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 799,
+      "fingerprint": "9d121f0daaee9466451e07b0345a9f769a9b89f8510933edc8906db16e7ddb85",
+      "flags": []
+    },
+    {
+      "kind": "policy",
+      "name": "group_posts_read",
+      "target": "public.group_posts",
+      "handler": null,
+      "operation": "SELECT",
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 798,
+      "fingerprint": "702c25d43c75bbe3784cdd5c68c924c4782afb3d95b5fd1a20fa92ee4bbc7969",
+      "flags": []
+    },
+    {
+      "kind": "policy",
+      "name": "groups_read",
+      "target": "public.groups",
+      "handler": null,
+      "operation": "SELECT",
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 796,
+      "fingerprint": "c0ead774a48029982b56a19518bd3779cfa86224188126f4605bbffede20ed26",
+      "flags": []
+    },
+    {
+      "kind": "policy",
+      "name": "groups_storage_delete_guard",
+      "target": "storage.objects",
+      "handler": null,
+      "operation": "DELETE",
+      "restrictive": true,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 825,
+      "fingerprint": "9285a4a772f1ac860b3bcc6299b34b2c59db0f611c6c9e67da8d5da283fd0641",
+      "flags": [
+        "storage_permission_review",
+        "restrictive_rls"
+      ]
+    },
+    {
+      "kind": "policy",
+      "name": "groups_storage_insert",
+      "target": "storage.objects",
+      "handler": null,
+      "operation": "INSERT",
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 827,
+      "fingerprint": "682e020c2b529ce70eb9a85189e344be055b987ac8ef0bca3adc668e443a3a32",
+      "flags": [
+        "storage_permission_review"
+      ]
+    },
+    {
+      "kind": "policy",
+      "name": "groups_storage_insert_guard",
+      "target": "storage.objects",
+      "handler": null,
+      "operation": "INSERT",
+      "restrictive": true,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 823,
+      "fingerprint": "9e7604b25bde2e7fc45f0f81dd0826056fbef56a6520d1e4063a117bc196a8e2",
+      "flags": [
+        "storage_permission_review",
+        "restrictive_rls"
+      ]
+    },
+    {
+      "kind": "policy",
+      "name": "groups_storage_read",
+      "target": "storage.objects",
+      "handler": null,
+      "operation": "SELECT",
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 826,
+      "fingerprint": "168e7d44887371ccd021d3d084dd8ae1cbf6f13f25136578c686e760749dc282",
+      "flags": [
+        "storage_permission_review"
+      ]
+    },
+    {
+      "kind": "policy",
+      "name": "groups_storage_read_guard",
+      "target": "storage.objects",
+      "handler": null,
+      "operation": "SELECT",
+      "restrictive": true,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 822,
+      "fingerprint": "7d03ce679890a48f0492422606c7503ae2a5b4d6a9ca047273becb4a5fbc9e56",
+      "flags": [
+        "storage_permission_review",
+        "restrictive_rls"
+      ]
+    },
+    {
+      "kind": "policy",
+      "name": "groups_storage_update_guard",
+      "target": "storage.objects",
+      "handler": null,
+      "operation": "UPDATE",
+      "restrictive": true,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 824,
+      "fingerprint": "9e2fdf819d3445112c184636e1ee0aeb1f4fdd094941e38fbe351b42c8b118da",
+      "flags": [
+        "storage_permission_review",
+        "restrictive_rls"
+      ]
+    },
+    {
+      "kind": "trigger",
+      "name": "groups_queue_cover_reservation",
+      "target": "parapost_groups_private.cover_uploads",
+      "handler": "parapost_groups_private.queue_cover_reservation",
+      "operation": null,
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 756,
+      "fingerprint": "3acf5460441e9833e213e415a9b09f9e810fc7304f22a10f7ebec57350a37b30",
+      "flags": []
+    },
+    {
+      "kind": "trigger",
+      "name": "group_members_guard_owner",
+      "target": "public.group_members",
+      "handler": "parapost_groups_private.guard_owner_member",
+      "operation": null,
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 480,
+      "fingerprint": "59bc0621eff8dce62ca6f0c72f74c590d348f55a3eaff9f30da91d171e6db7e3",
+      "flags": []
+    },
+    {
+      "kind": "trigger",
+      "name": "group_members_protect_owner_delete",
+      "target": "public.group_members",
+      "handler": "parapost_groups_private.guard_owner_delete",
+      "operation": null,
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 623,
+      "fingerprint": "a0555b325821e7c23d75a2f82b4c4e70a20aaa605492bb8bb8b41171e980b28a",
+      "flags": []
+    },
+    {
+      "kind": "trigger",
+      "name": "groups_queue_media",
+      "target": "public.group_post_media",
+      "handler": "parapost_groups_private.queue_media_cleanup",
+      "operation": null,
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 612,
+      "fingerprint": "2058635641489c30bde0b46307f2422dbdcbc715504eedf7bd0ab4769121921f",
+      "flags": []
+    },
+    {
+      "kind": "trigger",
+      "name": "groups_initialize_owner",
+      "target": "public.groups",
+      "handler": "parapost_groups_private.initialize_owner",
+      "operation": null,
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 162,
+      "fingerprint": "2e67b148aa4dba61f3968ba932d008be71879eea7b07ee3e1b08fa1e1492acee",
+      "flags": []
+    },
+    {
+      "kind": "trigger",
+      "name": "groups_prevent_owner_change",
+      "target": "public.groups",
+      "handler": "parapost_groups_private.lock_group_owner",
+      "operation": null,
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 427,
+      "fingerprint": "c57751856172712a0f761f39de0df36c88128b1c6ddac5c694bb9f1fd4fa55d9",
+      "flags": []
+    },
+    {
+      "kind": "trigger",
+      "name": "groups_queue_cover",
+      "target": "public.groups",
+      "handler": "parapost_groups_private.queue_media_cleanup",
+      "operation": null,
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261020023000_groups_initial_schema.sql",
+      "line": 611,
+      "fingerprint": "b8f8e7d5330ff5a374f3b8bb09ef2d1ea03d8ddfab0a0419b01b02eca7a1ee3e",
+      "flags": []
+    },
+    {
+      "kind": "trigger",
+      "name": "trg_enforce_reel_notification_preference",
+      "target": "public.notifications",
+      "handler": "public.enforce_reel_notification_preference",
+      "operation": null,
+      "restrictive": false,
+      "source_type": "existing_migration",
+      "source": "supabase/migrations/20261007000000_add_reel_notification_preference.sql",
+      "line": 41,
+      "fingerprint": "8810ecdcb33fdc56bcef609cc6cdfa4b5c62cd759abd94dc28cfe092f5ce15ae",
+      "flags": [
+        "existing_notifications_table"
+      ]
+    }
+  ]
+}
