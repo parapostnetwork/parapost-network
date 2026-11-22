@@ -1,0 +1,1418 @@
+-- REVIEW ONLY. DO NOT EXECUTE.
+CREATE OR REPLACE FUNCTION creatorverse_private.blocked(other_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT auth.uid() IS NOT NULL AND (
+    EXISTS (SELECT 1 FROM public.blocked_users WHERE (blocker_id=auth.uid() AND blocked_id=other_id) OR (blocker_id=other_id AND blocked_id=auth.uid()))
+    OR EXISTS (SELECT 1 FROM public.user_blocks WHERE (blocker_id=auth.uid() AND blocked_id=other_id) OR (blocker_id=other_id AND blocked_id=auth.uid()))
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.comment_allowed(post uuid, parent uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT creatorverse_private.write_enabled() AND creatorverse_private.read_post(post)
+    AND EXISTS (SELECT 1 FROM public.creatorverse_posts WHERE id=post AND comments_enabled)
+    AND (parent IS NULL OR EXISTS (SELECT 1 FROM public.creatorverse_comments
+      WHERE id=parent AND post_id=post AND NOT is_deleted AND NOT creatorverse_private.blocked(author_id)));
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.community_notification_visible(n public.notifications)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_owner uuid;
+    v_visibility text;
+BEGIN
+    IF n.user_id IS NULL
+       OR n.actor_id IS NULL
+       OR n.user_id = n.actor_id
+       OR parapost_groups_private.blocked(n.user_id, n.actor_id)
+    THEN
+        RETURN false;
+    END IF;
+
+    IF n.type IN ('creatorverse_follow', 'creatorverse_like', 'creatorverse_comment', 'creatorverse_reply', 'creatorverse_share', 'creatorverse_comment_like') THEN
+
+        SELECT owner_id INTO v_owner
+        FROM public.creatorverse_pages
+        WHERE id = n.creatorverse_page_id
+          AND status = 'active';
+
+        IF v_owner IS NULL THEN
+            RETURN false;
+        END IF;
+
+        IF n.community_post_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1
+               FROM public.creatorverse_posts p
+               WHERE p.id = n.community_post_id
+                 AND p.page_id = n.creatorverse_page_id
+                 AND p.status = 'published'
+           )
+        THEN
+            RETURN false;
+        END IF;
+
+        IF n.community_comment_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1
+               FROM public.creatorverse_comments c
+               WHERE c.id = n.community_comment_id
+                 AND c.post_id = n.community_post_id
+                 AND NOT c.is_deleted
+           )
+        THEN
+            RETURN false;
+        END IF;
+
+    ELSIF n.type IN ('group_post', 'group_like', 'group_comment', 'group_reply', 'group_share', 'group_comment_like') THEN
+
+        SELECT owner_id, visibility
+        INTO v_owner, v_visibility
+        FROM public.groups
+        WHERE id = n.group_id;
+
+        IF v_owner IS NULL THEN
+            RETURN false;
+        END IF;
+
+        IF n.community_post_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1
+               FROM public.group_posts p
+               WHERE p.id = n.community_post_id
+                 AND p.group_id = n.group_id
+                 AND p.published
+                 AND NOT p.is_deleted
+           )
+        THEN
+            RETURN false;
+        END IF;
+
+        IF n.community_comment_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1
+               FROM public.group_post_comments c
+               WHERE c.id = n.community_comment_id
+                 AND c.post_id = n.community_post_id
+           )
+        THEN
+            RETURN false;
+        END IF;
+
+        IF v_visibility = 'private' THEN
+
+            IF n.user_id <> v_owner
+               AND NOT EXISTS (
+                   SELECT 1 FROM public.group_members m
+                   WHERE m.group_id = n.group_id
+                     AND m.user_id = n.user_id
+                     AND m.status = 'approved'
+               )
+            THEN
+                RETURN false;
+            END IF;
+
+            IF n.actor_id <> v_owner
+               AND NOT EXISTS (
+                   SELECT 1 FROM public.group_members m
+                   WHERE m.group_id = n.group_id
+                     AND m.user_id = n.actor_id
+                     AND m.status = 'approved'
+               )
+            THEN
+                RETURN false;
+            END IF;
+
+        END IF;
+
+        IF EXISTS (
+            SELECT 1 FROM public.group_members m
+            WHERE m.group_id = n.group_id
+              AND m.user_id IN (n.user_id, n.actor_id)
+              AND m.status IN ('removed', 'banned')
+        )
+        THEN
+            RETURN false;
+        END IF;
+
+    ELSE
+        RETURN true;
+    END IF;
+
+    IF parapost_groups_private.blocked(n.user_id, v_owner)
+       OR parapost_groups_private.blocked(n.actor_id, v_owner)
+    THEN
+        RETURN false;
+    END IF;
+
+    RETURN true;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.eligible()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT auth.uid() IS NOT NULL AND EXISTS (
+    SELECT 1 FROM auth.users WHERE id=auth.uid() AND NOT coalesce(is_anonymous,false)
+      AND (banned_until IS NULL OR banned_until<=now())
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.enabled()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT coalesce((SELECT enabled FROM creatorverse_private.feature_gate WHERE singleton),false);
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.guard_published_media()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_post_id uuid;
+  v_page_id uuid;
+  v_status text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_post_id := OLD.post_id;
+    v_page_id := OLD.page_id;
+  ELSE
+    v_post_id := NEW.post_id;
+    v_page_id := NEW.page_id;
+
+    IF TG_OP = 'UPDATE'
+       AND (
+         OLD.post_id IS DISTINCT FROM NEW.post_id
+         OR OLD.page_id IS DISTINCT FROM NEW.page_id
+       )
+    THEN
+      RAISE EXCEPTION 'Media association is immutable'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  IF v_post_id IS NOT NULL THEN
+    SELECT status
+    INTO v_status
+    FROM public.creatorverse_posts
+    WHERE id = v_post_id
+      AND page_id = v_page_id
+    FOR SHARE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Referenced post unavailable'
+        USING ERRCODE = '23503';
+    END IF;
+
+    IF v_status = 'published' THEN
+      RAISE EXCEPTION
+        'Published post media cannot be modified'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.immutable_identity()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'Immutable identity';
+  END IF;
+  IF TG_TABLE_NAME='creatorverse_pages' THEN
+    IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN RAISE EXCEPTION 'Ownership transfers are not supported'; END IF;
+  ELSIF TG_TABLE_NAME='creatorverse_posts' THEN
+    IF NEW.page_id IS DISTINCT FROM OLD.page_id OR NEW.author_id IS DISTINCT FROM OLD.author_id THEN RAISE EXCEPTION 'Immutable post identity'; END IF;
+  ELSIF TG_TABLE_NAME='creatorverse_comments' THEN
+    IF NEW.post_id IS DISTINCT FROM OLD.post_id OR NEW.author_id IS DISTINCT FROM OLD.author_id OR NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN RAISE EXCEPTION 'Immutable comment identity'; END IF;
+  END IF;
+  NEW.updated_at=now(); RETURN NEW;
+END; $function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.notify_community_activity_release()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  r jsonb;
+  actor uuid;
+  post uuid;
+  comment uuid;
+  parent_comment uuid;
+  container uuid;
+  owner uuid;
+  author uuid;
+  comment_author uuid;
+  recipient uuid;
+  visibility text;
+  kind text;
+  action text;
+  event_key text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    r := to_jsonb(OLD);
+  ELSE
+    r := to_jsonb(NEW);
+  END IF;
+
+  kind := CASE
+    WHEN TG_TABLE_NAME LIKE 'creatorverse_%'
+      THEN 'creatorverse'
+    ELSE 'group'
+  END;
+
+  actor := COALESCE(
+    r->>'user_id',
+    r->>'author_id',
+    r->>'sharer_id'
+  )::uuid;
+
+  IF actor IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  event_key := TG_TABLE_NAME || ':' ||
+    COALESCE(r->>'id', r->>'comment_id', r->>'post_id')
+    || ':' || actor::text;
+
+  IF TG_OP = 'DELETE' THEN
+    DELETE FROM public.notifications
+    WHERE community_event_key = event_key;
+
+    IF TG_TABLE_NAME IN (
+      'creatorverse_comments', 'group_post_comments'
+    ) THEN
+      DELETE FROM public.notifications
+      WHERE community_comment_id = (r->>'id')::uuid;
+    END IF;
+
+    RETURN NULL;
+  END IF;
+
+  IF TG_TABLE_NAME = 'creatorverse_comments'
+     AND r->>'is_deleted' = 'true' THEN
+    DELETE FROM public.notifications
+    WHERE community_event_key = event_key
+       OR community_comment_id = (r->>'id')::uuid;
+    RETURN NULL;
+  END IF;
+
+  -- Edits must not create new notifications.
+  IF TG_OP <> 'INSERT' THEN
+    RETURN NULL;
+  END IF;
+
+  -- The database-authenticated actor must match the event.
+  IF auth.uid() IS DISTINCT FROM actor THEN
+    RETURN NULL;
+  END IF;
+
+  post := NULLIF(r->>'post_id', '')::uuid;
+
+  IF TG_TABLE_NAME IN (
+    'creatorverse_comments', 'group_post_comments'
+  ) THEN
+    comment := (r->>'id')::uuid;
+    parent_comment := NULLIF(r->>'parent_id', '')::uuid;
+    action := CASE
+      WHEN parent_comment IS NULL THEN 'comment'
+      ELSE 'reply'
+    END;
+
+  ELSIF TG_TABLE_NAME IN (
+    'creatorverse_comment_likes', 'group_comment_likes'
+  ) THEN
+    comment := (r->>'comment_id')::uuid;
+    action := 'comment_like';
+
+  ELSIF TG_TABLE_NAME LIKE '%shares' THEN
+    action := 'share';
+
+  ELSE
+    action := 'like';
+  END IF;
+
+  IF TG_TABLE_NAME = 'creatorverse_comment_likes' THEN
+    SELECT c.post_id, c.author_id
+    INTO post, comment_author
+    FROM public.creatorverse_comments c
+    WHERE c.id = comment
+      AND NOT c.is_deleted;
+  ELSIF TG_TABLE_NAME = 'group_comment_likes' THEN
+    SELECT c.post_id, c.author_id
+    INTO post, comment_author
+    FROM public.group_post_comments c
+    WHERE c.id = comment
+      AND NOT c.is_deleted;
+  END IF;
+
+  IF kind = 'creatorverse' THEN
+    SELECT p.page_id, p.author_id, pg.owner_id
+    INTO container, author, owner
+    FROM public.creatorverse_posts p
+    JOIN public.creatorverse_pages pg ON pg.id = p.page_id
+    WHERE p.id = post
+      AND p.status = 'published'
+      AND pg.status = 'active';
+
+    IF parent_comment IS NOT NULL THEN
+      SELECT author_id INTO comment_author
+      FROM public.creatorverse_comments
+      WHERE id = parent_comment
+        AND post_id = post
+        AND NOT is_deleted;
+    END IF;
+
+  ELSE
+    SELECT p.group_id, p.author_id, g.owner_id,
+           g.visibility
+    INTO container, author, owner, visibility
+    FROM public.group_posts p
+    JOIN public.groups g ON g.id = p.group_id
+    WHERE p.id = post
+      AND p.published
+      AND NOT p.is_deleted;
+
+    IF parent_comment IS NOT NULL THEN
+      SELECT author_id INTO comment_author
+      FROM public.group_post_comments
+      WHERE id = parent_comment AND post_id = post;
+
+    ELSIF action = 'comment_like' THEN
+      SELECT author_id INTO comment_author
+      FROM public.group_post_comments
+      WHERE id = comment AND post_id = post;
+    END IF;
+  END IF;
+
+  IF container IS NULL OR owner IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Private Group members must be approved at the time of the interaction.
+  IF kind = 'group' AND visibility = 'private' AND actor <> owner
+     AND NOT EXISTS (
+       SELECT 1 FROM public.group_members m
+       WHERE m.group_id = container
+         AND m.user_id = actor
+         AND m.status = 'approved'
+     ) THEN
+    RETURN NULL;
+  END IF;
+
+  FOR recipient IN
+    SELECT DISTINCT x.user_id
+    FROM unnest(
+      ARRAY[owner, author, comment_author]
+    ) AS x(user_id)
+    WHERE x.user_id IS NOT NULL
+      AND x.user_id <> actor
+  LOOP
+
+    IF parapost_groups_private.blocked(actor, recipient)
+       THEN CONTINUE;
+    END IF;
+
+    IF kind = 'group' AND visibility = 'private'
+       AND recipient <> owner
+       AND NOT EXISTS (
+         SELECT 1 FROM public.group_members m
+         WHERE m.group_id = container
+           AND m.user_id = recipient
+           AND m.status = 'approved'
+       ) THEN
+      CONTINUE;
+    END IF;
+
+    INSERT INTO public.notifications (
+      user_id, actor_id, type,
+      creatorverse_page_id, group_id,
+      community_post_id, community_comment_id,
+      community_event_key, message, is_read
+    )
+    VALUES (
+      recipient, actor, kind || '_' || action,
+      CASE WHEN kind = 'creatorverse' THEN container END,
+      CASE WHEN kind = 'group' THEN container END,
+      post, comment, event_key,
+      CASE
+        WHEN kind = 'creatorverse'
+          THEN 'New CreatorVerse activity.'
+        ELSE 'New Group activity.'
+      END,
+      false
+    )
+    ON CONFLICT DO NOTHING;
+
+  END LOOP;
+
+  RETURN NULL;
+EXCEPTION WHEN OTHERS THEN
+  -- Notification errors must not cancel an actual like/comment/share.
+  RAISE WARNING 'Community activity notification failed: %', SQLERRM;
+  RETURN NULL;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.notify_owner_follow_release()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_owner_id uuid;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.notifications
+        WHERE type = 'creatorverse_follow'
+          AND creatorverse_page_id = OLD.page_id
+          AND actor_id = OLD.user_id;
+        RETURN OLD;
+    END IF;
+
+    SELECT owner_id
+    INTO v_owner_id
+    FROM public.creatorverse_pages
+    WHERE id = NEW.page_id
+      AND status = 'active';
+
+    IF v_owner_id IS NULL
+       OR v_owner_id = NEW.user_id
+    THEN
+        RETURN NEW;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM public.blocked_users b
+        WHERE (
+            b.blocker_id = v_owner_id
+            AND b.blocked_id = NEW.user_id
+        ) OR (
+            b.blocker_id = NEW.user_id
+            AND b.blocked_id = v_owner_id
+        )
+    ) OR EXISTS (
+        SELECT 1
+        FROM public.user_blocks b
+        WHERE (
+            b.blocker_id = v_owner_id
+            AND b.blocked_id = NEW.user_id
+        ) OR (
+            b.blocker_id = NEW.user_id
+            AND b.blocked_id = v_owner_id
+        )
+    ) THEN
+        RETURN NEW;
+    END IF;
+
+    BEGIN
+        INSERT INTO public.notifications (
+            user_id,
+            actor_id,
+            type,
+            creatorverse_page_id,
+            message,
+            is_read
+        )
+        VALUES (
+            v_owner_id,
+            NEW.user_id,
+            'creatorverse_follow',
+            NEW.page_id,
+            'Someone followed your CreatorVerse page.',
+            false
+        )
+        ON CONFLICT DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'CreatorVerse follow notification insert failed: %', SQLERRM;
+    END;
+
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'CreatorVerse follow notification failed: %', SQLERRM;
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.owns(page uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT creatorverse_private.enabled() AND creatorverse_private.eligible()
+    AND EXISTS (SELECT 1 FROM public.creatorverse_pages WHERE id=page AND owner_id=auth.uid() AND status IN ('draft','active'));
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.page_image_storage_allowed(p_path text, p_operation text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+BEGIN
+  IF p_path IS NULL
+     OR p_operation IS NULL
+  THEN
+    RETURN false;
+  END IF;
+
+  -- Uploads require an authenticated page owner,
+  -- an active reservation, and an unverified image.
+  IF p_operation = 'upload' THEN
+
+    IF v_user IS NULL
+       OR NOT creatorverse_private.write_enabled()
+    THEN
+      RETURN false;
+    END IF;
+
+    RETURN EXISTS (
+      SELECT 1
+      FROM public.creatorverse_media m
+      JOIN public.creatorverse_pages p
+        ON p.id = m.page_id
+      JOIN creatorverse_private.upload_reservations r
+        ON r.page_id = m.page_id
+       AND r.media_id = m.id
+      WHERE m.storage_path = p_path
+        AND m.purpose IN ('logo', 'cover')
+        AND m.post_id IS NULL
+        AND m.media_type = 'image'
+        AND m.mime_type IN (
+          'image/jpeg',
+          'image/png',
+          'image/webp'
+        )
+        AND m.verification = 'pending'
+        AND m.storage_path = (
+          m.page_id::text || '/' ||
+          m.purpose || '/' ||
+          m.id::text || '.' ||
+          CASE m.mime_type
+            WHEN 'image/jpeg' THEN 'jpg'
+            WHEN 'image/png' THEN 'png'
+            WHEN 'image/webp' THEN 'webp'
+          END
+        )
+        AND p.owner_id = v_user
+        AND p.status IN ('draft', 'active')
+        AND creatorverse_private.owns(p.id)
+        AND r.owner_id = v_user
+        AND r.consumed_at IS NULL
+        AND r.expires_at >
+          pg_catalog.statement_timestamp()
+    );
+
+  ELSIF p_operation = 'read' THEN
+
+    -- Public access only to verified images
+    -- permanently attached to active pages.
+    RETURN EXISTS (
+      SELECT 1
+      FROM public.creatorverse_media m
+      JOIN public.creatorverse_pages p
+        ON p.id = m.page_id
+      WHERE m.storage_path = p_path
+        AND m.purpose IN ('logo', 'cover')
+        AND m.post_id IS NULL
+        AND m.media_type = 'image'
+        AND m.verification = 'verified'
+        AND p.status = 'active'
+        AND (
+          (m.purpose = 'logo'
+           AND p.logo_media_id = m.id)
+          OR
+          (m.purpose = 'cover'
+           AND p.cover_media_id = m.id)
+        )
+        AND creatorverse_private.read_page(p.id)
+    );
+
+  END IF;
+
+  RETURN false;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.read_comment(comment uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT EXISTS (SELECT 1 FROM public.creatorverse_comments WHERE id=comment AND NOT is_deleted
+    AND creatorverse_private.read_post(post_id) AND NOT creatorverse_private.blocked(author_id));
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.read_page(page uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT creatorverse_private.enabled() AND EXISTS (
+    SELECT 1 FROM public.creatorverse_pages WHERE id=page AND status='active'
+      AND NOT creatorverse_private.blocked(owner_id)
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.read_post(post uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT EXISTS (SELECT 1 FROM public.creatorverse_posts WHERE id=post AND status='published' AND creatorverse_private.read_page(page_id));
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.storage_allowed(p_path text, p_operation text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+BEGIN
+  IF v_user IS NULL
+     OR p_path IS NULL
+     OR p_operation IS NULL
+  THEN
+    RETURN false;
+  END IF;
+
+  IF p_operation = 'upload' THEN
+
+    IF NOT creatorverse_private.write_enabled() THEN
+      RETURN false;
+    END IF;
+
+    -- Existing post-media upload authorization.
+    IF EXISTS (
+      SELECT 1
+      FROM public.creatorverse_media m
+      JOIN public.creatorverse_posts p
+        ON p.id = m.post_id
+       AND p.page_id = m.page_id
+      JOIN public.creatorverse_pages page
+        ON page.id = m.page_id
+      JOIN creatorverse_private.upload_reservations r
+        ON r.media_id = m.id
+       AND r.page_id = m.page_id
+      WHERE m.storage_path = p_path
+        AND m.purpose = 'post'
+        AND m.verification = 'pending'
+        AND p.status = 'draft'
+        AND p.author_id = v_user
+        AND page.owner_id = v_user
+        AND page.status IN ('draft', 'active')
+        AND creatorverse_private.owns(page.id)
+        AND r.owner_id = v_user
+        AND r.consumed_at IS NULL
+        AND r.expires_at >
+          pg_catalog.statement_timestamp()
+    ) THEN
+      RETURN true;
+    END IF;
+
+    -- New reserved profile and cover image authorization.
+    RETURN creatorverse_private.page_image_storage_allowed(
+      p_path, 'upload'
+    );
+
+  ELSIF p_operation = 'read' THEN
+
+    -- Existing published post-media read authorization.
+    IF EXISTS (
+      SELECT 1
+      FROM public.creatorverse_media m
+      JOIN public.creatorverse_posts p
+        ON p.id = m.post_id
+       AND p.page_id = m.page_id
+      JOIN public.creatorverse_pages page
+        ON page.id = m.page_id
+      WHERE m.storage_path = p_path
+        AND m.purpose = 'post'
+        AND m.verification = 'verified'
+        AND p.status = 'published'
+        AND page.status = 'active'
+        AND creatorverse_private.read_post(p.id)
+    ) THEN
+      RETURN true;
+    END IF;
+
+    -- New verified and attached page-image read authorization.
+    RETURN creatorverse_private.page_image_storage_allowed(
+      p_path, 'read'
+    );
+
+  END IF;
+
+  RETURN false;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.validate_links()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE item jsonb;
+BEGIN
+  FOR item IN SELECT value FROM jsonb_array_elements(NEW.social_links) LOOP
+    IF jsonb_typeof(item)<>'object' OR jsonb_typeof(item->'label') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(item->'url') IS DISTINCT FROM 'string'
+       OR char_length(btrim(item->>'label')) NOT BETWEEN 1 AND 60
+       OR char_length(item->>'url')>2048
+       OR (item->>'url') !~ '^https?://[^[:space:]@/]+([/?#][^[:space:]]*)?$' THEN
+      RAISE EXCEPTION 'Invalid public link';
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END; $function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.validate_live_page_owner()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  -- Existing personal broadcasts require no new permission.
+  IF NEW.creatorverse_page_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Only the authenticated broadcaster can associate a page.
+  IF auth.uid() IS DISTINCT FROM NEW.user_id THEN
+    RAISE EXCEPTION
+      'Unauthorized CreatorVerse livestream association'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- The page must be active and belong to the broadcaster.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.creatorverse_pages AS p
+    WHERE p.id = NEW.creatorverse_page_id
+      AND p.owner_id = NEW.user_id
+      AND p.status = 'active'
+  ) THEN
+    RAISE EXCEPTION
+      'CreatorVerse page is not owned or active'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION creatorverse_private.write_enabled()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT creatorverse_private.enabled() AND creatorverse_private.eligible()
+    AND coalesce((SELECT writes_enabled FROM creatorverse_private.feature_gate WHERE singleton),false);
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.allowed(gid uuid, level text)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+ SELECT parapost_groups_private.enabled() AND EXISTS (
+   SELECT 1 FROM public.groups g LEFT JOIN public.group_members m
+     ON m.group_id=g.id AND m.user_id=auth.uid()
+   WHERE g.id=gid AND NOT parapost_groups_private.blocked(auth.uid(),g.owner_id)
+   AND CASE level
+     WHEN 'directory' THEN true
+     WHEN 'read' THEN coalesce(m.status NOT IN ('rejected','removed','banned'),true)
+       AND (g.visibility='public' OR m.status='approved')
+     WHEN 'member' THEN m.status='approved'
+     WHEN 'admin' THEN m.status='approved' AND m.role IN ('owner','admin')
+     WHEN 'moderate' THEN m.status='approved' AND m.role IN ('owner','admin','moderator')
+     WHEN 'owner' THEN m.status='approved' AND m.role='owner' AND g.owner_id=auth.uid()
+     ELSE false END
+ );
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.author_visible_to_viewer(p_author_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    SELECT
+        auth.uid() IS NOT NULL
+        AND p_author_id IS NOT NULL
+        AND NOT parapost_groups_private.blocked(
+            auth.uid(),
+            p_author_id
+        );
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.blocked(a uuid, b uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT EXISTS (SELECT 1 FROM public.blocked_users WHERE (blocker_id=a AND blocked_id=b) OR (blocker_id=b AND blocked_id=a))
+      OR EXISTS (SELECT 1 FROM public.user_blocks WHERE (blocker_id=a AND blocked_id=b) OR (blocker_id=b AND blocked_id=a));
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.command(action text, gid uuid, payload jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  g public.groups;
+  m public.group_members;
+  p public.group_posts;
+  target uuid;
+  pid uuid;
+  mid uuid;
+  path text;
+  mime text;
+  role_name text;
+  result jsonb;
+  item record;
+BEGIN
+  IF NOT parapost_groups_private.enabled() THEN
+    RAISE EXCEPTION 'Groups unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF action = 'create' THEN
+    IF (
+      SELECT count(*)
+      FROM public.groups
+      WHERE owner_id = uid
+    ) >= 100 THEN
+      RAISE EXCEPTION 'Group creation limit reached';
+    END IF;
+
+    INSERT INTO public.groups(
+      owner_id, name, description, visibility
+    )
+    VALUES (
+      uid,
+      btrim(payload->>'name'),
+      coalesce(payload->>'description', ''),
+      coalesce(payload->>'visibility', 'public')
+    )
+    RETURNING * INTO g;
+
+    RETURN jsonb_build_object('id', g.id);
+  END IF;
+
+  SELECT * INTO g
+  FROM public.groups
+  WHERE id = gid
+  FOR UPDATE;
+
+  IF NOT FOUND
+    OR NOT parapost_groups_private.allowed(
+      gid, 'directory'
+    ) THEN
+    RAISE EXCEPTION 'Group unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO m
+  FROM public.group_members
+  WHERE group_id = gid AND user_id = uid;
+
+  IF action = 'join' THEN
+    IF m.status IS NOT NULL THEN
+      IF m.status NOT IN ('pending', 'approved') THEN
+        RAISE EXCEPTION 'Membership unavailable';
+      END IF;
+    ELSE
+      INSERT INTO public.group_members(
+        group_id, user_id, role, status, approved_at
+      )
+      VALUES (
+        gid, uid, 'member',
+        CASE WHEN g.visibility = 'public'
+          THEN 'approved' ELSE 'pending' END,
+        CASE WHEN g.visibility = 'public'
+          THEN now() END
+      );
+    END IF;
+
+  ELSIF action = 'leave' THEN
+    IF m.role = 'owner' THEN
+      RAISE EXCEPTION
+        'Owner must delete the Group; transfer is not supported';
+    END IF;
+
+    DELETE FROM public.group_members
+    WHERE group_id = gid
+      AND user_id = uid
+      AND status IN ('pending', 'approved');
+
+  ELSIF action IN (
+    'approve', 'reject', 'remove',
+    'ban', 'role', 'restore'
+  ) THEN
+    target := (payload->>'user_id')::uuid;
+
+    IF NOT parapost_groups_private.allowed(gid, 'admin')
+      OR target = uid
+      OR target = g.owner_id THEN
+      RAISE EXCEPTION 'Not authorized'
+        USING ERRCODE = '42501';
+    END IF;
+
+    SELECT * INTO m
+    FROM public.group_members
+    WHERE group_id = gid AND user_id = target;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Membership unavailable';
+    END IF;
+
+    IF NOT parapost_groups_private.allowed(gid, 'owner')
+      AND (
+        m.role <> 'member'
+        OR action IN ('role', 'restore')
+      ) THEN
+      RAISE EXCEPTION 'Owner permission required';
+    END IF;
+
+    IF action IN ('approve', 'restore')
+      AND parapost_groups_private.blocked(uid, target) THEN
+      RAISE EXCEPTION 'Membership unavailable';
+    END IF;
+
+    IF action IN ('approve', 'restore')
+      AND parapost_groups_private.blocked(g.owner_id, target) THEN
+      RAISE EXCEPTION 'Membership unavailable';
+    END IF;
+
+    IF action IN ('approve', 'reject') THEN
+      IF m.status <> 'pending' THEN
+        RAISE EXCEPTION 'Request is no longer pending';
+      END IF;
+
+      UPDATE public.group_members
+      SET status = CASE
+            WHEN action = 'approve'
+            THEN 'approved' ELSE 'rejected' END,
+          approved_at = CASE
+            WHEN action = 'approve'
+            THEN now() END
+      WHERE group_id = gid AND user_id = target;
+
+    ELSIF action = 'role' THEN
+      role_name := payload->>'role';
+
+      IF m.status <> 'approved'
+        OR role_name IS NULL
+        OR role_name NOT IN (
+          'admin', 'moderator', 'member'
+        ) THEN
+        RAISE EXCEPTION 'Invalid role change';
+      END IF;
+
+      UPDATE public.group_members
+      SET role = role_name
+      WHERE group_id = gid AND user_id = target;
+
+    ELSIF action = 'restore' THEN
+      IF m.status NOT IN (
+        'removed', 'rejected', 'banned'
+      ) THEN
+        RAISE EXCEPTION 'Invalid restoration';
+      END IF;
+
+      UPDATE public.group_members
+      SET role = 'member',
+          status = 'pending',
+          approved_at = NULL
+      WHERE group_id = gid AND user_id = target;
+
+    ELSE
+      UPDATE public.group_members
+      SET role = 'member',
+          status = CASE
+            WHEN action = 'ban'
+            THEN 'banned' ELSE 'removed' END,
+          approved_at = NULL
+      WHERE group_id = gid AND user_id = target;
+    END IF;
+
+  ELSIF action = 'edit' THEN
+    IF NOT parapost_groups_private.allowed(gid, 'admin') THEN
+      RAISE EXCEPTION 'Not authorized';
+    END IF;
+
+    IF payload->>'visibility' IS DISTINCT FROM g.visibility
+      AND NOT parapost_groups_private.allowed(
+        gid, 'owner'
+      ) THEN
+      RAISE EXCEPTION 'Owner permission required';
+    END IF;
+
+    UPDATE public.groups
+    SET name = btrim(payload->>'name'),
+        description = coalesce(payload->>'description', ''),
+        visibility = payload->>'visibility',
+        updated_at = now()
+    WHERE id = gid;
+
+  ELSIF action = 'delete' THEN
+    IF NOT parapost_groups_private.allowed(gid, 'owner')
+      OR payload->>'confirmation' IS DISTINCT FROM g.name
+    THEN
+      RAISE EXCEPTION
+        'Owner and Group name confirmation required';
+    END IF;
+
+    DELETE FROM public.groups WHERE id = gid;
+
+  ELSIF action = 'draft' THEN
+    IF NOT parapost_groups_private.allowed(gid, 'member') THEN
+      RAISE EXCEPTION 'Approved membership required';
+    END IF;
+
+    IF (
+      SELECT count(*)
+      FROM public.group_posts
+      WHERE group_id = gid
+        AND author_id = uid
+        AND NOT published
+    ) >= 10 THEN
+      RAISE EXCEPTION 'Too many unfinished uploads';
+    END IF;
+
+    INSERT INTO public.group_posts(
+      group_id, author_id, content
+    )
+    VALUES (
+      gid, uid, coalesce(payload->>'content', '')
+    )
+    RETURNING id INTO pid;
+
+    RETURN jsonb_build_object('id', pid);
+
+  ELSIF action IN (
+    'reserve_media', 'publish',
+    'edit_post', 'delete_post'
+  ) THEN
+    pid := (payload->>'post_id')::uuid;
+
+    SELECT * INTO p
+    FROM public.group_posts
+    WHERE id = pid AND group_id = gid;
+
+    IF NOT FOUND OR p.is_deleted THEN
+      RAISE EXCEPTION 'Post unavailable';
+    END IF;
+
+    IF NOT parapost_groups_private.allowed(gid, 'member')
+      OR (
+        p.author_id <> uid
+        AND NOT (
+          action = 'delete_post'
+          AND parapost_groups_private.allowed(
+            gid, 'moderate'
+          )
+        )
+      ) THEN
+      RAISE EXCEPTION 'Not authorized';
+    END IF;
+
+    IF action = 'delete_post' THEN
+      DELETE FROM public.group_posts
+      WHERE id = pid;
+
+    ELSIF action = 'edit_post' THEN
+      IF char_length(
+        btrim(coalesce(payload->>'content', ''))
+      ) = 0
+        AND NOT EXISTS (
+          SELECT 1 FROM public.group_post_media
+          WHERE post_id = pid
+        ) THEN
+        RAISE EXCEPTION 'Post cannot be empty';
+      END IF;
+
+      UPDATE public.group_posts
+      SET content = coalesce(payload->>'content', ''),
+          updated_at = now()
+      WHERE id = pid;
+
+    ELSIF action = 'reserve_media' THEN
+      IF p.published
+        OR (
+          SELECT count(*)
+          FROM public.group_post_media
+          WHERE post_id = pid
+        ) >= 4 THEN
+        RAISE EXCEPTION 'Media limit or published post';
+      END IF;
+
+      mime := payload->>'mime_type';
+
+      IF mime IS NULL OR mime NOT IN (
+        'image/jpeg', 'image/png', 'image/webp',
+        'video/mp4', 'video/webm'
+      ) THEN
+        RAISE EXCEPTION 'Unsupported media';
+      END IF;
+
+      mid := gen_random_uuid();
+
+      path := gid::text
+        || '/posts/' || pid::text
+        || '/' || uid::text
+        || '/' || mid::text;
+
+      INSERT INTO public.group_post_media(
+        id, group_id, post_id, uploader_id,
+        media_type, storage_path, mime_type,
+        display_order, poster_path
+      )
+      VALUES (
+        mid, gid, pid, uid,
+        CASE WHEN mime LIKE 'image/%'
+          THEN 'image' ELSE 'video' END,
+        path, mime,
+        (
+          SELECT count(*)
+          FROM public.group_post_media
+          WHERE post_id = pid
+        ),
+        CASE WHEN mime LIKE 'video/%'
+          THEN path || '.poster.jpg'
+          ELSE NULL END
+      );
+
+      RETURN jsonb_build_object(
+        'path', path,
+        'poster_path',
+        CASE WHEN mime LIKE 'video/%'
+          THEN path || '.poster.jpg'
+          ELSE NULL END
+      );
+
+    ELSE
+      IF p.published THEN
+        RETURN jsonb_build_object('id', pid);
+      END IF;
+
+      IF char_length(btrim(p.content)) = 0
+        AND NOT EXISTS (
+          SELECT 1 FROM public.group_post_media
+          WHERE post_id = pid
+        ) THEN
+        RAISE EXCEPTION 'Post cannot be empty';
+      END IF;
+
+      FOR item IN
+        SELECT * FROM public.group_post_media
+        WHERE post_id = pid
+      LOOP
+        IF NOT EXISTS (
+          SELECT 1 FROM storage.objects o
+          WHERE o.bucket_id = 'group-media'
+            AND o.name = item.storage_path
+            AND o.metadata->>'mimetype' = item.mime_type
+            AND (o.metadata->>'size')::bigint
+              BETWEEN 1 AND
+              CASE
+                WHEN item.media_type = 'image'
+                THEN 8388608
+                ELSE 33554432
+              END
+        ) THEN
+          RAISE EXCEPTION
+            'Media upload incomplete or invalid';
+        END IF;
+      END LOOP;
+
+      UPDATE public.group_posts
+      SET published = true,
+          updated_at = now()
+      WHERE id = pid;
+    END IF;
+
+  ELSIF action = 'remove_cover' THEN
+    IF NOT parapost_groups_private.allowed(gid, 'admin') THEN
+      RAISE EXCEPTION 'Not authorized';
+    END IF;
+
+    UPDATE public.groups
+    SET cover_storage_path = NULL,
+        updated_at = now()
+    WHERE id = gid;
+
+  ELSIF action = 'reserve_cover' THEN
+    IF NOT parapost_groups_private.allowed(gid, 'admin') THEN
+      RAISE EXCEPTION 'Not authorized';
+    END IF;
+
+    IF (
+      SELECT count(*)
+      FROM parapost_groups_private.cover_uploads
+      WHERE group_id = gid AND uploader_id = uid
+    ) >= 10 THEN
+      RAISE EXCEPTION 'Too many unfinished covers';
+    END IF;
+
+    path := gid::text
+      || '/covers/'
+      || gen_random_uuid()::text;
+
+    INSERT INTO parapost_groups_private.cover_uploads(
+      storage_path, group_id, uploader_id
+    )
+    VALUES (path, gid, uid);
+
+    RETURN jsonb_build_object('path', path);
+
+  ELSIF action = 'set_cover' THEN
+    path := payload->>'path';
+
+    IF NOT parapost_groups_private.allowed(gid, 'admin')
+      OR NOT EXISTS (
+        SELECT 1
+        FROM parapost_groups_private.cover_uploads c
+        JOIN storage.objects o
+          ON o.name = c.storage_path
+         AND o.bucket_id = 'group-media'
+        WHERE c.storage_path = path
+          AND c.group_id = gid
+          AND c.uploader_id = uid
+          AND o.metadata->>'mimetype'
+            IN ('image/jpeg', 'image/png', 'image/webp')
+          AND (o.metadata->>'size')::bigint
+            BETWEEN 1 AND 8388608
+      ) THEN
+      RAISE EXCEPTION 'Invalid cover';
+    END IF;
+
+    UPDATE public.groups
+    SET cover_storage_path = path,
+        updated_at = now()
+    WHERE id = gid;
+
+    DELETE FROM parapost_groups_private.cover_uploads
+    WHERE storage_path = path;
+
+  ELSE
+    RAISE EXCEPTION 'Unknown Group action';
+  END IF;
+
+  RETURN jsonb_build_object('id', gid);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.enabled()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT auth.uid() IS NOT NULL AND EXISTS (SELECT 1 FROM auth.users WHERE id = auth.uid())
+    AND coalesce(auth.jwt()->>'is_anonymous','false')<>'true'
+    AND EXISTS (SELECT 1 FROM parapost_groups_private.feature_gate WHERE enabled
+      AND (allow_all_authenticated OR EXISTS(SELECT 1 FROM parapost_groups_private.test_users WHERE user_id=auth.uid())));
+$function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.guard_owner_delete()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+ -- Parent is already absent during a legitimate ON DELETE CASCADE.
+ IF OLD.role='owner' AND EXISTS(SELECT 1 FROM public.groups WHERE id=OLD.group_id) THEN
+   RAISE EXCEPTION 'Delete the Group instead of its owner membership';
+ END IF;
+ RETURN OLD;
+END; $function$;
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.guard_owner_member()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.role = 'owner' THEN
+      IF NEW.status <> 'approved'
+         OR NOT EXISTS (
+           SELECT 1
+           FROM public.groups g
+           WHERE g.id = NEW.group_id
+             AND g.owner_id = NEW.user_id
+         ) THEN
+        RAISE EXCEPTION
+          'Invalid Group owner membership';
+      END IF;
+    END IF;
+
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF OLD.role = 'owner'
+       AND NEW IS DISTINCT FROM OLD THEN
+      RAISE EXCEPTION
+        'Owner membership cannot be modified';
+    END IF;
+
+    IF OLD.role <> 'owner'
+       AND NEW.role = 'owner' THEN
+      RAISE EXCEPTION
+        'Owner promotion requires a separate transfer';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
