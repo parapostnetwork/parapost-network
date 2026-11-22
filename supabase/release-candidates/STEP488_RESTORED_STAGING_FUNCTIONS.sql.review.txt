@@ -1,0 +1,2288 @@
+-- 29 EXACT STAGING FUNCTIONS (REVIEW ONLY)
+
+CREATE OR REPLACE FUNCTION creatorverse_private.activate_page_draft(p_page_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_page_id uuid;
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT creatorverse_private.write_enabled()
+  THEN
+    RAISE EXCEPTION 'Page activation unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE public.creatorverse_pages AS p
+  SET status = 'active',
+      updated_at = now()
+  WHERE p.id = p_page_id
+    AND p.owner_id = auth.uid()
+    AND p.status = 'draft'
+
+    AND (
+      p.logo_media_id IS NULL
+      OR EXISTS (
+        SELECT 1
+        FROM public.creatorverse_media AS m
+        WHERE m.id = p.logo_media_id
+          AND m.page_id = p.id
+          AND m.purpose = 'logo'
+          AND m.media_type = 'image'
+          AND m.verification = 'verified'
+          AND m.post_id IS NULL
+      )
+    )
+
+    AND (
+      p.cover_media_id IS NULL
+      OR EXISTS (
+        SELECT 1
+        FROM public.creatorverse_media AS m
+        WHERE m.id = p.cover_media_id
+          AND m.page_id = p.id
+          AND m.purpose = 'cover'
+          AND m.media_type = 'image'
+          AND m.verification = 'verified'
+          AND m.post_id IS NULL
+      )
+    )
+
+  RETURNING p.id INTO v_page_id;
+
+  IF v_page_id IS NULL THEN
+    RAISE EXCEPTION 'Page not eligible for activation'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN v_page_id;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION creatorverse_private.create_page_draft(p_name text, p_category text, p_short_bio text DEFAULT ''::text, p_description text DEFAULT ''::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_id uuid;
+  v_name text := btrim(p_name);
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT creatorverse_private.write_enabled()
+  THEN
+    RAISE EXCEPTION 'Page creation unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF v_name IS NULL
+     OR char_length(v_name) NOT BETWEEN 3 AND 100
+     OR p_category IS NULL
+     OR p_category NOT IN (
+       'business', 'creator', 'investigation_team',
+       'podcast', 'entertainment', 'organization',
+       'community_project', 'other'
+     )
+     OR char_length(coalesce(p_short_bio, '')) > 240
+     OR char_length(coalesce(p_description, '')) > 5000
+  THEN
+    RAISE EXCEPTION 'Invalid page details'
+      USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO public.creatorverse_pages (
+    owner_id, name, category, short_bio,
+    description, status
+  )
+  VALUES (
+    auth.uid(), v_name, p_category,
+    coalesce(p_short_bio, ''),
+    coalesce(p_description, ''),
+    'draft'
+  )
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION creatorverse_private.create_text_draft(p_page_id uuid, p_content text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_id uuid;
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Posting unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_content IS NULL
+     OR char_length(btrim(p_content)) > 5000
+  THEN
+    RAISE EXCEPTION 'Invalid post content'
+      USING ERRCODE = '22023';
+  END IF;
+
+  PERFORM 1
+  FROM public.creatorverse_pages
+  WHERE id = p_page_id
+    AND owner_id = auth.uid()
+    AND status IN ('draft', 'active')
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Page unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  INSERT INTO public.creatorverse_posts(
+    page_id, author_id, content, status, comments_enabled
+  )
+  VALUES (
+    p_page_id, auth.uid(), btrim(p_content), 'draft', true
+  )
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION creatorverse_private.enforce_post_share_cooldown()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_page_id uuid;
+  v_owner_id uuid;
+  v_existing_post uuid;
+  v_accepted integer;
+BEGIN
+  IF auth.uid() IS NULL
+     OR NEW.sharer_id IS DISTINCT FROM auth.uid()
+     OR NEW.post_id IS NULL
+     OR NEW.request_id IS NULL THEN
+    RAISE EXCEPTION 'Sharing unauthorized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT creatorverse_private.write_enabled() THEN
+    RAISE EXCEPTION 'Sharing disabled'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT p.page_id, page.owner_id
+  INTO v_page_id, v_owner_id
+  FROM public.creatorverse_posts p
+  JOIN public.creatorverse_pages page
+    ON page.id = p.page_id
+  WHERE p.id = NEW.post_id
+    AND p.status = 'published'
+    AND page.status = 'active';
+
+  IF NOT FOUND
+     OR NOT creatorverse_private.read_post(NEW.post_id)
+     OR creatorverse_private.blocked(v_owner_id) THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT (
+    creatorverse_private.owns(v_page_id)
+    OR EXISTS (
+      SELECT 1
+      FROM public.creatorverse_follows
+      WHERE page_id = v_page_id
+        AND user_id = NEW.sharer_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'Follow this page to share'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Serialize attempts for the same member and post.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      NEW.sharer_id::text || ':' || NEW.post_id::text,
+      0
+    )
+  );
+
+  -- A retry of the same request must not
+  -- consume another seven-day cooldown.
+  SELECT post_id INTO v_existing_post
+  FROM public.creatorverse_shares
+  WHERE sharer_id = NEW.sharer_id
+    AND request_id = NEW.request_id;
+
+  IF FOUND THEN
+    IF v_existing_post <> NEW.post_id THEN
+      RAISE EXCEPTION 'Request ID already used'
+        USING ERRCODE = '22023';
+    END IF;
+
+    RETURN NULL;
+  END IF;
+
+  INSERT INTO creatorverse_private.post_share_cooldowns
+    (sharer_id, post_id, last_shared_at)
+  VALUES
+    (NEW.sharer_id, NEW.post_id, pg_catalog.now())
+  ON CONFLICT (sharer_id, post_id)
+  DO UPDATE SET
+    last_shared_at = EXCLUDED.last_shared_at
+  WHERE
+    post_share_cooldowns.last_shared_at
+      <= EXCLUDED.last_shared_at - interval '7 days'
+  RETURNING 1 INTO v_accepted;
+
+  IF v_accepted IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'CREATORVERSE_SHARE_COOLDOWN'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  NEW.created_at := pg_catalog.now();
+  RETURN NEW;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION creatorverse_private.enqueue_rejected_post_media()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  extension text;
+BEGIN
+  IF NEW.verification IS DISTINCT FROM 'rejected'
+     OR OLD.verification = 'rejected'
+     OR NEW.purpose IS DISTINCT FROM 'post'
+     OR NEW.post_id IS NULL
+  THEN
+    RETURN NEW;
+  END IF;
+
+  extension := CASE NEW.mime_type
+    WHEN 'image/jpeg' THEN 'jpg'
+    WHEN 'image/png' THEN 'png'
+    WHEN 'image/webp' THEN 'webp'
+    WHEN 'video/mp4' THEN 'mp4'
+    WHEN 'video/webm' THEN 'webm'
+    ELSE NULL
+  END;
+
+  IF extension IS NULL
+     OR NEW.storage_path IS DISTINCT FROM (
+       NEW.page_id::text || '/' ||
+       NEW.post_id::text || '/' ||
+       NEW.id::text || '.' || extension
+     )
+  THEN
+    RAISE EXCEPTION 'Invalid media cleanup path';
+  END IF;
+
+  INSERT INTO creatorverse_private.media_cleanup_jobs (
+    media_id,
+    page_id,
+    post_id,
+    storage_path,
+    eligible_after
+  )
+  VALUES (
+    NEW.id,
+    NEW.page_id,
+    NEW.post_id,
+    NEW.storage_path,
+    pg_catalog.statement_timestamp()
+      + interval '30 minutes'
+  )
+  ON CONFLICT (media_id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION creatorverse_private.publish_text_draft(p_page_id uuid, p_post_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_content text;
+  v_verified_count integer;
+BEGIN
+  -- Preserve existing authentication and ownership checks.
+  IF auth.uid() IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Publishing unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Lock page before post. All media write paths must
+  -- follow this same order.
+  PERFORM 1
+  FROM public.creatorverse_pages
+  WHERE id = p_page_id
+    AND owner_id = auth.uid()
+    AND status = 'active'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Page unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT content
+  INTO v_content
+  FROM public.creatorverse_posts
+  WHERE id = p_post_id
+    AND page_id = p_page_id
+    AND author_id = auth.uid()
+    AND status = 'draft'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Draft unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Keep the existing text requirement.
+  IF v_content IS NULL
+     OR char_length(btrim(v_content)) > 5000
+  THEN
+    RAISE EXCEPTION 'Invalid post content'
+      USING ERRCODE = '23514';
+  END IF;
+
+  -- Reject unexpected attachment records and
+  -- anything not verified or explicitly rejected.
+  IF EXISTS (
+    SELECT 1
+    FROM public.creatorverse_media AS m
+    WHERE m.post_id = p_post_id
+      AND (
+        m.page_id IS DISTINCT FROM p_page_id
+        OR m.purpose IS DISTINCT FROM 'post'
+        OR m.verification IS NULL
+        OR m.verification NOT IN ('verified', 'rejected')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Attachments are not ready'
+      USING ERRCODE = '23514';
+  END IF;
+
+  SELECT count(*)
+  INTO v_verified_count
+  FROM public.creatorverse_media AS m
+  WHERE m.post_id = p_post_id
+    AND m.page_id = p_page_id
+    AND m.verification = 'verified';
+
+
+    IF btrim(v_content) = '' AND v_verified_count = 0 THEN
+      RAISE EXCEPTION
+        'Post requires text or verified media'
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF v_verified_count > 4 THEN
+
+    RAISE EXCEPTION 'Attachment limit exceeded'
+      USING ERRCODE = '23514';
+  END IF;
+
+  -- Every verified attachment must have valid metadata,
+  -- an existing private Storage object, and evidence
+  -- that its upload reservation was consumed.
+  IF EXISTS (
+    SELECT 1
+    FROM public.creatorverse_media AS m
+    WHERE m.post_id = p_post_id
+      AND m.page_id = p_page_id
+      AND m.verification = 'verified'
+      AND (
+        m.byte_size IS NULL
+        OR m.byte_size <= 0
+        OR m.display_order IS NULL
+        OR m.display_order NOT BETWEEN 0 AND 3
+
+        OR (
+          m.media_type = 'image'
+          AND (
+            m.mime_type NOT IN (
+              'image/jpeg', 'image/png', 'image/webp'
+            )
+            OR m.byte_size > 8388608
+            OR m.duration_seconds IS NOT NULL
+          )
+        )
+
+        OR (
+          m.media_type = 'video'
+          AND (
+            m.mime_type NOT IN (
+              'video/mp4', 'video/webm'
+            )
+            OR m.byte_size > 33554432
+            OR m.duration_seconds IS NULL
+            OR m.duration_seconds <= 0
+            OR m.duration_seconds > 120
+          )
+        )
+
+        OR m.media_type IS DISTINCT FROM 'image'
+           AND m.media_type IS DISTINCT FROM 'video'
+
+        OR NOT EXISTS (
+          SELECT 1
+          FROM storage.objects AS obj
+          WHERE obj.bucket_id = 'creatorverse-media'
+            AND obj.name = m.storage_path
+        )
+
+        OR NOT EXISTS (
+          SELECT 1
+          FROM creatorverse_private.upload_reservations AS r
+          WHERE r.media_id = m.id
+            AND r.page_id = p_page_id
+            AND r.owner_id = auth.uid()
+            AND r.consumed_at IS NOT NULL
+        )
+      )
+  ) THEN
+    RAISE EXCEPTION 'Verified media validation failed'
+      USING ERRCODE = '23514';
+  END IF;
+
+  UPDATE public.creatorverse_posts
+  SET
+    status = 'published',
+    updated_at = pg_catalog.now()
+  WHERE id = p_post_id
+    AND page_id = p_page_id
+    AND status = 'draft';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Publication could not be completed'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN p_post_id;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.queue_avatar_cleanup()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF OLD.avatar_storage_path IS NULL THEN
+    RETURN OLD;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    INSERT INTO parapost_groups_private.media_cleanup(
+      storage_path
+    )
+    VALUES (OLD.avatar_storage_path)
+    ON CONFLICT DO NOTHING;
+  ELSIF OLD.avatar_storage_path
+        IS DISTINCT FROM NEW.avatar_storage_path THEN
+    INSERT INTO parapost_groups_private.media_cleanup(
+      storage_path
+    )
+    VALUES (OLD.avatar_storage_path)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN OLD;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.queue_avatar_reservation()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.groups
+    WHERE avatar_storage_path = OLD.storage_path
+  ) THEN
+    INSERT INTO parapost_groups_private.media_cleanup(
+      storage_path
+    )
+    VALUES (OLD.storage_path)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN OLD;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION parapost_groups_private.reset_group_share_cooldown_after_delete()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_latest timestamptz;
+BEGIN
+  -- Only Group promotions reset their cooldown.
+  -- Individual Group posts retain the seven-day rule.
+  IF OLD.post_id IS NOT NULL THEN
+    RETURN OLD;
+  END IF;
+
+  -- Check whether the member has another share
+  -- of this same Group still active.
+  SELECT MAX(created_at)
+  INTO v_latest
+  FROM public.group_promotional_shares
+  WHERE user_id = OLD.user_id
+    AND group_id = OLD.group_id
+    AND post_id IS NULL;
+
+  IF v_latest IS NULL THEN
+    DELETE FROM parapost_groups_private.group_share_cooldowns
+    WHERE user_id = OLD.user_id
+      AND target_type = 'group'
+      AND target_id = OLD.group_id;
+  ELSE
+    INSERT INTO parapost_groups_private.group_share_cooldowns
+      (user_id, target_type, target_id, last_shared_at)
+    VALUES
+      (OLD.user_id, 'group', OLD.group_id, v_latest)
+    ON CONFLICT (user_id, target_type, target_id)
+    DO UPDATE SET
+      last_shared_at = EXCLUDED.last_shared_at;
+  END IF;
+
+  RETURN OLD;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_activate_page_draft(p_page_id uuid)
+ RETURNS uuid
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  SELECT creatorverse_private.activate_page_draft(p_page_id);
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_cancel_post_media(p_page_id uuid, p_post_id uuid, p_media_id uuid, p_owner_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF current_user <> 'service_role' THEN
+    RAISE EXCEPTION 'Not authorized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM 1
+  FROM public.creatorverse_pages
+  WHERE id = p_page_id
+    AND owner_id = p_owner_id
+    AND status IN ('draft', 'active')
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+
+  PERFORM 1
+  FROM public.creatorverse_posts
+  WHERE id = p_post_id
+    AND page_id = p_page_id
+    AND author_id = p_owner_id
+    AND status = 'draft'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+
+  UPDATE public.creatorverse_media
+  SET verification = 'rejected'
+  WHERE id = p_media_id
+    AND page_id = p_page_id
+    AND post_id = p_post_id
+    AND purpose = 'post'
+    AND verification = 'pending';
+
+  RETURN FOUND;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_claim_media_cleanup_batch(p_limit integer DEFAULT 5)
+ RETURNS TABLE(job_id uuid, claim_token uuid, page_id uuid, post_id uuid, media_id uuid, storage_path text)
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  candidate record;
+  media_record record;
+  job_record record;
+  token uuid;
+  claims integer := 0;
+BEGIN
+  IF current_user <> 'service_role' THEN
+    RAISE EXCEPTION 'Not authorized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 5
+  THEN
+    RAISE EXCEPTION 'Invalid cleanup limit';
+  END IF;
+
+  FOR candidate IN
+    SELECT
+      q.job_id AS candidate_job,
+      q.media_id AS candidate_media,
+      q.page_id AS candidate_page,
+      q.post_id AS candidate_post
+    FROM creatorverse_private.media_cleanup_jobs q
+    WHERE (
+      q.status = 'queued'
+      AND q.eligible_after <=
+        pg_catalog.statement_timestamp()
+    ) OR (
+      q.status = 'claimed'
+      AND q.lease_expires_at <
+        pg_catalog.statement_timestamp()
+    )
+    ORDER BY q.eligible_after, q.job_id
+    LIMIT p_limit * 10
+  LOOP
+    PERFORM 1
+    FROM public.creatorverse_pages p
+    WHERE p.id = candidate.candidate_page
+    FOR UPDATE SKIP LOCKED;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    PERFORM 1
+    FROM public.creatorverse_posts p
+    WHERE p.id = candidate.candidate_post
+      AND p.page_id = candidate.candidate_page
+      AND p.status IN ('draft', 'published')
+    FOR UPDATE SKIP LOCKED;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    SELECT m.*
+    INTO media_record
+    FROM public.creatorverse_media m
+    WHERE m.id = candidate.candidate_media
+      AND m.page_id = candidate.candidate_page
+      AND m.post_id = candidate.candidate_post
+      AND m.purpose = 'post'
+      AND m.verification = 'rejected'
+    FOR UPDATE SKIP LOCKED;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    SELECT q.*
+    INTO job_record
+    FROM creatorverse_private.media_cleanup_jobs q
+    WHERE q.job_id = candidate.candidate_job
+      AND q.media_id = candidate.candidate_media
+    FOR UPDATE SKIP LOCKED;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    IF media_record.storage_path IS DISTINCT FROM
+       job_record.storage_path
+       OR NOT (
+         (
+           job_record.status = 'queued'
+           AND job_record.eligible_after <=
+             pg_catalog.statement_timestamp()
+         )
+         OR (
+           job_record.status = 'claimed'
+           AND job_record.lease_expires_at <
+             pg_catalog.statement_timestamp()
+         )
+       )
+    THEN
+      CONTINUE;
+    END IF;
+
+    token := pg_catalog.gen_random_uuid();
+
+    UPDATE creatorverse_private.media_cleanup_jobs q
+    SET
+      status = 'claimed',
+      claim_token = token,
+      lease_expires_at =
+        pg_catalog.statement_timestamp()
+          + interval '10 minutes',
+      attempts = q.attempts + 1,
+      last_error = NULL
+    WHERE q.job_id = candidate.candidate_job;
+
+    job_id := candidate.candidate_job;
+    claim_token := token;
+    page_id := candidate.candidate_page;
+    post_id := candidate.candidate_post;
+    media_id := candidate.candidate_media;
+    storage_path := job_record.storage_path;
+
+    RETURN NEXT;
+
+    claims := claims + 1;
+    EXIT WHEN claims >= p_limit;
+  END LOOP;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_complete_media_cleanup(p_job_id uuid, p_claim_token uuid, p_success boolean, p_error text DEFAULT NULL::text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  acknowledged boolean;
+BEGIN
+  IF current_user <> 'service_role' THEN
+    RETURN false;
+  END IF;
+
+  IF p_success IS NULL THEN
+    RETURN false;
+  END IF;
+
+  UPDATE creatorverse_private.media_cleanup_jobs q
+  SET
+    successful_removals = CASE
+      WHEN p_success
+        THEN q.successful_removals + 1
+      ELSE q.successful_removals
+    END,
+
+    status = CASE
+      WHEN p_success AND q.successful_removals >= 1
+        THEN 'completed'
+      ELSE 'queued'
+    END,
+
+    claim_token = NULL,
+    lease_expires_at = NULL,
+
+    completed_at = CASE
+      WHEN p_success AND q.successful_removals >= 1
+        THEN pg_catalog.statement_timestamp()
+      ELSE NULL
+    END,
+
+    eligible_after = CASE
+      WHEN p_success AND q.successful_removals = 0
+        THEN pg_catalog.statement_timestamp()
+          + interval '24 hours'
+      WHEN NOT p_success
+        THEN pg_catalog.statement_timestamp()
+          + interval '10 minutes'
+      ELSE q.eligible_after
+    END,
+
+    last_error = CASE
+      WHEN p_success THEN NULL
+      ELSE pg_catalog.left(
+        coalesce(p_error, 'cleanup_failed'),
+        160
+      )
+    END
+  WHERE q.job_id = p_job_id
+    AND q.claim_token = p_claim_token
+    AND q.status = 'claimed'
+    AND q.lease_expires_at >
+      pg_catalog.statement_timestamp()
+  RETURNING true INTO acknowledged;
+
+  RETURN coalesce(acknowledged, false);
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_create_page_draft(p_name text, p_category text, p_short_bio text DEFAULT ''::text, p_description text DEFAULT ''::text)
+ RETURNS uuid
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  SELECT creatorverse_private.create_page_draft(
+    p_name, p_category, p_short_bio, p_description
+  );
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_create_post_draft(p_page_id uuid, p_content text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid;
+  v_count integer;
+BEGIN
+  v_user := auth.uid();
+
+  IF v_user IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Posting unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Serialize posting requests for this account.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'creatorverse_post:' || v_user::text,
+      0
+    )
+  );
+
+  SELECT count(*)
+  INTO v_count
+  FROM public.creatorverse_posts
+  WHERE author_id = v_user
+    AND created_at >= pg_catalog.now() - interval '1 hour';
+
+  IF v_count >= 10 THEN
+    RAISE EXCEPTION 'Posting limit reached. Try again later.'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  RETURN creatorverse_private.create_text_draft(
+    p_page_id,
+    p_content
+  );
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_delete_share(p_share_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+BEGIN
+  IF v_user IS NULL THEN
+    RAISE EXCEPTION 'Authentication required'
+      USING ERRCODE = '28000';
+  END IF;
+
+  IF NOT creatorverse_private.eligible() THEN
+    RAISE EXCEPTION 'Account not eligible'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_share_id IS NULL THEN
+    RETURN false;
+  END IF;
+
+  -- Only the original sharer can remove this share.
+  -- Cannot delete the original CreatorVerse post.
+  -- Cannot delete another member's share.
+
+  DELETE FROM public.creatorverse_shares
+  WHERE id = p_share_id
+    AND sharer_id = v_user;
+
+  RETURN FOUND;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_details_can_edit(p_page_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT
+    creatorverse_private.enabled()
+    AND creatorverse_private.eligible()
+    AND COALESCE(
+      (
+        SELECT page_details_edit_enabled
+        FROM creatorverse_private.feature_gate
+        WHERE singleton = true
+      ),
+      false
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM public.creatorverse_pages AS p
+      WHERE p.id = p_page_id
+        AND p.owner_id = auth.uid()
+        AND p.status IN ('draft', 'active')
+    );
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_expire_pending_media_batch(p_limit integer DEFAULT 20)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  candidate record;
+  expired_count integer := 0;
+BEGIN
+  IF current_user <> 'service_role' THEN
+    RAISE EXCEPTION 'Not authorized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 20
+  THEN
+    RAISE EXCEPTION 'Invalid expiration limit';
+  END IF;
+
+  FOR candidate IN
+    SELECT
+      m.id AS media_id,
+      m.page_id,
+      m.post_id
+    FROM creatorverse_private.upload_reservations r
+    JOIN public.creatorverse_media m
+      ON m.id = r.media_id
+    JOIN public.creatorverse_posts p
+      ON p.id = m.post_id
+    WHERE r.expires_at <=
+      pg_catalog.statement_timestamp()
+      AND r.consumed_at IS NULL
+      AND m.verification = 'pending'
+      AND m.purpose = 'post'
+      AND p.status = 'draft'
+    ORDER BY r.expires_at, m.id
+    LIMIT p_limit * 8
+  LOOP
+    PERFORM 1
+    FROM public.creatorverse_pages
+    WHERE id = candidate.page_id
+    FOR UPDATE SKIP LOCKED;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    PERFORM 1
+    FROM public.creatorverse_posts
+    WHERE id = candidate.post_id
+      AND page_id = candidate.page_id
+      AND status = 'draft'
+    FOR UPDATE SKIP LOCKED;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    PERFORM 1
+    FROM public.creatorverse_media
+    WHERE id = candidate.media_id
+      AND verification = 'pending'
+    FOR UPDATE SKIP LOCKED;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    PERFORM 1
+    FROM creatorverse_private.upload_reservations
+    WHERE media_id = candidate.media_id
+      AND expires_at <=
+        pg_catalog.statement_timestamp()
+      AND consumed_at IS NULL
+    FOR UPDATE SKIP LOCKED;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    UPDATE public.creatorverse_media
+    SET verification = 'rejected'
+    WHERE id = candidate.media_id
+      AND verification = 'pending';
+
+    IF FOUND THEN
+      expired_count := expired_count + 1;
+      EXIT WHEN expired_count >= p_limit;
+    END IF;
+  END LOOP;
+
+  RETURN expired_count;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_finalize_post_media(p_media_id uuid, p_verified_bytes bigint, p_detected_mime_type text, p_verified_duration_seconds numeric)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_page_id uuid;
+  v_post_id uuid;
+  v_owner_id uuid;
+  v_page_status text;
+  v_author_id uuid;
+  v_post_status text;
+  v_media record;
+  v_reservation_id uuid;
+  v_extension text;
+BEGIN
+  IF current_user <> 'service_role' THEN
+    RAISE EXCEPTION 'Not authorized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT page_id, post_id
+  INTO v_page_id, v_post_id
+  FROM public.creatorverse_media
+  WHERE id = p_media_id
+    AND purpose = 'post';
+
+  IF NOT FOUND OR v_post_id IS NULL THEN
+    RAISE EXCEPTION 'Media not found';
+  END IF;
+
+  -- Lock page, post, media, reservation.
+  SELECT owner_id, status
+  INTO v_owner_id, v_page_status
+  FROM public.creatorverse_pages
+  WHERE id = v_page_id
+  FOR UPDATE;
+
+  IF NOT FOUND
+     OR v_page_status NOT IN ('draft', 'active')
+  THEN
+    RAISE EXCEPTION 'Page unavailable';
+  END IF;
+
+  SELECT author_id, status
+  INTO v_author_id, v_post_status
+  FROM public.creatorverse_posts
+  WHERE id = v_post_id
+    AND page_id = v_page_id
+  FOR UPDATE;
+
+  IF NOT FOUND
+     OR v_post_status <> 'draft'
+     OR v_author_id IS DISTINCT FROM v_owner_id
+  THEN
+    RAISE EXCEPTION 'Owned draft unavailable';
+  END IF;
+
+  SELECT
+    storage_path, media_type, mime_type, verification
+  INTO v_media
+  FROM public.creatorverse_media
+  WHERE id = p_media_id
+    AND page_id = v_page_id
+    AND post_id = v_post_id
+    AND purpose = 'post'
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_media.verification <> 'pending' THEN
+    RAISE EXCEPTION 'Media is not pending';
+  END IF;
+
+  SELECT id
+  INTO v_reservation_id
+  FROM creatorverse_private.upload_reservations
+  WHERE media_id = p_media_id
+    AND page_id = v_page_id
+    AND owner_id = v_owner_id
+    AND consumed_at IS NULL
+    AND expires_at > pg_catalog.statement_timestamp()
+  ORDER BY expires_at DESC
+  LIMIT 1
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Reservation expired or consumed';
+  END IF;
+
+  v_extension := CASE v_media.mime_type
+    WHEN 'image/jpeg' THEN 'jpg'
+    WHEN 'image/png' THEN 'png'
+    WHEN 'image/webp' THEN 'webp'
+    WHEN 'video/mp4' THEN 'mp4'
+    WHEN 'video/webm' THEN 'webm'
+    ELSE NULL
+  END;
+
+  IF v_extension IS NULL
+     OR v_media.storage_path IS DISTINCT FROM (
+       v_page_id::text || '/' ||
+       v_post_id::text || '/' ||
+       p_media_id::text || '.' || v_extension
+     )
+  THEN
+    RAISE EXCEPTION 'Invalid storage path';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM storage.objects
+    WHERE bucket_id = 'creatorverse-media'
+      AND name = v_media.storage_path
+  ) THEN
+    RAISE EXCEPTION 'Uploaded object missing';
+  END IF;
+
+  IF p_detected_mime_type IS DISTINCT FROM v_media.mime_type
+  THEN
+    RAISE EXCEPTION 'Verified MIME mismatch';
+  END IF;
+
+  IF v_media.media_type = 'image' THEN
+    IF v_media.mime_type NOT IN (
+        'image/jpeg', 'image/png', 'image/webp'
+      )
+      OR p_verified_bytes IS NULL
+      OR p_verified_bytes NOT BETWEEN 1 AND 8388608
+      OR p_verified_duration_seconds IS NOT NULL
+    THEN
+      RAISE EXCEPTION 'Invalid image verification';
+    END IF;
+
+  ELSIF v_media.media_type = 'video' THEN
+    IF v_media.mime_type NOT IN ('video/mp4', 'video/webm')
+      OR p_verified_bytes IS NULL
+      OR p_verified_bytes NOT BETWEEN 1 AND 33554432
+      OR p_verified_duration_seconds IS NULL
+      OR p_verified_duration_seconds <= 0
+      OR p_verified_duration_seconds > 120
+    THEN
+      RAISE EXCEPTION 'Invalid video verification';
+    END IF;
+
+  ELSE
+    RAISE EXCEPTION 'Unsupported media type';
+  END IF;
+
+  UPDATE creatorverse_private.upload_reservations
+  SET consumed_at = pg_catalog.statement_timestamp()
+  WHERE id = v_reservation_id
+    AND consumed_at IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Reservation consumption failed';
+  END IF;
+
+  UPDATE public.creatorverse_media
+  SET
+    byte_size = p_verified_bytes,
+    duration_seconds = p_verified_duration_seconds,
+    verification = 'verified'
+  WHERE id = p_media_id
+    AND verification = 'pending';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Media finalization failed';
+  END IF;
+
+  RETURN true;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_post_engagement(p_page_id uuid, p_post_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_data jsonb;
+BEGIN
+  IF NOT creatorverse_private.read_post(p_post_id)
+    OR NOT EXISTS (
+      SELECT 1
+      FROM public.creatorverse_posts AS post
+      JOIN public.creatorverse_pages AS page
+        ON page.id = post.page_id
+      WHERE post.id = p_post_id
+        AND post.page_id = p_page_id
+        AND post.status = 'published'
+        AND page.status = 'active'
+    ) THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT pg_catalog.jsonb_build_object(
+    'comments_enabled', (
+      SELECT coalesce(post.comments_enabled, false)
+      FROM public.creatorverse_posts AS post
+      WHERE post.id = p_post_id
+        AND post.page_id = p_page_id
+        AND post.status = 'published'
+    ),
+    'like_count', (
+      SELECT pg_catalog.count(*)
+      FROM public.creatorverse_post_likes AS l
+      WHERE l.post_id = p_post_id
+        AND NOT creatorverse_private.blocked(l.user_id)
+    ),
+    'comment_count', (
+      SELECT pg_catalog.count(*)
+      FROM public.creatorverse_comments AS c
+      WHERE c.post_id = p_post_id
+        AND NOT c.is_deleted
+        AND creatorverse_private.read_comment(c.id)
+    ),
+    'share_count', (
+      SELECT pg_catalog.count(*)
+      FROM public.creatorverse_shares AS s
+      WHERE s.post_id = p_post_id
+        AND NOT creatorverse_private.blocked(s.sharer_id)
+    ),
+    'liked_by_me', (
+      SELECT EXISTS (
+        SELECT 1
+        FROM public.creatorverse_post_likes AS l
+        WHERE l.post_id = p_post_id
+          AND l.user_id = auth.uid()
+      )
+    ),
+    'comments', (
+      SELECT coalesce(
+        pg_catalog.jsonb_agg(
+          pg_catalog.jsonb_build_object(
+            'id', c.id,
+            'post_id', c.post_id,
+            'author_id', c.author_id,
+            'parent_id', c.parent_id,
+            'content', c.content,
+            'created_at', c.created_at,
+            'updated_at', c.updated_at,
+            'like_count', (
+              SELECT pg_catalog.count(*)
+              FROM public.creatorverse_comment_likes AS cl
+              WHERE cl.comment_id = c.id
+                AND NOT creatorverse_private.blocked(cl.user_id)
+            ),
+            'liked_by_me', (
+              SELECT EXISTS (
+                SELECT 1
+                FROM public.creatorverse_comment_likes AS cl
+                WHERE cl.comment_id = c.id
+                  AND cl.user_id = auth.uid()
+              )
+            )
+          )
+          ORDER BY c.created_at
+        ),
+        '[]'::jsonb
+      )
+      FROM (
+        SELECT
+          id,
+          post_id,
+          author_id,
+          parent_id,
+          content,
+          created_at,
+          updated_at
+        FROM public.creatorverse_comments
+        WHERE post_id = p_post_id
+          AND NOT is_deleted
+          AND creatorverse_private.read_comment(id)
+        ORDER BY created_at
+        LIMIT 100
+      ) AS c
+    )
+  )
+  INTO v_data;
+
+  RETURN v_data;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_publish_post(p_page_id uuid, p_post_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid;
+  v_count integer;
+BEGIN
+  v_user := auth.uid();
+
+  IF v_user IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Publishing unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Use the same account-level lock.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'creatorverse_post:' || v_user::text,
+      0
+    )
+  );
+
+  SELECT count(*)
+  INTO v_count
+  FROM public.creatorverse_posts
+  WHERE author_id = v_user
+    AND status = 'published'
+    AND updated_at >= pg_catalog.now() - interval '1 hour';
+
+  IF v_count >= 10 THEN
+    RAISE EXCEPTION 'Publishing limit reached. Try again later.'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  RETURN creatorverse_private.publish_text_draft(
+    p_page_id,
+    p_post_id
+  );
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_reserve_post_media(p_page_id uuid, p_post_id uuid, p_media_type text, p_mime_type text, p_display_order integer)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+  v_id uuid;
+  v_extension text;
+  v_path text;
+BEGIN
+  IF v_user IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Media reservation unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM 1
+  FROM public.creatorverse_pages
+  WHERE id = p_page_id
+    AND owner_id = v_user
+    AND status IN ('draft', 'active')
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Page unavailable';
+  END IF;
+
+  PERFORM 1
+  FROM public.creatorverse_posts
+  WHERE id = p_post_id
+    AND page_id = p_page_id
+    AND author_id = v_user
+    AND status = 'draft'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Owned draft unavailable';
+  END IF;
+
+  IF p_display_order IS NULL
+     OR p_display_order NOT BETWEEN 0 AND 3
+  THEN
+    RAISE EXCEPTION 'Invalid media position';
+  END IF;
+
+  v_extension := CASE
+    WHEN p_media_type = 'image'
+      AND p_mime_type = 'image/jpeg' THEN 'jpg'
+    WHEN p_media_type = 'image'
+      AND p_mime_type = 'image/png' THEN 'png'
+    WHEN p_media_type = 'image'
+      AND p_mime_type = 'image/webp' THEN 'webp'
+    WHEN p_media_type = 'video'
+      AND p_mime_type = 'video/mp4' THEN 'mp4'
+    WHEN p_media_type = 'video'
+      AND p_mime_type = 'video/webm' THEN 'webm'
+    ELSE NULL
+  END;
+
+  IF v_extension IS NULL THEN
+    RAISE EXCEPTION 'Unsupported media type';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.creatorverse_media
+    WHERE post_id = p_post_id
+      AND display_order = p_display_order
+      AND verification IN ('pending', 'verified')
+  ) THEN
+    RAISE EXCEPTION 'Attachment position occupied';
+  END IF;
+
+  IF (
+    SELECT count(*)
+    FROM public.creatorverse_media
+    WHERE post_id = p_post_id
+      AND verification IN ('pending', 'verified')
+  ) >= 4 THEN
+    RAISE EXCEPTION 'Maximum four attachments';
+  END IF;
+
+  v_id := pg_catalog.gen_random_uuid();
+
+  v_path :=
+    p_page_id::text || '/' ||
+    p_post_id::text || '/' ||
+    v_id::text || '.' || v_extension;
+
+  INSERT INTO public.creatorverse_media (
+    id, page_id, post_id, purpose,
+    media_type, mime_type, storage_path,
+    verification, display_order
+  )
+  VALUES (
+    v_id, p_page_id, p_post_id, 'post',
+    p_media_type, p_mime_type, v_path,
+    'pending', p_display_order
+  );
+
+  INSERT INTO creatorverse_private.upload_reservations (
+    id, page_id, media_id, owner_id, expires_at
+  )
+  VALUES (
+    pg_catalog.gen_random_uuid(),
+    p_page_id,
+    v_id,
+    v_user,
+    pg_catalog.statement_timestamp()
+      + interval '30 minutes'
+  );
+
+  RETURN pg_catalog.jsonb_build_object(
+    'media_id', v_id,
+    'storage_path', v_path,
+    'verification', 'pending'
+  );
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_shared_feed(p_sharer_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 60, p_offset integer DEFAULT 0)
+ RETURNS TABLE(share_id uuid, post_id uuid, page_id uuid, sharer_id uuid, shared_at timestamp with time zone, caption text, page_name text, original_content text, original_author_id uuid, original_created_at timestamp with time zone)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT
+    s.id,
+    s.post_id,
+    post.page_id,
+    s.sharer_id,
+    s.created_at,
+    s.caption,
+    page.name,
+    post.content,
+    page.owner_id,
+    post.created_at
+  FROM public.creatorverse_shares AS s
+  JOIN public.creatorverse_posts AS post
+    ON post.id = s.post_id
+  JOIN public.creatorverse_pages AS page
+    ON page.id = post.page_id
+  WHERE auth.uid() IS NOT NULL
+    AND creatorverse_private.enabled()
+    AND post.status = 'published'
+    AND page.status = 'active'
+    AND creatorverse_private.read_post(post.id)
+    AND NOT creatorverse_private.blocked(s.sharer_id)
+    AND (
+      p_sharer_id IS NULL
+      OR s.sharer_id = p_sharer_id
+    )
+  ORDER BY s.created_at DESC, s.id DESC
+  LIMIT LEAST(
+    GREATEST(COALESCE(p_limit, 60), 1),
+    60
+  )
+  OFFSET LEAST(
+    GREATEST(COALESCE(p_offset, 0), 0),
+    10000
+  );
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_social_interact(p_page_id uuid, p_post_id uuid, p_action text, p_target_id uuid, p_body text, p_request_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+  v_action text := pg_catalog.lower(
+    pg_catalog.btrim(coalesce(p_action, ''))
+  );
+  v_text text := pg_catalog.btrim(coalesce(p_body, ''));
+  v_id uuid;
+  v_existing_post uuid;
+  v_existing_parent uuid;
+  v_existing_content text;
+  v_owner uuid;
+  v_comments_enabled boolean;
+BEGIN
+
+  IF v_user IS NULL THEN
+    RAISE EXCEPTION 'Authentication required'
+      USING ERRCODE = '28000';
+  END IF;
+
+  IF NOT creatorverse_private.write_enabled() THEN
+    RAISE EXCEPTION 'CreatorVerse writes are disabled'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT page.owner_id, post.comments_enabled
+    INTO v_owner, v_comments_enabled
+  FROM public.creatorverse_posts AS post
+  JOIN public.creatorverse_pages AS page
+    ON page.id = post.page_id
+  WHERE post.id = p_post_id
+    AND post.page_id = p_page_id
+    AND post.status = 'published'
+    AND page.status = 'active';
+
+  IF NOT FOUND
+    OR NOT creatorverse_private.read_post(p_post_id)
+    OR creatorverse_private.blocked(v_owner) THEN
+    RAISE EXCEPTION
+      'Published post not found or inaccessible'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF v_action NOT IN ('delete_comment', 'edit_comment') AND NOT (
+    creatorverse_private.owns(p_page_id)
+    OR EXISTS (
+      SELECT 1
+      FROM public.creatorverse_follows AS f
+      WHERE f.page_id = p_page_id
+        AND f.user_id = v_user
+    )
+  ) THEN
+    RAISE EXCEPTION 'Follow this page to interact'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- LIKES
+
+  IF v_action IN ('like', 'unlike') THEN
+
+    IF p_target_id IS NOT NULL OR v_text <> '' THEN
+      RAISE EXCEPTION 'Unexpected like parameters'
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF v_action = 'like' THEN
+      INSERT INTO public.creatorverse_post_likes
+        (post_id, user_id, created_at)
+      VALUES (p_post_id, v_user, pg_catalog.now())
+      ON CONFLICT DO NOTHING;
+    ELSE
+      DELETE FROM public.creatorverse_post_likes
+      WHERE post_id = p_post_id
+        AND user_id = v_user;
+    END IF;
+
+    RETURN p_post_id;
+
+  -- COMMENTS AND REPLIES
+
+  ELSIF v_action = 'comment' THEN
+
+    IF p_request_id IS NULL THEN
+      RAISE EXCEPTION 'Comment request ID required'
+        USING ERRCODE = '22023';
+    END IF;
+
+    -- Existing comment retry: return the original ID.
+
+    SELECT id, post_id, parent_id, content
+      INTO v_id, v_existing_post,
+           v_existing_parent, v_existing_content
+    FROM public.creatorverse_comments
+    WHERE author_id = v_user
+      AND request_id = p_request_id;
+
+    IF FOUND THEN
+
+      IF v_existing_post IS DISTINCT FROM p_post_id
+        OR v_existing_parent IS DISTINCT FROM p_target_id
+        OR (
+          v_existing_content IS DISTINCT FROM v_text
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public.creatorverse_comments
+            WHERE id = v_id AND is_deleted
+          )
+        ) THEN
+        RAISE EXCEPTION 'Comment request ID collision'
+          USING ERRCODE = '22023';
+      END IF;
+
+      RETURN v_id;
+    END IF;
+
+    IF NOT coalesce(v_comments_enabled, false)
+      OR pg_catalog.length(v_text) NOT BETWEEN 1 AND 1200
+      OR NOT creatorverse_private.comment_allowed(
+        p_post_id, p_target_id
+      ) THEN
+      RAISE EXCEPTION
+        'Comments disabled or invalid reply'
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF (
+      SELECT pg_catalog.count(*)
+      FROM public.creatorverse_comments
+      WHERE author_id = v_user
+        AND created_at >
+          pg_catalog.now() - interval '1 minute'
+    ) >= 10 THEN
+      RAISE EXCEPTION 'Comment rate limit reached'
+        USING ERRCODE = '42501';
+    END IF;
+
+    v_id := pg_catalog.gen_random_uuid();
+
+    INSERT INTO public.creatorverse_comments (
+      id, post_id, author_id, parent_id,
+      content, is_deleted, created_at,
+      updated_at, request_id
+    )
+    VALUES (
+      v_id, p_post_id, v_user, p_target_id,
+      v_text, false, pg_catalog.now(),
+      pg_catalog.now(), p_request_id
+    )
+    ON CONFLICT (author_id, request_id) DO NOTHING;
+
+    -- Also handle simultaneous retries safely.
+
+    SELECT id, post_id, parent_id, content
+      INTO v_id, v_existing_post,
+           v_existing_parent, v_existing_content
+    FROM public.creatorverse_comments
+    WHERE author_id = v_user
+      AND request_id = p_request_id;
+
+    IF NOT FOUND
+      OR v_existing_post IS DISTINCT FROM p_post_id
+      OR v_existing_parent IS DISTINCT FROM p_target_id THEN
+      RAISE EXCEPTION 'Unable to verify comment request'
+        USING ERRCODE = '42501';
+    END IF;
+
+    RETURN v_id;
+
+
+  -- LIKE / UNLIKE COMMENT OR REPLY
+
+  ELSIF v_action IN ('like_comment', 'unlike_comment') THEN
+
+    IF p_target_id IS NULL OR v_text <> '' THEN
+      RAISE EXCEPTION 'Invalid comment Like parameters'
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.creatorverse_comments AS c
+      WHERE c.id = p_target_id
+        AND c.post_id = p_post_id
+        AND NOT c.is_deleted
+        AND creatorverse_private.read_comment(c.id)
+    ) THEN
+      RAISE EXCEPTION 'Comment unavailable or inaccessible'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF v_action = 'like_comment' THEN
+
+      INSERT INTO public.creatorverse_comment_likes
+        (comment_id, user_id, created_at)
+      VALUES (
+        p_target_id,
+        v_user,
+        pg_catalog.now()
+      )
+      ON CONFLICT DO NOTHING;
+
+    ELSE
+
+      DELETE FROM public.creatorverse_comment_likes
+      WHERE comment_id = p_target_id
+        AND user_id = v_user;
+
+    END IF;
+
+    RETURN p_target_id;
+
+
+  -- EDIT OWN COMMENT OR REPLY
+
+  ELSIF v_action = 'edit_comment' THEN
+
+    IF p_target_id IS NULL
+      OR pg_catalog.length(v_text) NOT BETWEEN 1 AND 1200
+    THEN
+      RAISE EXCEPTION 'Invalid comment edit'
+        USING ERRCODE = '22023';
+    END IF;
+
+    UPDATE public.creatorverse_comments
+    SET
+      content = v_text,
+      updated_at = pg_catalog.now()
+    WHERE id = p_target_id
+      AND post_id = p_post_id
+      AND author_id = v_user
+      AND NOT is_deleted;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Comment not found or unauthorized'
+        USING ERRCODE = '42501';
+    END IF;
+
+    RETURN p_target_id;
+
+
+  -- DELETE OWN COMMENT
+
+  ELSIF v_action = 'delete_comment' THEN
+
+    IF p_target_id IS NULL OR v_text <> '' THEN
+      RAISE EXCEPTION 'Invalid comment deletion'
+        USING ERRCODE = '22023';
+    END IF;
+
+    UPDATE public.creatorverse_comments
+    SET
+      is_deleted = true,
+      content = '',
+      updated_at = pg_catalog.now()
+    WHERE id = p_target_id
+      AND post_id = p_post_id
+      AND author_id = v_user
+      AND NOT is_deleted;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION
+        'Comment not found or unauthorized'
+        USING ERRCODE = '42501';
+    END IF;
+
+    RETURN p_target_id;
+
+  -- SHARES: EXISTING PROTECTION PRESERVED
+
+  ELSIF v_action = 'share' THEN
+
+    IF p_target_id IS NOT NULL
+      OR pg_catalog.length(v_text) > 1000
+      OR p_request_id IS NULL THEN
+      RAISE EXCEPTION 'Invalid share parameters'
+        USING ERRCODE = '22023';
+    END IF;
+
+    SELECT id, post_id
+      INTO v_id, v_existing_post
+    FROM public.creatorverse_shares
+    WHERE sharer_id = v_user
+      AND request_id = p_request_id;
+
+    IF FOUND THEN
+      IF v_existing_post IS DISTINCT FROM p_post_id THEN
+        RAISE EXCEPTION
+          'Request ID already used for another post'
+          USING ERRCODE = '22023';
+      END IF;
+
+      RETURN v_id;
+    END IF;
+
+    IF (
+      SELECT pg_catalog.count(*)
+      FROM public.creatorverse_shares
+      WHERE sharer_id = v_user
+        AND created_at >
+          pg_catalog.now() - interval '1 hour'
+    ) >= 15 THEN
+      RAISE EXCEPTION 'Share rate limit reached'
+        USING ERRCODE = '42501';
+    END IF;
+
+    v_id := pg_catalog.gen_random_uuid();
+
+    INSERT INTO public.creatorverse_shares (
+      id, post_id, sharer_id,
+      caption, request_id, created_at
+    )
+    VALUES (
+      v_id, p_post_id, v_user,
+      v_text, p_request_id, pg_catalog.now()
+    )
+    ON CONFLICT DO NOTHING;
+
+    SELECT id, post_id
+      INTO v_id, v_existing_post
+    FROM public.creatorverse_shares
+    WHERE sharer_id = v_user
+      AND request_id = p_request_id;
+
+    IF v_id IS NULL
+      OR v_existing_post IS DISTINCT FROM p_post_id THEN
+      RAISE EXCEPTION
+        'Unable to verify share or request ID collision'
+        USING ERRCODE = '42501';
+    END IF;
+
+    RETURN v_id;
+
+  END IF;
+
+  RAISE EXCEPTION 'Unknown interaction action'
+    USING ERRCODE = '22023';
+
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_update_page_details(p_page_id uuid, p_name text, p_category text, p_short_bio text, p_description text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_updated_id uuid;
+BEGIN
+  IF NOT COALESCE(
+    public.creatorverse_details_can_edit(p_page_id),
+    false
+  ) THEN
+    RAISE EXCEPTION 'Page editing is not permitted'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_name IS NULL
+     OR p_category IS NULL
+     OR p_short_bio IS NULL
+     OR p_description IS NULL THEN
+    RAISE EXCEPTION 'Missing required page information'
+      USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE public.creatorverse_pages
+  SET
+    name = pg_catalog.btrim(p_name),
+    category = p_category,
+    short_bio = p_short_bio,
+    description = p_description
+  WHERE id = p_page_id
+    AND owner_id = auth.uid()
+    AND status IN ('draft', 'active')
+  RETURNING id INTO v_updated_id;
+
+  IF v_updated_id IS NULL THEN
+    RAISE EXCEPTION 'Page editing is not permitted'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN v_updated_id;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.creatorverse_update_page_profile(p_page_id uuid, p_name text, p_category text, p_short_bio text, p_description text, p_website text, p_public_email text, p_location text, p_social_links jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_id uuid;
+  v_link jsonb;
+BEGIN
+  -- Dedicated switch, valid user and ownership check.
+  IF NOT COALESCE(
+    public.creatorverse_details_can_edit(p_page_id),
+    false
+  ) THEN
+    RAISE EXCEPTION 'Page editing is not permitted'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Required fields.
+  IF p_name IS NULL
+     OR p_category IS NULL
+     OR p_short_bio IS NULL
+     OR p_description IS NULL
+     OR p_location IS NULL
+     OR p_social_links IS NULL THEN
+    RAISE EXCEPTION 'Missing page information'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Only an array containing up to eight links.
+  IF jsonb_typeof(p_social_links) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Invalid social links'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF jsonb_array_length(p_social_links) > 8 THEN
+    RAISE EXCEPTION 'Too many social links'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Validate each link, including direct RPC requests.
+  FOR v_link IN
+    SELECT value
+    FROM jsonb_array_elements(p_social_links)
+  LOOP
+    IF jsonb_typeof(v_link) <> 'object'
+       OR jsonb_typeof(v_link->'label') <> 'string'
+       OR jsonb_typeof(v_link->'url') <> 'string'
+       OR length(btrim(v_link->>'label')) NOT BETWEEN 1 AND 60
+       OR length(v_link->>'url') > 2048
+       OR (v_link->>'url') !~
+          '^https?://[^[:space:]@/]+([/?#][^[:space:]]*)?$'
+    THEN
+      RAISE EXCEPTION 'Invalid social link'
+        USING ERRCODE = '22023';
+    END IF;
+  END LOOP;
+
+  -- Existing table constraints validate names,
+  -- categories, descriptions, email and website.
+
+  UPDATE public.creatorverse_pages
+  SET
+    name = btrim(p_name),
+    category = p_category,
+    short_bio = p_short_bio,
+    description = p_description,
+    website = p_website,
+    public_email = p_public_email,
+    location = p_location,
+    social_links = p_social_links
+  WHERE id = p_page_id
+    AND owner_id = auth.uid()
+    AND status IN ('draft', 'active')
+  RETURNING id INTO v_id;
+
+  IF v_id IS NULL THEN
+    RAISE EXCEPTION 'Page editing is not permitted'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN v_id;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.groups_avatar_command(p_action text, p_group_id uuid, p_path text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  new_path text;
+BEGIN
+  IF uid IS NULL
+     OR NOT parapost_groups_private.enabled()
+     OR NOT EXISTS (
+       SELECT 1
+       FROM public.groups
+       WHERE id = p_group_id
+         AND owner_id = uid
+     )
+  THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  IF p_action = 'reserve' THEN
+    -- Limit outstanding recent upload reservations.
+    IF (
+      SELECT count(*)
+      FROM parapost_groups_private.avatar_uploads
+      WHERE group_id = p_group_id
+        AND uploader_id = uid
+        AND created_at > now() - interval '1 hour'
+    ) >= 5 THEN
+      RAISE EXCEPTION 'Too many unfinished avatar uploads';
+    END IF;
+
+    new_path :=
+      p_group_id::text || '/avatars/' ||
+      gen_random_uuid()::text;
+
+    INSERT INTO parapost_groups_private.avatar_uploads (
+      storage_path, group_id, uploader_id
+    )
+    VALUES (new_path, p_group_id, uid);
+
+    RETURN jsonb_build_object('path', new_path);
+
+  ELSIF p_action = 'save' THEN
+    IF p_path IS NULL OR NOT EXISTS (
+      SELECT 1
+      FROM parapost_groups_private.avatar_uploads a
+      JOIN storage.objects o
+        ON o.bucket_id = 'group-media'
+       AND o.name = a.storage_path
+      WHERE a.storage_path = p_path
+        AND a.group_id = p_group_id
+        AND a.uploader_id = uid
+        AND a.created_at > now() - interval '1 hour'
+        AND o.metadata->>'mimetype'
+          IN ('image/jpeg','image/png','image/webp')
+        AND (o.metadata->>'size')::bigint
+          BETWEEN 1 AND 5242880
+    ) THEN
+      RAISE EXCEPTION 'Invalid or incomplete avatar upload';
+    END IF;
+
+    UPDATE public.groups
+    SET avatar_storage_path = p_path,
+        updated_at = now()
+    WHERE id = p_group_id
+      AND owner_id = uid;
+
+    DELETE FROM parapost_groups_private.avatar_uploads
+    WHERE storage_path = p_path;
+
+    RETURN jsonb_build_object('path', p_path);
+
+  ELSIF p_action = 'remove' THEN
+    UPDATE public.groups
+    SET avatar_storage_path = NULL,
+        updated_at = now()
+    WHERE id = p_group_id
+      AND owner_id = uid;
+
+    RETURN jsonb_build_object('path', NULL);
+
+  ELSE
+    RAISE EXCEPTION 'Invalid avatar action';
+  END IF;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.groups_manage_comment(p_group_id uuid, p_post_id uuid, p_comment_id uuid, p_action text, p_content text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_owner uuid;
+  v_author uuid;
+  v_content text;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_action NOT IN ('edit_comment', 'delete_comment') THEN
+    RAISE EXCEPTION 'Invalid action';
+  END IF;
+
+  SELECT g.owner_id INTO v_owner
+  FROM public.groups g
+  WHERE g.id = p_group_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT parapost_groups_private.allowed(
+    p_group_id, 'member'
+  ) THEN
+    RAISE EXCEPTION 'Approved membership required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM 1
+  FROM public.group_posts p
+  WHERE p.id = p_post_id
+    AND p.group_id = p_group_id
+    AND p.published
+    AND NOT p.is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT c.author_id INTO v_author
+  FROM public.group_post_comments c
+  WHERE c.id = p_comment_id
+    AND c.post_id = p_post_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Comment unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_action = 'edit_comment' THEN
+
+    IF v_uid IS DISTINCT FROM v_author THEN
+      RAISE EXCEPTION 'Only the author can edit'
+        USING ERRCODE = '42501';
+    END IF;
+
+    v_content := btrim(p_content);
+
+    IF v_content IS NULL OR
+       char_length(v_content) NOT BETWEEN 1 AND 1200 THEN
+      RAISE EXCEPTION 'Invalid comment';
+    END IF;
+
+    UPDATE public.group_post_comments
+    SET content = v_content,
+        updated_at = now()
+    WHERE id = p_comment_id
+      AND post_id = p_post_id;
+
+    RETURN jsonb_build_object('edited', true);
+
+  ELSE
+
+    IF v_uid IS DISTINCT FROM v_author
+       AND v_uid IS DISTINCT FROM v_owner THEN
+      RAISE EXCEPTION 'Not permitted to delete comment'
+        USING ERRCODE = '42501';
+    END IF;
+
+    DELETE FROM public.group_comment_likes
+    WHERE comment_id IN (
+      SELECT c.id
+      FROM public.group_post_comments c
+      WHERE c.post_id = p_post_id
+        AND (
+          c.id = p_comment_id
+          OR c.parent_id = p_comment_id
+        )
+    );
+
+    DELETE FROM public.group_post_comments
+    WHERE id = p_comment_id
+      AND post_id = p_post_id;
+
+    RETURN jsonb_build_object('deleted', true);
+
+  END IF;
+END;
+$function$
+
+CREATE OR REPLACE FUNCTION public.groups_remove_share(p_share_id uuid, p_kind text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_owner uuid;
+  v_target uuid;
+  v_target_type text;
+  v_shared_at timestamptz;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_share_id IS NULL
+     OR p_kind NOT IN ('post', 'promotion')
+     OR p_kind IS NULL
+  THEN
+    RAISE EXCEPTION 'Invalid share'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_kind = 'post' THEN
+    SELECT user_id, post_id, created_at
+    INTO v_owner, v_target, v_shared_at
+    FROM public.group_post_shares
+    WHERE id = p_share_id
+    FOR UPDATE;
+
+    v_target_type := 'post';
+
+  ELSE
+    SELECT
+      user_id,
+      COALESCE(post_id, group_id),
+      created_at,
+      CASE WHEN post_id IS NULL THEN 'group' ELSE 'post' END
+    INTO v_owner, v_target, v_shared_at, v_target_type
+    FROM public.group_promotional_shares
+    WHERE id = p_share_id
+    FOR UPDATE;
+  END IF;
+
+  IF NOT FOUND OR v_owner IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Retain the original share date for cooldown enforcement.
+  INSERT INTO parapost_groups_private.group_share_cooldowns (
+    user_id, target_type, target_id, last_shared_at
+  )
+  VALUES (
+    v_uid, v_target_type, v_target, v_shared_at
+  )
+  ON CONFLICT (user_id, target_type, target_id)
+  DO UPDATE SET
+    last_shared_at = GREATEST(
+      group_share_cooldowns.last_shared_at,
+      EXCLUDED.last_shared_at
+    );
+
+  IF p_kind = 'post' THEN
+    DELETE FROM public.group_post_shares
+    WHERE id = p_share_id AND user_id = v_uid;
+  ELSE
+    DELETE FROM public.group_promotional_shares
+    WHERE id = p_share_id AND user_id = v_uid;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'deleted', true,
+    'share_id', p_share_id
+  );
+END;
+$function$
