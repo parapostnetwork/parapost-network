@@ -1,0 +1,2976 @@
+-- PARAPOST NETWORK
+-- STEP 474: COMMUNITY FUNCTION AND RPC SOURCES
+-- REVIEW ONLY - DO NOT EXECUTE OR DEPLOY
+--
+-- Existing migrations are processed chronologically.
+-- Repeated definitions are retained in source order.
+-- Function permissions are NOT approved here.
+-- Staging-only integrations require separate handling.
+
+BEGIN;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261004010000_parachat_inbox_summary.sql
+-- FUNCTION DECLARATIONS: 1
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.get_parachat_inbox_summaries()
+RETURNS TABLE (
+  conversation_id uuid,
+  last_message_id uuid,
+  last_sender_id uuid,
+  last_body text,
+  last_created_at timestamptz,
+  last_is_read boolean,
+  last_message_type text,
+  last_image_path text,
+  last_image_mime_type text,
+  last_image_size_bytes integer,
+  last_image_width integer,
+  last_image_height integer,
+  unread_count bigint
+)
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public
+AS $$
+  WITH my_conversations AS (
+    SELECT dc.id
+    FROM public.direct_conversations dc
+    WHERE auth.uid() IS NOT NULL
+      AND (
+        dc.user_one_id = auth.uid()
+        OR dc.user_two_id = auth.uid()
+      )
+  )
+  SELECT
+    mc.id AS conversation_id,
+    latest.id AS last_message_id,
+    latest.sender_id AS last_sender_id,
+    latest.body AS last_body,
+    latest.created_at AS last_created_at,
+    latest.is_read AS last_is_read,
+    latest.message_type AS last_message_type,
+    latest.image_path AS last_image_path,
+    latest.image_mime_type AS last_image_mime_type,
+    latest.image_size_bytes AS last_image_size_bytes,
+    latest.image_width AS last_image_width,
+    latest.image_height AS last_image_height,
+    COALESCE(unread.unread_count, 0)::bigint AS unread_count
+  FROM my_conversations mc
+
+  LEFT JOIN LATERAL (
+    SELECT
+      dm.id,
+      dm.sender_id,
+      dm.body,
+      dm.created_at,
+      dm.is_read,
+      dm.message_type,
+      dm.image_path,
+      dm.image_mime_type,
+      dm.image_size_bytes,
+      dm.image_width,
+      dm.image_height
+    FROM public.direct_messages dm
+    WHERE dm.conversation_id = mc.id
+    ORDER BY dm.created_at DESC, dm.id DESC
+    LIMIT 1
+  ) latest ON true
+
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::bigint AS unread_count
+    FROM public.direct_messages dm
+    WHERE dm.conversation_id = mc.id
+      AND dm.sender_id <> auth.uid()
+      AND dm.is_read = false
+  ) unread ON true;
+$$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261005221909_fix_comment_notification_lifecycle.sql
+-- FUNCTION DECLARATIONS: 4
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.create_comment_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  comment_owner_id uuid;
+  comment_post_id uuid;
+begin
+  select
+    comments.user_id,
+    comments.post_id
+  into
+    comment_owner_id,
+    comment_post_id
+  from public.comments
+  where comments.id = new.comment_id;
+
+  if comment_owner_id is not null
+     and comment_owner_id <> new.user_id then
+
+    insert into public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      comment_id,
+      message
+    )
+    values (
+      comment_owner_id,
+      new.user_id,
+      'comment_like',
+      comment_post_id,
+      new.comment_id,
+      'liked your comment'
+    )
+    on conflict do nothing;
+
+  end if;
+
+  return new;
+end;
+$function$;
+CREATE OR REPLACE FUNCTION public.cleanup_comment_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  delete from public.notifications
+  where type = 'comment_like'
+    and comment_id = old.comment_id
+    and actor_id = old.user_id;
+
+  return old;
+end;
+$function$;
+CREATE OR REPLACE FUNCTION public.cleanup_deleted_comment_notifications()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  delete from public.notifications
+  where comment_id = old.id;
+
+  return old;
+end;
+$function$;
+CREATE OR REPLACE FUNCTION public.create_comment_reply_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  reply_target_id uuid;
+  post_owner_id uuid;
+begin
+  if new.parent_comment_id is null then
+    return new;
+  end if;
+
+  reply_target_id := new.reply_to_user_id;
+
+  if reply_target_id is null then
+    select comments.user_id
+    into reply_target_id
+    from public.comments
+    where comments.id = new.parent_comment_id;
+  end if;
+
+  select posts.user_id
+  into post_owner_id
+  from public.posts
+  where posts.id = new.post_id;
+
+  if reply_target_id is not null
+     and reply_target_id <> new.user_id then
+
+    insert into public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      comment_id,
+      message
+    )
+    values (
+      reply_target_id,
+      new.user_id,
+      'comment_reply',
+      new.post_id,
+      new.id,
+      'replied to your comment'
+    )
+    on conflict do nothing;
+
+  end if;
+
+  if post_owner_id is not null
+     and post_owner_id <> new.user_id
+     and post_owner_id is distinct from reply_target_id then
+
+    insert into public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      comment_id,
+      message
+    )
+    values (
+      post_owner_id,
+      new.user_id,
+      'comment_reply',
+      new.post_id,
+      new.id,
+      'replied to a comment on your post'
+    )
+    on conflict do nothing;
+
+  end if;
+
+  return new;
+end;
+$function$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261006004711_fix_post_like_notification_lifecycle.sql
+-- FUNCTION DECLARATIONS: 2
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.create_post_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  post_owner_id uuid;
+begin
+  select posts.user_id
+  into post_owner_id
+  from public.posts
+  where posts.id = new.post_id;
+
+  if post_owner_id is not null
+     and post_owner_id <> new.user_id then
+
+    insert into public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      message
+    )
+    values (
+      post_owner_id,
+      new.user_id,
+      'post_like',
+      new.post_id,
+      'liked your post'
+    )
+    on conflict do nothing;
+
+  end if;
+
+  return new;
+end;
+$function$;
+CREATE OR REPLACE FUNCTION public.cleanup_post_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  delete from public.notifications
+  where type = 'post_like'
+    and post_id = old.post_id
+    and actor_id = old.user_id;
+
+  return old;
+end;
+$function$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261006040500_fix_post_share_notification_lifecycle.sql
+-- FUNCTION DECLARATIONS: 1
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.sync_post_share_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  old_active boolean := false;
+  new_active boolean := false;
+  should_create boolean := false;
+  post_owner_id uuid;
+BEGIN
+
+  -- ----------------------------------------------------------
+  -- Determine previous active state when OLD exists.
+  -- ----------------------------------------------------------
+
+  IF TG_OP <> 'INSERT' THEN
+    old_active :=
+      OLD.deleted_at IS NULL
+      AND COALESCE(OLD.share_destination, 'feed') = 'feed'
+      AND OLD.user_id IS NOT NULL
+      AND OLD.post_id IS NOT NULL;
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- Determine new active state when NEW exists.
+  -- ----------------------------------------------------------
+
+  IF TG_OP <> 'DELETE' THEN
+    new_active :=
+      NEW.deleted_at IS NULL
+      AND COALESCE(NEW.share_destination, 'feed') = 'feed'
+      AND NEW.user_id IS NOT NULL
+      AND NEW.post_id IS NOT NULL;
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- HARD DELETE
+  --
+  -- If the removed row was the final active share for this
+  -- actor + post, remove its notification.
+  -- ----------------------------------------------------------
+
+  IF TG_OP = 'DELETE' THEN
+
+    IF old_active
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.shares AS shares
+         WHERE shares.user_id = OLD.user_id
+           AND shares.post_id = OLD.post_id
+           AND shares.deleted_at IS NULL
+           AND COALESCE(shares.share_destination, 'feed') = 'feed'
+       )
+    THEN
+
+      DELETE FROM public.notifications
+      WHERE type IN ('post_share', 'share')
+        AND actor_id = OLD.user_id
+        AND post_id = OLD.post_id;
+
+    END IF;
+
+    RETURN OLD;
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- UPDATE
+  --
+  -- Clean the old notification when an active share becomes
+  -- inactive or changes actor/post.
+  -- ----------------------------------------------------------
+
+  IF TG_OP = 'UPDATE' THEN
+
+    IF old_active
+       AND (
+         NOT new_active
+         OR OLD.user_id IS DISTINCT FROM NEW.user_id
+         OR OLD.post_id IS DISTINCT FROM NEW.post_id
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.shares AS shares
+         WHERE shares.user_id = OLD.user_id
+           AND shares.post_id = OLD.post_id
+           AND shares.deleted_at IS NULL
+           AND COALESCE(shares.share_destination, 'feed') = 'feed'
+       )
+    THEN
+
+      DELETE FROM public.notifications
+      WHERE type IN ('post_share', 'share')
+        AND actor_id = OLD.user_id
+        AND post_id = OLD.post_id;
+
+    END IF;
+
+
+    IF new_active
+       AND (
+         NOT old_active
+         OR OLD.user_id IS DISTINCT FROM NEW.user_id
+         OR OLD.post_id IS DISTINCT FROM NEW.post_id
+       )
+    THEN
+      should_create := true;
+    END IF;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- INSERT
+  -- ----------------------------------------------------------
+
+  IF TG_OP = 'INSERT' AND new_active THEN
+    should_create := true;
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- CREATE NOTIFICATION
+  -- ----------------------------------------------------------
+
+  IF should_create THEN
+
+    SELECT posts.user_id
+    INTO post_owner_id
+    FROM public.posts AS posts
+    WHERE posts.id = NEW.post_id;
+
+    IF post_owner_id IS NOT NULL
+       AND post_owner_id <> NEW.user_id
+    THEN
+
+      INSERT INTO public.notifications (
+        user_id,
+        actor_id,
+        type,
+        post_id,
+        message,
+        is_read
+      )
+      VALUES (
+        post_owner_id,
+        NEW.user_id,
+        'post_share',
+        NEW.post_id,
+        'shared your post.',
+        false
+      )
+      ON CONFLICT DO NOTHING;
+
+    END IF;
+
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261006220000_add_shared_comment_context.sql
+-- FUNCTION DECLARATIONS: 4
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.enforce_comment_share_context()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  parent_post_id uuid;
+  parent_share_id uuid;
+  reply_post_id uuid;
+  reply_share_id uuid;
+BEGIN
+
+  -- ----------------------------------------------------------
+  -- Existing comments may not be moved to another post/thread.
+  -- ----------------------------------------------------------
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.post_id IS DISTINCT FROM OLD.post_id
+       OR NEW.share_id IS DISTINCT FROM OLD.share_id
+       OR NEW.parent_comment_id IS DISTINCT FROM OLD.parent_comment_id
+    THEN
+      RAISE EXCEPTION 'Comment discussion context cannot be changed.';
+    END IF;
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- Replies inherit the exact parent discussion context.
+  -- ----------------------------------------------------------
+
+  IF NEW.parent_comment_id IS NOT NULL THEN
+
+    SELECT
+      comments.post_id,
+      comments.share_id
+    INTO
+      parent_post_id,
+      parent_share_id
+    FROM public.comments AS comments
+    WHERE comments.id = NEW.parent_comment_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Parent comment does not exist.';
+    END IF;
+
+    IF NEW.post_id IS DISTINCT FROM parent_post_id THEN
+      RAISE EXCEPTION 'Reply post does not match parent comment.';
+    END IF;
+
+    NEW.share_id := parent_share_id;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- Exact reply targets must belong to the same discussion.
+  -- ----------------------------------------------------------
+
+  IF NEW.reply_to_comment_id IS NOT NULL THEN
+
+    SELECT
+      comments.post_id,
+      comments.share_id
+    INTO
+      reply_post_id,
+      reply_share_id
+    FROM public.comments AS comments
+    WHERE comments.id = NEW.reply_to_comment_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Reply target comment does not exist.';
+    END IF;
+
+    IF NEW.post_id IS DISTINCT FROM reply_post_id
+       OR NEW.share_id IS DISTINCT FROM reply_share_id
+    THEN
+      RAISE EXCEPTION 'Reply target belongs to another discussion.';
+    END IF;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- A share-specific comment must reference an active feed share
+  -- for the exact same original post.
+  -- ----------------------------------------------------------
+
+  IF NEW.share_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+       FROM public.shares AS shares
+       WHERE shares.id = NEW.share_id
+         AND shares.post_id = NEW.post_id
+         AND shares.deleted_at IS NULL
+         AND COALESCE(shares.share_destination, 'feed') = 'feed'
+     )
+  THEN
+    RAISE EXCEPTION 'Shared post discussion is not active.';
+  END IF;
+
+
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.create_comment_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  comment_owner_id uuid;
+  comment_post_id uuid;
+  comment_share_id uuid;
+BEGIN
+
+  SELECT
+    comments.user_id,
+    comments.post_id,
+    comments.share_id
+  INTO
+    comment_owner_id,
+    comment_post_id,
+    comment_share_id
+  FROM public.comments AS comments
+  WHERE comments.id = NEW.comment_id;
+
+
+  IF comment_owner_id IS NOT NULL
+     AND comment_owner_id <> NEW.user_id
+  THEN
+
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      comment_id,
+      share_id,
+      message
+    )
+    VALUES (
+      comment_owner_id,
+      NEW.user_id,
+      'comment_like',
+      comment_post_id,
+      NEW.comment_id,
+      comment_share_id,
+      'liked your comment'
+    )
+    ON CONFLICT DO NOTHING;
+
+  END IF;
+
+
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.create_comment_reply_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  reply_target_id uuid;
+  context_owner_id uuid;
+  context_owner_message text;
+BEGIN
+
+  IF NEW.parent_comment_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+
+  reply_target_id := NEW.reply_to_user_id;
+
+
+  IF reply_target_id IS NULL THEN
+
+    SELECT comments.user_id
+    INTO reply_target_id
+    FROM public.comments AS comments
+    WHERE comments.id = NEW.parent_comment_id;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- Determine who owns this discussion.
+  -- ----------------------------------------------------------
+
+  IF NEW.share_id IS NOT NULL THEN
+
+    SELECT shares.user_id
+    INTO context_owner_id
+    FROM public.shares AS shares
+    WHERE shares.id = NEW.share_id;
+
+    context_owner_message :=
+      'replied to a comment on a post you shared.';
+
+  ELSE
+
+    SELECT posts.user_id
+    INTO context_owner_id
+    FROM public.posts AS posts
+    WHERE posts.id = NEW.post_id;
+
+    context_owner_message :=
+      'replied to a comment on your post';
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- Notify the exact comment/reply being answered.
+  -- ----------------------------------------------------------
+
+  IF reply_target_id IS NOT NULL
+     AND reply_target_id <> NEW.user_id
+  THEN
+
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      comment_id,
+      share_id,
+      message
+    )
+    VALUES (
+      reply_target_id,
+      NEW.user_id,
+      'comment_reply',
+      NEW.post_id,
+      NEW.id,
+      NEW.share_id,
+      'replied to your comment'
+    )
+    ON CONFLICT DO NOTHING;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- Also notify the owner of this exact discussion context when
+  -- they are not already the exact reply target and not replying
+  -- to themselves.
+  -- ----------------------------------------------------------
+
+  IF context_owner_id IS NOT NULL
+     AND context_owner_id <> NEW.user_id
+     AND context_owner_id IS DISTINCT FROM reply_target_id
+  THEN
+
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      comment_id,
+      share_id,
+      message
+    )
+    VALUES (
+      context_owner_id,
+      NEW.user_id,
+      'comment_reply',
+      NEW.post_id,
+      NEW.id,
+      NEW.share_id,
+      context_owner_message
+    )
+    ON CONFLICT DO NOTHING;
+
+  END IF;
+
+
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.cleanup_inactive_share_comment_context()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  old_active boolean;
+  new_active boolean;
+BEGIN
+
+  old_active :=
+    OLD.deleted_at IS NULL
+    AND COALESCE(OLD.share_destination, 'feed') = 'feed';
+
+  new_active :=
+    NEW.deleted_at IS NULL
+    AND COALESCE(NEW.share_destination, 'feed') = 'feed';
+
+
+  IF old_active
+     AND (
+       NOT new_active
+       OR OLD.post_id IS DISTINCT FROM NEW.post_id
+       OR OLD.user_id IS DISTINCT FROM NEW.user_id
+     )
+  THEN
+
+    DELETE FROM public.comments
+    WHERE share_id = OLD.id;
+
+    DELETE FROM public.notifications
+    WHERE share_id = OLD.id;
+
+  END IF;
+
+
+  RETURN NEW;
+END;
+$function$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261006223000_add_shared_like_and_share_notification_context.sql
+-- FUNCTION DECLARATIONS: 5
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.enforce_post_like_share_context()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+
+  IF TG_OP = 'UPDATE' THEN
+
+    IF NEW.user_id IS DISTINCT FROM OLD.user_id
+       OR NEW.post_id IS DISTINCT FROM OLD.post_id
+       OR NEW.share_id IS DISTINCT FROM OLD.share_id
+    THEN
+      RAISE EXCEPTION 'Post like context cannot be changed.';
+    END IF;
+
+  END IF;
+
+
+  IF NEW.share_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+       FROM public.shares AS shares
+       WHERE shares.id = NEW.share_id
+         AND shares.post_id = NEW.post_id
+         AND shares.deleted_at IS NULL
+         AND COALESCE(shares.share_destination, 'feed') = 'feed'
+     )
+  THEN
+    RAISE EXCEPTION 'Shared post like context is not active.';
+  END IF;
+
+
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.create_post_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  context_owner_id uuid;
+  context_message text;
+BEGIN
+
+  IF NEW.share_id IS NOT NULL THEN
+
+    SELECT shares.user_id
+    INTO context_owner_id
+    FROM public.shares AS shares
+    WHERE shares.id = NEW.share_id
+      AND shares.post_id = NEW.post_id
+      AND shares.deleted_at IS NULL
+      AND COALESCE(shares.share_destination, 'feed') = 'feed';
+
+    context_message := 'liked a post you shared.';
+
+  ELSE
+
+    SELECT posts.user_id
+    INTO context_owner_id
+    FROM public.posts AS posts
+    WHERE posts.id = NEW.post_id;
+
+    context_message := 'liked your post';
+
+  END IF;
+
+
+  IF context_owner_id IS NOT NULL
+     AND context_owner_id <> NEW.user_id
+  THEN
+
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      share_id,
+      message
+    )
+    VALUES (
+      context_owner_id,
+      NEW.user_id,
+      'post_like',
+      NEW.post_id,
+      NEW.share_id,
+      context_message
+    )
+    ON CONFLICT DO NOTHING;
+
+  END IF;
+
+
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.cleanup_post_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+
+  DELETE FROM public.notifications
+  WHERE type = 'post_like'
+    AND post_id = OLD.post_id
+    AND actor_id = OLD.user_id
+    AND share_id IS NOT DISTINCT FROM OLD.share_id;
+
+
+  RETURN OLD;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.cleanup_inactive_share_like_context()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  old_active boolean;
+  new_active boolean;
+BEGIN
+
+  old_active :=
+    OLD.deleted_at IS NULL
+    AND COALESCE(OLD.share_destination, 'feed') = 'feed';
+
+  new_active :=
+    NEW.deleted_at IS NULL
+    AND COALESCE(NEW.share_destination, 'feed') = 'feed';
+
+
+  IF old_active
+     AND (
+       NOT new_active
+       OR OLD.post_id IS DISTINCT FROM NEW.post_id
+       OR OLD.user_id IS DISTINCT FROM NEW.user_id
+     )
+  THEN
+
+    DELETE FROM public.likes
+    WHERE share_id = OLD.id;
+
+    DELETE FROM public.notifications
+    WHERE type = 'post_like'
+      AND share_id = OLD.id;
+
+  END IF;
+
+
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.sync_post_share_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  old_active boolean := false;
+  new_active boolean := false;
+  should_create boolean := false;
+  post_owner_id uuid;
+BEGIN
+
+  IF TG_OP <> 'INSERT' THEN
+
+    old_active :=
+      OLD.deleted_at IS NULL
+      AND COALESCE(OLD.share_destination, 'feed') = 'feed'
+      AND OLD.user_id IS NOT NULL
+      AND OLD.post_id IS NOT NULL;
+
+  END IF;
+
+
+  IF TG_OP <> 'DELETE' THEN
+
+    new_active :=
+      NEW.deleted_at IS NULL
+      AND COALESCE(NEW.share_destination, 'feed') = 'feed'
+      AND NEW.user_id IS NOT NULL
+      AND NEW.post_id IS NOT NULL;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- HARD DELETE
+  -- ----------------------------------------------------------
+
+  IF TG_OP = 'DELETE' THEN
+
+    IF old_active THEN
+
+      DELETE FROM public.notifications
+      WHERE type IN ('post_share', 'share')
+        AND (
+          share_id = OLD.id
+
+          OR (
+            share_id IS NULL
+            AND actor_id = OLD.user_id
+            AND post_id = OLD.post_id
+          )
+        );
+
+    END IF;
+
+
+    RETURN OLD;
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- UPDATE
+  -- ----------------------------------------------------------
+
+  IF TG_OP = 'UPDATE' THEN
+
+    IF old_active
+       AND (
+         NOT new_active
+         OR OLD.user_id IS DISTINCT FROM NEW.user_id
+         OR OLD.post_id IS DISTINCT FROM NEW.post_id
+       )
+    THEN
+
+      DELETE FROM public.notifications
+      WHERE type IN ('post_share', 'share')
+        AND (
+          share_id = OLD.id
+
+          OR (
+            share_id IS NULL
+            AND actor_id = OLD.user_id
+            AND post_id = OLD.post_id
+          )
+        );
+
+    END IF;
+
+
+    IF new_active
+       AND (
+         NOT old_active
+         OR OLD.user_id IS DISTINCT FROM NEW.user_id
+         OR OLD.post_id IS DISTINCT FROM NEW.post_id
+       )
+    THEN
+      should_create := true;
+    END IF;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- INSERT
+  -- ----------------------------------------------------------
+
+  IF TG_OP = 'INSERT'
+     AND new_active
+  THEN
+    should_create := true;
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- CREATE EXACT SHARE NOTIFICATION
+  -- ----------------------------------------------------------
+
+  IF should_create THEN
+
+    SELECT posts.user_id
+    INTO post_owner_id
+    FROM public.posts AS posts
+    WHERE posts.id = NEW.post_id;
+
+
+    IF post_owner_id IS NOT NULL
+       AND post_owner_id <> NEW.user_id
+    THEN
+
+      INSERT INTO public.notifications (
+        user_id,
+        actor_id,
+        type,
+        post_id,
+        share_id,
+        message,
+        is_read
+      )
+      VALUES (
+        post_owner_id,
+        NEW.user_id,
+        'post_share',
+        NEW.post_id,
+        NEW.id,
+        'shared your post.',
+        false
+      )
+      ON CONFLICT DO NOTHING;
+
+    END IF;
+
+  END IF;
+
+
+  RETURN NEW;
+END;
+$function$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261006230000_fix_shared_activity_notifications.sql
+-- FUNCTION DECLARATIONS: 1
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.create_comment_reply_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  reply_target_id uuid;
+  context_owner_id uuid;
+  context_owner_message text;
+BEGIN
+
+  -- ----------------------------------------------------------
+  -- Determine the owner of the exact discussion context.
+  -- ----------------------------------------------------------
+
+  IF NEW.share_id IS NOT NULL THEN
+
+    SELECT shares.user_id
+    INTO context_owner_id
+    FROM public.shares AS shares
+    WHERE shares.id = NEW.share_id
+      AND shares.post_id = NEW.post_id
+      AND shares.deleted_at IS NULL
+      AND COALESCE(shares.share_destination, 'feed') = 'feed';
+
+  ELSE
+
+    SELECT posts.user_id
+    INTO context_owner_id
+    FROM public.posts AS posts
+    WHERE posts.id = NEW.post_id;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- TOP-LEVEL COMMENT
+  --
+  -- Original post:
+  --   notify original post owner.
+  --
+  -- Shared copy:
+  --   notify owner of exact shares.id.
+  -- ----------------------------------------------------------
+
+  IF NEW.parent_comment_id IS NULL THEN
+
+    IF context_owner_id IS NOT NULL
+       AND context_owner_id <> NEW.user_id
+    THEN
+
+      INSERT INTO public.notifications (
+        user_id,
+        actor_id,
+        type,
+        post_id,
+        comment_id,
+        share_id,
+        message
+      )
+      VALUES (
+        context_owner_id,
+        NEW.user_id,
+        'post_comment',
+        NEW.post_id,
+        NEW.id,
+        NEW.share_id,
+        CASE
+          WHEN NEW.share_id IS NOT NULL
+            THEN 'commented on a post you shared.'
+          ELSE 'commented on your post'
+        END
+      )
+      ON CONFLICT DO NOTHING;
+
+    END IF;
+
+    RETURN NEW;
+
+  END IF;
+
+
+  -- ----------------------------------------------------------
+  -- REPLY
+  -- ----------------------------------------------------------
+
+  reply_target_id := NEW.reply_to_user_id;
+
+  IF reply_target_id IS NULL THEN
+
+    SELECT comments.user_id
+    INTO reply_target_id
+    FROM public.comments AS comments
+    WHERE comments.id = NEW.parent_comment_id;
+
+  END IF;
+
+
+  IF NEW.share_id IS NOT NULL THEN
+
+    context_owner_message :=
+      'replied to a comment on a post you shared.';
+
+  ELSE
+
+    context_owner_message :=
+      'replied to a comment on your post';
+
+  END IF;
+
+
+  -- Notify exact comment/reply owner.
+
+  IF reply_target_id IS NOT NULL
+     AND reply_target_id <> NEW.user_id
+  THEN
+
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      comment_id,
+      share_id,
+      message
+    )
+    VALUES (
+      reply_target_id,
+      NEW.user_id,
+      'comment_reply',
+      NEW.post_id,
+      NEW.id,
+      NEW.share_id,
+      'replied to your comment'
+    )
+    ON CONFLICT DO NOTHING;
+
+  END IF;
+
+
+  -- Also notify the owner of the exact discussion context,
+  -- unless they already received the reply-target notification.
+
+  IF context_owner_id IS NOT NULL
+     AND context_owner_id <> NEW.user_id
+     AND context_owner_id IS DISTINCT FROM reply_target_id
+  THEN
+
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      post_id,
+      comment_id,
+      share_id,
+      message
+    )
+    VALUES (
+      context_owner_id,
+      NEW.user_id,
+      'comment_reply',
+      NEW.post_id,
+      NEW.id,
+      NEW.share_id,
+      context_owner_message
+    )
+    ON CONFLICT DO NOTHING;
+
+  END IF;
+
+
+  RETURN NEW;
+
+END;
+$function$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261006234000_fix_reel_notification_lifecycle.sql
+-- FUNCTION DECLARATIONS: 5
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.cleanup_reel_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  DELETE FROM public.notifications
+  WHERE type = 'reel_like'
+    AND reel_id = OLD.reel_id
+    AND actor_id = OLD.user_id;
+
+  RETURN OLD;
+END;
+$$;
+CREATE OR REPLACE FUNCTION public.cleanup_reel_comment_like_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  DELETE FROM public.notifications
+  WHERE type = 'reel_comment_like'
+    AND comment_id = OLD.comment_id
+    AND actor_id = OLD.user_id;
+
+  RETURN OLD;
+END;
+$$;
+CREATE OR REPLACE FUNCTION public.cleanup_deleted_reel_comment_notifications()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  DELETE FROM public.notifications
+  WHERE reel_id = OLD.reel_id
+    AND comment_id = OLD.id
+    AND type IN (
+      'reel_comment',
+      'reel_reply',
+      'reel_comment_like'
+    );
+
+  RETURN OLD;
+END;
+$$;
+CREATE OR REPLACE FUNCTION public.cleanup_reel_share_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  -- Only remove the notification after the actor has no remaining
+  -- shares of this Reel. This safely handles any duplicate rows.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.reel_shares
+    WHERE reel_id = OLD.reel_id
+      AND user_id = OLD.user_id
+  ) THEN
+    DELETE FROM public.notifications
+    WHERE type = 'reel_share'
+      AND reel_id = OLD.reel_id
+      AND actor_id = OLD.user_id;
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+CREATE OR REPLACE FUNCTION public.cleanup_deleted_reel_notifications()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  DELETE FROM public.notifications
+  WHERE reel_id = OLD.id;
+
+  RETURN OLD;
+END;
+$$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261007000000_add_reel_notification_preference.sql
+-- FUNCTION DECLARATIONS: 1
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.enforce_reel_notification_preference()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+  reel_notifications_enabled boolean;
+BEGIN
+  -- Leave all non-Reel notifications unchanged.
+  IF left(NEW.type, 5) <> 'reel_' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT preferences.notify_reels
+  INTO reel_notifications_enabled
+  FROM public.user_preferences AS preferences
+  WHERE preferences.user_id = NEW.user_id;
+
+  -- No preference row means the existing default behavior: enabled.
+  IF coalesce(reel_notifications_enabled, true) = false THEN
+    RETURN NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261007001000_sync_reel_share_counts.sql
+-- FUNCTION DECLARATIONS: 1
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.sync_reel_share_count()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.reels
+    SET shares = coalesce(shares, 0) + 1
+    WHERE id = NEW.reel_id;
+
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    UPDATE public.reels
+    SET shares = greatest(coalesce(shares, 0) - 1, 0)
+    WHERE id = OLD.reel_id;
+
+    RETURN OLD;
+  END IF;
+
+  -- Only a Reel move changes the number of shares belonging
+  -- to either Reel. Other UPDATE operations leave counts alone.
+  IF OLD.reel_id IS DISTINCT FROM NEW.reel_id THEN
+    UPDATE public.reels
+    SET shares = greatest(coalesce(shares, 0) - 1, 0)
+    WHERE id = OLD.reel_id;
+
+    UPDATE public.reels
+    SET shares = coalesce(shares, 0) + 1
+    WHERE id = NEW.reel_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261007235000_secure_parachat_message_updates.sql
+-- FUNCTION DECLARATIONS: 1
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.parapost_guard_message_updates()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  v_user_id uuid;
+BEGIN
+  -- Allow trusted service-role operations.
+  IF auth.role() = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Reject anonymous or unauthenticated updates.
+  IF auth.role() IS DISTINCT FROM 'authenticated' THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  v_user_id := auth.uid();
+
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  -- The original sender may edit the message body only.
+  IF OLD.sender_id = v_user_id THEN
+    IF (to_jsonb(NEW) - 'body') IS DISTINCT FROM
+       (to_jsonb(OLD) - 'body') THEN
+      RAISE EXCEPTION 'Message sender may update body only';
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  -- A recipient may mark an incoming message as read only.
+  IF public.is_direct_conversation_participant(
+       OLD.conversation_id,
+       v_user_id
+     )
+     AND OLD.sender_id <> v_user_id
+     AND OLD.is_read IS DISTINCT FROM TRUE
+     AND NEW.is_read IS TRUE
+     AND (to_jsonb(NEW) - 'is_read') IS NOT DISTINCT FROM
+         (to_jsonb(OLD) - 'is_read') THEN
+    RETURN NEW;
+  END IF;
+
+  RAISE EXCEPTION 'Message update not permitted';
+END;
+$$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- FUNCTION DECLARATIONS: 21
+-- =======================================
+
+CREATE FUNCTION parapost_groups_private.initialize_owner()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  INSERT INTO public.group_members (
+    group_id,
+    user_id,
+    role,
+    status,
+    approved_at
+  )
+  VALUES (
+    NEW.id,
+    NEW.owner_id,
+    'owner',
+    'approved',
+    now()
+  );
+
+  RETURN NEW;
+END;
+$function$;
+CREATE FUNCTION parapost_groups_private.request_membership(
+  p_group_id uuid
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_visibility text;
+  v_owner_id uuid;
+  v_status text;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required'
+      USING ERRCODE = '28000';
+  END IF;
+
+  SELECT g.visibility, g.owner_id
+    INTO v_visibility, v_owner_id
+  FROM public.groups g
+  WHERE g.id = p_group_id
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group unavailable';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.blocked_users b
+    WHERE
+      (b.blocker_id = v_user_id
+       AND b.blocked_id = v_owner_id)
+      OR
+      (b.blocked_id = v_user_id
+       AND b.blocker_id = v_owner_id)
+  ) THEN
+    RAISE EXCEPTION 'Membership unavailable';
+  END IF;
+
+  INSERT INTO public.group_members (
+    group_id,
+    user_id,
+    role,
+    status,
+    approved_at
+  )
+  VALUES (
+    p_group_id,
+    v_user_id,
+    'member',
+    CASE
+      WHEN v_visibility = 'public'
+      THEN 'approved'
+      ELSE 'pending'
+    END,
+    CASE
+      WHEN v_visibility = 'public'
+      THEN now()
+      ELSE NULL
+    END
+  )
+  ON CONFLICT (group_id, user_id)
+  DO NOTHING;
+
+  SELECT gm.status
+    INTO v_status
+  FROM public.group_members gm
+  WHERE gm.group_id = p_group_id
+    AND gm.user_id = v_user_id;
+
+  IF v_status NOT IN ('approved', 'pending')
+     OR v_status IS NULL THEN
+    RAISE EXCEPTION 'Membership unavailable';
+  END IF;
+
+  RETURN v_status;
+END;
+$function$;
+CREATE FUNCTION public.request_group_membership(
+  p_group_id uuid
+)
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  SELECT parapost_groups_private.request_membership(p_group_id);
+$function$;
+CREATE FUNCTION parapost_groups_private.review_membership(
+  p_group_id uuid,
+  p_target_user_id uuid,
+  p_decision text
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_reviewer uuid := auth.uid();
+  v_owner_id uuid;
+  v_reviewer_role text;
+  v_final_status text;
+BEGIN
+  IF v_reviewer IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  IF p_group_id IS NULL
+     OR p_target_user_id IS NULL
+     OR p_decision IS NULL
+     OR p_decision NOT IN ('approved', 'rejected') THEN
+    RAISE EXCEPTION 'Invalid membership review';
+  END IF;
+
+  SELECT g.owner_id
+    INTO v_owner_id
+  FROM public.groups g
+  WHERE g.id = p_group_id
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group unavailable';
+  END IF;
+
+  SELECT gm.role
+    INTO v_reviewer_role
+  FROM public.group_members gm
+  WHERE gm.group_id = p_group_id
+    AND gm.user_id = v_reviewer
+    AND gm.status = 'approved'
+    AND gm.role IN ('owner', 'admin')
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Not authorized to review membership';
+  END IF;
+
+  IF p_decision = 'approved' AND EXISTS (
+    SELECT 1
+    FROM public.blocked_users b
+    WHERE
+      (
+        b.blocker_id = p_target_user_id
+        AND b.blocked_id IN (v_owner_id, v_reviewer)
+      )
+      OR
+      (
+        b.blocked_id = p_target_user_id
+        AND b.blocker_id IN (v_owner_id, v_reviewer)
+      )
+  ) THEN
+    RAISE EXCEPTION 'Membership unavailable';
+  END IF;
+
+  UPDATE public.group_members gm
+  SET
+    status = p_decision,
+    approved_at = CASE
+      WHEN p_decision = 'approved'
+      THEN now()
+      ELSE NULL
+    END
+  WHERE gm.group_id = p_group_id
+    AND gm.user_id = p_target_user_id
+    AND gm.role = 'member'
+    AND gm.status = 'pending'
+  RETURNING gm.status INTO v_final_status;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Pending membership unavailable';
+  END IF;
+
+  RETURN v_final_status;
+END;
+$function$;
+CREATE FUNCTION public.review_group_membership(
+  p_group_id uuid,
+  p_target_user_id uuid,
+  p_decision text
+)
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  SELECT parapost_groups_private.review_membership(
+    p_group_id,
+    p_target_user_id,
+    p_decision
+  );
+$function$;
+CREATE FUNCTION parapost_groups_private.lock_group_owner()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+BEGIN
+  IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
+    RAISE EXCEPTION
+      'Group ownership cannot be reassigned';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+CREATE FUNCTION parapost_groups_private.guard_owner_member()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.role = 'owner' THEN
+      IF NEW.status <> 'approved'
+         OR NOT EXISTS (
+           SELECT 1
+           FROM public.groups g
+           WHERE g.id = NEW.group_id
+             AND g.owner_id = NEW.user_id
+         ) THEN
+        RAISE EXCEPTION
+          'Invalid Group owner membership';
+      END IF;
+    END IF;
+
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF OLD.role = 'owner'
+       AND NEW IS DISTINCT FROM OLD THEN
+      RAISE EXCEPTION
+        'Owner membership cannot be modified';
+    END IF;
+
+    IF OLD.role <> 'owner'
+       AND NEW.role = 'owner' THEN
+      RAISE EXCEPTION
+        'Owner promotion requires a separate transfer';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+CREATE FUNCTION parapost_groups_private.enabled() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT auth.uid() IS NOT NULL AND EXISTS (SELECT 1 FROM auth.users WHERE id = auth.uid())
+    AND coalesce(auth.jwt()->>'is_anonymous','false')<>'true'
+    AND EXISTS (SELECT 1 FROM parapost_groups_private.feature_gate WHERE enabled
+      AND (allow_all_authenticated OR EXISTS(SELECT 1 FROM parapost_groups_private.test_users WHERE user_id=auth.uid())));
+$$;
+CREATE FUNCTION parapost_groups_private.blocked(a uuid, b uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT EXISTS (SELECT 1 FROM public.blocked_users WHERE (blocker_id=a AND blocked_id=b) OR (blocker_id=b AND blocked_id=a))
+      OR EXISTS (SELECT 1 FROM public.user_blocks WHERE (blocker_id=a AND blocked_id=b) OR (blocker_id=b AND blocked_id=a));
+$$;
+CREATE FUNCTION parapost_groups_private.allowed(gid uuid, level text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+ SELECT parapost_groups_private.enabled() AND EXISTS (
+   SELECT 1 FROM public.groups g LEFT JOIN public.group_members m
+     ON m.group_id=g.id AND m.user_id=auth.uid()
+   WHERE g.id=gid AND NOT parapost_groups_private.blocked(auth.uid(),g.owner_id)
+   AND CASE level
+     WHEN 'directory' THEN true
+     WHEN 'read' THEN coalesce(m.status NOT IN ('rejected','removed','banned'),true)
+       AND (g.visibility='public' OR m.status='approved')
+     WHEN 'member' THEN m.status='approved'
+     WHEN 'admin' THEN m.status='approved' AND m.role IN ('owner','admin')
+     WHEN 'moderate' THEN m.status='approved' AND m.role IN ('owner','admin','moderator')
+     WHEN 'owner' THEN m.status='approved' AND m.role='owner' AND g.owner_id=auth.uid()
+     ELSE false END
+ );
+$$;
+CREATE FUNCTION parapost_groups_private.queue_media_cleanup() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+ IF TG_TABLE_NAME='group_post_media' THEN
+   INSERT INTO parapost_groups_private.media_cleanup(storage_path) VALUES (OLD.storage_path) ON CONFLICT DO NOTHING;
+ ELSE
+   IF OLD.cover_storage_path IS NOT NULL AND (TG_OP='DELETE' OR OLD.cover_storage_path IS DISTINCT FROM NEW.cover_storage_path) THEN
+     INSERT INTO parapost_groups_private.media_cleanup(storage_path) VALUES (OLD.cover_storage_path) ON CONFLICT DO NOTHING;
+   END IF;
+ END IF;
+ RETURN OLD;
+END; $$;
+CREATE FUNCTION parapost_groups_private.guard_owner_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+ -- Parent is already absent during a legitimate ON DELETE CASCADE.
+ IF OLD.role='owner' AND EXISTS(SELECT 1 FROM public.groups WHERE id=OLD.group_id) THEN
+   RAISE EXCEPTION 'Delete the Group instead of its owner membership';
+ END IF;
+ RETURN OLD;
+END; $$;
+CREATE FUNCTION parapost_groups_private.command(action text, gid uuid, payload jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+ uid uuid := auth.uid(); g public.groups; m public.group_members; p public.group_posts;
+ target uuid; pid uuid; mid uuid; path text; mime text; role_name text; result jsonb; item record;
+BEGIN
+ IF NOT parapost_groups_private.enabled() THEN RAISE EXCEPTION 'Groups unavailable' USING ERRCODE='42501'; END IF;
+ IF action='create' THEN
+   IF (SELECT count(*) FROM public.groups WHERE owner_id=uid)>=100 THEN RAISE EXCEPTION 'Group creation limit reached'; END IF;
+   INSERT INTO public.groups(owner_id,name,description,visibility)
+   VALUES(uid,btrim(payload->>'name'),coalesce(payload->>'description',''),coalesce(payload->>'visibility','public')) RETURNING * INTO g;
+   RETURN jsonb_build_object('id',g.id);
+ END IF;
+ -- Group lock serializes ALL writes, including membership removal vs publish/role changes.
+ SELECT * INTO g FROM public.groups WHERE id=gid FOR UPDATE;
+ IF NOT FOUND OR NOT parapost_groups_private.allowed(gid,'directory') THEN RAISE EXCEPTION 'Group unavailable' USING ERRCODE='42501'; END IF;
+ SELECT * INTO m FROM public.group_members WHERE group_id=gid AND user_id=uid;
+ IF action='join' THEN
+   IF m.status IS NOT NULL THEN
+     IF m.status NOT IN ('pending','approved') THEN RAISE EXCEPTION 'Membership unavailable'; END IF;
+   ELSE
+     INSERT INTO public.group_members(group_id,user_id,role,status,approved_at)
+     VALUES(gid,uid,'member',CASE WHEN g.visibility='public' THEN 'approved' ELSE 'pending' END,CASE WHEN g.visibility='public' THEN now() END);
+   END IF;
+ ELSIF action='leave' THEN
+   IF m.role='owner' THEN RAISE EXCEPTION 'Owner must delete the Group; transfer is not supported'; END IF;
+   -- Only voluntary departures remove the row. Removed/banned/rejected rows persist.
+   DELETE FROM public.group_members WHERE group_id=gid AND user_id=uid AND status IN ('pending','approved');
+ ELSIF action IN ('approve','reject','remove','ban','role','restore') THEN
+   target := (payload->>'user_id')::uuid;
+   IF NOT parapost_groups_private.allowed(gid,'admin') OR target=uid OR target=g.owner_id THEN RAISE EXCEPTION 'Not authorized' USING ERRCODE='42501'; END IF;
+   SELECT * INTO m FROM public.group_members WHERE group_id=gid AND user_id=target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Membership unavailable'; END IF;
+   IF NOT parapost_groups_private.allowed(gid,'owner') AND (m.role <> 'member' OR action IN ('role','restore')) THEN RAISE EXCEPTION 'Owner permission required'; END IF;
+   IF action IN ('approve','restore') AND parapost_groups_private.blocked(uid,target) THEN RAISE EXCEPTION 'Membership unavailable'; END IF;
+   IF action IN ('approve','restore') AND parapost_groups_private.blocked(g.owner_id,target) THEN RAISE EXCEPTION 'Membership unavailable'; END IF;
+   IF action IN ('approve','reject') THEN
+     IF m.status <> 'pending' THEN RAISE EXCEPTION 'Request is no longer pending'; END IF;
+     UPDATE public.group_members SET status=CASE WHEN action='approve' THEN 'approved' ELSE 'rejected' END,
+       approved_at=CASE WHEN action='approve' THEN now() END WHERE group_id=gid AND user_id=target;
+   ELSIF action='role' THEN
+     role_name := payload->>'role';
+     IF m.status <> 'approved' OR role_name IS NULL OR role_name NOT IN ('admin','moderator','member') THEN RAISE EXCEPTION 'Invalid role change'; END IF;
+     UPDATE public.group_members SET role=role_name WHERE group_id=gid AND user_id=target;
+   ELSIF action='restore' THEN
+     IF m.status NOT IN ('removed','rejected','banned') THEN RAISE EXCEPTION 'Invalid restoration'; END IF;
+     -- Restoration requires owner action AND a fresh approval, never immediate access.
+     UPDATE public.group_members SET role='member',status='pending',approved_at=NULL WHERE group_id=gid AND user_id=target;
+   ELSE
+     UPDATE public.group_members SET role='member',status=CASE WHEN action='ban' THEN 'banned' ELSE 'removed' END,approved_at=NULL WHERE group_id=gid AND user_id=target;
+   END IF;
+ ELSIF action='edit' THEN
+   IF NOT parapost_groups_private.allowed(gid,'admin') THEN RAISE EXCEPTION 'Not authorized'; END IF;
+   -- Privacy changes are owner-only. Existing approvals survive; pending requests stay pending.
+   IF payload->>'visibility' IS DISTINCT FROM g.visibility AND NOT parapost_groups_private.allowed(gid,'owner') THEN RAISE EXCEPTION 'Owner permission required'; END IF;
+   UPDATE public.groups SET name=btrim(payload->>'name'),description=coalesce(payload->>'description',''),visibility=payload->>'visibility',updated_at=now() WHERE id=gid;
+ ELSIF action='delete' THEN
+   IF NOT parapost_groups_private.allowed(gid,'owner') OR payload->>'confirmation' IS DISTINCT FROM g.name THEN RAISE EXCEPTION 'Owner and Group name confirmation required'; END IF;
+   DELETE FROM public.groups WHERE id=gid;
+ ELSIF action='draft' THEN
+   IF NOT parapost_groups_private.allowed(gid,'member') THEN RAISE EXCEPTION 'Approved membership required'; END IF;
+   IF (SELECT count(*) FROM public.group_posts WHERE group_id=gid AND author_id=uid AND NOT published)>=10 THEN RAISE EXCEPTION 'Too many unfinished uploads'; END IF;
+   INSERT INTO public.group_posts(group_id,author_id,content) VALUES(gid,uid,coalesce(payload->>'content','')) RETURNING id INTO pid;
+   RETURN jsonb_build_object('id',pid);
+ ELSIF action IN ('reserve_media','publish','edit_post','delete_post') THEN
+   pid := (payload->>'post_id')::uuid;
+   SELECT * INTO p FROM public.group_posts WHERE id=pid AND group_id=gid;
+   IF NOT FOUND OR p.is_deleted THEN RAISE EXCEPTION 'Post unavailable'; END IF;
+   IF NOT parapost_groups_private.allowed(gid,'member') OR (p.author_id<>uid AND NOT (action='delete_post' AND parapost_groups_private.allowed(gid,'moderate'))) THEN RAISE EXCEPTION 'Not authorized'; END IF;
+   IF action='delete_post' THEN
+     DELETE FROM public.group_posts WHERE id=pid;
+   ELSIF action='edit_post' THEN
+     IF char_length(btrim(coalesce(payload->>'content','')))=0 AND NOT EXISTS(SELECT 1 FROM public.group_post_media WHERE post_id=pid) THEN RAISE EXCEPTION 'Post cannot be empty'; END IF;
+     UPDATE public.group_posts SET content=coalesce(payload->>'content',''),updated_at=now() WHERE id=pid;
+   ELSIF action='reserve_media' THEN
+     IF p.published OR (SELECT count(*) FROM public.group_post_media WHERE post_id=pid)>=4 THEN RAISE EXCEPTION 'Media limit or published post'; END IF;
+     mime := payload->>'mime_type';
+     IF mime IS NULL OR mime NOT IN ('image/jpeg','image/png','image/webp','video/mp4','video/webm') THEN RAISE EXCEPTION 'Unsupported media'; END IF;
+     mid := gen_random_uuid();
+     path := gid::text || '/posts/' || pid::text || '/' || uid::text || '/' || mid::text;
+     INSERT INTO public.group_post_media(id,group_id,post_id,uploader_id,media_type,storage_path,mime_type,display_order)
+     VALUES(mid,gid,pid,uid,CASE WHEN mime LIKE 'image/%' THEN 'image' ELSE 'video' END,path,mime,(SELECT count(*) FROM public.group_post_media WHERE post_id=pid));
+     RETURN jsonb_build_object('path',path);
+   ELSE
+     IF p.published THEN RETURN jsonb_build_object('id',pid); END IF;
+     IF char_length(btrim(p.content))=0 AND NOT EXISTS(SELECT 1 FROM public.group_post_media WHERE post_id=pid) THEN RAISE EXCEPTION 'Post cannot be empty'; END IF;
+     FOR item IN SELECT * FROM public.group_post_media WHERE post_id=pid LOOP
+       IF NOT EXISTS(SELECT 1 FROM storage.objects o WHERE o.bucket_id='group-media' AND o.name=item.storage_path
+         AND o.metadata->>'mimetype'=item.mime_type AND (o.metadata->>'size')::bigint BETWEEN 1 AND CASE WHEN item.media_type='image' THEN 8388608 ELSE 33554432 END) THEN RAISE EXCEPTION 'Media upload incomplete or invalid'; END IF;
+     END LOOP;
+     UPDATE public.group_posts SET published=true,updated_at=now() WHERE id=pid;
+   END IF;
+ ELSIF action='remove_cover' THEN
+   IF NOT parapost_groups_private.allowed(gid,'admin') THEN RAISE EXCEPTION 'Not authorized'; END IF;
+   UPDATE public.groups SET cover_storage_path=NULL,updated_at=now() WHERE id=gid;
+ ELSIF action='reserve_cover' THEN
+   IF NOT parapost_groups_private.allowed(gid,'admin') THEN RAISE EXCEPTION 'Not authorized'; END IF;
+   IF (SELECT count(*) FROM parapost_groups_private.cover_uploads WHERE group_id=gid AND uploader_id=uid)>=10 THEN RAISE EXCEPTION 'Too many unfinished covers'; END IF;
+   -- Covers are intentionally directory metadata, including those for private Groups.
+   path := gid::text || '/covers/' || gen_random_uuid()::text;
+   INSERT INTO parapost_groups_private.cover_uploads(storage_path,group_id,uploader_id) VALUES(path,gid,uid);
+   RETURN jsonb_build_object('path',path);
+ ELSIF action='set_cover' THEN
+   path := payload->>'path';
+   IF NOT parapost_groups_private.allowed(gid,'admin') OR NOT EXISTS(SELECT 1 FROM parapost_groups_private.cover_uploads c JOIN storage.objects o ON o.name=c.storage_path AND o.bucket_id='group-media'
+     WHERE c.storage_path=path AND c.group_id=gid AND c.uploader_id=uid AND o.metadata->>'mimetype' IN ('image/jpeg','image/png','image/webp') AND (o.metadata->>'size')::bigint BETWEEN 1 AND 8388608) THEN RAISE EXCEPTION 'Invalid cover'; END IF;
+   UPDATE public.groups SET cover_storage_path=path,updated_at=now() WHERE id=gid;
+   DELETE FROM parapost_groups_private.cover_uploads WHERE storage_path=path;
+ ELSE RAISE EXCEPTION 'Unknown Group action';
+ END IF;
+ RETURN jsonb_build_object('id',gid);
+END; $$;
+CREATE FUNCTION parapost_groups_private.queue_cover_reservation() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public.groups WHERE cover_storage_path=OLD.storage_path) THEN
+   INSERT INTO parapost_groups_private.media_cleanup(storage_path) VALUES(OLD.storage_path) ON CONFLICT DO NOTHING;
+ END IF;
+ RETURN OLD;
+END; $$;
+CREATE FUNCTION public.groups_available() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+ SELECT parapost_groups_private.enabled();
+$$;
+CREATE FUNCTION public.groups_command(p_action text,p_group_id uuid DEFAULT NULL,p_payload jsonb DEFAULT '{}'::jsonb)
+RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path='' AS $$
+ SELECT parapost_groups_private.command(p_action,p_group_id,p_payload);
+$$;
+CREATE FUNCTION public.groups_directory(p_search text DEFAULT '',p_filter text DEFAULT 'all',p_group_id uuid DEFAULT NULL,p_offset integer DEFAULT 0)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+ SELECT coalesce(jsonb_agg(row_to_json(x)),'[]'::jsonb) FROM (
+   SELECT g.*,coalesce(pr.display_name,pr.username,'Member') AS owner_name,
+     m.status AS membership_status,m.role AS membership_role,
+     (SELECT count(*) FROM public.group_members c WHERE c.group_id=g.id AND c.status='approved' AND NOT parapost_groups_private.blocked(c.user_id,g.owner_id)) AS member_count
+   FROM public.groups g LEFT JOIN public.group_members m ON m.group_id=g.id AND m.user_id=auth.uid()
+   LEFT JOIN public.profiles pr ON pr.id=g.owner_id
+   WHERE parapost_groups_private.allowed(g.id,'directory') AND (p_group_id IS NULL OR g.id=p_group_id)
+     AND (p_filter='all' OR p_filter=g.visibility OR (p_filter='mine' AND m.status='approved'))
+     AND (g.name || ' ' || g.description) ILIKE '%' || left(coalesce(p_search,''),100) || '%'
+   ORDER BY g.created_at DESC,g.id LIMIT 24 OFFSET greatest(0,least(coalesce(p_offset,0),100000))
+ ) x;
+$$;
+CREATE FUNCTION public.groups_members(p_group_id uuid,p_offset integer DEFAULT 0)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+ SELECT coalesce(jsonb_agg(row_to_json(x)),'[]'::jsonb) FROM (
+   SELECT m.*,coalesce(p.display_name,p.username,'Member') AS display_name
+   FROM public.group_members m LEFT JOIN public.profiles p ON p.id=m.user_id
+   WHERE m.group_id=p_group_id AND parapost_groups_private.allowed(p_group_id,'admin')
+   ORDER BY (m.status='pending') DESC,m.created_at,m.user_id LIMIT 50 OFFSET greatest(0,least(coalesce(p_offset,0),100000))
+ ) x;
+$$;
+CREATE FUNCTION parapost_groups_private.storage_allowed(path text, operation text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+ SELECT parapost_groups_private.enabled() AND (
+   CASE WHEN operation='read' THEN
+     EXISTS(SELECT 1 FROM public.groups g WHERE g.cover_storage_path=path AND parapost_groups_private.allowed(g.id,'directory'))
+     OR EXISTS(SELECT 1 FROM public.group_post_media m JOIN public.group_posts p ON p.id=m.post_id AND p.group_id=m.group_id
+       WHERE m.storage_path=path AND NOT p.is_deleted AND parapost_groups_private.allowed(p.group_id,'read')
+       AND (p.published OR (p.author_id=auth.uid() AND parapost_groups_private.allowed(p.group_id,'member'))))
+   WHEN operation='insert' THEN
+     EXISTS(SELECT 1 FROM parapost_groups_private.cover_uploads c WHERE c.storage_path=path AND c.uploader_id=auth.uid() AND c.created_at>now()-interval '1 hour' AND parapost_groups_private.allowed(c.group_id,'admin'))
+     OR EXISTS(SELECT 1 FROM public.group_post_media m JOIN public.group_posts p ON p.id=m.post_id AND p.group_id=m.group_id
+       WHERE m.storage_path=path AND m.uploader_id=auth.uid() AND p.author_id=auth.uid() AND NOT p.published AND NOT p.is_deleted AND p.created_at>now()-interval '1 hour' AND parapost_groups_private.allowed(p.group_id,'member'))
+   ELSE false END
+ );
+$$;
+CREATE FUNCTION public.groups_cleanup_batch() RETURNS SETOF text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE target record;
+BEGIN
+ FOR target IN SELECT g.id FROM public.groups g
+ WHERE EXISTS(SELECT 1 FROM public.group_posts p WHERE p.group_id=g.id AND NOT p.published AND p.created_at<now()-interval '24 hours')
+    OR EXISTS(SELECT 1 FROM parapost_groups_private.cover_uploads c WHERE c.group_id=g.id AND c.created_at<now()-interval '24 hours')
+ ORDER BY g.id LIMIT 100 FOR UPDATE LOOP
+   DELETE FROM public.group_posts WHERE group_id=target.id AND NOT published AND created_at<now()-interval '24 hours';
+   DELETE FROM parapost_groups_private.cover_uploads WHERE group_id=target.id AND created_at<now()-interval '24 hours';
+ END LOOP;
+ RETURN QUERY SELECT q.storage_path FROM parapost_groups_private.media_cleanup q
+ WHERE q.queued_at<now()-interval '24 hours'
+   AND NOT EXISTS(SELECT 1 FROM public.groups g WHERE g.cover_storage_path=q.storage_path)
+   AND NOT EXISTS(SELECT 1 FROM public.group_post_media m WHERE m.storage_path=q.storage_path)
+   AND NOT EXISTS(SELECT 1 FROM parapost_groups_private.cover_uploads c WHERE c.storage_path=q.storage_path)
+ ORDER BY q.queued_at LIMIT 100;
+END; $$;
+CREATE FUNCTION public.groups_cleanup_ack(p_paths text[]) RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path='' AS $$
+ DELETE FROM parapost_groups_private.media_cleanup WHERE storage_path=ANY(p_paths);
+$$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261023040500_group_post_interactions.sql
+-- FUNCTION DECLARATIONS: 2
+-- =======================================
+
+CREATE FUNCTION public.groups_interact(
+  p_group_id uuid, p_post_id uuid, p_action text,
+  p_content text DEFAULT NULL, p_parent_id uuid DEFAULT NULL
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_group public.groups;
+  v_post public.group_posts;
+  v_parent public.group_post_comments;
+  v_id uuid;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required' USING ERRCODE='42501';
+  END IF;
+
+  -- Serialize interactions with Group membership/privacy changes.
+  SELECT * INTO v_group FROM public.groups
+    WHERE id=p_group_id FOR SHARE;
+
+  IF NOT FOUND OR NOT parapost_groups_private.allowed(p_group_id,'member') THEN
+    RAISE EXCEPTION 'Approved membership required' USING ERRCODE='42501';
+  END IF;
+
+  SELECT * INTO v_post FROM public.group_posts
+    WHERE id=p_post_id AND group_id=p_group_id
+      AND published AND NOT is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Post unavailable' USING ERRCODE='42501';
+  END IF;
+
+  -- Block interactions with posts from blocked accounts.
+  IF p_action IN ('like','comment','reply','like_comment')
+     AND parapost_groups_private.blocked(v_uid,v_post.author_id) THEN
+    RAISE EXCEPTION 'Interaction unavailable'
+      USING ERRCODE='42501';
+  END IF;
+
+  IF p_action='like' THEN
+    INSERT INTO public.group_post_likes(post_id,user_id)
+      VALUES(p_post_id,v_uid)
+      ON CONFLICT (post_id,user_id) DO NOTHING;
+    RETURN jsonb_build_object('liked',true);
+  ELSIF p_action='unlike' THEN
+    DELETE FROM public.group_post_likes
+      WHERE post_id=p_post_id AND user_id=v_uid;
+    RETURN jsonb_build_object('liked',false);
+  ELSIF p_action IN ('like_comment','unlike_comment') THEN
+    IF p_parent_id IS NULL THEN
+      RAISE EXCEPTION 'Comment required';
+    END IF;
+
+    SELECT * INTO v_parent
+      FROM public.group_post_comments
+      WHERE id=p_parent_id AND post_id=p_post_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Comment unavailable'
+        USING ERRCODE='42501';
+    END IF;
+
+    IF p_action='like_comment' THEN
+      IF parapost_groups_private.blocked(
+        v_uid,v_parent.author_id
+      ) THEN
+        RAISE EXCEPTION 'Comment Like unavailable'
+          USING ERRCODE='42501';
+      END IF;
+
+      INSERT INTO public.group_comment_likes
+        (comment_id,post_id,user_id)
+      VALUES (p_parent_id,p_post_id,v_uid)
+      ON CONFLICT (comment_id,user_id) DO NOTHING;
+
+      RETURN jsonb_build_object('liked',true);
+    ELSE
+      DELETE FROM public.group_comment_likes
+      WHERE comment_id=p_parent_id AND user_id=v_uid;
+
+      RETURN jsonb_build_object('liked',false);
+    END IF;
+  ELSIF p_action IN ('comment','reply') THEN
+    IF p_content IS NULL OR
+       char_length(btrim(p_content)) NOT BETWEEN 1 AND 1200 THEN
+      RAISE EXCEPTION 'Invalid comment';
+    END IF;
+
+    IF p_action='comment' AND p_parent_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Invalid comment parent';
+    END IF;
+
+    IF p_action='reply' THEN
+      IF p_parent_id IS NULL THEN
+        RAISE EXCEPTION 'Reply parent required';
+      END IF;
+      SELECT * INTO v_parent FROM public.group_post_comments
+        WHERE id=p_parent_id AND post_id=p_post_id;
+      IF NOT FOUND OR v_parent.parent_id IS NOT NULL THEN
+        RAISE EXCEPTION 'Invalid reply parent';
+      END IF;
+      -- Do not allow replies to blocked comment authors.
+      IF parapost_groups_private.blocked(v_uid,v_parent.author_id) THEN
+        RAISE EXCEPTION 'Reply unavailable'
+          USING ERRCODE='42501';
+      END IF;
+    END IF;
+
+    INSERT INTO public.group_post_comments
+      (post_id,author_id,parent_id,content)
+    VALUES (p_post_id,v_uid,p_parent_id,btrim(p_content))
+    RETURNING id INTO v_id;
+
+    RETURN jsonb_build_object('id',v_id);
+  ELSE
+    RAISE EXCEPTION 'Unknown interaction action';
+  END IF;
+END;
+$$;
+CREATE FUNCTION public.groups_comment_like_stats(
+  p_group_id uuid,
+  p_post_id uuid
+)
+RETURNS TABLE (
+  comment_id uuid,
+  like_count bigint,
+  liked boolean
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  WITH visible_comments AS (
+    SELECT c.id, c.created_at
+    FROM public.group_post_comments c
+    JOIN public.group_posts p ON p.id = c.post_id
+    WHERE c.post_id = p_post_id
+      AND p.group_id = p_group_id
+      AND p.published
+      AND NOT p.is_deleted
+      AND auth.uid() IS NOT NULL
+      AND parapost_groups_private.allowed(
+        p_group_id, 'read'
+      )
+    ORDER BY c.created_at, c.id
+    LIMIT 100
+  )
+  SELECT
+    c.id,
+    (
+      SELECT count(*)
+      FROM public.group_comment_likes l
+      WHERE l.comment_id = c.id
+    ),
+    EXISTS (
+      SELECT 1
+      FROM public.group_comment_likes l
+      WHERE l.comment_id = c.id
+        AND l.user_id = auth.uid()
+    )
+  FROM visible_comments c
+  ORDER BY c.created_at, c.id;
+$$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261023050000_group_post_shares.sql
+-- FUNCTION DECLARATIONS: 2
+-- =======================================
+
+CREATE FUNCTION public.groups_share_post(
+  p_group_id uuid,
+  p_post_id uuid,
+  p_caption text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_group public.groups%ROWTYPE;
+  v_post public.group_posts%ROWTYPE;
+  v_share_id uuid;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_group
+  FROM public.groups
+  WHERE id = p_group_id
+  FOR SHARE;
+
+  IF NOT FOUND
+     OR v_group.visibility <> 'public'
+     OR NOT parapost_groups_private.allowed(
+       p_group_id, 'member'
+     )
+  THEN
+    RAISE EXCEPTION 'Public Group membership required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_post
+  FROM public.group_posts
+  WHERE id = p_post_id
+    AND group_id = p_group_id
+    AND published
+    AND NOT is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF parapost_groups_private.blocked(
+    v_uid, v_post.author_id
+  ) THEN
+    RAISE EXCEPTION 'Sharing unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_caption IS NOT NULL
+     AND char_length(p_caption) > 1000 THEN
+    RAISE EXCEPTION 'Share caption too long';
+  END IF;
+
+  INSERT INTO public.group_post_shares(
+    group_id, post_id, user_id, caption
+  )
+  VALUES (
+    p_group_id,
+    p_post_id,
+    v_uid,
+    NULLIF(btrim(p_caption), '')
+  )
+  ON CONFLICT (post_id, user_id) DO NOTHING
+  RETURNING id INTO v_share_id;
+
+  IF v_share_id IS NULL THEN
+    SELECT id INTO v_share_id
+    FROM public.group_post_shares
+    WHERE post_id = p_post_id
+      AND user_id = v_uid;
+  END IF;
+
+  RETURN jsonb_build_object('id', v_share_id);
+END;
+$$;
+CREATE FUNCTION public.groups_shared_feed(
+  p_sharer_id uuid DEFAULT NULL,
+  p_limit integer DEFAULT 60,
+  p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+  share_id uuid,
+  group_id uuid,
+  post_id uuid,
+  sharer_id uuid,
+  caption text,
+  shared_at timestamptz,
+  group_name text,
+  original_author_id uuid,
+  original_content text,
+  original_created_at timestamptz,
+  media jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT
+    s.id,
+    s.group_id,
+    s.post_id,
+    s.user_id,
+    s.caption,
+    s.created_at,
+    g.name,
+    p.author_id,
+    p.content,
+    p.created_at,
+    COALESCE(media_items.items, '[]'::jsonb)
+  FROM public.group_post_shares s
+  JOIN public.groups g
+    ON g.id = s.group_id
+  JOIN public.group_posts p
+    ON p.id = s.post_id
+   AND p.group_id = s.group_id
+  LEFT JOIN LATERAL (
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'media_type', m.media_type,
+        'storage_path', m.storage_path,
+        'display_order', m.display_order
+      )
+      ORDER BY m.display_order, m.id
+    ) AS items
+    FROM public.group_post_media m
+    WHERE m.post_id = p.id
+      AND m.group_id = g.id
+  ) media_items ON true
+  WHERE auth.uid() IS NOT NULL
+    AND g.visibility = 'public'
+    AND p.published
+    AND NOT p.is_deleted
+    AND parapost_groups_private.allowed(
+      g.id, 'read'
+    )
+    AND NOT parapost_groups_private.blocked(
+      auth.uid(), s.user_id
+    )
+    AND NOT parapost_groups_private.blocked(
+      auth.uid(), p.author_id
+    )
+    AND (
+      p_sharer_id IS NULL
+      OR s.user_id = p_sharer_id
+    )
+  ORDER BY s.created_at DESC, s.id DESC
+  LIMIT LEAST(GREATEST(COALESCE(p_limit,60),1),100)
+  OFFSET LEAST(GREATEST(COALESCE(p_offset,0),0),10000);
+$$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261024050000_group_shared_post_engagement.sql
+-- FUNCTION DECLARATIONS: 2
+-- =======================================
+
+CREATE OR REPLACE FUNCTION public.groups_shared_post_stats(
+  p_share_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_group_id uuid;
+  v_sharer_id uuid;
+  v_author_id uuid;
+  v_comments jsonb;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT s.group_id, s.user_id, p.author_id
+  INTO v_group_id, v_sharer_id, v_author_id
+  FROM public.group_post_shares s
+  JOIN public.groups g ON g.id = s.group_id
+  JOIN public.group_posts p
+    ON p.id = s.post_id AND p.group_id = s.group_id
+  WHERE s.id = p_share_id
+    AND g.visibility = 'public'
+    AND NOT p.is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT parapost_groups_private.allowed(v_group_id, 'read')
+     OR parapost_groups_private.blocked(v_uid, v_sharer_id)
+     OR parapost_groups_private.blocked(v_uid, v_author_id)
+  THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', c.id,
+        'author_id', c.author_id,
+        'parent_id', c.parent_id,
+        'content', c.content,
+        'created_at', c.created_at,
+        'updated_at', c.updated_at,
+        'like_count', c.like_count,
+        'liked', c.liked
+      )
+      ORDER BY c.created_at, c.id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_comments
+  FROM (
+    SELECT
+      cm.*,
+      (
+        SELECT count(*)::integer
+        FROM public.group_post_share_comment_likes cl
+        WHERE cl.comment_id = cm.id
+          AND NOT parapost_groups_private.blocked(v_uid, cl.user_id)
+      ) AS like_count,
+      EXISTS (
+        SELECT 1
+        FROM public.group_post_share_comment_likes cl
+        WHERE cl.comment_id = cm.id
+          AND cl.user_id = v_uid
+      ) AS liked
+    FROM public.group_post_share_comments cm
+    WHERE cm.share_id = p_share_id
+      AND NOT parapost_groups_private.blocked(v_uid, cm.author_id)
+      AND (
+        cm.parent_id IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM public.group_post_share_comments parent
+          WHERE parent.id = cm.parent_id
+            AND parent.share_id = cm.share_id
+            AND parent.parent_id IS NULL
+            AND NOT parapost_groups_private.blocked(
+              v_uid, parent.author_id
+            )
+        )
+      )
+    ORDER BY cm.created_at, cm.id
+    LIMIT 150
+  ) c;
+
+  RETURN jsonb_build_object(
+    'liked', EXISTS (
+      SELECT 1
+      FROM public.group_post_share_likes l
+      WHERE l.share_id = p_share_id
+        AND l.user_id = v_uid
+    ),
+    'like_count', (
+      SELECT count(*)::integer
+      FROM public.group_post_share_likes l
+      WHERE l.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(v_uid, l.user_id)
+    ),
+    'comment_count', (
+      SELECT count(*)::integer
+      FROM public.group_post_share_comments c
+      WHERE c.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(v_uid, c.author_id)
+        AND (
+          c.parent_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM public.group_post_share_comments parent
+            WHERE parent.id = c.parent_id
+              AND parent.share_id = c.share_id
+              AND parent.parent_id IS NULL
+              AND NOT parapost_groups_private.blocked(
+                v_uid, parent.author_id
+              )
+          )
+        )
+    ),
+    'comments_limited', (
+      SELECT count(*) > 150
+      FROM public.group_post_share_comments c
+      WHERE c.share_id = p_share_id
+        AND NOT parapost_groups_private.blocked(v_uid, c.author_id)
+        AND (
+          c.parent_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM public.group_post_share_comments parent
+            WHERE parent.id = c.parent_id
+              AND parent.share_id = c.share_id
+              AND parent.parent_id IS NULL
+              AND NOT parapost_groups_private.blocked(
+                v_uid, parent.author_id
+              )
+          )
+        )
+    ),
+    'comments', v_comments
+  );
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.groups_shared_post_interact(
+  p_share_id uuid,
+  p_action text,
+  p_content text DEFAULT NULL,
+  p_parent_id uuid DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_share public.group_post_shares%ROWTYPE;
+  v_group public.groups%ROWTYPE;
+  v_post public.group_posts%ROWTYPE;
+  v_parent public.group_post_share_comments%ROWTYPE;
+  v_id uuid;
+  v_limit_kind text;
+  v_limit_max integer;
+  v_limit_now timestamptz;
+  v_limit_count integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Sign in required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_share
+  FROM public.group_post_shares
+  WHERE id = p_share_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Share unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_group
+  FROM public.groups
+  WHERE id = v_share.group_id
+  FOR SHARE;
+
+  IF NOT FOUND
+     OR v_group.visibility <> 'public'
+     OR NOT parapost_groups_private.allowed(
+       v_share.group_id, 'read'
+     ) THEN
+    RAISE EXCEPTION 'Group unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_post
+  FROM public.group_posts
+  WHERE id = v_share.post_id
+    AND group_id = v_share.group_id
+    AND NOT is_deleted;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF parapost_groups_private.blocked(v_uid, v_share.user_id)
+     OR parapost_groups_private.blocked(
+       v_uid, v_post.author_id
+     ) THEN
+    RAISE EXCEPTION 'Interaction unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Atomic per-user limits across all shared Group posts.
+  IF p_action IN ('comment', 'reply') THEN
+    v_limit_kind := 'comment';
+    v_limit_max := 10;
+  ELSIF p_action IN (
+    'like', 'unlike', 'like_comment', 'unlike_comment'
+  ) THEN
+    v_limit_kind := 'reaction';
+    v_limit_max := 60;
+  END IF;
+
+  IF v_limit_kind IS NOT NULL THEN
+    v_limit_now := clock_timestamp();
+
+    INSERT INTO parapost_groups_private.shared_post_interaction_rate_limits AS rl
+      (user_id, action_kind, window_started_at, action_count)
+    VALUES (v_uid, v_limit_kind, v_limit_now, 1)
+    ON CONFLICT (user_id, action_kind)
+    DO UPDATE SET
+      window_started_at = CASE
+        WHEN rl.window_started_at <=
+             v_limit_now - interval '60 seconds'
+        THEN v_limit_now
+        ELSE rl.window_started_at
+      END,
+      action_count = CASE
+        WHEN rl.window_started_at <=
+             v_limit_now - interval '60 seconds'
+        THEN 1
+        ELSE rl.action_count + 1
+      END
+    WHERE rl.window_started_at <=
+          v_limit_now - interval '60 seconds'
+       OR rl.action_count < v_limit_max
+    RETURNING action_count INTO v_limit_count;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Rate limit exceeded. Try again shortly.'
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  IF p_action = 'like' THEN
+    INSERT INTO public.group_post_share_likes
+      (share_id, user_id)
+    VALUES (p_share_id, v_uid)
+    ON CONFLICT (share_id, user_id) DO NOTHING;
+
+    RETURN jsonb_build_object('liked', true);
+
+  ELSIF p_action = 'unlike' THEN
+    DELETE FROM public.group_post_share_likes
+    WHERE share_id = p_share_id
+      AND user_id = v_uid;
+
+    RETURN jsonb_build_object('liked', false);
+
+  ELSIF p_action = 'comment' THEN
+    IF p_parent_id IS NOT NULL
+       OR p_content IS NULL
+       OR char_length(btrim(p_content)) NOT BETWEEN 1 AND 1200 THEN
+      RAISE EXCEPTION 'Invalid comment';
+    END IF;
+
+    INSERT INTO public.group_post_share_comments
+      (share_id, author_id, content)
+    VALUES (p_share_id, v_uid, btrim(p_content))
+    RETURNING id INTO v_id;
+
+    RETURN jsonb_build_object('id', v_id);
+
+  ELSIF p_action IN (
+    'reply', 'like_comment', 'unlike_comment',
+    'edit_comment', 'delete_comment'
+  ) THEN
+    IF p_parent_id IS NULL THEN
+      RAISE EXCEPTION 'Comment required';
+    END IF;
+
+    SELECT * INTO v_parent
+    FROM public.group_post_share_comments
+    WHERE id = p_parent_id
+      AND share_id = p_share_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Comment unavailable'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF p_action = 'reply' THEN
+      IF v_parent.parent_id IS NOT NULL
+         OR parapost_groups_private.blocked(
+           v_uid, v_parent.author_id
+         )
+         OR p_content IS NULL
+         OR char_length(btrim(p_content)) NOT BETWEEN 1 AND 1200 THEN
+        RAISE EXCEPTION 'Reply unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      INSERT INTO public.group_post_share_comments
+        (share_id, author_id, parent_id, content)
+      VALUES (
+        p_share_id, v_uid, p_parent_id, btrim(p_content)
+      )
+      RETURNING id INTO v_id;
+
+      RETURN jsonb_build_object('id', v_id);
+
+    ELSIF p_action = 'like_comment' THEN
+      IF parapost_groups_private.blocked(
+        v_uid, v_parent.author_id
+      )
+      OR (
+        v_parent.parent_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.group_post_share_comments parent
+          WHERE parent.id = v_parent.parent_id
+            AND parent.share_id = p_share_id
+            AND parent.parent_id IS NULL
+            AND NOT parapost_groups_private.blocked(
+              v_uid, parent.author_id
+            )
+        )
+      ) THEN
+        RAISE EXCEPTION 'Comment Like unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      INSERT INTO public.group_post_share_comment_likes
+        (comment_id, share_id, user_id)
+      VALUES (p_parent_id, p_share_id, v_uid)
+      ON CONFLICT (comment_id, user_id) DO NOTHING;
+
+      RETURN jsonb_build_object('liked', true);
+
+    ELSIF p_action = 'unlike_comment' THEN
+      DELETE FROM public.group_post_share_comment_likes
+      WHERE comment_id = p_parent_id
+        AND share_id = p_share_id
+        AND user_id = v_uid;
+
+      RETURN jsonb_build_object('liked', false);
+
+    ELSIF p_action = 'edit_comment' THEN
+      IF v_parent.author_id <> v_uid
+         OR p_content IS NULL
+         OR char_length(btrim(p_content)) NOT BETWEEN 1 AND 1200 THEN
+        RAISE EXCEPTION 'Edit unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      UPDATE public.group_post_share_comments
+      SET content = btrim(p_content),
+          updated_at = now()
+      WHERE id = p_parent_id
+        AND share_id = p_share_id
+        AND author_id = v_uid;
+
+      RETURN jsonb_build_object('updated', true);
+
+    ELSIF p_action = 'delete_comment' THEN
+      IF v_parent.author_id <> v_uid THEN
+        RAISE EXCEPTION 'Delete unavailable'
+          USING ERRCODE = '42501';
+      END IF;
+
+      DELETE FROM public.group_post_share_comments
+      WHERE id = p_parent_id
+        AND share_id = p_share_id
+        AND author_id = v_uid;
+
+      RETURN jsonb_build_object('deleted', true);
+    END IF;
+  END IF;
+
+  RAISE EXCEPTION 'Unknown interaction action';
+END;
+$function$;
+
+-- =======================================
+-- SOURCE: supabase/migrations/20261121015929_creatorverse_live_page_link.sql
+-- FUNCTION DECLARATIONS: 1
+-- =======================================
+
+CREATE FUNCTION creatorverse_private.validate_live_page_owner()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  -- Existing personal broadcasts require no new permission.
+  IF NEW.creatorverse_page_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Only the authenticated broadcaster can associate a page.
+  IF auth.uid() IS DISTINCT FROM NEW.user_id THEN
+    RAISE EXCEPTION
+      'Unauthorized CreatorVerse livestream association'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- The page must be active and belong to the broadcaster.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.creatorverse_pages AS p
+    WHERE p.id = NEW.creatorverse_page_id
+      AND p.owner_id = NEW.user_id
+      AND p.status = 'active'
+  ) THEN
+    RAISE EXCEPTION
+      'CreatorVerse page is not owned or active'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+-- =======================================
+-- SOURCE: supabase/release-candidates/STEP466_RPC_DEFINITIONS_REVIEW_ONLY.sql.review.txt
+-- FUNCTION DECLARATIONS: 3
+-- =======================================
+
+CREATE FUNCTION public.creatorverse_delete_post(
+  p_page_id uuid,
+  p_post_id uuid
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $body$
+DECLARE
+  v_user uuid := auth.uid();
+  v_post uuid;
+BEGIN
+  IF v_user IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+     OR NOT creatorverse_private.read_page(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Post management unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM 1 FROM public.creatorverse_pages
+  WHERE id = p_page_id FOR UPDATE;
+
+  SELECT id INTO v_post
+  FROM public.creatorverse_posts
+  WHERE id = p_post_id
+    AND page_id = p_page_id
+    AND author_id = v_user
+    AND status = 'published'
+  FOR UPDATE;
+
+  IF v_post IS NULL THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE public.creatorverse_posts
+  SET status = 'deleted',
+      updated_at = now()
+  WHERE id = v_post
+  RETURNING id INTO v_post;
+
+  RETURN v_post;
+END;
+$body$;
+CREATE OR REPLACE FUNCTION public.creatorverse_directory_member_counts(
+  p_page_ids uuid[]
+)
+RETURNS TABLE (
+  page_id uuid,
+  member_count bigint
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $counts$
+  SELECT
+    p.id,
+    COUNT(f.user_id)::bigint
+  FROM public.creatorverse_pages AS p
+  LEFT JOIN public.creatorverse_follows AS f
+    ON f.page_id = p.id
+  WHERE cardinality(p_page_ids) BETWEEN 1 AND 25
+    AND p.id = ANY(p_page_ids)
+    AND p.status = 'active'
+    AND creatorverse_private.read_page(p.id)
+  GROUP BY p.id;
+$counts$;
+CREATE FUNCTION public.creatorverse_edit_post(
+  p_page_id uuid,
+  p_post_id uuid,
+  p_content text
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $body$
+DECLARE
+  v_user uuid := auth.uid();
+  v_post uuid;
+  v_content text := btrim(p_content);
+BEGIN
+  IF v_user IS NULL
+     OR NOT creatorverse_private.write_enabled()
+     OR NOT creatorverse_private.owns(p_page_id)
+     OR NOT creatorverse_private.read_page(p_page_id)
+  THEN
+    RAISE EXCEPTION 'Post management unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM 1 FROM public.creatorverse_pages
+  WHERE id = p_page_id FOR UPDATE;
+
+  SELECT id INTO v_post
+  FROM public.creatorverse_posts
+  WHERE id = p_post_id
+    AND page_id = p_page_id
+    AND author_id = v_user
+    AND status = 'published'
+  FOR UPDATE;
+
+  IF v_post IS NULL THEN
+    RAISE EXCEPTION 'Post unavailable'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF v_content IS NULL
+     OR char_length(v_content) > 5000
+     OR translate(v_content, E'\n\r\t', '') ~ '[[:cntrl:]]'
+  THEN
+    RAISE EXCEPTION 'Invalid post content'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF v_content = '' AND NOT EXISTS (
+    SELECT 1
+    FROM public.creatorverse_media
+    WHERE page_id = p_page_id
+      AND post_id = p_post_id
+      AND purpose = 'post'
+      AND verification = 'verified'
+  ) THEN
+    RAISE EXCEPTION 'Post cannot be empty'
+      USING ERRCODE = '23514';
+  END IF;
+
+  UPDATE public.creatorverse_posts
+  SET content = v_content,
+      updated_at = now()
+  WHERE id = v_post
+  RETURNING id INTO v_post;
+
+  RETURN v_post;
+END;
+$body$;
+
+-- Permissions, policies and trigger bindings
+-- must be reconciled separately.
+-- No feature activation.
+COMMIT;
