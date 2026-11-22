@@ -1,0 +1,505 @@
+-- PARAPOST NETWORK - STEP 465
+-- REVIEW ONLY: NOT AN EXECUTABLE PRODUCTION MIGRATION
+--
+-- 20 candidate tables not declared in existing
+-- local migration files.
+--
+-- Existing migration definitions are excluded.
+-- Actual production schema has not been verified.
+-- Foreign keys, constraints, permissions and dependencies
+-- still require final reconciliation.
+-- No SQL in this file has been executed.
+
+-- TABLE 1: creatorverse_private.feature_gate
+-- SOURCE: supabase/release-candidates/20261122_community_foundation.sql
+
+CREATE TABLE creatorverse_private.feature_gate (
+  singleton boolean PRIMARY KEY DEFAULT true
+    CHECK (singleton),
+  enabled boolean NOT NULL DEFAULT false,
+  writes_enabled boolean NOT NULL DEFAULT false,
+  page_details_edit_enabled boolean NOT NULL DEFAULT false
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE creatorverse_private.feature_gate ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE creatorverse_private.feature_gate
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 2: creatorverse_private.media_cleanup
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE creatorverse_private.media_cleanup (
+  storage_path text PRIMARY KEY,
+  attempts integer NOT NULL DEFAULT 0
+    CHECK (attempts >= 0),
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
+  queued_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE creatorverse_private.media_cleanup ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE creatorverse_private.media_cleanup
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 3: creatorverse_private.post_share_cooldowns
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE creatorverse_private.post_share_cooldowns (
+  sharer_id uuid NOT NULL,
+  post_id uuid NOT NULL,
+  last_shared_at timestamptz NOT NULL,
+
+  PRIMARY KEY (sharer_id, post_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE creatorverse_private.post_share_cooldowns ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE creatorverse_private.post_share_cooldowns
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 4: parapost_groups_private.avatar_uploads
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE parapost_groups_private.avatar_uploads (
+  storage_path text PRIMARY KEY,
+  group_id uuid NOT NULL
+    REFERENCES public.groups(id) ON DELETE CASCADE,
+  uploader_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE parapost_groups_private.avatar_uploads ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE parapost_groups_private.avatar_uploads
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 5: parapost_groups_private.group_share_cooldowns
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE parapost_groups_private.group_share_cooldowns (
+  user_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  target_type text NOT NULL
+    CHECK (target_type IN ('group', 'post')),
+  target_id uuid NOT NULL,
+  last_shared_at timestamptz NOT NULL,
+
+  PRIMARY KEY (user_id, target_type, target_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE parapost_groups_private.group_share_cooldowns ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE parapost_groups_private.group_share_cooldowns
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 6: parapost_groups_private.promotion_settings
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE parapost_groups_private.promotion_settings (
+  group_id uuid PRIMARY KEY
+    REFERENCES public.groups(id) ON DELETE CASCADE,
+  enabled boolean NOT NULL DEFAULT false,
+  show_cover boolean NOT NULL DEFAULT false,
+  show_description boolean NOT NULL DEFAULT false,
+  show_name boolean NOT NULL DEFAULT false
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE parapost_groups_private.promotion_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE parapost_groups_private.promotion_settings
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 7: public.creatorverse_pages
+-- SOURCE: supabase/release-candidates/20261122_creatorverse_base_tables.sql
+
+CREATE TABLE public.creatorverse_pages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id uuid NOT NULL REFERENCES auth.users(id),
+  name text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 3 AND 100),
+  category text NOT NULL CHECK (
+    category IN (
+      'business','creator','investigation_team','podcast',
+      'entertainment','organization','community_project','other'
+    )
+  ),
+  short_bio text NOT NULL DEFAULT ''
+    CHECK (char_length(short_bio) <= 240),
+  description text NOT NULL DEFAULT ''
+    CHECK (char_length(description) <= 5000),
+  website text CHECK (
+    website IS NULL OR (
+      char_length(website) <= 2048 AND
+      website ~ '^https?://[^[:space:]@/]+([/?#][^[:space:]]*)?$'
+    )
+  ),
+  social_links jsonb NOT NULL DEFAULT '[]'::jsonb
+    CHECK (
+      jsonb_typeof(social_links) = 'array'
+      AND jsonb_array_length(social_links) <= 8
+    ),
+  public_email text CHECK (
+    public_email IS NULL OR (
+      char_length(public_email) <= 254 AND
+      public_email ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+    )
+  ),
+  location text NOT NULL DEFAULT ''
+    CHECK (char_length(location) <= 160),
+  logo_media_id uuid,
+  cover_media_id uuid,
+  status text NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','active','suspended','deleted')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  search_document tsvector GENERATED ALWAYS AS (
+    to_tsvector(
+      'simple'::regconfig,
+      name || ' ' || short_bio || ' ' || description
+    )
+  ) STORED,
+  UNIQUE (id, owner_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.creatorverse_pages ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.creatorverse_pages
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 8: public.group_promotional_shares
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE public.group_promotional_shares (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id uuid NOT NULL
+    REFERENCES public.groups(id) ON DELETE CASCADE,
+  post_id uuid,
+  user_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  caption text CHECK (char_length(caption) <= 1000),
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  FOREIGN KEY (post_id, group_id)
+    REFERENCES public.group_posts(id, group_id)
+    ON DELETE CASCADE
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.group_promotional_shares ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.group_promotional_shares
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 9: public.creatorverse_follows
+-- SOURCE: supabase/release-candidates/20261122_creatorverse_base_tables.sql
+
+CREATE TABLE public.creatorverse_follows (
+  page_id uuid NOT NULL
+    REFERENCES public.creatorverse_pages(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (page_id, user_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.creatorverse_follows ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.creatorverse_follows
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 10: public.creatorverse_posts
+-- SOURCE: supabase/release-candidates/20261122_creatorverse_base_tables.sql
+
+CREATE TABLE public.creatorverse_posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_id uuid NOT NULL REFERENCES public.creatorverse_pages(id),
+  author_id uuid NOT NULL REFERENCES auth.users(id),
+  content text NOT NULL DEFAULT ''
+    CHECK (char_length(content) <= 10000),
+  status text NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','published','deleted')),
+  comments_enabled boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (page_id, id),
+  FOREIGN KEY (page_id, author_id)
+    REFERENCES public.creatorverse_pages(id, owner_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.creatorverse_posts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.creatorverse_posts
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 11: public.group_promotion_share_comments
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE public.group_promotion_share_comments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  share_id uuid NOT NULL
+    REFERENCES public.group_promotional_shares(id)
+    ON DELETE CASCADE,
+  author_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  parent_id uuid,
+  content text NOT NULL
+    CHECK (char_length(btrim(content)) BETWEEN 1 AND 1200),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  UNIQUE (id, share_id),
+
+  FOREIGN KEY (parent_id, share_id)
+    REFERENCES public.group_promotion_share_comments(id, share_id)
+    ON DELETE CASCADE
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.group_promotion_share_comments ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.group_promotion_share_comments
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 12: public.group_promotion_share_likes
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE public.group_promotion_share_likes (
+  share_id uuid NOT NULL
+    REFERENCES public.group_promotional_shares(id)
+    ON DELETE CASCADE,
+  user_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  PRIMARY KEY (share_id, user_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.group_promotion_share_likes ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.group_promotion_share_likes
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 13: public.creatorverse_comments
+-- SOURCE: supabase/release-candidates/20261122_creatorverse_base_tables.sql
+
+CREATE TABLE public.creatorverse_comments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL REFERENCES public.creatorverse_posts(id),
+  author_id uuid NOT NULL REFERENCES auth.users(id),
+  parent_id uuid,
+  content text NOT NULL,
+  is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  request_id uuid,
+  UNIQUE (post_id, id),
+  FOREIGN KEY (post_id, parent_id)
+    REFERENCES public.creatorverse_comments(post_id, id),
+  CHECK (parent_id IS DISTINCT FROM id),
+  CHECK (
+    is_deleted OR
+    char_length(btrim(content)) BETWEEN 1 AND 1200
+  )
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.creatorverse_comments ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.creatorverse_comments
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 14: public.creatorverse_media
+-- SOURCE: supabase/release-candidates/20261122_creatorverse_base_tables.sql
+
+CREATE TABLE public.creatorverse_media (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_id uuid NOT NULL REFERENCES public.creatorverse_pages(id),
+  post_id uuid,
+  purpose text NOT NULL
+    CHECK (purpose IN ('logo','cover','post')),
+  media_type text NOT NULL
+    CHECK (media_type IN ('image','video')),
+  storage_path text NOT NULL UNIQUE,
+  mime_type text NOT NULL CHECK (
+    mime_type IN (
+      'image/jpeg','image/png','image/webp',
+      'video/mp4','video/webm'
+    )
+  ),
+  verification text NOT NULL DEFAULT 'pending'
+    CHECK (verification IN ('pending','verified','rejected')),
+  byte_size bigint CHECK (byte_size > 0),
+  duration_seconds numeric CHECK (
+    duration_seconds > 0 AND duration_seconds <= 120
+  ),
+  display_order smallint NOT NULL DEFAULT 0
+    CHECK (display_order BETWEEN 0 AND 3),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (page_id, id),
+  FOREIGN KEY (page_id, post_id)
+    REFERENCES public.creatorverse_posts(page_id, id),
+  CHECK (storage_path LIKE page_id::text || '/%'),
+  CHECK (
+    char_length(storage_path) <= 240
+    AND storage_path NOT LIKE '%..%'
+    AND storage_path NOT LIKE '%//%'
+  ),
+  CHECK (
+    (purpose = 'post' AND post_id IS NOT NULL)
+    OR (
+      purpose IN ('logo','cover')
+      AND post_id IS NULL
+      AND media_type = 'image'
+    )
+  ),
+  CHECK (
+    (media_type = 'image'
+      AND mime_type IN ('image/jpeg','image/png','image/webp')
+      AND duration_seconds IS NULL
+      AND (byte_size IS NULL OR byte_size <= 8388608))
+    OR
+    (media_type = 'video'
+      AND mime_type IN ('video/mp4','video/webm')
+      AND (byte_size IS NULL OR byte_size <= 33554432))
+  ),
+  CHECK (
+    verification <> 'verified'
+    OR (
+      byte_size IS NOT NULL
+      AND (media_type = 'image' OR duration_seconds IS NOT NULL)
+    )
+  )
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.creatorverse_media ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.creatorverse_media
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 15: public.creatorverse_post_likes
+-- SOURCE: supabase/release-candidates/20261122_creatorverse_base_tables.sql
+
+CREATE TABLE public.creatorverse_post_likes (
+  post_id uuid NOT NULL
+    REFERENCES public.creatorverse_posts(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (post_id, user_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.creatorverse_post_likes ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.creatorverse_post_likes
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 16: public.creatorverse_shares
+-- SOURCE: supabase/release-candidates/20261122_creatorverse_base_tables.sql
+
+CREATE TABLE public.creatorverse_shares (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL REFERENCES public.creatorverse_posts(id),
+  sharer_id uuid NOT NULL REFERENCES auth.users(id),
+  caption text NOT NULL DEFAULT ''
+    CHECK (char_length(caption) <= 1000),
+  request_id uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (sharer_id, request_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.creatorverse_shares ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.creatorverse_shares
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 17: public.group_promotion_share_comment_likes
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE public.group_promotion_share_comment_likes (
+  comment_id uuid NOT NULL,
+  share_id uuid NOT NULL,
+  user_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  PRIMARY KEY (comment_id, user_id),
+
+  FOREIGN KEY (comment_id, share_id)
+    REFERENCES public.group_promotion_share_comments(id, share_id)
+    ON DELETE CASCADE
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.group_promotion_share_comment_likes ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.group_promotion_share_comment_likes
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 18: creatorverse_private.media_cleanup_jobs
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE creatorverse_private.media_cleanup_jobs (
+  job_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  media_id uuid NOT NULL UNIQUE
+    REFERENCES public.creatorverse_media(id),
+  page_id uuid NOT NULL,
+  post_id uuid NOT NULL,
+  storage_path text NOT NULL,
+  status text NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'claimed', 'completed')),
+  attempts integer NOT NULL DEFAULT 0,
+  successful_removals integer NOT NULL DEFAULT 0
+    CHECK (successful_removals BETWEEN 0 AND 2),
+  eligible_after timestamptz NOT NULL,
+  claim_token uuid,
+  lease_expires_at timestamptz,
+  completed_at timestamptz,
+  last_error text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE creatorverse_private.media_cleanup_jobs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE creatorverse_private.media_cleanup_jobs
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 19: creatorverse_private.upload_reservations
+-- SOURCE: supabase/release-candidates/20261122_community_remaining_tables.sql
+
+CREATE TABLE creatorverse_private.upload_reservations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_id uuid NOT NULL,
+  owner_id uuid NOT NULL
+    REFERENCES auth.users(id),
+  media_id uuid NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+
+  FOREIGN KEY (page_id)
+    REFERENCES public.creatorverse_pages(id),
+
+  FOREIGN KEY (page_id, owner_id)
+    REFERENCES public.creatorverse_pages(id, owner_id),
+
+  FOREIGN KEY (page_id, media_id)
+    REFERENCES public.creatorverse_media(page_id, id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE creatorverse_private.upload_reservations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE creatorverse_private.upload_reservations
+FROM PUBLIC, anon, authenticated;
+
+-- TABLE 20: public.creatorverse_comment_likes
+-- SOURCE: supabase/release-candidates/20261122_creatorverse_base_tables.sql
+
+CREATE TABLE public.creatorverse_comment_likes (
+  comment_id uuid NOT NULL
+    REFERENCES public.creatorverse_comments(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL
+    REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (comment_id, user_id)
+);
+
+-- Fail-closed access baseline:
+ALTER TABLE public.creatorverse_comment_likes ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.creatorverse_comment_likes
+FROM PUBLIC, anon, authenticated;
