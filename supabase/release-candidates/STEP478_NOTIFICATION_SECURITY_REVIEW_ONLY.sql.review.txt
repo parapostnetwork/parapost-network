@@ -1,0 +1,261 @@
+-- PARAPOST NETWORK
+-- STEP 478: COMMUNITY NOTIFICATION SECURITY
+-- REVIEW ONLY. DO NOT EXECUTE OR DEPLOY.
+--
+-- Requires the complete community tables and functions.
+-- Keeps existing production notification policies.
+-- Feature gates remain disabled.
+
+BEGIN;
+
+CREATE OR REPLACE FUNCTION
+creatorverse_private.community_notification_visible(
+  n public.notifications
+)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_owner uuid;
+  v_visibility text;
+BEGIN
+  -- Never expose self-activity or incomplete events.
+  IF n.user_id IS NULL
+     OR n.actor_id IS NULL
+     OR n.user_id = n.actor_id
+     OR parapost_groups_private.blocked(
+       n.user_id, n.actor_id
+     )
+  THEN
+    RETURN false;
+  END IF;
+
+  IF n.type IN (
+    'creatorverse_follow',
+    'creatorverse_like',
+    'creatorverse_comment',
+    'creatorverse_reply',
+    'creatorverse_share',
+    'creatorverse_comment_like'
+  ) THEN
+
+    SELECT owner_id
+    INTO v_owner
+    FROM public.creatorverse_pages
+    WHERE id = n.creatorverse_page_id
+      AND status = 'active';
+
+    IF v_owner IS NULL THEN
+      RETURN false;
+    END IF;
+
+    IF n.community_post_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.creatorverse_posts p
+         WHERE p.id = n.community_post_id
+           AND p.page_id = n.creatorverse_page_id
+           AND p.status = 'published'
+       )
+    THEN
+      RETURN false;
+    END IF;
+
+    IF n.community_comment_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.creatorverse_comments c
+         WHERE c.id = n.community_comment_id
+           AND c.post_id = n.community_post_id
+           AND NOT c.is_deleted
+       )
+    THEN
+      RETURN false;
+    END IF;
+
+  ELSIF n.type IN (
+    'group_post',
+    'group_like',
+    'group_comment',
+    'group_reply',
+    'group_share',
+    'group_comment_like'
+  ) THEN
+
+    SELECT owner_id, visibility
+    INTO v_owner, v_visibility
+    FROM public.groups
+    WHERE id = n.group_id;
+
+    IF v_owner IS NULL THEN
+      RETURN false;
+    END IF;
+
+    IF n.community_post_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.group_posts p
+         WHERE p.id = n.community_post_id
+           AND p.group_id = n.group_id
+           AND p.published
+           AND NOT p.is_deleted
+       )
+    THEN
+      RETURN false;
+    END IF;
+
+    IF n.community_comment_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.group_post_comments c
+         WHERE c.id = n.community_comment_id
+           AND c.post_id = n.community_post_id
+       )
+    THEN
+      RETURN false;
+    END IF;
+
+    IF v_visibility = 'private' THEN
+
+      IF n.user_id <> v_owner
+         AND NOT EXISTS (
+           SELECT 1
+           FROM public.group_members m
+           WHERE m.group_id = n.group_id
+             AND m.user_id = n.user_id
+             AND m.status = 'approved'
+         )
+      THEN
+        RETURN false;
+      END IF;
+
+      IF n.actor_id <> v_owner
+         AND NOT EXISTS (
+           SELECT 1
+           FROM public.group_members m
+           WHERE m.group_id = n.group_id
+             AND m.user_id = n.actor_id
+             AND m.status = 'approved'
+         )
+      THEN
+        RETURN false;
+      END IF;
+
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM public.group_members m
+      WHERE m.group_id = n.group_id
+        AND m.user_id IN (n.user_id, n.actor_id)
+        AND m.status IN ('removed', 'banned')
+    ) THEN
+      RETURN false;
+    END IF;
+
+  ELSE
+    RETURN false;
+  END IF;
+
+  -- Protect relationships involving page/group owners.
+  IF parapost_groups_private.blocked(n.user_id, v_owner)
+     OR parapost_groups_private.blocked(
+       n.actor_id, v_owner
+     )
+  THEN
+    RETURN false;
+  END IF;
+
+  RETURN true;
+END;
+$function$;
+
+-- Do not expose SECURITY DEFINER execution to anon.
+REVOKE ALL ON FUNCTION
+  creatorverse_private.community_notification_visible(
+    public.notifications
+  )
+FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION
+  creatorverse_private.community_notification_visible(
+    public.notifications
+  )
+TO authenticated;
+
+-- Existing client INSERT policies cannot be used
+-- to forge community notifications.
+-- Legitimate community notifications are created
+-- by trusted database triggers.
+
+CREATE POLICY community_notification_insert_guard_v1
+ON public.notifications
+AS RESTRICTIVE
+FOR INSERT
+TO anon, authenticated
+WITH CHECK (
+  type <> ALL (
+    ARRAY[
+      'creatorverse_follow',
+      'creatorverse_like',
+      'creatorverse_comment',
+      'creatorverse_reply',
+      'creatorverse_share',
+      'creatorverse_comment_like',
+      'group_post',
+      'group_like',
+      'group_comment',
+      'group_reply',
+      'group_share',
+      'group_comment_like'
+    ]
+  )
+  AND creatorverse_page_id IS NULL
+  AND group_id IS NULL
+  AND community_post_id IS NULL
+  AND community_comment_id IS NULL
+  AND community_event_key IS NULL
+);
+
+-- Community notification reads require the owner
+-- and visibility rules to pass.
+-- Existing non-community notification policies remain.
+
+CREATE POLICY community_notification_read_guard_v1
+ON public.notifications
+AS RESTRICTIVE
+FOR SELECT
+TO authenticated
+USING (
+  type <> ALL (
+    ARRAY[
+      'creatorverse_follow',
+      'creatorverse_like',
+      'creatorverse_comment',
+      'creatorverse_reply',
+      'creatorverse_share',
+      'creatorverse_comment_like',
+      'group_post',
+      'group_like',
+      'group_comment',
+      'group_reply',
+      'group_share',
+      'group_comment_like'
+    ]
+  )
+  OR (
+    user_id = auth.uid()
+    AND creatorverse_private.community_notification_visible(
+      notifications.*
+    )
+  )
+);
+
+-- No existing policy is dropped.
+-- No notification trigger is replaced.
+-- No feature is enabled.
+
+COMMIT;
