@@ -1,0 +1,211 @@
+-- PARAPOST NETWORK - STEP 462
+-- STAGING CATALOG QUERY - READ ONLY
+-- NOT A MIGRATION
+-- DO NOT RUN AGAINST PRODUCTION
+--
+-- Intended staging project:
+-- vmgelrgrtpghmvqgufzz
+--
+-- Returns metadata without exporting function bodies.
+-- No DDL, DML, role changes or feature activation.
+
+WITH functions AS (
+    SELECT
+        n.nspname AS schema_name,
+        p.proname AS function_name,
+        pg_get_function_identity_arguments(p.oid)
+            AS arguments,
+        pg_get_userbyid(p.proowner) AS owner_name,
+        l.lanname AS language,
+        p.prosecdef AS security_definer,
+        p.provolatile AS volatility,
+        md5(pg_get_functiondef(p.oid))
+            AS definition_fingerprint,
+        COALESCE(p.proacl::text, 'DEFAULT')
+            AS acl
+    FROM pg_proc p
+    JOIN pg_namespace n
+      ON n.oid = p.pronamespace
+    JOIN pg_language l
+      ON l.oid = p.prolang
+    WHERE n.nspname IN (
+        'creatorverse_private',
+        'parapost_groups_private'
+    )
+    OR (
+        n.nspname = 'public'
+        AND (
+            p.proname LIKE 'creatorverse%'
+            OR p.proname LIKE 'group%'
+        )
+    )
+),
+triggers AS (
+    SELECT
+        n.nspname AS schema_name,
+        c.relname AS table_name,
+        t.tgname AS trigger_name,
+        pg_get_triggerdef(t.oid)
+            AS definition
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n
+      ON n.oid = c.relnamespace
+    WHERE NOT t.tgisinternal
+      AND (
+        n.nspname IN (
+            'creatorverse_private',
+            'parapost_groups_private'
+        )
+        OR (
+            n.nspname = 'public'
+            AND (
+                c.relname LIKE 'creatorverse%'
+                OR c.relname LIKE 'group%'
+                OR c.relname = 'notifications'
+            )
+        )
+      )
+),
+policies AS (
+    SELECT
+        schemaname AS schema_name,
+        tablename AS table_name,
+        policyname AS policy_name,
+        permissive,
+        roles,
+        cmd,
+        qual,
+        with_check
+    FROM pg_policies
+    WHERE schemaname IN (
+        'creatorverse_private',
+        'parapost_groups_private',
+        'storage'
+    )
+    OR (
+        schemaname = 'public'
+        AND (
+            tablename LIKE 'creatorverse%'
+            OR tablename LIKE 'group%'
+            OR tablename = 'notifications'
+        )
+    )
+),
+indexes AS (
+    SELECT
+        schemaname AS schema_name,
+        tablename AS table_name,
+        indexname AS index_name,
+        indexdef AS definition
+    FROM pg_indexes
+    WHERE schemaname IN (
+        'creatorverse_private',
+        'parapost_groups_private'
+    )
+    OR (
+        schemaname = 'public'
+        AND (
+            tablename LIKE 'creatorverse%'
+            OR tablename LIKE 'group%'
+            OR tablename = 'notifications'
+        )
+    )
+),
+tables AS (
+    SELECT
+        n.nspname AS schema_name,
+        c.relname AS table_name,
+        c.relrowsecurity AS rls_enabled,
+        c.relforcerowsecurity AS rls_forced,
+        pg_get_userbyid(c.relowner)
+            AS owner_name,
+        COALESCE(c.relacl::text, 'DEFAULT')
+            AS acl
+    FROM pg_class c
+    JOIN pg_namespace n
+      ON n.oid = c.relnamespace
+    WHERE c.relkind IN ('r', 'p')
+      AND (
+        n.nspname IN (
+            'creatorverse_private',
+            'parapost_groups_private'
+        )
+        OR (
+            n.nspname = 'public'
+            AND (
+                c.relname LIKE 'creatorverse%'
+                OR c.relname LIKE 'group%'
+                OR c.relname = 'notifications'
+            )
+        )
+      )
+),
+notification_constraints AS (
+    SELECT
+        c.conname AS constraint_name,
+        pg_get_constraintdef(c.oid)
+            AS definition
+    FROM pg_constraint c
+    WHERE c.conrelid = 'public.notifications'::regclass
+),
+media_buckets AS (
+    SELECT
+        id,
+        name,
+        public,
+        file_size_limit,
+        allowed_mime_types
+    FROM storage.buckets
+    WHERE id IN (
+        'group-media',
+        'creatorverse-media'
+    )
+)
+SELECT jsonb_pretty(
+    jsonb_build_object(
+        'project', 'STAGING',
+        'functions',
+            COALESCE(
+                (SELECT jsonb_agg(to_jsonb(f))
+                 FROM functions f),
+                '[]'::jsonb
+            ),
+        'triggers',
+            COALESCE(
+                (SELECT jsonb_agg(to_jsonb(t))
+                 FROM triggers t),
+                '[]'::jsonb
+            ),
+        'policies',
+            COALESCE(
+                (SELECT jsonb_agg(to_jsonb(p))
+                 FROM policies p),
+                '[]'::jsonb
+            ),
+        'indexes',
+            COALESCE(
+                (SELECT jsonb_agg(to_jsonb(i))
+                 FROM indexes i),
+                '[]'::jsonb
+            ),
+        'tables',
+            COALESCE(
+                (SELECT jsonb_agg(to_jsonb(t))
+                 FROM tables t),
+                '[]'::jsonb
+            ),
+        'notification_constraints',
+            COALESCE(
+                (SELECT jsonb_agg(to_jsonb(n))
+                 FROM notification_constraints n),
+                '[]'::jsonb
+            ),
+        'media_buckets',
+            COALESCE(
+                (SELECT jsonb_agg(to_jsonb(b))
+                 FROM media_buckets b),
+                '[]'::jsonb
+            )
+    )
+) AS staging_catalog_json;
