@@ -1,0 +1,98 @@
+-- PARAPOST NETWORK
+-- STEP 477: COMMUNITY NOTIFICATION SCHEMA
+-- REVIEW ONLY — DO NOT EXECUTE
+--
+-- Preserves existing notification records and columns.
+-- Does not replace existing notification triggers or policies.
+-- Does not activate Groups or CreatorVerse.
+
+BEGIN;
+
+-- Five nullable community context columns.
+ALTER TABLE public.notifications
+  ADD COLUMN IF NOT EXISTS creatorverse_page_id uuid,
+  ADD COLUMN IF NOT EXISTS group_id uuid,
+  ADD COLUMN IF NOT EXISTS community_post_id uuid,
+  ADD COLUMN IF NOT EXISTS community_comment_id uuid,
+  ADD COLUMN IF NOT EXISTS community_event_key text;
+
+-- Existing production notification_type_check behaviour
+-- must be verified before this replacement is approved.
+--
+-- The following replacement matches the staging type list,
+-- but is NOT yet approved for production execution.
+
+ALTER TABLE public.notifications
+  DROP CONSTRAINT notifications_type_check;
+
+ALTER TABLE public.notifications
+  ADD CONSTRAINT notifications_type_check
+  CHECK (
+    type IN (
+      'friend_request',
+      'friend_accept',
+      'post_like',
+      'post_comment',
+      'post_share',
+      'comment_like',
+      'comment_reply',
+      'parachat_message',
+      'parachat_photo',
+      'badge_award',
+      'achievement_award',
+      'reel_like',
+      'reel_comment',
+      'reel_reply',
+      'reel_share',
+      'reel_comment_like',
+      'creatorverse_follow',
+      'creatorverse_like',
+      'creatorverse_comment',
+      'creatorverse_reply',
+      'creatorverse_share',
+      'creatorverse_comment_like',
+      'group_post',
+      'group_like',
+      'group_comment',
+      'group_reply',
+      'group_share',
+      'group_comment_like'
+    )
+  );
+
+-- Community-specific notification deduplication.
+-- Existing notification indexes are not dropped.
+
+CREATE UNIQUE INDEX IF NOT EXISTS
+  creatorverse_follow_notification_unique
+ON public.notifications (
+  user_id,
+  actor_id,
+  creatorverse_page_id
+)
+WHERE type = 'creatorverse_follow';
+
+CREATE UNIQUE INDEX IF NOT EXISTS
+  group_owner_post_notification_unique
+ON public.notifications (
+  user_id,
+  community_post_id
+)
+WHERE type = 'group_post';
+
+CREATE UNIQUE INDEX IF NOT EXISTS
+  community_notification_event_unique
+ON public.notifications (
+  user_id,
+  community_event_key
+)
+WHERE community_event_key IS NOT NULL;
+
+-- Community client INSERT and SELECT protection is
+-- intentionally deferred until its functions are installed.
+--
+-- No trigger replacement.
+-- No policy replacement.
+-- No notification delivery activation.
+
+COMMIT;
