@@ -1,0 +1,561 @@
+-- PARAPOST NETWORK
+-- STEP 479: GROUPS + CREATORVERSE NOTIFICATION EVENTS
+-- REVIEW ONLY. DO NOT EXECUTE.
+--
+-- Adapted from the recovered staging notification handlers.
+-- Existing production triggers must remain untouched.
+-- Requires the Step 477 and Step 478 dependencies.
+-- Feature gates remain disabled.
+
+BEGIN;
+
+-- ==================================================
+-- 1. COMMUNITY LIKES, COMMENTS, REPLIES AND SHARES
+-- ==================================================
+
+CREATE OR REPLACE FUNCTION
+creatorverse_private.notify_community_activity_release()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  r jsonb;
+  actor uuid;
+  post uuid;
+  comment uuid;
+  parent_comment uuid;
+  container uuid;
+  owner_id uuid;
+  author_id uuid;
+  comment_author uuid;
+  recipient uuid;
+  visibility text;
+  kind text;
+  action text;
+  event_key text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    r := to_jsonb(OLD);
+  ELSE
+    r := to_jsonb(NEW);
+  END IF;
+
+  kind := CASE
+    WHEN TG_TABLE_NAME LIKE 'creatorverse_%'
+    THEN 'creatorverse'
+    ELSE 'group'
+  END;
+
+  actor := coalesce(
+    r->>'user_id',
+    r->>'author_id',
+    r->>'sharer_id'
+  )::uuid;
+
+  IF actor IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  event_key := TG_TABLE_NAME || ':' ||
+    coalesce(
+      r->>'id',
+      r->>'comment_id',
+      r->>'post_id'
+    ) || ':' || actor::text;
+
+  -- Removing interactions removes related notifications.
+  IF TG_OP = 'DELETE' THEN
+    DELETE FROM public.notifications
+    WHERE community_event_key = event_key;
+
+    IF TG_TABLE_NAME IN (
+      'creatorverse_comments',
+      'group_post_comments'
+    ) THEN
+      DELETE FROM public.notifications
+      WHERE community_comment_id = (r->>'id')::uuid;
+    END IF;
+
+    RETURN NULL;
+  END IF;
+
+  IF TG_TABLE_NAME = 'creatorverse_comments'
+     AND r->>'is_deleted' = 'true'
+  THEN
+    DELETE FROM public.notifications
+    WHERE community_event_key = event_key
+       OR community_comment_id = (r->>'id')::uuid;
+    RETURN NULL;
+  END IF;
+
+  -- Editing must not generate duplicate notifications.
+  IF TG_OP <> 'INSERT' THEN
+    RETURN NULL;
+  END IF;
+
+  IF auth.uid() IS DISTINCT FROM actor THEN
+    RETURN NULL;
+  END IF;
+
+  post := nullif(r->>'post_id', '')::uuid;
+
+  IF TG_TABLE_NAME IN (
+    'creatorverse_comments',
+    'group_post_comments'
+  ) THEN
+    comment := (r->>'id')::uuid;
+    parent_comment := nullif(r->>'parent_id', '')::uuid;
+
+    action := CASE
+      WHEN parent_comment IS NULL THEN 'comment'
+      ELSE 'reply'
+    END;
+
+  ELSIF TG_TABLE_NAME IN (
+    'creatorverse_comment_likes',
+    'group_comment_likes'
+  ) THEN
+    comment := (r->>'comment_id')::uuid;
+    action := 'comment_like';
+
+  ELSIF TG_TABLE_NAME LIKE '%shares' THEN
+    action := 'share';
+
+  ELSE
+    action := 'like';
+  END IF;
+
+  IF TG_TABLE_NAME = 'creatorverse_comment_likes' THEN
+    SELECT c.post_id, c.author_id
+    INTO post, comment_author
+    FROM public.creatorverse_comments c
+    WHERE c.id = comment
+      AND NOT c.is_deleted;
+  END IF;
+
+  IF kind = 'creatorverse' THEN
+
+    SELECT p.page_id, p.author_id, pg.owner_id
+    INTO container, author_id, owner_id
+    FROM public.creatorverse_posts p
+    JOIN public.creatorverse_pages pg
+      ON pg.id = p.page_id
+    WHERE p.id = post
+      AND p.status = 'published'
+      AND pg.status = 'active';
+
+    IF parent_comment IS NOT NULL THEN
+      SELECT c.author_id INTO comment_author
+      FROM public.creatorverse_comments c
+      WHERE c.id = parent_comment
+        AND c.post_id = post
+        AND NOT c.is_deleted;
+    END IF;
+
+  ELSE
+
+    SELECT p.group_id, p.author_id,
+           g.owner_id, g.visibility
+    INTO container, author_id, owner_id, visibility
+    FROM public.group_posts p
+    JOIN public.groups g
+      ON g.id = p.group_id
+    WHERE p.id = post
+      AND p.published
+      AND NOT p.is_deleted;
+
+    IF parent_comment IS NOT NULL THEN
+      SELECT c.author_id INTO comment_author
+      FROM public.group_post_comments c
+      WHERE c.id = parent_comment
+        AND c.post_id = post;
+
+    ELSIF action = 'comment_like' THEN
+      SELECT c.author_id INTO comment_author
+      FROM public.group_post_comments c
+      WHERE c.id = comment
+        AND c.post_id = post;
+    END IF;
+
+  END IF;
+
+  IF container IS NULL OR owner_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Private Groups: actors must be approved members.
+  IF kind = 'group'
+     AND visibility = 'private'
+     AND actor <> owner_id
+     AND NOT EXISTS (
+       SELECT 1
+       FROM public.group_members m
+       WHERE m.group_id = container
+         AND m.user_id = actor
+         AND m.status = 'approved'
+     )
+  THEN
+    RETURN NULL;
+  END IF;
+
+  FOR recipient IN
+    SELECT DISTINCT x.user_id
+    FROM unnest(
+      ARRAY[owner_id, author_id, comment_author]
+    ) AS x(user_id)
+    WHERE x.user_id IS NOT NULL
+      AND x.user_id <> actor
+  LOOP
+
+    IF parapost_groups_private.blocked(
+      actor, recipient
+    ) THEN
+      CONTINUE;
+    END IF;
+
+    IF kind = 'group'
+       AND visibility = 'private'
+       AND recipient <> owner_id
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.group_members m
+         WHERE m.group_id = container
+           AND m.user_id = recipient
+           AND m.status = 'approved'
+       )
+    THEN
+      CONTINUE;
+    END IF;
+
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      creatorverse_page_id,
+      group_id,
+      community_post_id,
+      community_comment_id,
+      community_event_key,
+      message,
+      is_read
+    )
+    VALUES (
+      recipient,
+      actor,
+      kind || '_' || action,
+      CASE
+        WHEN kind = 'creatorverse' THEN container
+      END,
+      CASE
+        WHEN kind = 'group' THEN container
+      END,
+      post,
+      comment,
+      event_key,
+      CASE
+        WHEN kind = 'creatorverse'
+        THEN 'New CreatorVerse activity.'
+        ELSE 'New Group activity.'
+      END,
+      false
+    )
+    ON CONFLICT DO NOTHING;
+
+  END LOOP;
+
+  RETURN NULL;
+
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING
+    'Community activity notification failed: %',
+    SQLERRM;
+  RETURN NULL;
+END;
+$function$;
+
+-- ==================================================
+-- 2. NEW GROUP POSTS: NOTIFY GROUP OWNER
+-- ==================================================
+
+CREATE OR REPLACE FUNCTION
+parapost_groups_private.notify_owner_new_post_release()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  recipient_id uuid;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    DELETE FROM public.notifications
+    WHERE group_id = OLD.group_id
+      AND community_post_id = OLD.id
+      AND (
+        type = 'group_post'
+        OR community_event_key IS NOT NULL
+      );
+    RETURN OLD;
+  END IF;
+
+  IF NEW.published IS NOT TRUE
+     OR NEW.is_deleted IS TRUE
+  THEN
+    DELETE FROM public.notifications
+    WHERE group_id = NEW.group_id
+      AND community_post_id = NEW.id
+      AND (
+        type = 'group_post'
+        OR community_event_key IS NOT NULL
+      );
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF OLD.published IS TRUE
+       AND OLD.is_deleted IS NOT TRUE
+    THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  SELECT g.owner_id INTO recipient_id
+  FROM public.groups g
+  WHERE g.id = NEW.group_id;
+
+  IF recipient_id IS NULL
+     OR NEW.author_id IS NULL
+     OR recipient_id = NEW.author_id
+  THEN
+    RETURN NEW;
+  END IF;
+
+  IF parapost_groups_private.blocked(
+    recipient_id, NEW.author_id
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  BEGIN
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      group_id,
+      community_post_id,
+      message,
+      is_read
+    )
+    VALUES (
+      recipient_id,
+      NEW.author_id,
+      'group_post',
+      NEW.group_id,
+      NEW.id,
+      'A member published a new Group post.',
+      false
+    )
+    ON CONFLICT DO NOTHING;
+
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING
+      'Group owner post notification failed: %',
+      SQLERRM;
+  END;
+
+  RETURN NEW;
+
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING
+    'Group owner notification failed: %',
+    SQLERRM;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+-- ==================================================
+-- 3. CREATORVERSE FOLLOW NOTIFICATIONS
+-- ==================================================
+
+CREATE OR REPLACE FUNCTION
+creatorverse_private.notify_owner_follow_release()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  owner_id uuid;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    DELETE FROM public.notifications
+    WHERE type = 'creatorverse_follow'
+      AND creatorverse_page_id = OLD.page_id
+      AND actor_id = OLD.user_id;
+    RETURN OLD;
+  END IF;
+
+  SELECT p.owner_id INTO owner_id
+  FROM public.creatorverse_pages p
+  WHERE p.id = NEW.page_id
+    AND p.status = 'active';
+
+  IF owner_id IS NULL
+     OR owner_id = NEW.user_id
+     OR parapost_groups_private.blocked(
+       owner_id, NEW.user_id
+     )
+  THEN
+    RETURN NEW;
+  END IF;
+
+  BEGIN
+    INSERT INTO public.notifications (
+      user_id,
+      actor_id,
+      type,
+      creatorverse_page_id,
+      message,
+      is_read
+    )
+    VALUES (
+      owner_id,
+      NEW.user_id,
+      'creatorverse_follow',
+      NEW.page_id,
+      'Someone followed your CreatorVerse page.',
+      false
+    )
+    ON CONFLICT DO NOTHING;
+
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING
+      'CreatorVerse follow notification failed: %',
+      SQLERRM;
+  END;
+
+  RETURN NEW;
+
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING
+    'CreatorVerse follow handler failed: %',
+    SQLERRM;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+-- ==================================================
+-- 4. RESTRICT DIRECT EXECUTION OF TRIGGER FUNCTIONS
+-- ==================================================
+
+REVOKE ALL ON FUNCTION
+  creatorverse_private.notify_community_activity_release()
+FROM PUBLIC, anon, authenticated;
+
+REVOKE ALL ON FUNCTION
+  parapost_groups_private.notify_owner_new_post_release()
+FROM PUBLIC, anon, authenticated;
+
+REVOKE ALL ON FUNCTION
+  creatorverse_private.notify_owner_follow_release()
+FROM PUBLIC, anon, authenticated;
+
+-- ==================================================
+-- 5. CREATORVERSE ACTIVITY TRIGGERS
+-- ==================================================
+
+CREATE TRIGGER community_activity_release
+AFTER INSERT OR DELETE
+ON public.creatorverse_shares
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_community_activity_release();
+
+CREATE TRIGGER community_activity_release
+AFTER INSERT OR DELETE
+ON public.creatorverse_comment_likes
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_community_activity_release();
+
+CREATE TRIGGER community_activity_release
+AFTER INSERT OR DELETE
+ON public.creatorverse_post_likes
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_community_activity_release();
+
+CREATE TRIGGER community_activity_release
+AFTER INSERT OR DELETE OR UPDATE OF is_deleted
+ON public.creatorverse_comments
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_community_activity_release();
+
+-- ==================================================
+-- 6. GROUP ACTIVITY TRIGGERS
+-- ==================================================
+
+CREATE TRIGGER community_activity_release
+AFTER INSERT OR DELETE
+ON public.group_post_shares
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_community_activity_release();
+
+CREATE TRIGGER community_activity_release
+AFTER INSERT OR DELETE
+ON public.group_comment_likes
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_community_activity_release();
+
+CREATE TRIGGER community_activity_release
+AFTER INSERT OR DELETE
+ON public.group_post_comments
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_community_activity_release();
+
+CREATE TRIGGER community_activity_release
+AFTER INSERT OR DELETE
+ON public.group_post_likes
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_community_activity_release();
+
+CREATE TRIGGER group_owner_post_notification_release
+AFTER INSERT OR DELETE OR UPDATE OF published, is_deleted
+ON public.group_posts
+FOR EACH ROW
+EXECUTE FUNCTION
+  parapost_groups_private.notify_owner_new_post_release();
+
+-- ==================================================
+-- 7. CREATORVERSE FOLLOW TRIGGER
+-- ==================================================
+
+CREATE TRIGGER creatorverse_follow_notification_release
+AFTER INSERT OR DELETE
+ON public.creatorverse_follows
+FOR EACH ROW
+EXECUTE FUNCTION
+  creatorverse_private.notify_owner_follow_release();
+
+-- Existing production notification and push triggers
+-- are neither removed nor replaced.
+-- No community feature gate is activated.
+
+COMMIT;
