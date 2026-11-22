@@ -1,0 +1,186 @@
+-- PARAPOST NETWORK: STEP 475
+-- COMMUNITY SECURITY POLICIES AND TRIGGER BINDINGS
+-- REVIEW ONLY. DO NOT EXECUTE.
+--
+-- Existing production policies must not be replaced blindly.
+-- Storage rules and notification integration require review.
+-- These definitions do not grant table or function access.
+-- No feature gates are enabled.
+
+
+-- ===========================================
+-- POLICY: public.group_members.group_members_read
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY group_members_read ON public.group_members FOR SELECT TO authenticated USING(parapost_groups_private.allowed(group_id,'directory') AND (user_id=auth.uid() OR parapost_groups_private.allowed(group_id,'admin')));
+
+
+-- ===========================================
+-- POLICY: public.group_post_comments.group_post_comments_read
+-- SOURCE: supabase/migrations/20261023040500_group_post_interactions.sql
+-- ===========================================
+
+CREATE POLICY group_post_comments_read ON public.group_post_comments
+FOR SELECT TO authenticated USING (
+  EXISTS (
+    SELECT 1 FROM public.group_posts p
+    WHERE p.id=post_id AND p.published AND NOT p.is_deleted
+      AND parapost_groups_private.allowed(p.group_id,'read')
+  )
+);
+
+
+-- ===========================================
+-- POLICY: public.group_post_likes.group_post_likes_read
+-- SOURCE: supabase/migrations/20261023040500_group_post_interactions.sql
+-- ===========================================
+
+CREATE POLICY group_post_likes_read ON public.group_post_likes
+FOR SELECT TO authenticated USING (
+  EXISTS (
+    SELECT 1 FROM public.group_posts p
+    WHERE p.id=post_id AND p.published AND NOT p.is_deleted
+      AND parapost_groups_private.allowed(p.group_id,'read')
+  )
+);
+
+
+-- ===========================================
+-- POLICY: public.group_post_media.group_post_media_read
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY group_post_media_read ON public.group_post_media FOR SELECT TO authenticated USING(EXISTS(SELECT 1 FROM public.group_posts p WHERE p.id=post_id AND p.group_id=group_post_media.group_id));
+
+
+-- ===========================================
+-- POLICY: public.group_posts.group_posts_read
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY group_posts_read ON public.group_posts FOR SELECT TO authenticated USING(NOT is_deleted AND parapost_groups_private.allowed(group_id,'read') AND (published OR (author_id=auth.uid() AND parapost_groups_private.allowed(group_id,'member'))));
+
+
+-- ===========================================
+-- POLICY: public.groups.groups_read
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY groups_read ON public.groups FOR SELECT TO authenticated USING(parapost_groups_private.allowed(id,'directory'));
+
+
+-- ===========================================
+-- POLICY: storage.objects.groups_storage_delete_guard
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY groups_storage_delete_guard ON storage.objects AS RESTRICTIVE FOR DELETE TO PUBLIC USING(bucket_id<>'group-media');
+
+
+-- ===========================================
+-- POLICY: storage.objects.groups_storage_insert
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY groups_storage_insert ON storage.objects FOR INSERT TO authenticated WITH CHECK(bucket_id='group-media' AND parapost_groups_private.storage_allowed(name,'insert'));
+
+
+-- ===========================================
+-- POLICY: storage.objects.groups_storage_insert_guard
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY groups_storage_insert_guard ON storage.objects AS RESTRICTIVE FOR INSERT TO PUBLIC WITH CHECK(bucket_id<>'group-media' OR (storage.allow_only_operation('object.upload') AND parapost_groups_private.storage_allowed(name,'insert')));
+
+
+-- ===========================================
+-- POLICY: storage.objects.groups_storage_read
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY groups_storage_read ON storage.objects FOR SELECT TO authenticated USING(bucket_id='group-media' AND parapost_groups_private.storage_allowed(name,'read'));
+
+
+-- ===========================================
+-- POLICY: storage.objects.groups_storage_read_guard
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY groups_storage_read_guard ON storage.objects AS RESTRICTIVE FOR SELECT TO PUBLIC USING(bucket_id<>'group-media' OR (storage.allow_only_operation('object.get_authenticated') AND parapost_groups_private.storage_allowed(name,'read')));
+
+
+-- ===========================================
+-- POLICY: storage.objects.groups_storage_update_guard
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE POLICY groups_storage_update_guard ON storage.objects AS RESTRICTIVE FOR UPDATE TO PUBLIC USING(bucket_id<>'group-media') WITH CHECK(bucket_id<>'group-media');
+
+
+-- ===========================================
+-- TRIGGER: parapost_groups_private.cover_uploads.groups_queue_cover_reservation
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE TRIGGER groups_queue_cover_reservation AFTER DELETE ON parapost_groups_private.cover_uploads FOR EACH ROW EXECUTE FUNCTION parapost_groups_private.queue_cover_reservation();
+
+
+-- ===========================================
+-- TRIGGER: public.group_members.group_members_guard_owner
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE TRIGGER group_members_guard_owner
+BEFORE INSERT OR UPDATE ON public.group_members
+FOR EACH ROW
+EXECUTE FUNCTION
+  parapost_groups_private.guard_owner_member();
+
+
+-- ===========================================
+-- TRIGGER: public.group_members.group_members_protect_owner_delete
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE TRIGGER group_members_protect_owner_delete BEFORE DELETE ON public.group_members FOR EACH ROW EXECUTE FUNCTION parapost_groups_private.guard_owner_delete();
+
+
+-- ===========================================
+-- TRIGGER: public.group_post_media.groups_queue_media
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE TRIGGER groups_queue_media AFTER DELETE ON public.group_post_media FOR EACH ROW EXECUTE FUNCTION parapost_groups_private.queue_media_cleanup();
+
+
+-- ===========================================
+-- TRIGGER: public.groups.groups_initialize_owner
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE TRIGGER groups_initialize_owner
+AFTER INSERT ON public.groups
+FOR EACH ROW
+EXECUTE FUNCTION
+  parapost_groups_private.initialize_owner();
+
+
+-- ===========================================
+-- TRIGGER: public.groups.groups_prevent_owner_change
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE TRIGGER groups_prevent_owner_change
+BEFORE UPDATE ON public.groups
+FOR EACH ROW
+EXECUTE FUNCTION
+  parapost_groups_private.lock_group_owner();
+
+
+-- ===========================================
+-- TRIGGER: public.groups.groups_queue_cover
+-- SOURCE: supabase/migrations/20261020023000_groups_initial_schema.sql
+-- ===========================================
+
+CREATE TRIGGER groups_queue_cover AFTER UPDATE OR DELETE ON public.groups FOR EACH ROW EXECUTE FUNCTION parapost_groups_private.queue_media_cleanup();
