@@ -24,8 +24,7 @@ export function creatorVerseEnabled(): boolean {
     process.env.CREATORVERSE_ENABLED === 'true';
 
   const production = isCommunityProductionTarget(target) &&
-    communityServerTargetAllowed(target) &&
-    process.env.CREATORVERSE_PRODUCTION_ENABLED === 'true';
+    communityServerTargetAllowed(target);
 
   return staging || local || production;
 }

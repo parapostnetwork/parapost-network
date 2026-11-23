@@ -2,7 +2,8 @@ import {
   communityClientTargetAllowed,
   communityServerTargetAllowed,
   isCommunityStagingTarget,
-  isCommunityLocalTarget
+  isCommunityLocalTarget,
+  isCommunityProductionTarget
 } from '@/lib/community/release-target';
 
 export function isGroupsTestTarget(
@@ -13,12 +14,24 @@ export function isGroupsTestTarget(
 }
 
 export function groupsNavigationEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_GROUPS_ENABLED === 'true' &&
-    communityClientTargetAllowed();
+  const production = isCommunityProductionTarget(
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+  );
+
+  return (
+    production ||
+    process.env.NEXT_PUBLIC_GROUPS_ENABLED === 'true'
+  ) && communityClientTargetAllowed();
 }
 
 export function groupsServerEnabled(): boolean {
-  return process.env.GROUPS_ENABLED === 'true' &&
-    groupsNavigationEnabled() &&
+  const production = isCommunityProductionTarget(
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+  ) && process.env.VERCEL_ENV === 'production';
+
+  return (
+    production ||
+    process.env.GROUPS_ENABLED === 'true'
+  ) && groupsNavigationEnabled() &&
     communityServerTargetAllowed();
 }

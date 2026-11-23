@@ -42,8 +42,7 @@ export function communityClientTargetAllowed(
     isCommunityLocalTarget(value)
   ) return true;
 
-  return isCommunityProductionTarget(value) &&
-    process.env.NEXT_PUBLIC_COMMUNITY_PRODUCTION_ENABLED === 'true';
+  return isCommunityProductionTarget(value);
 }
 
 export function communityServerTargetAllowed(
@@ -65,9 +64,7 @@ export function communityServerTargetAllowed(
   }
 
   return isCommunityProductionTarget(value) &&
-    process.env.VERCEL_ENV === 'production' &&
-    process.env.NEXT_PUBLIC_COMMUNITY_PRODUCTION_ENABLED === 'true' &&
-    process.env.COMMUNITY_PRODUCTION_RELEASE_APPROVED === 'true';
+    process.env.VERCEL_ENV === 'production';
 }
 
 export function communityStorageNamespace(): string {
