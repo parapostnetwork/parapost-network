@@ -65,3 +65,26 @@
     scroll-padding-bottom: 104px;
   }
 }
+
+
+/* CreatorVerse delete confirmation viewport centering */
+.dialog:modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  margin: 0;
+
+  box-sizing: border-box;
+  width: min(500px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  height: auto;
+  min-height: 0;
+  max-height: calc(100dvh - 24px);
+
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
