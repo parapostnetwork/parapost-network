@@ -1,10 +1,9 @@
 'use client';
-import { isCommunityProductionTarget } from '@/lib/community/release-target';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGroupSession } from '@/lib/groups/useGroupSession';
 import { createCreatorVersePageDraft, recoverPages } from '@/lib/creatorverse/create-page-draft';
-import { clearRecovery, readRecovery, saveRecovery, type DraftInput, type Recovery, type RecoveryPage } from '@/lib/creatorverse/draft-recovery';
+import { clearRecovery, readRecovery, recoveryForPage, saveRecovery, type DraftInput, type Recovery, type RecoveryPage } from '@/lib/creatorverse/draft-recovery';
 import CreatorVersePageForm from './CreatorVersePageForm';
 
 export default function CreatorVerseRecoveryForm() {
@@ -69,7 +68,7 @@ function AccountDraft({ owner }: { owner: string }) {
 
   function resume(page: RecoveryPage) {
     try {
-      const recovery: Recovery = { version: 1, owner, pageId: page.id, fields: page.fields, linkLabel: '', linkUrl: '', images: {} };
+      const recovery = recoveryForPage(owner, page, readRecovery(owner));
       saveRecovery(owner, recovery);
       setRevision(value => value + 1);
     } catch { setError('Unable to save recovery information in this browser.'); }
@@ -77,18 +76,16 @@ function AccountDraft({ owner }: { owner: string }) {
 
   return <>
     {error && <p role="alert">{error}</p>}
-    {initial === undefined ? <button type="button" onClick={() => setRevision(value => value + 1)}>Retry draft recovery</button> : <>
+    {initial === undefined ? <button type="button" onClick={() => setRevision(value => value + 1)}>Retry page recovery</button> : <>
       {!initial?.pageId && pages.length > 0 && <section aria-label="Unfinished pages">
         <p>Resume an unfinished page:</p>
         {pages.map(page => <button key={page.id} type="button" disabled={busy} onClick={() => resume(page)}>{page.fields.name}</button>)}
       </section>}
       <p role="note">Your page details are saved for this account in this browser. Saved logo and cover images are kept when resuming. If an upload was interrupted, you may need to reselect that file.</p>
-      <CreatorVersePageForm key={`${owner}:${revision}`} stagingPageCreation
+      <CreatorVersePageForm key={`${owner}:${revision}`}
         initial={initial?.fields} initialLinkLabel={initial?.linkLabel} initialLinkUrl={initial?.linkUrl}
         onDraftChange={preserve}
-        buttonLabel={isCommunityProductionTarget(process.env.NEXT_PUBLIC_SUPABASE_URL)
-          ? (initial?.pageId || initial?.creation ? 'Resume Page' : 'Create Page')
-          : (initial?.pageId || initial?.creation ? 'Resume Staging Page' : 'Create Staging Page')}
+        buttonLabel={initial?.pageId || initial?.creation ? 'Complete Page' : 'Create Page'}
         successMessage="Page activation confirmed."
         onSave={async (fields, images) => {
           setBusy(true);

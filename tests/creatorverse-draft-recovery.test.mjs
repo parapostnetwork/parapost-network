@@ -19,7 +19,7 @@ function setup(failure) {
   const storage = new Map(); let actor = owner, page, creates = 0, failed = false, writes = 0;
   const uploads = [], calls = [];
   const localStorage = { getItem: key => storage.get(key) ?? null, setItem(key, value) { if (failure === 'storage') throw Error('quota'); storage.set(key, value); }, removeItem: key => storage.delete(key) };
-  const recovery = load('lib/creatorverse/draft-recovery.ts', {}, { localStorage });
+  const recovery = load('lib/creatorverse/draft-recovery.ts', { '@/lib/community/release-target': { communityStorageNamespace: () => 'staging-test' } }, { localStorage });
   const session = () => ({ data: { session: { user: { id: actor }, access_token: actor } } });
   const api = async (path, options) => {
     calls.push([path, options.method]);
@@ -105,6 +105,7 @@ test('recovery endpoint filters verified owner and requires the existing edit pe
       const query = { select(value) { calls.push([table, 'select', value]); return query; }, eq(key, value) { calls.push([table, key, value]); return query; }, is() { return query; }, in() { return query; }, order() { return query; }, limit() { return query; }, then(resolve) { return Promise.resolve({ data: table === 'creatorverse_pages' ? [{ id, status: 'draft', ...fields }] : [], error: null }).then(resolve); } }; return query;
     } };
     const route = load('app/api/creatorverse/pages/recovery/route.ts', {
+      '@/lib/community/release-target': { communityServerTargetAllowed: () => true },
       '@supabase/supabase-js': { createClient: () => admin },
       '@/lib/creatorverse/server': { creatorVerseClient: async () => ({ userId: owner, client: { rpc: async name => { assert.equal(name, 'creatorverse_details_can_edit'); return { data: allow }; } } }), creatorVerseHeaders: {}, creatorVerseErrorResponse: e => Response.json({ error: e.message }, { status: e.status ?? 500 }) },
       '@/lib/creatorverse/permissions': { CreatorVerseError: Failure },
@@ -115,4 +116,31 @@ test('recovery endpoint filters verified owner and requires the existing edit pe
     assert(calls.some(item => item[1] === 'owner_id' && item[2] === owner));
     if (!allow) assert(!calls.some(item => item[0] === 'creatorverse_media'));
   }
+});
+
+for (const purposes of [[], ['logo'], ['cover'], ['logo', 'cover']]) {
+  test(`creates exactly one active page with ${purposes.join('+') || 'no images'}`, async () => {
+    const h = setup();
+    const images = { ...noImages };
+    for (const purpose of purposes) images[purpose] = { name: `${purpose}.jpg` };
+    assert.equal(await h.createCreatorVersePageDraft(fields, images, owner), id);
+    assert.equal(h.counts().creates, 1);
+    assert.deepEqual(h.uploads, purposes);
+    assert.equal(h.recovery.readRecovery(owner), null);
+  });
+}
+test('selecting a recovered page preserves unfinished image intent after a lost create response', async () => {
+  const h = setup('create');
+  await assert.rejects(h.createCreatorVersePageDraft(fields, { logo: null, cover: { name: 'IMG_3021.jpeg' } }, owner));
+  const page = { id, status: 'draft', fields, pending: [], images: { logo: false, cover: false } };
+  const recovered = h.recovery.recoveryForPage(owner, page, h.recovery.readRecovery(owner));
+  h.recovery.saveRecovery(owner, recovered);
+  await assert.rejects(h.createCreatorVersePageDraft(fields, noImages, owner), /Reselect.*IMG_3021/);
+  assert.equal(await h.createCreatorVersePageDraft(fields, { logo: null, cover: { name: 'IMG_3021.jpeg' } }, owner), id);
+  assert.equal(h.counts().creates, 1);
+});
+test('server pending reservations require reselection even without local information', () => {
+  const h = setup();
+  const page = { id, status: 'draft', fields, pending: [{ id: 'pending', purpose: 'cover' }], images: { logo: true, cover: false } };
+  assert.equal(h.recovery.recoveryForPage(owner, page, null).images.cover, 'previously selected image');
 });

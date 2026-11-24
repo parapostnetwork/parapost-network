@@ -19,7 +19,6 @@ export const dynamic = 'force-dynamic';
 
 function pageImageVerificationApproved(): boolean {
   return (
-    process.env.CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
     communityServerTargetAllowed()
   );
 }

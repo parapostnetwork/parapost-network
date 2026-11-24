@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { preparePageImage, validatePageImageSource, PAGE_IMAGE_ACCEPT } from '@/lib/creatorverse/page-image-preparation';
 
 import { useEffect, useState, type FormEvent } from 'react';
 import {
@@ -49,7 +50,6 @@ export default function CreatorVersePageForm({
   heading = 'Create your CreatorVerse page',
   buttonLabel = 'Save Page',
   successMessage = 'Page information saved.',
-  stagingPageCreation = false,
 }: Props) {
   const [fields, setFields] = useState<PageFields>(
     () => initial
@@ -84,12 +84,10 @@ export default function CreatorVersePageForm({
   }
 
   function selectImage(kind: 'logo' | 'cover', file: File | null) {
-    if (file && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setMessage('Choose a JPG, PNG or WebP image.');
-      return;
-    }
-    if (file && file.size > 5 * 1024 * 1024) {
-      setMessage('Choose an image smaller than 5 MB.');
+    try {
+      if (file) validatePageImageSource(file);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Choose a supported image.');
       return;
     }
 
@@ -136,10 +134,15 @@ export default function CreatorVersePageForm({
       setBusy(true);
 
       if (onSave) {
-        await onSave(validated, { logo, cover });
+        // Prepare before any page write; originals remain selected if preparation fails.
+        const prepared = {
+          logo: logo ? await preparePageImage(logo, 'logo') : null,
+          cover: cover ? await preparePageImage(cover, 'cover') : null,
+        };
+        await onSave(validated, prepared);
         setMessage(successMessage);
       } else {
-        setMessage('Draft validated locally. Nothing was saved or uploaded.');
+        setMessage('Page information validated locally. Nothing was saved or uploaded.');
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to validate page.');
@@ -150,20 +153,6 @@ export default function CreatorVersePageForm({
 
   return (
     <form className={styles.form} onSubmit={event => void submit(event)}>
-      {stagingPageCreation && (
-        <p role="note" style={{
-          padding: 16,
-          border: '1px solid #9461c8',
-          borderRadius: 12,
-          lineHeight: 1.6
-        }}>
-          CreatorVerse page creation is available in staging.
-          Page name, category, short bio, description,
-          website, public email, location and social links
-          can be saved. Profile and cover images can be uploaded
-          when the staging image feature is enabled.
-        </p>
-      )}
       <header>
         <h2>{heading}</h2>
         <p>Your brand. Your content. Your audience.</p>
@@ -198,14 +187,14 @@ export default function CreatorVersePageForm({
       <div className={styles.imageFields}>
         <label className={styles.field}>
           Logo or profile image
-          <input type="file" accept="image/jpeg,image/png,image/webp"
+          <input type="file" accept={PAGE_IMAGE_ACCEPT} disabled={busy}
             onChange={e => selectImage('logo', e.target.files?.[0] ?? null)} />
           {logo && <small>Selected: {logo.name}</small>}
         </label>
 
         <label className={styles.field}>
           Cover photo
-          <input type="file" accept="image/jpeg,image/png,image/webp"
+          <input type="file" accept={PAGE_IMAGE_ACCEPT} disabled={busy}
             onChange={e => selectImage('cover', e.target.files?.[0] ?? null)} />
           {cover && <small>Selected: {cover.name}</small>}
         </label>
@@ -348,11 +337,10 @@ export default function CreatorVersePageForm({
       {message && <p role="status" className={styles.message}>{message}</p>}
 
       <button className={styles.submitButton} type="submit" disabled={busy}>
-        {busy ? 'Checking…' : onSave ? buttonLabel : 'Validate Draft'}
+        {busy ? 'Checking…' : onSave ? buttonLabel : 'Validate Page'}
       </button>
       <p className={styles.note}>
-        Images are securely uploaded when the CreatorVerse
-        staging upload feature is enabled.
+        Logo and cover images are checked before they appear on your page.
       </p>
     </form>
   );

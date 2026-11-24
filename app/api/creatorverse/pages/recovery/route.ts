@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !communityServerTargetAllowed(url) || !key) {
-      throw new CreatorVerseError(503, 'Draft recovery is unavailable in this environment.');
+      throw new CreatorVerseError(503, 'Page recovery is unavailable in this environment.');
     }
     const admin = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

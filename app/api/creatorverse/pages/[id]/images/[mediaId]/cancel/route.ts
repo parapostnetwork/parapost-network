@@ -13,7 +13,6 @@ export const dynamic = 'force-dynamic';
 
 function pageImageCancellationApproved(): boolean {
   return (
-    process.env.CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
     communityServerTargetAllowed()
   );
 }

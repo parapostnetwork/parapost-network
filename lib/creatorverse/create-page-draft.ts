@@ -9,7 +9,7 @@ export async function recoveryRequest(owner: string, path: string, method = 'GET
   const { data, error } = await supabase.auth.getSession();
   const session = data.session;
   if (error || !session || session.user.id !== owner) {
-    throw new Error('Your account changed. Sign in to the draft’s account to continue.');
+    throw new Error('Your account changed. Sign in to the page owner’s account to continue.');
   }
   const response = await fetch(path, {
     method, cache: 'no-store',
@@ -18,7 +18,7 @@ export async function recoveryRequest(owner: string, path: string, method = 'GET
   });
   const result = await response.json();
   const current = await supabase.auth.getSession();
-  if (current.error || current.data.session?.user.id !== owner) throw new Error('Your account changed. Reopen your saved draft to continue.');
+  if (current.error || current.data.session?.user.id !== owner) throw new Error('Your account changed. Reopen page creation to continue.');
   if (!response.ok) throw new Error(result.error || 'Page recovery could not be completed. Please retry.');
   return result;
 }
@@ -31,10 +31,10 @@ export async function recoverPages(owner: string, id?: string): Promise<Recovery
 export async function createCreatorVersePageDraft(fields: PageFields, images: Images, expectedOwner?: string): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   const owner = data.session?.user.id;
-  if (error || !owner || (expectedOwner && owner !== expectedOwner)) throw new Error('Sign in to the draft’s account to continue.');
-  if (!navigator.locks) throw new Error('This browser cannot safely resume drafts. Use a browser with Web Locks support.');
+  if (error || !owner || (expectedOwner && owner !== expectedOwner)) throw new Error('Sign in to the page owner’s account to continue.');
+  if (!navigator.locks) throw new Error('This browser cannot safely continue page creation. Use a browser with Web Locks support.');
   return navigator.locks.request(recoveryKey(owner), { ifAvailable: true }, async lock => {
-    if (!lock) throw new Error('This draft is being saved in another tab. Please wait and reopen it.');
+    if (!lock) throw new Error('This page is being saved in another tab. Please wait and reopen it.');
     const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(fields))))).map(byte => byte.toString(16).padStart(2, '0')).join('');
     const completionKey = `${recoveryKey(owner)}:completed`;
     const completed = JSON.parse(localStorage.getItem(completionKey) ?? 'null') as { id: string; fingerprint: string } | null;
@@ -87,21 +87,21 @@ export async function createCreatorVersePageDraft(fields: PageFields, images: Im
     if (!page) throw new Error('The saved page could not be recovered.');
     if (page.status === 'active') return complete(id);
     const details = await recoveryRequest(owner, `/api/creatorverse/pages/${id}/details`, 'PATCH', fields);
-    if (details.page?.id !== id) throw new Error('Details were not confirmed. Resume this draft to retry.');
+    if (details.page?.id !== id) throw new Error('Details were not confirmed. Continue creating this page to retry.');
     for (const purpose of ['logo', 'cover'] as const) {
       // Server-confirmed images always survive retries, including a lost verification response.
       if (page.images[purpose]) continue;
       const file = images[purpose];
       if (saved.images[purpose] && !file) throw new Error(`Reselect the unfinished ${purpose} image (${saved.images[purpose]}). Previously saved images will be kept.`);
       if (!file) continue;
-      if (!pageImageUploadsApproved()) throw new Error('Image uploads are unavailable. Your draft has been preserved.');
+      if (!pageImageUploadsApproved()) throw new Error('Image uploads are unavailable. Your page information has been preserved.');
       for (const pending of page.pending.filter(item => item.purpose === purpose)) {
         await recoveryRequest(owner, `/api/creatorverse/pages/${id}/images/${pending.id}/cancel`, 'POST');
       }
       await uploadCreatorVersePageImage(id, purpose, file, owner);
     }
     const activation = await recoveryRequest(owner, `/api/creatorverse/pages/${id}/activate`, 'POST');
-    if (activation.page?.id !== id || activation.page?.status !== 'active') throw new Error('Activation was not confirmed. Resume this draft to check its status.');
+    if (activation.page?.id !== id || activation.page?.status !== 'active') throw new Error('Activation was not confirmed. Continue creating this page to check its status.');
     const [confirmed] = await recoverPages(owner, id);
     if (confirmed?.status !== 'active') throw new Error('Activation could not be verified. Your recovery information is preserved.');
     return complete(id);

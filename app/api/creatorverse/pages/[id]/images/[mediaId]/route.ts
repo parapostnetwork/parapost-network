@@ -37,7 +37,6 @@ async function serveImage(
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (
-    process.env.CREATORVERSE_PAGE_IMAGES_ENABLED !== 'true' ||
     !url || !communityServerTargetAllowed(url) ||
     !creatorVerseEnabled() ||
     !key

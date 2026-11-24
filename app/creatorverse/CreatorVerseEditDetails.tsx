@@ -122,10 +122,10 @@ export default function CreatorVerseEditDetails({
 
     try {
       if (images.logo) {
-        await uploadCreatorVersePageImage(page.id, 'logo', images.logo);
+        await uploadCreatorVersePageImage(page.id, 'logo', images.logo, data.session.user.id);
       }
       if (images.cover) {
-        await uploadCreatorVersePageImage(page.id, 'cover', images.cover);
+        await uploadCreatorVersePageImage(page.id, 'cover', images.cover, data.session.user.id);
       }
     } catch (error) {
       const message = error instanceof Error
@@ -167,8 +167,7 @@ export default function CreatorVerseEditDetails({
       <p className={styles.note}>
         Update your page information, website, contact
         details and social links. You can also replace
-          your profile picture and cover banner when
-          staging image uploads are enabled.
+          your profile picture and cover banner.
       </p>
 
       <CreatorVersePageForm

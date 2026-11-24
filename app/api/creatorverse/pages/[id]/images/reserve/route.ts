@@ -12,16 +12,6 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Fail-closed launch gate.
- * Do not enable until server-side reservation,
- * byte verification, attachment and cleanup are complete.
- */
-const PAGE_IMAGE_RESERVATIONS_ENABLED = (
-    process.env.CREATORVERSE_PAGE_IMAGES_ENABLED === 'true' &&
-    communityServerTargetAllowed()
-);
-
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
@@ -73,7 +63,7 @@ export async function POST(
       id
     );
 
-    if (!PAGE_IMAGE_RESERVATIONS_ENABLED) {
+    if (!communityServerTargetAllowed()) {
       throw new CreatorVerseError(
         503,
         'CreatorVerse profile and cover uploads are not enabled yet.'
