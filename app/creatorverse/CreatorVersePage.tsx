@@ -438,7 +438,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                 alt={`${page.name} cover banner`}
                 fill
                 unoptimized
-                style={{ objectFit: 'cover' }}
+                style={{ objectFit: 'contain', objectPosition: 'center' }}
                 onError={() => setCoverAvailable(false)}
               />
             ) : (
