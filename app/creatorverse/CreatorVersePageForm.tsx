@@ -68,8 +68,11 @@ export default function CreatorVersePageForm({
 
   useEffect(() => () => {
     if (logoPreview) URL.revokeObjectURL(logoPreview);
+  }, [logoPreview]);
+
+  useEffect(() => () => {
     if (coverPreview) URL.revokeObjectURL(coverPreview);
-  }, [logoPreview, coverPreview]);
+  }, [coverPreview]);
 
   useEffect(() => {
     onDraftChange?.({ fields, linkLabel, linkUrl }, { logo, cover });
@@ -83,24 +86,37 @@ export default function CreatorVersePageForm({
     setMessage('');
   }
 
-  function selectImage(kind: 'logo' | 'cover', file: File | null) {
+  async function selectImage(kind: 'logo' | 'cover', file: File | null) {
     try {
       if (file) validatePageImageSource(file);
+
+      // Read immediately while mobile photo-picker access is still valid.
+      const saved = file
+        ? new File([await file.arrayBuffer()], file.name, {
+            type: file.type,
+            lastModified: file.lastModified,
+          })
+        : null;
+
+      const preview = saved ? URL.createObjectURL(saved) : null;
+
+      if (kind === 'logo') {
+        setLogo(saved);
+        setLogoPreview(preview);
+      } else {
+        setCover(saved);
+        setCoverPreview(preview);
+      }
+      setMessage('');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Choose a supported image.');
-      return;
+      setMessage(
+        error instanceof Error && error.name === 'NotReadableError'
+          ? 'This photo could not be opened. Choose a local copy and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'Choose a supported image.'
+      );
     }
-
-    const preview = file ? URL.createObjectURL(file) : null;
-
-    if (kind === 'logo') {
-      setLogo(file);
-      setLogoPreview(preview);
-    } else {
-      setCover(file);
-      setCoverPreview(preview);
-    }
-    setMessage('');
   }
 
   function addLink() {
