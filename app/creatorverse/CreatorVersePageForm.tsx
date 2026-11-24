@@ -68,7 +68,7 @@ export default function CreatorVersePageForm({
   const [message, setMessage] = useState('');
 
   useEffect(() => () => {
-    if (logoPreview) URL.revokeObjectURL(logoPreview);
+    if (logoPreview?.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
   }, [logoPreview]);
 
   useEffect(() => () => {
@@ -102,7 +102,20 @@ export default function CreatorVersePageForm({
 
       const preparedPreview = saved ? await preparePageImage(saved, kind) : null;
       if (version !== selectionVersion.current[kind]) return;
-      const preview = preparedPreview ? URL.createObjectURL(preparedPreview) : null;
+      const preview = preparedPreview
+        ? kind === 'logo'
+          ? await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result));
+              reader.onerror = () => reject(new Error('Could not display logo preview.'));
+              reader.readAsDataURL(preparedPreview);
+            })
+          : URL.createObjectURL(preparedPreview)
+        : null;
+      if (version !== selectionVersion.current[kind]) {
+        if (preview?.startsWith('blob:')) URL.revokeObjectURL(preview);
+        return;
+      }
 
       if (kind === 'logo') {
         setLogo(saved);
@@ -194,11 +207,11 @@ export default function CreatorVersePageForm({
           className={styles.previewLogo}
           role="img"
           aria-label={logoPreview ? 'Selected logo' : 'Default page logo'}
-          style={logoPreview ? {
-            backgroundImage: `url("${logoPreview}")`
-          } : undefined}
         >
-          {!logoPreview && (fields.name.trim()[0] ?? 'C').toUpperCase()}
+          {logoPreview
+            ? <Image unoptimized src={logoPreview} alt="" width={74} height={74}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+            : (fields.name.trim()[0] ?? 'C').toUpperCase()}
         </div>
         <h3>{fields.name.trim() || 'Your page name'}</h3>
         <p>{CREATORVERSE_CATEGORIES[fields.category]}</p>
