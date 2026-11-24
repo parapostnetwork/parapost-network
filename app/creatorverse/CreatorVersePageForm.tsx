@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { preparePageImage, validatePageImageSource, PAGE_IMAGE_ACCEPT } from '@/lib/creatorverse/page-image-preparation';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   CREATORVERSE_CATEGORIES,
   type CreatorVerseCategory,
@@ -60,6 +60,7 @@ export default function CreatorVersePageForm({
   const [cover, setCover] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const selectionVersion = useRef({ logo: 0, cover: 0 });
   const [linkLabel, setLinkLabel] = useState(initialLinkLabel);
   const [linkUrl, setLinkUrl] = useState(initialLinkUrl);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
@@ -87,6 +88,7 @@ export default function CreatorVersePageForm({
   }
 
   async function selectImage(kind: 'logo' | 'cover', file: File | null) {
+    const version = ++selectionVersion.current[kind];
     try {
       if (file) validatePageImageSource(file);
 
@@ -98,7 +100,9 @@ export default function CreatorVersePageForm({
           })
         : null;
 
-      const preview = saved ? URL.createObjectURL(saved) : null;
+      const preparedPreview = saved ? await preparePageImage(saved, kind) : null;
+      if (version !== selectionVersion.current[kind]) return;
+      const preview = preparedPreview ? URL.createObjectURL(preparedPreview) : null;
 
       if (kind === 'logo') {
         setLogo(saved);
@@ -109,6 +113,7 @@ export default function CreatorVersePageForm({
       }
       setMessage('');
     } catch (error) {
+      if (version !== selectionVersion.current[kind]) return;
       setMessage(
         error instanceof Error && error.name === 'NotReadableError'
           ? 'This photo could not be opened. Choose a local copy and try again.'

@@ -267,3 +267,11 @@
   .form .submitButton { margin-top: 0; }
   .form .note { margin-top: 18px; line-height: 1.6; }
 }
+
+
+/* CreatorVerse: display the entire cover image before saving. */
+.previewBanner {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-color: #241238;
+}
