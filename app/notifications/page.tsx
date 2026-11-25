@@ -2,7 +2,7 @@
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
 
-import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -79,7 +79,7 @@ type NotificationPostOverlayData = {
   likeCount: number;
 };
 
-type FilterKey = "all" | "unread" | "friends" | "activity";
+type FilterKey = "all" | "unread" | "friends" | "activity" | "mentions";
 
 type ReelActivityPerson = {
   id: string;
@@ -122,6 +122,23 @@ function formatRelativeTime(value?: string | null) {
 
   const years = Math.floor(days / 365);
   return `${years}y ago`;
+}
+
+
+function getNotificationDateSection(value?: string | null): string {
+  if (!value) return "Earlier";
+
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Earlier";
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date >= today) return "Today";
+  if (date >= yesterday) return "Yesterday";
+  return "Earlier";
 }
 
 const NOTIFICATIONS_ONLINE_TIMEOUT_MS = 3 * 60 * 1000;
@@ -587,6 +604,7 @@ export default function NotificationsPage() {
     if (activeFilter === "unread") return displayNotifications.filter((notification) => !notification.is_read);
     if (activeFilter === "friends") return displayNotifications.filter((notification) => (notification.type || "").includes("friend"));
     if (activeFilter === "activity") return displayNotifications.filter((notification) => !(notification.type || "").includes("friend"));
+    if (activeFilter === "mentions") return displayNotifications.filter((notification) => (notification.type || "").toLowerCase().includes("mention"));
     return displayNotifications;
   }, [activeFilter, displayNotifications]);
 
@@ -2032,7 +2050,21 @@ export default function NotificationsPage() {
     { key: "unread", count: unreadCount },
     { key: "friends", count: friendsCount },
     { key: "activity", count: activityCount },
+    { key: "mentions", count: displayNotifications.filter((notification) => (notification.type || "").toLowerCase().includes("mention")).length },
   ];
+
+  const menuItemStyle: CSSProperties = {
+    display: "block",
+    width: "100%",
+    padding: "11px 14px",
+    border: "none",
+    background: "transparent",
+    color: "#e9e5f5",
+    fontSize: 14,
+    textAlign: "left",
+    textDecoration: "none",
+    cursor: "pointer",
+  };
 
   return (
     <main className="notifications-page-root" style={pageStyle}>
@@ -3286,86 +3318,142 @@ export default function NotificationsPage() {
       `}</style>
 
       <div className="notifications-page-inner" style={pageInnerStyle}>
-        <section className="notifications-hero" style={heroStyle}>
-          <div className="notifications-topbar" style={topBarStyle}>
-            <div style={topBarLeftStyle}>
-              <BackToPrevious label="Back" fallbackHref="/dashboard" />
-              <Link href="/dashboard" style={topBarLinkStyle}>
-                Dashboard
-              </Link>
+
+        <style>{`
+          /* notifications-compact-feed-styles */
+
+          .notifications-content-shell {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+          }
+
+          .notifications-feed {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0 !important;
+            width: 100%;
+          }
+
+          .notifications-card {
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            padding: 14px 12px !important;
+            margin: 0 !important;
+            border: none !important;
+            border-bottom: 1px solid rgba(180,160,220,.12) !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            min-width: 0 !important;
+          }
+
+          .notifications-card-unread {
+            background: rgba(139,92,246,.075) !important;
+          }
+
+          .notifications-main-button {
+            display: flex !important;
+            flex: 1 1 auto !important;
+            align-items: center !important;
+            gap: 12px !important;
+            min-width: 0 !important;
+            width: auto !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            text-align: left !important;
+          }
+
+          .notifications-side-actions {
+            display: flex !important;
+            flex: 0 0 auto !important;
+            align-items: center !important;
+            gap: 6px !important;
+            margin: 0 !important;
+          }
+
+          .notifications-delete-button,
+          .notifications-reel-people-button {
+            padding: 7px 9px !important;
+            font-size: 12px !important;
+            border-radius: 9px !important;
+          }
+
+          @media (max-width: 600px) {
+            .notifications-card {
+              padding: 13px 8px !important;
+              gap: 7px !important;
+            }
+
+            .notifications-main-button {
+              gap: 10px !important;
+            }
+
+            .notifications-side-actions {
+              flex-direction: column !important;
+              gap: 5px !important;
+            }
+          }
+        `}</style>
+
+        <style id="notifications-borderless-rows">{`
+          .notifications-feed .notifications-card,
+          .notifications-feed .notifications-card-unread,
+          .notifications-feed .notifications-card:hover {
+            background: transparent !important;
+            background-image: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+          }
+
+          .notifications-feed .notifications-main-button,
+          .notifications-feed .notifications-main-button:hover {
+            background: transparent !important;
+            background-image: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+          }
+        `}</style>
+
+        <section className="notifications-compact-header" style={{ padding: "8px 0 14px" }}>
+          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+
+              <h1 style={{ margin: 0, color: "#fff", fontSize: "clamp(23px, 4vw, 30px)", fontWeight: 750 }}>
+                Notifications
+              </h1>
             </div>
 
-            <span className="notifications-pill" style={settingsPillStyle}>Notifications</span>
-          </div>
-
-          <div style={heroGridStyle}>
-            <div style={heroCopyStyle}>
-              <div style={eyebrowStyle}>Parapost Network</div>
-              <h1 style={titleStyle}>Notifications</h1>
-              <p style={subtitleStyle}>
-                Friend requests, Parachat messages, comments, likes, shares, Parapost Reels activity, and important updates appear here.
-              </p>
-            </div>
-
-            <div className="notifications-summary-grid" style={summaryGridStyle}>
-              <div style={summaryCardStyle}>
-                <span style={summaryLabelStyle}>Total</span>
-                <strong style={summaryValueStyle}>{notifications.length}</strong>
+            <details style={{ position: "relative", flexShrink: 0, zIndex: 30 }}>
+              <summary
+                aria-label="Notification management"
+                title="Notification options"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: "50%", border: "1px solid rgba(180,150,230,.22)", background: "rgba(125,80,200,.12)", color: "#fff", fontSize: 24, cursor: "pointer", listStyle: "none" }}
+              >
+                ⋯
+              </summary>
+              <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 220, padding: "6px 0", borderRadius: 14, border: "1px solid rgba(180,150,230,.25)", background: "#20172d", boxShadow: "0 16px 40px rgba(0,0,0,.38)" }}>
+                <button type="button" onClick={handleMarkAllRead} disabled={unreadCount === 0} style={{ ...menuItemStyle, opacity: unreadCount === 0 ? .5 : 1 }}>
+                  Mark all as read
+                </button>
+                <Link href="/friends/requests" style={menuItemStyle}>
+                  Friend requests
+                </Link>
+                <Link href="/settings/notifications" style={menuItemStyle}>
+                  Notification settings
+                </Link>
+                <button type="button" onClick={handleDeleteAllNotifications} disabled={deletingAll || notifications.length === 0} style={{ ...menuItemStyle, color: "#fca5a5", opacity: deletingAll || notifications.length === 0 ? .5 : 1 }}>
+                  {deletingAll ? "Deleting..." : "Delete all"}
+                </button>
               </div>
-
-              <div style={summaryCardStyle}>
-                <span style={summaryLabelStyle}>Unread</span>
-                <strong style={summaryValueStyle}>{unreadCount}</strong>
-              </div>
-
-              <div style={summaryCardStyle}>
-                <span style={summaryLabelStyle}>Latest</span>
-                <strong style={summarySmallValueStyle}>{latestNotificationTime}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="notifications-actions-row" style={heroActionsRowStyle}>
-            <button
-              type="button"
-              onClick={handleMarkAllRead}
-              disabled={unreadCount === 0}
-              style={{
-                ...primaryActionStyle,
-                opacity: unreadCount === 0 ? 0.58 : 1,
-                cursor: unreadCount === 0 ? "not-allowed" : "pointer",
-              }}
-            >
-              Mark all read
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDeleteAllNotifications}
-              disabled={deletingAll || notifications.length === 0}
-              style={{
-                ...secondaryActionStyle,
-                border: "1px solid rgba(248,113,113,0.55)",
-                background: "rgba(239,68,68,0.12)",
-                color: "#fecaca",
-                opacity: deletingAll || notifications.length === 0 ? 0.58 : 1,
-                cursor:
-                  deletingAll || notifications.length === 0
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              {deletingAll ? "Deleting..." : "Delete all"}
-            </button>
-
-            <Link href="/friends/requests" style={secondaryActionStyle}>
-              Friend requests
-            </Link>
-
-            <Link href="/settings/notifications" style={secondaryActionStyle}>
-              Notification settings
-            </Link>
-          </div>
+            </details>
+          </header>
 
           <div className="notifications-filter-scroller" style={filterScrollerStyle} aria-label="Notification filters">
             {filterButtons.map((filter) => {
@@ -3382,7 +3470,7 @@ export default function NotificationsPage() {
                     ...(isActive ? activeFilterButtonStyle : {}),
                   }}
                 >
-                  <span>{getFilterLabel(filter.key)}</span>
+                  <span>{filter.key === "mentions" ? "Mentions" : getFilterLabel(filter.key)}</span>
                   <span style={filterCountStyle}>{filter.count}</span>
                 </button>
               );
@@ -3404,35 +3492,144 @@ export default function NotificationsPage() {
               <h2 style={emptyTitleStyle}>Loading notifications...</h2>
               <p style={emptyTextStyle}>Getting your latest Parapost Network activity.</p>
             </div>
-          ) : filteredNotifications.length === 0 ? (
-            <div style={emptyStateStyle}>
-              <div style={emptyIconStyle}>N</div>
-              <h2 style={emptyTitleStyle}>
-                {displayNotifications.length === 0 ? "No notifications yet" : "No notifications in this filter"}
-              </h2>
-              <p style={emptyTextStyle}>
-                {displayNotifications.length === 0
-                  ? "When someone sends a friend request, accepts one, sends a Parachat message, comments, likes, shares, or interacts with your posts or Reels, it will show up here."
-                  : "Try switching to another notification filter."}
-              </p>
-            </div>
+           ) : filteredNotifications.length === 0 ? (
+              <div
+                className="notifications-caught-up"
+                style={{
+                  position: "relative",
+                  isolation: "isolate",
+                  overflow: "hidden",
+                  width: "100%",
+                  minHeight: 590,
+                  padding: "65px 22px 185px",
+                  borderRadius: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  background: "transparent",
+                }}
+              >
+                <div style={{ position: "relative", zIndex: 2, marginBottom: 15 }}>
+                  <svg
+                    viewBox="0 0 260 230"
+                    aria-hidden="true"
+                    style={{
+                      width: 220,
+                      maxWidth: "60vw",
+                      height: "auto",
+                      overflow: "visible",
+                      fill: "none",
+                      stroke: "#d7a3ff",
+                      strokeWidth: 5,
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      filter: "drop-shadow(0 0 7px #a752ff) drop-shadow(0 0 22px rgba(166,70,255,.8))",
+                    }}
+                  >
+                    <path d="M75 152c10-13 15-29 15-56 0-23 11-40 29-44v-7a8 8 0 0 1 16 0v7c18 4 29 21 29 44 0 27 5 43 15 56 4 5 0 12-6 12H81c-6 0-10-7-6-12Z" />
+                    <path d="M110 176c3 11 11 16 19 16s16-5 19-16" />
+                    <path d="M181 69l10-18M194 85l21-10M199 102h22" />
+                  </svg>
+                  <div style={{
+                    width: 160,
+                    height: 15,
+                    margin: "-10px auto 0",
+                    borderRadius: "50%",
+                    background: "rgba(184,85,255,.55)",
+                    filter: "blur(19px)",
+                  }} />
+                </div>
+
+                <h2 style={{
+                  position: "relative",
+                  zIndex: 2,
+                  margin: "10px 0 14px",
+                  color: "#fff",
+                  fontSize: "clamp(27px, 5vw, 42px)",
+                  fontWeight: 750,
+                  lineHeight: 1.2,
+                  letterSpacing: "-.03em",
+                }}>
+                  {displayNotifications.length === 0 || activeFilter === "unread"
+                    ? "You’re all caught up"
+                    : "Nothing here yet"}
+                </h2>
+
+                <p style={{
+                  position: "relative",
+                  zIndex: 2,
+                  marginTop: 0,
+                  marginRight: 0,
+                  marginBottom: 0,
+                  marginLeft: 0,
+                  maxWidth: 460,
+                  color: "#bab2c6",
+                  fontSize: "clamp(15px, 2.5vw, 18px)",
+                  lineHeight: 1.6,
+                }}>
+                  {displayNotifications.length === 0
+                    ? "You’ll see new notifications here when there’s activity on your posts, Groups, CreatorVerse, and more."
+                    : activeFilter === "unread"
+                      ? "You have no unread notifications right now."
+                      : "There are no notifications in this category right now."}
+                </p>
+
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    bottom: 18,
+                    transform: "translateX(-50%)",
+                    width: "80%",
+                    maxWidth: 820,
+                    height: 170,
+                    background: "radial-gradient(ellipse at center, rgba(150,72,221,.19) 0%, rgba(119,43,178,.10) 36%, transparent 72%)",
+                    pointerEvents: "none",
+                    zIndex: 0,
+                  }}
+                />
+              </div>
           ) : (
-            <div style={notificationListStyle}>
-              {filteredNotifications.map((notification) => {
+            <div className="notifications-feed" style={notificationListStyle}>
+              {filteredNotifications.map((notification, index) => {
                 const isUnread = !notification.is_read;
                 const title = getNotificationTitle(notification);
                 const meta = getNotificationMeta(notification);
                 const actorName = getDisplayName(notification.actor);
                 const isBusy = processingId === notification.id;
                 const isReelActivity = isReelActivityNotificationType(notification.type);
+                const section = getNotificationDateSection(notification.created_at);
+                const previousSection = index > 0
+                  ? getNotificationDateSection(filteredNotifications[index - 1].created_at)
+                  : null;
 
                 return (
+                  <Fragment key={notification.id}>
+                    {section !== previousSection ? (
+                      <h2 style={{
+                        margin: "20px 4px 8px",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "#f0eafa",
+                      }}>
+                        {section}
+                      </h2>
+                    ) : null}
                   <article
                     key={notification.id}
-                    className="notifications-card"
+                    className={isUnread ? "notifications-card notifications-card-unread" : "notifications-card"}
                     style={{
                       ...notificationCardStyle,
                       ...(isUnread ? unreadCardStyle : {}),
+                        background: "transparent",
+                        backgroundImage: "none",
+                        border: "none",
+                        boxShadow: "none",
+                        borderRadius: 0,
+                        padding: "16px 4px",
                     }}
                   >
                     <button
@@ -3441,35 +3638,88 @@ export default function NotificationsPage() {
                       className="notifications-main-button"
                       style={notificationMainButtonStyle}
                     >
-                      <div className="notifications-avatar" style={avatarShellStyle}>
-                        <span style={avatarClipStyle}>
+                      <div className="notifications-avatar" style={{
+                          ...avatarShellStyle,
+                          width: 58,
+                          height: 58,
+                          minWidth: 58,
+                          background: "transparent",
+                          border: "none",
+                          boxShadow: "none",
+                        }}>
+                        <span style={{
+                            ...avatarClipStyle,
+                            width: "100%",
+                            height: "100%",
+                            border: "none",
+                            boxShadow: "none",
+                          }}>
                           {notification.actor?.avatar_url ? (
-                            <ResponsiveMediaImage purpose="avatar" avatarSize={48} src={notification.actor.avatar_url} alt="" style={avatarImageStyle} />
+                            <ResponsiveMediaImage purpose="avatar" avatarSize={58} src={notification.actor.avatar_url} alt="" style={{
+                                  ...avatarImageStyle,
+                                  width: "100%",
+                                  height: "100%",
+                                  borderRadius: "50%",
+                                }} />
                           ) : (
-                            <span style={avatarFallbackStyle}>{getInitial(notification.actor)}</span>
+                            <span style={{
+                                  ...avatarFallbackStyle,
+                                  width: "100%",
+                                  height: "100%",
+                                  background: "#414958",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "50%",
+                                  boxShadow: "none",
+                                  fontSize: 19,
+                                  fontWeight: 650,
+                                }}>{getInitial(notification.actor)}</span>
                           )}
                         </span>
 
                         {isNotificationProfileActuallyOnline(notification.actor) ? <span style={onlineDotStyle} /> : null}
 
-                        <span style={typeBadgeStyle}>
+                        <span style={{
+                            ...typeBadgeStyle,
+                            background: "#1877f2",
+                            color: "#fff",
+                            border: "2px solid #242526",
+                            borderRadius: "50%",
+                            boxShadow: "none",
+                            width: 24,
+                            height: 24,
+                            top: "auto",
+                            bottom: -2,
+                            right: -3,
+                          }}>
                           <NotificationTypeIcon type={notification.type} />
                         </span>
                       </div>
 
                       <div style={notificationTextStyle}>
                         <div style={notificationTitleRowStyle}>
-                          <h2 style={notificationTitleStyle}>{title}</h2>
-                          {isUnread ? <span style={unreadDotStyle} /> : null}
+                          <h2 style={{
+                              ...notificationTitleStyle,
+                              fontSize: "clamp(15px, 1.05vw, 16px)",
+                              lineHeight: 1.4,
+                              fontWeight: 400,
+                              color: "#f1f2f5",
+                            }}>
+                              {title.startsWith(actorName) ? (
+                                <>
+                                  <strong style={{ fontWeight: 750 }}>{actorName}</strong>
+                                  {title.slice(actorName.length)}
+                                </>
+                              ) : title}
+                            </h2>
+                          {isUnread ? <span style={{ ...unreadDotStyle, background: "#1877f2" }} /> : null}
                         </div>
 
-                        <div style={notificationMetaStyle}>
-                          <span>{meta}</span>
-                          <span>·</span>
-                          <span>{actorName}</span>
-                          <span>·</span>
-                          <span>{formatRelativeTime(notification.created_at)}</span>
-                        </div>
+                        <div style={{ ...notificationMetaStyle, fontSize: 13, color: "#aeb0b9", marginTop: 5 }}>
+                            <span>{formatRelativeTime(notification.created_at)}</span>
+                            <span>·</span>
+                            <span>{meta}</span>
+                          </div>
                       </div>
                     </button>
 
@@ -3485,22 +3735,61 @@ export default function NotificationsPage() {
                         </button>
                       ) : null}
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteNotification(notification)}
-                        disabled={isBusy}
-                        style={{
-                          ...deleteButtonStyle,
-                          opacity: isBusy ? 0.6 : 1,
-                          cursor: isBusy ? "not-allowed" : "pointer",
-                        }}
-                        aria-label="Delete notification"
-                        className="notifications-delete-button"
-                      >
-                        {isBusy ? "..." : "Delete"}
-                      </button>
+                      <details className="notifications-item-menu" style={{ position: "relative", flexShrink: 0 }}>
+                        <summary
+                          aria-label="Notification options"
+                          title="Notification options"
+                          style={{
+                            width: 36,
+                            height: 36,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: "50%",
+                            background: "rgba(139,92,246,.12)",
+                            color: "#e9ddff",
+                            fontSize: 23,
+                            cursor: "pointer",
+                            listStyle: "none",
+                          }}
+                        >
+                          ⋯
+                        </summary>
+                        <div style={{
+                          position: "absolute",
+                          top: "100%",
+                          right: 0,
+                          zIndex: 50,
+                          minWidth: 170,
+                          padding: 6,
+                          borderRadius: 12,
+                          background: "#211830",
+                          border: "1px solid rgba(180,150,230,.25)",
+                          boxShadow: "0 12px 30px rgba(0,0,0,.35)",
+                        }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteNotification(notification)}
+                            disabled={isBusy}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              padding: "10px 12px",
+                              border: "none",
+                              background: "transparent",
+                              color: "#fca5a5",
+                              fontSize: 13,
+                              textAlign: "left",
+                              cursor: isBusy ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {isBusy ? "Deleting..." : "Delete notification"}
+                          </button>
+                        </div>
+                      </details>
                     </div>
                   </article>
+                  </Fragment>
                 );
               })}
             </div>

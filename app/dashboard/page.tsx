@@ -11,6 +11,8 @@ import { useSharedCreatorVerseFeed, type SharedCreatorVersePost } from "@/lib/cr
 import SharedCreatorVersePostCard from "@/app/creatorverse/SharedCreatorVersePostCard";
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
+import DesktopNotificationsPopover from "@/components/DesktopNotificationsPopover";
+import DesktopNotificationsModal from "@/components/DesktopNotificationsModal";
 
 import { uploadImageWithVariant } from "@/lib/images/media-variants";
 import { optimizeImageUpload, IMAGE_SOURCE_MAX_BYTES } from "@/lib/images/optimize-upload";
@@ -2149,6 +2151,7 @@ export default function DashboardPage() {
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingPostContent, setEditingPostContent] = useState("");
   const [notificationsCount, setNotificationsCount] = useState(0);
+  const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
   const [parachatUnreadCount, setParachatUnreadCount] = useState(0);
   const [pendingFriendRequestCount, setPendingFriendRequestCount] = useState(0);
   const [recentlyViewed, setRecentlyViewed] = useState<ProfilePreview[]>([]);
@@ -6150,7 +6153,7 @@ export default function DashboardPage() {
               <SidebarLink href={currentUserId ? `/profile/${currentUserId}/following` : "/dashboard"} label="Following" />
               {groupsNavigationEnabled() ? <SidebarLink href="/groups" label="Groups" /> : <SidebarButton label="Groups" muted />}
               <SidebarLink href="/messages" label="Parachat" badge={parachatUnreadCount || undefined} />
-              <SidebarLink href="/notifications" label="Notifications" badge={notificationsCount || undefined} />
+              <SidebarLink href="/notifications" label="Notifications" badge={notificationsCount || undefined} onClick={(event) => { event.preventDefault(); setNotificationsModalOpen(true); }} />
               <SidebarButton label="Bookmarks" muted />
               <SidebarButton label="Explore" muted />
               <SidebarButton label="Events" muted />
@@ -6210,10 +6213,20 @@ export default function DashboardPage() {
             <div className="dashboard-desktop-topbar" style={desktopTopBarStyle}>
               {searchBox}
               <div className="dashboard-top-icons" style={topActionRowStyle}>
-                <Link href="/notifications" style={topIconButtonStyle} aria-label="Notifications">
-                  <BellIcon />
-                  {notificationsCount > 0 ? <span style={topBadgeStyle}>{notificationsCount > 99 ? "99+" : notificationsCount}</span> : null}
-                </Link>
+                <DesktopNotificationsModal
+                  open={notificationsModalOpen}
+                  onClose={() => setNotificationsModalOpen(false)}
+                />
+                <DesktopNotificationsPopover
+                  userId={currentUserId}
+                  count={notificationsCount}
+                  icon={<BellIcon />}
+                  buttonStyle={topIconButtonStyle}
+                  onOpenAll={() => setNotificationsModalOpen(true)}
+                  onOpenPost={(postId, shareId) => {
+                    void handleToggleDashboardComments(postId, shareId);
+                  }}
+                />
                 <Link href="/messages" style={topIconButtonStyle} aria-label="Parachat">
                   <ChatIcon />
                   {parachatUnreadCount > 0 ? <span style={topBadgeStyle}>{parachatUnreadCount > 99 ? "99+" : parachatUnreadCount}</span> : null}
@@ -12612,16 +12625,19 @@ function SidebarLink({
   icon,
   active,
   badge,
+  onClick,
 }: {
   href: string;
   label: string;
   icon?: ReactNode;
   active?: boolean;
   badge?: number | string;
+  onClick?: (event: { preventDefault: () => void }) => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={active ? "dashboard-sidebar-item dashboard-sidebar-item-active" : "dashboard-sidebar-item"}
       style={active ? activeSidebarItemStyle : sidebarItemStyle}
     >
