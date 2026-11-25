@@ -3394,6 +3394,8 @@ export default function NotificationsPage() {
             }
 
             .notifications-side-actions {
+              width: auto !important;
+              flex: 0 0 auto !important;
               flex-direction: column !important;
               gap: 5px !important;
             }
