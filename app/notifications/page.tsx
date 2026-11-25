@@ -3203,20 +3203,32 @@ export default function NotificationsPage() {
           }
 
           .notifications-filter-scroller {
-            display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            overflow-x: visible !important;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
             gap: 8px !important;
-            padding: 2px 2px 8px !important;
-            margin-left: -2px !important;
-            margin-right: -2px !important;
+            padding: 2px 0 8px !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            scroll-snap-type: x proximity;
+            touch-action: pan-x;
           }
 
           .notifications-filter-button {
-            min-width: 0 !important;
-            width: 100% !important;
+            flex: 0 0 auto !important;
+            min-width: max-content !important;
+            width: auto !important;
+            min-height: 40px !important;
             box-sizing: border-box !important;
-            min-height: 44px !important;
+            padding: 8px 14px !important;
+            font-size: 13px !important;
+            white-space: nowrap !important;
+            scroll-snap-align: start;
           }
 
           .notifications-content-shell {
