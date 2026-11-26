@@ -69,7 +69,7 @@ export default function MentionTextarea({ mentionContext = defaultContext, menti
   }, [active]);
 
   function update(textarea: HTMLTextAreaElement) {
-    if (!enabled || composing.current || textarea.selectionStart !== textarea.selectionEnd) { setActive(null); return; }
+    if (!enabled || textarea.selectionStart !== textarea.selectionEnd) { setActive(null); return; }
     setActive(activeMentionAtCursor(textarea.value, textarea.selectionStart));
     updatePosition(textarea);
   }
@@ -133,7 +133,7 @@ export default function MentionTextarea({ mentionContext = defaultContext, menti
       onSelect={event => { props.onSelect?.(event); update(event.currentTarget); }}
       onClick={event => { props.onClick?.(event); update(event.currentTarget); }}
       onBlur={event => { setActive(null); setResults({ key: '', options: [] }); props.onBlur?.(event); }}
-      onCompositionStart={event => { composing.current = true; setActive(null); props.onCompositionStart?.(event); }}
+      onCompositionStart={event => { composing.current = true; props.onCompositionStart?.(event); }}
       onCompositionEnd={event => { composing.current = false; props.onCompositionEnd?.(event); update(event.currentTarget); }}
       onKeyDown={event => {
         if (!event.nativeEvent.isComposing && !composing.current && !event.metaKey && !event.ctrlKey && !event.altKey) {
