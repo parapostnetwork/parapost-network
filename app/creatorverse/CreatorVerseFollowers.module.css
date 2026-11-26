@@ -337,3 +337,17 @@ dialog.dialog[open] {
     padding: 0 14px 14px;
   }
 }
+
+
+/* Followers background scroll protection */
+
+.dialog::backdrop {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.dialog .list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}

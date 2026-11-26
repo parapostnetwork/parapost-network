@@ -193,6 +193,14 @@ export default function CreatorVerseFollowers({ pageId }: {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
+  const unlockBackground = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      unlockBackground.current?.();
+      unlockBackground.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -294,13 +302,113 @@ export default function CreatorVerseFollowers({ pageId }: {
   }, [open]);
 
   function openFollowers() {
+    const element = dialog.current;
+    if (!element || element.open) return;
+
     setSearch('');
-    if (dialog.current && !dialog.current.open) {
-      dialog.current.showModal();
+
+    const root = document.documentElement;
+    const body = document.body;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const originalWidth = root.clientWidth;
+
+    const previous = {
+      rootOverflow: root.style.overflow,
+      rootOverscroll: root.style.overscrollBehavior,
+      rootGutter: root.style.scrollbarGutter,
+      rootScrollBehavior: root.style.scrollBehavior,
+      bodyOverflow: body.style.overflow,
+      bodyOverscroll: body.style.overscrollBehavior,
+      bodyPadding: body.style.paddingRight
+    };
+
+    const ancestors: {
+      element: HTMLElement;
+      top: number;
+      left: number;
+    }[] = [];
+
+    let parent = element.parentElement;
+
+    while (parent && parent !== body && parent !== root) {
+      if (parent.scrollHeight > parent.clientHeight ||
+          parent.scrollWidth > parent.clientWidth) {
+        ancestors.push({
+          element: parent,
+          top: parent.scrollTop,
+          left: parent.scrollLeft
+        });
+      }
+      parent = parent.parentElement;
+    }
+
+    function restorePosition() {
+      window.scrollTo(scrollX, scrollY);
+
+      for (const item of ancestors) {
+        item.element.scrollTop = item.top;
+        item.element.scrollLeft = item.left;
+      }
+    }
+
+    const padding = parseFloat(
+      window.getComputedStyle(body).paddingRight
+    ) || 0;
+
+    root.style.scrollBehavior = 'auto';
+
+    if (window.innerWidth > originalWidth &&
+        CSS.supports('scrollbar-gutter', 'stable')) {
+      root.style.scrollbarGutter = 'stable';
+    }
+
+    root.style.overflow = 'hidden';
+    root.style.overscrollBehavior = 'none';
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehavior = 'none';
+
+    const extraWidth = Math.max(
+      0, root.clientWidth - originalWidth
+    );
+
+    if (extraWidth > 0) {
+      body.style.paddingRight = `${padding + extraWidth}px`;
+    }
+
+    unlockBackground.current = () => {
+      root.style.overflow = previous.rootOverflow;
+      root.style.overscrollBehavior = previous.rootOverscroll;
+      root.style.scrollbarGutter = previous.rootGutter;
+      body.style.overflow = previous.bodyOverflow;
+      body.style.overscrollBehavior = previous.bodyOverscroll;
+      body.style.paddingRight = previous.bodyPadding;
+
+      restorePosition();
+
+      root.style.scrollBehavior = previous.rootScrollBehavior;
+      unlockBackground.current = null;
+    };
+
+    try {
+      element.showModal();
+      restorePosition();
       setOpen(true);
+
+      requestAnimationFrame(() => {
+        if (element.open) {
+          element.querySelector('button')?.focus({
+            preventScroll: true
+          });
+          restorePosition();
+        }
+      });
+
       window.dispatchEvent(new Event(
         `creatorverse-follow-change:${pageId}`
       ));
+    } catch {
+      unlockBackground.current?.();
     }
   }
 
@@ -314,7 +422,10 @@ export default function CreatorVerseFollowers({ pageId }: {
 
       <dialog ref={dialog} className={styles.dialog}
         aria-label="CreatorVerse followers"
-        onClose={() => setOpen(false)}>
+        onClose={() => {
+          unlockBackground.current?.();
+          setOpen(false);
+        }}>
 
         {open && (
           <div className={styles.panel}>
