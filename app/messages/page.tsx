@@ -3361,7 +3361,7 @@ function MessagesPage() {
         <aside className="parachat-inbox" style={inboxStyle}>
           <div className="parachat-inbox-header" style={inboxHeaderStyle}>
             <Link href="/dashboard" style={backLinkStyle}>
-              ← Feed
+              Feed
             </Link>
 
             <div style={{ textAlign: "right" }}>
