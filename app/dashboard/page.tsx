@@ -7204,6 +7204,13 @@ export default function DashboardPage() {
             scrollbar-gutter: stable;
           }
 
+          [data-dashboard-sticky-root="true"] .dashboard-right-rail {
+            grid-template-rows: none !important;
+            grid-auto-rows: max-content !important;
+            align-content: start !important;
+            align-items: start !important;
+          }
+
           [data-dashboard-sticky-root="true"] .dashboard-main-column {
             padding-bottom: 24px;
             scrollbar-color: rgba(170,150,195,.45) transparent;
