@@ -262,6 +262,37 @@ export default function CreatorVerseFollowers({ pageId }: {
     };
   }, [pageId]);
 
+  useEffect(() => {
+    if (!open || !dialog.current) return;
+
+    const element = dialog.current;
+    const viewport = window.visualViewport;
+
+    function alignDialog() {
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
+      const left = viewport?.offsetLeft ?? 0;
+      const top = viewport?.offsetTop ?? 0;
+
+      element.style.setProperty('--followers-vw', `${width}px`);
+      element.style.setProperty('--followers-vh', `${height}px`);
+      element.style.setProperty('--followers-x', `${left + width / 2}px`);
+      element.style.setProperty('--followers-y', `${top + height / 2}px`);
+    }
+
+    alignDialog();
+
+    window.addEventListener('resize', alignDialog);
+    viewport?.addEventListener('resize', alignDialog);
+    viewport?.addEventListener('scroll', alignDialog);
+
+    return () => {
+      window.removeEventListener('resize', alignDialog);
+      viewport?.removeEventListener('resize', alignDialog);
+      viewport?.removeEventListener('scroll', alignDialog);
+    };
+  }, [open]);
+
   function openFollowers() {
     setSearch('');
     if (dialog.current && !dialog.current.open) {
