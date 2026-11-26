@@ -550,6 +550,22 @@ function BackToPrevious({
   );
 }
 
+function returnFromMention(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  const origin = params.get("returnTo");
+  if (!params.has("mention") || !origin) return false;
+
+  try {
+    const target = new URL(origin, window.location.origin);
+    if (target.origin !== window.location.origin) return false;
+    if (target.pathname === "/notifications") return false;
+    window.location.replace(target.href);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function NotificationsPage() {
   const router = useRouter();
 
@@ -1673,7 +1689,7 @@ export default function NotificationsPage() {
     const handleDialogKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        setPostOverlayNotification(null);
+        (returnFromMention() || setPostOverlayNotification(null));
         return;
       }
 
@@ -2131,7 +2147,7 @@ export default function NotificationsPage() {
       <div style={glowThreeStyle} />
 
       {sharedMention && <section aria-label="Mentioned Group share">
-        <button type="button" onClick={() => setSharedMention(null)}>Close shared thread</button>
+        <button type="button" onClick={() => (returnFromMention() || setSharedMention(null))}>Close shared thread</button>
         <SharedGroupPostEngagement key={sharedMention.shareId} {...sharedMention} targetCommentId={sharedMention.commentId} />
       </section>}
       {postOverlayNotification ? (
@@ -2140,7 +2156,7 @@ export default function NotificationsPage() {
           role="presentation"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
-              setPostOverlayNotification(null);
+              (returnFromMention() || setPostOverlayNotification(null));
             }
           }}
         >
@@ -2208,7 +2224,7 @@ export default function NotificationsPage() {
               <button
                 ref={postOverlayCloseButtonRef}
                 type="button"
-                onClick={() => setPostOverlayNotification(null)}
+                onClick={() => (returnFromMention() || setPostOverlayNotification(null))}
                 aria-label="Close post"
                 style={{
                   width: 44,

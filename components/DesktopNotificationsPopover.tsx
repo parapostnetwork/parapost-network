@@ -194,7 +194,7 @@ export default function DesktopNotificationsPopover({
         type.startsWith("comment_") ||
         type === "share");
 
-    if (isDashboardPost && !type.includes("mention") && n.post_id && onOpenPost) {
+    if (isDashboardPost && (!type.includes("mention") || type === "post_mention") && n.post_id && onOpenPost) {
       const shareId =
         (n as Notice & { share_id?: string | null }).share_id ?? null;
 
@@ -202,7 +202,14 @@ export default function DesktopNotificationsPopover({
       return;
     }
 
-    window.location.assign(destination(n));
+    const href = destination(n);
+    if (href.startsWith("/notifications?mention=")) {
+      const target = new URL(href, window.location.origin);
+      target.searchParams.set("returnTo", window.location.pathname + window.location.search + window.location.hash);
+      window.location.assign(target.href);
+      return;
+    }
+    window.location.assign(href);
   }
 
   async function markAllRead() {
