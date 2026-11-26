@@ -1073,3 +1073,16 @@ main {
     padding-right: 6px !important;
   }
 }
+
+/* Prevent desktop Dashboard viewport bouncing */
+@media (min-width: 1181px) {
+  html:has([data-dashboard-sticky-root="true"]),
+  body:has([data-dashboard-sticky-root="true"]) {
+    overscroll-behavior: none !important;
+    overflow: hidden !important;
+  }
+
+  [data-dashboard-sticky-root="true"] {
+    overscroll-behavior: none !important;
+  }
+}

@@ -7199,7 +7199,7 @@ export default function DashboardPage() {
             box-sizing: border-box;
             overflow-y: auto !important;
             overflow-x: hidden !important;
-            overscroll-behavior-y: contain;
+            overscroll-behavior: none !important;
             scrollbar-width: thin !important;
             scrollbar-gutter: stable;
           }
