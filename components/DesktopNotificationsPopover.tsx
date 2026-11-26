@@ -3,6 +3,10 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
+import NotificationFriendRequestActions, {
+  usePendingNotificationRequests,
+} from "@/components/NotificationFriendRequestActions";
+
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
 
 type Profile = {
@@ -13,6 +17,7 @@ type Profile = {
 };
 
 type Notice = {
+  friend_request_id?: string | null;
   id: string;
   user_id: string;
   actor_id: string | null;
@@ -269,6 +274,9 @@ export default function DesktopNotificationsPopover({
     }
   }
 
+  const pendingRequests = usePendingNotificationRequests(
+    open ? userId : null, items
+  );
   const visible = unreadOnly ? items.filter(n => !n.is_read) : items;
 
   return (
@@ -487,6 +495,25 @@ export default function DesktopNotificationsPopover({
                       ⋯
                     </button>
                     </div>
+
+                    {n.type === "friend_request" &&
+                      n.friend_request_id &&
+                      n.actor_id &&
+                      pendingRequests.has(n.friend_request_id) && (
+                        <div style={{ padding: "0 10px 10px 76px" }}>
+                          <NotificationFriendRequestActions
+                            userId={userId}
+                            senderId={n.actor_id}
+                            requestId={n.friend_request_id}
+                            onResolved={() => setItems(prev => prev.map(item =>
+                              item.friend_request_id === n.friend_request_id &&
+                              item.type === "friend_request"
+                                ? { ...item, is_read: true }
+                                : item
+                            ))}
+                          />
+                        </div>
+                    )}
 
                     {rowMenuId === n.id && createPortal(
                       <div style={{

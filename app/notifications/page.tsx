@@ -9,6 +9,10 @@ import { CSSProperties, Fragment, useCallback, useEffect, useMemo, useRef, useSt
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import NotificationFriendRequestActions, {
+  usePendingNotificationRequests,
+} from "@/components/NotificationFriendRequestActions";
+
 
 type NotificationRow = {
   id: string;
@@ -606,6 +610,10 @@ export default function NotificationsPage() {
   const realtimeReloadTimerRef = useRef<number | null>(null);
   const reelActivityDialogRef = useRef<HTMLDivElement | null>(null);
   const reelActivityCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const pendingRequests = usePendingNotificationRequests(
+    currentUserId, notifications
+  );
 
   const displayNotifications = useMemo(() => {
     return groupReelActivityNotifications(groupParachatNotifications(notifications));
@@ -3684,6 +3692,11 @@ export default function NotificationsPage() {
             <div className="notifications-feed" style={notificationListStyle}>
               {filteredNotifications.map((notification, index) => {
                 const isUnread = !notification.is_read;
+                const canRespondToRequest =
+                  notification.type === "friend_request" &&
+                  !!notification.friend_request_id &&
+                  !!notification.actor_id &&
+                  pendingRequests.has(notification.friend_request_id);
                 const title = getNotificationTitle(notification);
                 const meta = getNotificationMeta(notification);
                 const actorName = getDisplayName(notification.actor);
@@ -3711,6 +3724,7 @@ export default function NotificationsPage() {
                     className={isUnread ? "notifications-card notifications-card-unread" : "notifications-card"}
                     style={{
                       ...notificationCardStyle,
+                      ...(canRespondToRequest ? { flexWrap: "wrap" as const } : {}),
                       ...(isUnread ? unreadCardStyle : {}),
                         background: "transparent",
                         backgroundImage: "none",
@@ -3876,6 +3890,29 @@ export default function NotificationsPage() {
                         </div>
                       </details>
                     </div>
+                    {canRespondToRequest &&
+                      currentUserId &&
+                      notification.actor_id &&
+                      notification.friend_request_id && (
+                        <div style={{
+                          gridColumn: "1 / -1",
+                          flexBasis: "100%",
+                          paddingLeft: 74,
+                          minWidth: 0,
+                        }}>
+                          <NotificationFriendRequestActions
+                            userId={currentUserId}
+                            senderId={notification.actor_id}
+                            requestId={notification.friend_request_id}
+                            onResolved={() => setNotifications(prev => prev.map(item =>
+                              item.friend_request_id === notification.friend_request_id &&
+                              item.type === "friend_request"
+                                ? { ...item, is_read: true }
+                                : item
+                            ))}
+                          />
+                        </div>
+                    )}
                   </article>
                   </Fragment>
                 );
