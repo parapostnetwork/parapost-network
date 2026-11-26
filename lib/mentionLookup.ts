@@ -8,22 +8,24 @@ export type MentionContext = {
   shareId?: string | null;
 };
 export type MentionOption = { id: string; username: string };
+export const MENTION_PAGE_SIZE = 25;
 
 // No profiles fallback: if the reviewed RPC is unavailable, fail closed.
-export async function lookupMentionOptions(query: string, context: MentionContext): Promise<MentionOption[]> {
+export async function lookupMentionOptions(query: string, context: MentionContext, afterUsername: string | null = null): Promise<MentionOption[]> {
   if (!MENTION_USERNAME_PATTERN.test(query)) return [];
-  const { data, error } = await supabase.rpc('parapost_search_mentions', {
+  const { data, error } = await supabase.rpc('parapost_search_mentions_page', {
     p_query: query,
     p_surface: context.surface,
     p_container_id: context.containerId ?? null,
     p_post_id: context.postId ?? null,
     p_share_id: context.shareId ?? null,
+    p_after_username: afterUsername,
   });
-  if (error) return [];
+  if (error) throw error;
   return (Array.isArray(data) ? data : []).filter((row): row is MentionOption =>
     typeof row?.id === 'string' && typeof row?.username === 'string' &&
     MENTION_USERNAME_PATTERN.test(row.username)
-  ).slice(0, 10);
+  ).slice(0, MENTION_PAGE_SIZE);
 }
 
 export function mentionCommentQuery(search: string, postId: string): string {
