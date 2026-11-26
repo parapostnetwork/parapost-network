@@ -108,6 +108,7 @@ export default function CreatorVerseFollowButton({
             });
 
       if (result.error) throw result.error;
+      window.dispatchEvent(new Event(`creatorverse-follow-change:${pageId}`));
 
       const verification = await supabase
         .from('creatorverse_follows')

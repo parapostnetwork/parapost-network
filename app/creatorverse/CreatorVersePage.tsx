@@ -25,6 +25,7 @@ import CreatorVersePostActions from './CreatorVersePostActions';
 import CreatorVersePostOwnerMenu from './CreatorVersePostOwnerMenu';
 import CreatorVersePublishedMedia from './CreatorVersePublishedMedia';
 import CreatorVerseFollowButton from './CreatorVerseFollowButton';
+import CreatorVerseFollowers from './CreatorVerseFollowers';
 import CreatorVerseLivePanel from './CreatorVerseLivePanel';
 import CreatorVerseLiveHub from "./CreatorVerseLiveHub";
 import CreatorVerseReplayFeed from './CreatorVerseReplayFeed';
@@ -481,6 +482,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
               </p>
               <h1>{page.name}</h1>
               <p>{page.short_bio}</p>
+              <CreatorVerseFollowers key={id} pageId={id} />
             </div>
             {!canManage && (
               <div className={profileStyles.followAction}>
