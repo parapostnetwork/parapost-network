@@ -570,6 +570,7 @@ export default function NotificationsPage() {
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
   const pathname = usePathname();
   const [notifications, setNotifications] = useState<NotificationCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1851,12 +1852,23 @@ export default function NotificationsPage() {
 
       if (error || !user) {
         setCurrentUserId("");
+        setCurrentUserAvatar(null);
         setNotifications([]);
         setLoading(false);
         return;
       }
 
       setCurrentUserId(user.id);
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      setCurrentUserAvatar(profile?.avatar_url ?? null);
       await loadNotifications(user.id);
     }
 
@@ -3994,7 +4006,7 @@ export default function NotificationsPage() {
         </>
       ) : null}
       {pathname === "/notifications" && (
-        <CommunityMobileBottomNav viewerId={currentUserId} />
+        <CommunityMobileBottomNav viewerId={currentUserId} avatarUrl={currentUserAvatar ?? undefined} />
       )}
     </main>
   );
