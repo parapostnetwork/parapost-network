@@ -6130,6 +6130,56 @@ export default function DashboardPage() {
   return (
     <div data-dashboard-sticky-root="true" style={dashboardRootStyle}>
       <div style={backgroundGlowStyle} />
+      <header className="dashboard-fixed-header">
+        <div className="dashboard-fixed-header-inner">
+          <div className="dashboard-fixed-brand">
+            <SidebarLogo />
+          </div>
+            <div className="dashboard-desktop-topbar" style={desktopTopBarStyle}>
+              {searchBox}
+              <div className="dashboard-top-icons" style={topActionRowStyle}>
+                <DesktopNotificationsModal
+                  open={notificationsModalOpen}
+                  onClose={() => setNotificationsModalOpen(false)}
+                />
+                <DesktopNotificationsPopover
+                  userId={currentUserId}
+                  count={notificationsCount}
+                  icon={<BellIcon />}
+                  buttonStyle={topIconButtonStyle}
+                  onOpenAll={() => setNotificationsModalOpen(true)}
+                  onOpenPost={(postId, shareId) => {
+                    void handleToggleDashboardComments(postId, shareId);
+                  }}
+                />
+                <Link href="/messages" style={topIconButtonStyle} aria-label="Parachat">
+                  <ChatIcon />
+                  {parachatUnreadCount > 0 ? <span style={topBadgeStyle}>{parachatUnreadCount > 99 ? "99+" : parachatUnreadCount}</span> : null}
+                </Link>
+                <button
+                  type="button"
+                  className="dashboard-tablet-menu-button"
+                  onClick={() => {
+                    setMobileMenuInitialSection("main");
+                    setMobileMenuOpen(true);
+                  }}
+                  style={topIconButtonStyle}
+                  aria-label="Open dashboard menu"
+                >
+                  <MenuIcon />
+                </button>
+                <Link
+                  href={currentUserId ? `/profile/${currentUserId}` : "/dashboard"}
+                  style={topProfileButtonStyle}
+                  aria-label="My profile"
+                >
+                  <Avatar profile={currentProfile} size={36} />
+                </Link>
+              </div>
+            </div>
+        </div>
+      </header>
+
       <div className="dashboard-shell-pad" style={dashboardShellStyle}>
         <MobileDashboardHeader
           currentProfile={currentProfile}
@@ -6144,7 +6194,6 @@ export default function DashboardPage() {
 
         <div className="dashboard-grid-desktop-safe" style={dashboardGridStyle}>
           <aside className="dashboard-desktop-left" style={leftSidebarStyle}>
-            <SidebarLogo />
             <nav style={sidebarNavStyle}>
               <SidebarLink href="/dashboard" active icon={<HomeIcon />} label="Home" />
               <SidebarLink href="/reels" icon={<SidebarParapostReelIcon />} label="Explore Reels" />
@@ -6211,49 +6260,6 @@ export default function DashboardPage() {
           </aside>
 
           <main className="dashboard-main-column" style={mainColumnStyle}>
-            <div className="dashboard-desktop-topbar" style={desktopTopBarStyle}>
-              {searchBox}
-              <div className="dashboard-top-icons" style={topActionRowStyle}>
-                <DesktopNotificationsModal
-                  open={notificationsModalOpen}
-                  onClose={() => setNotificationsModalOpen(false)}
-                />
-                <DesktopNotificationsPopover
-                  userId={currentUserId}
-                  count={notificationsCount}
-                  icon={<BellIcon />}
-                  buttonStyle={topIconButtonStyle}
-                  onOpenAll={() => setNotificationsModalOpen(true)}
-                  onOpenPost={(postId, shareId) => {
-                    void handleToggleDashboardComments(postId, shareId);
-                  }}
-                />
-                <Link href="/messages" style={topIconButtonStyle} aria-label="Parachat">
-                  <ChatIcon />
-                  {parachatUnreadCount > 0 ? <span style={topBadgeStyle}>{parachatUnreadCount > 99 ? "99+" : parachatUnreadCount}</span> : null}
-                </Link>
-                <button
-                  type="button"
-                  className="dashboard-tablet-menu-button"
-                  onClick={() => {
-                    setMobileMenuInitialSection("main");
-                    setMobileMenuOpen(true);
-                  }}
-                  style={topIconButtonStyle}
-                  aria-label="Open dashboard menu"
-                >
-                  <MenuIcon />
-                </button>
-                <Link
-                  href={currentUserId ? `/profile/${currentUserId}` : "/dashboard"}
-                  style={topProfileButtonStyle}
-                  aria-label="My profile"
-                >
-                  <Avatar profile={currentProfile} size={36} />
-                </Link>
-              </div>
-            </div>
-
             {SHOWCASES_VISIBLE_ON_FEEDS ? (
               <ShowcaseQuickActions
                 currentProfile={currentProfile}
@@ -7154,10 +7160,62 @@ export default function DashboardPage() {
           min-width: 0;
         }
 
+        .dashboard-fixed-header {
+          display: none;
+        }
+
         @media (min-width: 1181px) {
-          [data-dashboard-sticky-root="true"] {
-            overflow-x: clip !important;
-            overflow-y: visible !important;
+          [data-dashboard-sticky-root="true"] .dashboard-shell-pad {
+            padding-top: 104px !important;
+          }
+
+          .dashboard-fixed-header {
+            display: block !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 88px;
+            z-index: 100;
+            background: #100c1b;
+            border-bottom: 1px solid rgba(180,155,225,0.15);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.24);
+          }
+
+          .dashboard-fixed-header-inner {
+            max-width: 1740px;
+            height: 100%;
+            margin: 0 auto;
+            padding: 0 16px;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: 280px minmax(0, 1fr);
+            align-items: center;
+            gap: 22px;
+          }
+
+          .dashboard-fixed-brand {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+          }
+
+          .dashboard-fixed-brand > * {
+            margin: 0 !important;
+          }
+
+          .dashboard-fixed-header .dashboard-desktop-topbar {
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: none !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+          }
+
+          #dashboard-create-post {
+            scroll-margin-top: 104px;
           }
 
           .dashboard-desktop-topbar {

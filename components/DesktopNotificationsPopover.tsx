@@ -319,10 +319,10 @@ export default function DesktopNotificationsPopover({
             role="dialog"
             aria-label="Notifications"
             style={{
-              position: "fixed", right: 18, top: 70,
+              position: "fixed", right: "max(18px, calc((100vw - 1740px) / 2 + 16px))", top: 92,
               zIndex: 9999, width: 410,
               maxWidth: "calc(100vw - 36px)",
-              maxHeight: "min(660px, calc(100vh - 90px))",
+              maxHeight: "min(660px, calc(100dvh - 110px))",
               display: "flex", flexDirection: "column",
               background: "#211c2b", color: "#f7f5fb",
               border: "1px solid rgba(180,155,225,.19)",
