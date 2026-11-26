@@ -6128,7 +6128,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div style={dashboardRootStyle}>
+    <div data-dashboard-sticky-root="true" style={dashboardRootStyle}>
       <div style={backgroundGlowStyle} />
       <div className="dashboard-shell-pad" style={dashboardShellStyle}>
         <MobileDashboardHeader
@@ -7155,6 +7155,11 @@ export default function DashboardPage() {
         }
 
         @media (min-width: 1181px) {
+          [data-dashboard-sticky-root="true"] {
+            overflow-x: clip !important;
+            overflow-y: visible !important;
+          }
+
           .dashboard-desktop-topbar {
             position: sticky !important;
             top: 16px !important;
