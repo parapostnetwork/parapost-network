@@ -19,7 +19,7 @@ export default function MentionTextarea({ mentionContext = defaultContext, menti
   const composing = useRef(false);
   const listId = useId();
   const [active, setActive] = useState<ReturnType<typeof activeMentionAtCursor>>(null);
-  const [position, setPosition] = useState<{ left: number; bottom?: number; top?: number; width: number }>({ left: 0, top: 0, width: 0 });
+  const [position, setPosition] = useState<{ left: number; bottom?: number; top?: number; width: number; maxHeight?: number }>({ left: 0, top: 0, width: 0 });
   const [results, setResults] = useState<{ key: string; options: MentionOption[] }>({ key: '', options: [] });
   const [selected, setSelected] = useState(0);
   const enabled = !mentionsDisabled && !props.disabled && !props.readOnly;
@@ -45,17 +45,62 @@ export default function MentionTextarea({ mentionContext = defaultContext, menti
     if (!active) return;
     const close = (event: Event) => {
       if (event.target instanceof Element && event.target.closest('[data-mention-options]')) return;
+      const textarea = input.current;
+      const mobile = window.matchMedia('(hover: none), (max-width: 900px)').matches;
+
+      if (mobile && textarea && document.activeElement === textarea) {
+        updatePosition(textarea);
+        return;
+      }
+
       setActive(null);
     };
     window.addEventListener('scroll', close, true);
     window.addEventListener('resize', close);
-    return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
+    window.visualViewport?.addEventListener('resize', close);
+    window.visualViewport?.addEventListener('scroll', close);
+
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      window.visualViewport?.removeEventListener('resize', close);
+      window.visualViewport?.removeEventListener('scroll', close);
+    };
   }, [active]);
 
   function update(textarea: HTMLTextAreaElement) {
     if (!enabled || composing.current || textarea.selectionStart !== textarea.selectionEnd) { setActive(null); return; }
     setActive(activeMentionAtCursor(textarea.value, textarea.selectionStart));
+    updatePosition(textarea);
+  }
+
+  function updatePosition(textarea: HTMLTextAreaElement) {
     const rect = textarea.getBoundingClientRect();
+    const mobile = window.matchMedia('(hover: none), (max-width: 900px)').matches;
+
+    if (mobile) {
+      const viewport = window.visualViewport;
+      const top = viewport?.offsetTop ?? 0;
+      const left = viewport?.offsetLeft ?? 0;
+      const width = viewport?.width ?? window.innerWidth;
+      const bottom = top + (viewport?.height ?? window.innerHeight);
+      const popupWidth = Math.min(Math.max(rect.width, 240), width - 16);
+      const above = rect.top - top - 12;
+      const below = bottom - rect.bottom - 12;
+      const placeAbove = above >= below;
+      const maxHeight = Math.max(44, Math.min(220, placeAbove ? above : below));
+
+      setPosition({
+        left: Math.max(left + 8, Math.min(rect.left, left + width - popupWidth - 8)),
+        width: popupWidth,
+        maxHeight,
+        ...(placeAbove
+          ? { bottom: window.innerHeight - Math.max(top + maxHeight + 8, rect.top - 4) }
+          : { top: Math.min(rect.bottom + 4, bottom - maxHeight - 8) })
+      });
+      return;
+    }
+
     setPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 248)),
       ...(rect.top >= 240 ? { bottom: Math.max(8, window.innerHeight - rect.top + 4) } : { top: rect.bottom + 4 }), width: Math.min(Math.max(rect.width, 240), window.innerWidth - 16) });
   }
@@ -101,10 +146,10 @@ export default function MentionTextarea({ mentionContext = defaultContext, menti
         props.onKeyDown?.(event);
       }} />
     {open && createPortal(<div id={listId} role="listbox" aria-label="Mention a Parapost member" data-mention-options
-      style={{ position: 'fixed', zIndex: 2147483647, ...position, maxHeight: 220, overflowY: 'auto',
+      style={{ position: 'fixed', zIndex: 2147483647, maxHeight: 220, boxSizing: 'border-box', ...position, overflowY: 'auto',
         padding: 6, borderRadius: 12, border: '1px solid #555', background: '#20222b', color: '#fff', boxShadow: '0 8px 24px #0006' }}>
       {options.map((option, index) => <button id={`${listId}-${index}`} key={option.id} type="button" role="option"
-        tabIndex={-1} aria-selected={selected === index} onMouseDown={event => event.preventDefault()}
+        tabIndex={-1} aria-selected={selected === index} onPointerDown={event => event.preventDefault()}
         onClick={() => choose(option)} style={{ display: 'block', width: '100%', border: 0, borderRadius: 8,
           padding: '10px 12px', textAlign: 'left', color: 'inherit', cursor: 'pointer', background: selected === index ? '#ffffff22' : 'transparent' }}>
         @{option.username}
