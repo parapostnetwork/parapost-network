@@ -117,6 +117,13 @@ export default function DesktopNotificationsPopover({
   const [error, setError] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [rowMenuId, setRowMenuId] = useState<string | null>(null);
+  const [rowMenuPosition, setRowMenuPosition] = useState({ top: 0, right: 0 });
+
+  useEffect(() => {
+    const closeMenu = () => setRowMenuId(null);
+    window.addEventListener("resize", closeMenu);
+    return () => window.removeEventListener("resize", closeMenu);
+  }, []);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -362,7 +369,7 @@ export default function DesktopNotificationsPopover({
               <button onClick={() => setUnreadOnly(true)} style={filterStyle(unreadOnly)}>Unread</button>
             </div>
 
-            <div style={{ overflowY: "auto", padding: "0 8px 8px" }}>
+            <div onScroll={() => setRowMenuId(null)} style={{ overflowY: "auto", padding: "0 8px 8px" }}>
               {loading ? (
                 <p style={emptyStyle}>Loading notifications...</p>
               ) : error ? (
@@ -449,7 +456,16 @@ export default function DesktopNotificationsPopover({
                       aria-label="Notification options"
                       aria-expanded={rowMenuId === n.id}
                       disabled={deleting}
-                      onClick={() => setRowMenuId(prev => prev === n.id ? null : n.id)}
+                      onClick={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        setRowMenuPosition({
+                          top: rect.bottom + 60 < window.innerHeight
+                            ? rect.bottom + 4
+                            : rect.top - 56,
+                          right: Math.max(8, window.innerWidth - rect.right),
+                        });
+                        setRowMenuId(prev => prev === n.id ? null : n.id);
+                      }}
                       style={{
                         width: 34,
                         height: 34,
@@ -472,11 +488,18 @@ export default function DesktopNotificationsPopover({
                     </button>
                     </div>
 
-                    {rowMenuId === n.id && (
+                    {rowMenuId === n.id && createPortal(
                       <div style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        padding: "0 4px 8px",
+                        position: "fixed",
+                        top: rowMenuPosition.top,
+                        right: rowMenuPosition.right,
+                        zIndex: 10001,
+                        width: 170,
+                        padding: 6,
+                        borderRadius: 12,
+                        background: "#211830",
+                        border: "1px solid rgba(180,150,230,.25)",
+                        boxShadow: "0 12px 30px rgba(0,0,0,.35)",
                       }}>
                         <button
                           type="button"
@@ -484,15 +507,16 @@ export default function DesktopNotificationsPopover({
                           onClick={() => void deleteNotifications(n.id)}
                           style={{
                             ...menuStyle,
-                            width: "auto",
-                            background: "#302a3a",
+                            width: "100%",
+                            background: "transparent",
                             borderRadius: 8,
                             color: "#f19ba7",
                           }}
                         >
                           Delete notification
                         </button>
-                      </div>
+                      </div>,
+                      document.body
                     )}
                   </div>
                 );
