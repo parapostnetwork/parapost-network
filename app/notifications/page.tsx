@@ -615,13 +615,7 @@ export default function NotificationsPage() {
     return displayNotifications.filter((notification) => !notification.is_read).length;
   }, [displayNotifications]);
 
-  const friendsCount = useMemo(() => {
-    return displayNotifications.filter((notification) => (notification.type || "").includes("friend")).length;
-  }, [displayNotifications]);
 
-  const activityCount = useMemo(() => {
-    return displayNotifications.filter((notification) => !(notification.type || "").includes("friend")).length;
-  }, [displayNotifications]);
 
   const latestNotificationTime = useMemo(() => {
     const first = displayNotifications[0];
@@ -2134,9 +2128,6 @@ export default function NotificationsPage() {
   }> = [
     { key: "all", count: displayNotifications.length },
     { key: "unread", count: unreadCount },
-    { key: "friends", count: friendsCount },
-    { key: "activity", count: activityCount },
-    { key: "mentions", count: displayNotifications.filter((notification) => (notification.type || "").toLowerCase().includes("mention")).length },
   ];
 
   const menuItemStyle: CSSProperties = {
@@ -3295,30 +3286,23 @@ export default function NotificationsPage() {
           .notifications-filter-scroller {
             display: flex !important;
             flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            box-sizing: border-box !important;
+            flex-wrap: wrap !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
             gap: 8px !important;
-            padding: 2px 0 8px !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-            scroll-snap-type: x proximity;
-            touch-action: pan-x;
+            padding: 0 !important;
+            margin-top: 10px !important;
+            width: 100% !important;
+            overflow: visible !important;
           }
 
           .notifications-filter-button {
             flex: 0 0 auto !important;
-            min-width: max-content !important;
             width: auto !important;
-            min-height: 40px !important;
-            box-sizing: border-box !important;
-            padding: 8px 14px !important;
+            min-height: 36px !important;
+            padding: 0 12px !important;
             font-size: 13px !important;
             white-space: nowrap !important;
-            scroll-snap-align: start;
           }
 
           .notifications-content-shell {
@@ -4253,16 +4237,19 @@ const secondaryActionStyle: CSSProperties = {
 };
 
 const filterScrollerStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))",
-  gap: "10px",
-  marginTop: "18px",
+  display: "flex",
+  flexDirection: "row",
+  flexWrap: "wrap",
+  justifyContent: "flex-start",
+  alignItems: "center",
+  gap: "8px",
+  marginTop: "10px",
   width: "100%",
 };
 
 const filterButtonStyle: CSSProperties = {
-  minHeight: "44px",
-  width: "100%",
+  minHeight: "36px",
+  width: "auto",
   borderRadius: "999px",
   border: "1px solid rgba(255,255,255,0.10)",
   background: "rgba(255,255,255,0.045)",
@@ -4270,9 +4257,10 @@ const filterButtonStyle: CSSProperties = {
   padding: "0 12px",
   display: "inline-flex",
   alignItems: "center",
-  justifyContent: "space-between",
+  justifyContent: "center",
   gap: "8px",
-  fontWeight: 900,
+  fontSize: "13px",
+  fontWeight: 700,
   cursor: "pointer",
   whiteSpace: "nowrap",
 };
