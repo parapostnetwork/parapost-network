@@ -6342,7 +6342,7 @@ export default function DashboardPage() {
               ) : (
                 <>
                   {visibleFeedItems.map((item, index) => {
-                    const shouldShowMobileSponsor = (index + 1) % 20 === 0;
+                    const shouldShowMobileSponsor = false; // Temporarily hidden until advertising launches.
 
                     return (
                       <div key={`feed-item-${item.type}-${item.id}`} style={{ display: "contents" }}>
