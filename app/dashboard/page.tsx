@@ -2424,6 +2424,13 @@ export default function DashboardPage() {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
+      if (window.matchMedia("(min-width: 1181px)").matches) {
+        document.querySelector(".dashboard-main-column")?.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: "auto",
+        });
+      }
     };
 
     resetDashboardScroll();
@@ -4784,11 +4791,11 @@ export default function DashboardPage() {
 
     const closeOpenPostMenu = () => setOpenPostMenuId(null);
     window.addEventListener("click", closeOpenPostMenu);
-    window.addEventListener("scroll", closeOpenPostMenu, { passive: true });
+    window.addEventListener("scroll", closeOpenPostMenu, { passive: true, capture: true });
 
     return () => {
       window.removeEventListener("click", closeOpenPostMenu);
-      window.removeEventListener("scroll", closeOpenPostMenu);
+      window.removeEventListener("scroll", closeOpenPostMenu, true);
     };
   }, [openPostMenuId]);
 
@@ -7165,8 +7172,77 @@ export default function DashboardPage() {
         }
 
         @media (min-width: 1181px) {
+          [data-dashboard-sticky-root="true"] {
+            height: 100dvh !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+
           [data-dashboard-sticky-root="true"] .dashboard-shell-pad {
             padding-top: 104px !important;
+            padding-bottom: 0 !important;
+          }
+
+          [data-dashboard-sticky-root="true"] .dashboard-grid-desktop-safe {
+            height: calc(100dvh - 104px) !important;
+            min-height: 0 !important;
+            grid-template-rows: minmax(0, 1fr);
+            align-items: stretch !important;
+          }
+
+          [data-dashboard-sticky-root="true"] .dashboard-desktop-left,
+          [data-dashboard-sticky-root="true"] .dashboard-main-column,
+          [data-dashboard-sticky-root="true"] .dashboard-right-rail {
+            height: 100% !important;
+            max-height: 100% !important;
+            min-height: 0 !important;
+            box-sizing: border-box;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            overscroll-behavior-y: contain;
+            scrollbar-width: thin !important;
+            scrollbar-gutter: stable;
+          }
+
+          [data-dashboard-sticky-root="true"] .dashboard-main-column {
+            padding-bottom: 24px;
+            scrollbar-color: rgba(170,150,195,.45) transparent;
+          }
+
+          [data-dashboard-sticky-root="true"] .dashboard-desktop-left,
+          [data-dashboard-sticky-root="true"] .dashboard-right-rail {
+            scrollbar-color: transparent transparent !important;
+          }
+
+          [data-dashboard-sticky-root="true"] .dashboard-desktop-left:hover,
+          [data-dashboard-sticky-root="true"] .dashboard-right-rail:hover,
+          [data-dashboard-sticky-root="true"] .dashboard-desktop-left:focus-within,
+          [data-dashboard-sticky-root="true"] .dashboard-right-rail:focus-within {
+            scrollbar-color: rgba(170,150,195,.65) transparent !important;
+          }
+
+          .dashboard-desktop-left::-webkit-scrollbar,
+          .dashboard-main-column::-webkit-scrollbar,
+          .dashboard-right-rail::-webkit-scrollbar {
+            width: 7px;
+          }
+
+          .dashboard-desktop-left::-webkit-scrollbar-thumb,
+          .dashboard-right-rail::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 10px;
+          }
+
+          .dashboard-desktop-left:hover::-webkit-scrollbar-thumb,
+          .dashboard-right-rail:hover::-webkit-scrollbar-thumb,
+          .dashboard-desktop-left:focus-within::-webkit-scrollbar-thumb,
+          .dashboard-right-rail:focus-within::-webkit-scrollbar-thumb {
+            background: rgba(170,150,195,.65);
+          }
+
+          .dashboard-main-column::-webkit-scrollbar-thumb {
+            background: rgba(170,150,195,.45);
+            border-radius: 10px;
           }
 
           .dashboard-fixed-header {

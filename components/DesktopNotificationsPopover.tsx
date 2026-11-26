@@ -309,6 +309,25 @@ export default function DesktopNotificationsPopover({
             type="button"
             aria-label="Close notifications"
             onClick={() => setOpen(false)}
+            onWheel={(event) => {
+              if (!window.matchMedia("(min-width: 1181px)").matches) return;
+
+              const selector = ".dashboard-desktop-left, .dashboard-main-column, .dashboard-right-rail";
+              const column = document.elementsFromPoint(event.clientX, event.clientY)
+                .map(element => element.closest(selector))
+                .find(element => element instanceof HTMLElement) as HTMLElement | undefined;
+
+              if (!column) return;
+
+              const multiplier = event.deltaMode === 1
+                ? 16
+                : event.deltaMode === 2 ? column.clientHeight : 1;
+
+              column.scrollBy({
+                top: event.deltaY * multiplier,
+                behavior: "auto",
+              });
+            }}
             style={{
               position: "fixed", inset: 0, zIndex: 9998,
               border: 0, background: "transparent", cursor: "default",
