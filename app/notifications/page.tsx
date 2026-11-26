@@ -3823,7 +3823,7 @@ export default function NotificationsPage() {
                         </button>
                       ) : null}
 
-                      <details className="notifications-item-menu" style={{ alignSelf: "flex-start", marginTop: -4,  position: "relative", flexShrink: 0 }}>
+                      <details className="notifications-item-menu" style={{ alignSelf: "flex-start", marginTop: -14,  position: "relative", flexShrink: 0 }}>
                         <summary
                           aria-label="Notification options"
                           title="Notification options"
