@@ -116,9 +116,12 @@ export default function DesktopNotificationsPopover({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setRowMenuId(null);
 
     let active = true;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -227,6 +230,38 @@ export default function DesktopNotificationsPopover({
     setItems(prev => prev.map(n => ({ ...n, is_read: true })));
   }
 
+  async function deleteNotifications(id?: string) {
+    if (!userId || deleting || loading) return;
+
+    const confirmed = window.confirm(
+      id
+        ? "Delete this notification?"
+        : "Delete all notifications? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setRowMenuId(null);
+
+    try {
+      let query = supabase
+        .from("notifications")
+        .delete()
+        .eq("user_id", userId);
+
+      if (id) query = query.eq("id", id);
+
+      const { error: deleteError } = await query;
+      if (deleteError) throw deleteError;
+
+      setItems(prev => id ? prev.filter(n => n.id !== id) : []);
+    } catch {
+      window.alert("Could not delete notifications. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const visible = unreadOnly ? items.filter(n => !n.is_read) : items;
 
   return (
@@ -301,6 +336,21 @@ export default function DesktopNotificationsPopover({
                   <button onClick={() => void markAllRead()} style={menuStyle}>
                     Mark all as read
                   </button>
+                  <button
+                    type="button"
+                    disabled={deleting || loading || items.length === 0}
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      void deleteNotifications();
+                    }}
+                    style={{
+                      ...menuStyle,
+                      color: "#f19ba7",
+                      opacity: deleting || loading || items.length === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    Delete all
+                  </button>
                   <a href="/settings/notifications" style={menuStyle}>Notification settings</a>
                   <a href="/notifications" onClick={(event) => { if (onOpenAll) { event.preventDefault(); setOpen(false); onOpenAll(); } }} style={menuStyle}>Open all notifications</a>
                 </div>
@@ -328,11 +378,13 @@ export default function DesktopNotificationsPopover({
                 const initial = name.charAt(0).toUpperCase();
 
                 return (
-                  <button key={n.id} type="button"
+                  <div key={n.id}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <button type="button"
                     onClick={() => void openNotice(n)}
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
-                      width: "100%", padding: "11px 10px",
+                      flex: 1, minWidth: 0, padding: "11px 10px",
                       background: n.is_read ? "transparent" : "rgba(102,78,150,.14)",
                       border: 0, borderRadius: 8,
                       color: "inherit", cursor: "pointer", textAlign: "left",
@@ -391,6 +443,52 @@ export default function DesktopNotificationsPopover({
                       }} />
                     ) : null}
                   </button>
+
+                    <button
+                      type="button"
+                      aria-label="Notification options"
+                      aria-expanded={rowMenuId === n.id}
+                      disabled={deleting}
+                      onClick={() => setRowMenuId(prev => prev === n.id ? null : n.id)}
+                      style={{
+                        width: 34,
+                        height: 34,
+                        flexShrink: 0,
+                        borderRadius: "50%",
+                        border: 0,
+                        background: "rgba(125,85,185,.18)",
+                        color: "#e4d5f7",
+                        fontSize: 22,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ⋯
+                    </button>
+                    </div>
+
+                    {rowMenuId === n.id && (
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        padding: "0 4px 8px",
+                      }}>
+                        <button
+                          type="button"
+                          disabled={deleting}
+                          onClick={() => void deleteNotifications(n.id)}
+                          style={{
+                            ...menuStyle,
+                            width: "auto",
+                            background: "#302a3a",
+                            borderRadius: 8,
+                            color: "#f19ba7",
+                          }}
+                        >
+                          Delete notification
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
