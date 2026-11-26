@@ -351,3 +351,17 @@ dialog.dialog[open] {
   overscroll-behavior: contain;
   touch-action: pan-y;
 }
+
+
+/* Compact discovery follower label */
+
+p > .count {
+  font-size: 12px;
+  line-height: 1.2;
+  gap: 5px;
+}
+
+p > .count svg {
+  width: 14px;
+  height: 14px;
+}
