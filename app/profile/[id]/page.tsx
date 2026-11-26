@@ -1,7 +1,10 @@
 "use client";
+import MentionTextarea from "@/components/MentionTextarea";
 
 import PostComposerInput from "@/components/PostComposerInput";
 import { HeartIcon, CommentIcon, ShareIcon } from "@/components/PostActionIcons";
+
+
 import { useLayoutEffect } from "react";
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
@@ -2213,6 +2216,7 @@ function ParaGhostBadgeIcon({
           width: "100%",
           height: "100%",
           objectFit: "contain",
+          transform: isTimeline ? "translateX(6px)" : undefined,
           display: "block",
           pointerEvents: "none",
           userSelect: "none",
@@ -4507,19 +4511,7 @@ useEffect(() => {
   openPostMenuIdRef.current = openPostMenuId;
 }, [openPostMenuId]);
 
-// Award the initial ParaGhost badge to this user if they have none yet.
-// Runs only on the user's own profile, after badges have finished loading.
-useEffect(() => {
-  if (!isOwnProfile || !viewerId) return;
-  if (profileBadgesLoading) return;
-  if (profileBadges.length > 0) return; // already has badges
-  awardInitialBadge(viewerId).then(() => {
-    // Reload the badges display after awarding
-    loadEarnedProfileBadges(viewerId).then((updated) => {
-      if (Array.isArray(updated)) setProfileBadges(updated);
-    });
-  });
-}, [isOwnProfile, viewerId, profileBadgesLoading, profileBadges.length]);
+
 
 useEffect(() => {
   profileActionsOpenRef.current = profileActionsOpen;
@@ -5918,7 +5910,7 @@ useEffect(() => {
 
             {isEditingComment ? (
               <div style={profileCommentEditBoxStyle}>
-                <textarea
+                <MentionTextarea mentionContext={{ surface: "post", postId, shareId: comment.share_id }}
                   value={editingProfileCommentDraft}
                   onChange={(event) => setEditingProfileCommentDraft(event.target.value)}
                   disabled={isSavingComment}
@@ -6045,7 +6037,7 @@ useEffect(() => {
 
             {replyingProfileCommentId === comment.id ? (
               <div style={{ marginTop: 8, display: "grid", gap: 7 }}>
-                <textarea
+                <MentionTextarea mentionContext={{ surface: "post", postId, shareId: comment.share_id }}
                   value={profileReplyDrafts[comment.id] || ""}
                   onChange={(event) => setProfileReplyDrafts((current) => ({ ...current, [comment.id]: event.target.value }))}
                   placeholder={`Reply to ${commentName}...`}
@@ -6361,7 +6353,7 @@ useEffect(() => {
               )}
             </Link>
 
-            <textarea
+            <MentionTextarea mentionContext={{ surface: "post", postId, shareId }}
               value={draft}
               onChange={(event) => handleProfileCommentDraftChange(contextKey, event.target.value)}
               placeholder={viewerId ? "Write a comment..." : "Log in to comment"}
@@ -20538,7 +20530,7 @@ style={profileMobileProgressive
 
                             {isEditingPost ? (
                               <div className="profile-post-editor-shell" style={{ display: "grid", gap: "12px", marginTop: "14px" }}>
-                                <textarea
+                                <MentionTextarea mentionContext={{ surface: "post", postId: post.id }}
                                   value={editingPostContent}
                                   onChange={(event) => setEditingPostContent(event.target.value)}
                                   rows={4}

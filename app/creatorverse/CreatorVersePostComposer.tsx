@@ -137,7 +137,7 @@ export default function CreatorVersePostComposer({ pageName = 'CreatorVerse Page
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {!ready && !error && <p role="status">Restoring local posts…</p>}
     {canManage && <section aria-label="Create a local page post" className={styles.composer} style={composerCardStyle}>
-      <PostComposerInput className={styles.composerRow} avatar={avatar} disabled={!ready || saving}
+      <PostComposerInput mentionsDisabled className={styles.composerRow} avatar={avatar} disabled={!ready || saving}
         inputProps={{ value: content, onChange: event => updateDraft(event.target.value),
           'aria-label': `Write a post as ${pageName}`, placeholder: `What's on your mind, ${pageName}?`, maxLength: 5000 }}
         onSelectMedia={() => fileInput.current?.click()} mediaLabel="Add photos or videos" />

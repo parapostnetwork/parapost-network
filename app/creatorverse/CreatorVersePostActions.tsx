@@ -1,4 +1,6 @@
 'use client';
+import { mentionCommentQuery } from "@/lib/mentionLookup";
+import MentionTextarea from "@/components/MentionTextarea";
 import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -40,7 +42,7 @@ export default function CreatorVersePostActions(props: Props) {
 function ViewerPostActions({ pageId, postId, commentsEnabled, postPreview, postAuthorName, viewerId }:
   Props & { viewerId: string }) {
   const read = usePublicRead<unknown>(
-    `/api/creatorverse/${encodeURIComponent(pageId)}/posts/${encodeURIComponent(postId)}/interactions`
+    `/api/creatorverse/${encodeURIComponent(pageId)}/posts/${encodeURIComponent(postId)}/interactions${mentionCommentQuery(typeof window === "undefined" ? "" : window.location.search, postId)}`
   );
   const engagement = parseCreatorVerseEngagement(read.data, postId);
   const readFailed = read.error || (!read.loading && read.data !== null && !engagement);
@@ -262,7 +264,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, postPreview, postA
               <button type="button" onClick={() => setReplyTo(null)}>Cancel reply</button>
             </div>}
             <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <textarea id={`cv-comment-${postId}`} maxLength={1200} rows={1}
+              <MentionTextarea mentionContext={{ surface: 'creatorverse', containerId: pageId, postId }} id={`cv-comment-${postId}`} maxLength={1200} rows={1}
                 aria-label={replyTo ? 'Write a reply' : 'Write a comment'}
                 value={comment} placeholder="Write a comment..."
                 onChange={event => setComment(event.target.value)}
@@ -306,7 +308,7 @@ function ViewerPostActions({ pageId, postId, commentsEnabled, postPreview, postA
 
               {editingId === item.id ? (
                 <div className={styles.editComment}>
-                  <textarea
+                  <MentionTextarea mentionContext={{ surface: 'creatorverse', containerId: pageId, postId }}
                     aria-label="Edit comment or reply"
                     value={editDraft}
                     maxLength={1200}

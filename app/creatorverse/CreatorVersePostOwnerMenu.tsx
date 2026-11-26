@@ -1,4 +1,5 @@
 'use client';
+import MentionTextarea from "@/components/MentionTextarea";
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -195,7 +196,7 @@ export default function CreatorVersePostOwnerMenu({
           gap: 10,
           marginTop: 10,
         }}>
-          <textarea
+          <MentionTextarea mentionContext={{ surface: "creatorverse", containerId: pageId, postId }} disabled={busy}
             aria-label="Edit CreatorVerse post"
             value={draft}
             maxLength={5000}

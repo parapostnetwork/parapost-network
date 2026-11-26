@@ -58,6 +58,24 @@ export async function GET(
       throw new CreatorVerseError(404, 'Post unavailable.');
     }
 
+    const targetId = new URL(request.url).searchParams.get('comment');
+    if (targetId) {
+      const comment = pageId(targetId);
+      const current = Array.isArray(data.comments) ? data.comments : [];
+      if (!current.some((row: { id: string }) => row.id === comment)) {
+        const target = await client.rpc('parapost_mention_comment_thread', {
+          p_surface: 'creatorverse', p_container_id: page, p_post_id: post, p_comment_id: comment
+        });
+        if (!target.error && Array.isArray(target.data)) {
+          const merged = new Map(current.map((row: { id: string }) => [row.id, row]));
+          for (const row of target.data) {
+            if (row.post_id === post) merged.set(row.id, row);
+          }
+          data.comments = [...merged.values()];
+        }
+      }
+    }
+
     return Response.json(data, {
       headers: creatorVerseHeaders,
     });

@@ -1,6 +1,8 @@
 'use client';
 
 import type { CSSProperties, ReactNode, TextareaHTMLAttributes } from 'react';
+import MentionTextarea from './MentionTextarea';
+import type { MentionContext } from '@/lib/mentionLookup';
 import { composerTopRowStyle, composerInputStyle, composerImageButtonStyle } from './postPresentation';
 
 export function PhotoIcon() {
@@ -13,7 +15,7 @@ export function PhotoIcon() {
 // Keep each surface's responsive class hooks and upload rules intact.
 export default function PostComposerInput({ avatar, inputProps, onSelectMedia, className,
   mediaLabel = 'Upload photos', disabled = false, rowStyle = composerTopRowStyle,
-  inputStyle = composerInputStyle, mediaStyle = composerImageButtonStyle, showMediaButton = true,
+  inputStyle = composerInputStyle, mediaStyle = composerImageButtonStyle, mentionContext, mentionsDisabled = false, showMediaButton = true,
 }: {
   avatar: ReactNode;
   inputProps: TextareaHTMLAttributes<HTMLTextAreaElement>;
@@ -24,11 +26,14 @@ export default function PostComposerInput({ avatar, inputProps, onSelectMedia, c
   rowStyle?: CSSProperties;
   inputStyle?: CSSProperties;
   mediaStyle?: CSSProperties;
+  mentionContext?: MentionContext;
+  mentionsDisabled?: boolean;
   showMediaButton?: boolean;
 }) {
   return <div className={className} style={rowStyle}>
     {avatar}
-    <textarea rows={2} style={inputStyle} disabled={disabled} {...inputProps} />
+    <MentionTextarea rows={2} style={inputStyle} disabled={disabled} {...inputProps}
+      mentionContext={mentionContext} mentionsDisabled={mentionsDisabled} />
     {showMediaButton && (
       <button type="button" onClick={onSelectMedia} style={mediaStyle} aria-label={mediaLabel} disabled={disabled}>
         <PhotoIcon />

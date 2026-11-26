@@ -1,4 +1,5 @@
 "use client";
+import MentionTextarea from "@/components/MentionTextarea";
 
 import { composerCardStyle, composerTopRowStyle, composerInputStyle, composerImageButtonStyle, composerActionPillStyle, composerFooterStyle, publishButtonStyle, imagePreviewWrapStyle, composerPreviewGridStyle, composerPreviewSingleGridStyle, composerPreviewTileStyle, composerPreviewSingleTileStyle, composerPreviewImageStyle, composerPreviewCounterStyle, postCardStyle, postHeaderStyle, postAuthorStyle, postAuthorNameStyle, postMetaStyle, postContentStyle, postImageStyle, postImageGridStyle, postImageGridTileStyle, postImageGridLargeTileStyle, postImageGridImageStyle, dotsButtonStyle, postMenuStyle, menuItemStyle, postStatsSummaryStyle, postActionsStyle, dashboardCommentTextareaStyle, dashboardCommentSubmitButtonStyle, dashboardCommentRowStyle, dashboardCommentBubbleStyle, dashboardCommentTopLineStyle, dashboardCommentAuthorStyle, dashboardCommentTimeStyle, dashboardCommentTextStyle, dashboardCommentActionRowStyle, sharedPostFrameStyle } from "@/components/postPresentation";
 import PostComposerInput from "@/components/PostComposerInput";
@@ -13444,7 +13445,7 @@ function ComposerActionPill({
 
 function FeedTabs({ feedMode, setFeedMode }: { feedMode: FeedMode; setFeedMode: (mode: FeedMode) => void }) {
   return (
-    <div className="dashboard-card" style={feedTabsStyle}>
+    <div className="dashboard-card dashboard-feed-tabs-mobile-inset" style={feedTabsStyle}>
       <FeedTab label="For You" active={feedMode === "for_you"} onClick={() => setFeedMode("for_you")} />
       <FeedTab label="Friends" active={feedMode === "friends"} onClick={() => setFeedMode("friends")} />
       <FeedTab label="Following" active={feedMode === "following"} onClick={() => setFeedMode("following")} />
@@ -14118,7 +14119,7 @@ function PostCard({
 
       {isEditing ? (
         <div style={{ marginTop: 14 }}>
-          <textarea value={editingPostContent} onChange={(event) => setEditingPostContent(event.target.value)} rows={4} style={editTextareaStyle} />
+          <MentionTextarea mentionContext={{ surface: "post" }} value={editingPostContent} onChange={(event) => setEditingPostContent(event.target.value)} rows={4} style={editTextareaStyle} />
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
             <button type="button" onClick={onSaveEdit} style={publishButtonStyle}>Save</button>
             <button type="button" onClick={onCancelEdit} style={softButtonStyle}>Cancel</button>
@@ -14291,7 +14292,7 @@ function DashboardCommentsPreview({
 
                 {isEditingComment ? (
                   <div style={dashboardCommentEditWrapStyle}>
-                    <textarea
+                    <MentionTextarea mentionContext={{ surface: "post", postId, shareId: comment.share_id }}
                       value={editingCommentText}
                       onChange={(event) => setEditingCommentText(event.target.value)}
                       rows={2}
@@ -14426,6 +14427,7 @@ function DashboardCommentsPanel({
   post,
   profile,
   postId,
+  shareId = null,
   postOwnerId,
   comments,
   profilesMap,
@@ -14461,6 +14463,7 @@ function DashboardCommentsPanel({
   post: Post;
   profile?: ProfilePreview | null;
   postId: string;
+  shareId?: string | null;
   postOwnerId: string;
   comments: DashboardComment[];
   profilesMap: Record<string, ProfilePreview>;
@@ -14577,6 +14580,7 @@ function DashboardCommentsPanel({
         .from("comments")
         .insert([{
           post_id: postId,
+          share_id: shareId,
           user_id: currentUserId,
           content: trimmed,
           parent_comment_id: rootParentId,
@@ -14644,7 +14648,7 @@ function DashboardCommentsPanel({
 
           {isEditingComment ? (
             <div style={dashboardCommentEditWrapStyle}>
-              <textarea
+              <MentionTextarea mentionContext={{ surface: "post", postId, shareId }}
                 value={editingCommentText}
                 onChange={(event) => setEditingCommentText(event.target.value)}
                 rows={2}
@@ -14710,7 +14714,7 @@ function DashboardCommentsPanel({
 
           {replyingToId === comment.id ? (
             <div style={{ marginTop: 8, display: "grid", gap: 7 }}>
-              <textarea
+              <MentionTextarea mentionContext={{ surface: "post", postId: post.id, shareId }}
                 value={replyDraft}
                 onChange={(event) => setReplyDraft(event.target.value)}
                 placeholder={`Reply to ${authorName}...`}
@@ -14891,7 +14895,7 @@ function DashboardCommentsPanel({
 
         <footer className="parapost-comments-overlay-composer" style={dashboardCommentsOverlayComposerStyle}>
           <Avatar profile={currentUserProfile} size={38} href={currentUserId ? `/profile/${currentUserId}` : undefined} />
-          <textarea
+          <MentionTextarea mentionContext={{ surface: "post", postId: post.id, shareId }}
             value={draft}
             onChange={(event) => onDraftChange(event.target.value)}
             placeholder="Write a comment..."
@@ -15130,7 +15134,7 @@ function SharedPostCard({
 
         {isEditingOriginalPost ? (
           <div style={{ marginTop: 14 }}>
-            <textarea
+            <MentionTextarea mentionContext={{ surface: "post" }}
               value={editingPostContent}
               onChange={(event) => setEditingPostContent(event.target.value)}
               rows={4}
@@ -15199,6 +15203,7 @@ function SharedPostCard({
           post={originalPost}
           profile={originalProfile}
           postId={originalPost.id}
+          shareId={sharedPost.id}
           postOwnerId={sharedPost.user_id}
           comments={comments}
           profilesMap={profilesMap}

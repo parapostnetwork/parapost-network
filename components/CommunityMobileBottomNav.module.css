@@ -56,6 +56,65 @@
   .menu :is(button,a):hover { background:#443153; }
 }
 
+/* NOTIFICATIONS TABLET NAV ONLY */
+@media (min-width: 701px) and (max-width: 1180px) {
+  :global(body:has(.notifications-page-root)) .nav, :global(body:has(.notifications-page-root)) .nav * { box-sizing: border-box; }
+  :global(body:has(.notifications-page-root)) .nav {
+    position: fixed; left: 50%; right: auto;
+    bottom: max(10px, env(safe-area-inset-bottom)); z-index: 160;
+    display: grid; width: min(calc(100vw - 22px), 520px); min-height: 76px;
+    transform: translateX(-50%); grid-template-columns: repeat(5, minmax(0,1fr));
+    align-items: center; justify-items: center; gap: 2px; padding: 8px 8px 10px;
+    border-radius: 24px; border: 1px solid rgba(255,255,255,.105);
+    background: linear-gradient(180deg,rgba(9,11,20,.992),rgba(5,7,13,.995));
+    box-shadow: 0 12px 30px rgba(0,0,0,.46);
+    font-family: var(--parapost-user-font,Arial,Helvetica,sans-serif);
+  }
+  :global(body:has(.notifications-page-root)) .item { width: 100%; min-width: 0; height: 56px; color: #dbe4f0!important;
+    text-decoration: none!important; display: grid; grid-template-rows: 26px auto;
+    place-items: center; align-content: center; gap: 3px; font-size: 10.5px;
+    line-height: 1.05; font-weight: 850; text-align: center; border-radius: 16px; }
+  :global(body:has(.notifications-page-root)) .item:hover { text-decoration: none!important; }
+  :global(body:has(.notifications-page-root)) .item:focus-visible, :global(body:has(.notifications-page-root)) .create:focus-visible, :global(body:has(.notifications-page-root)) .menu :is(button, :global(body:has(.notifications-page-root)) a):focus-visible {
+    outline: 2px solid var(--parapost-accent-1,#8b5cf6); outline-offset: 2px; }
+  :global(body:has(.notifications-page-root)) .icon { display:grid; place-items:center; width:28px; height:28px; }
+  :global(body:has(.notifications-page-root)) .label { max-width:100%; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* STEP 222: MATCH DASHBOARD/PROFILE PLAIN PLUS ICON */
+  :global(body:has(.notifications-page-root)) .create {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0 !important;
+    border-radius: 16px !important;
+    background: transparent !important;
+    color: #dbe4f0 !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    font: inherit;
+  }
+  :global(body:has(.notifications-page-root)) .createSpacer { display:none; }
+  :global(body:has(.notifications-page-root)) .avatar { width:26px; height:26px; display:block; border-radius:999px; object-fit:cover;
+    border:1.5px solid rgba(255,255,255,.72); box-shadow:0 0 0 2px var(--parapost-accent-soft,#8b5cf633); }
+  :global(body:has(.notifications-page-root)) .avatarFallback { display:grid;place-items:center;width:26px;height:26px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.72);background:var(--parapost-accent-1,#8b5cf6);color:white;font-weight:800; }
+  :global(body:has(.notifications-page-root)) .menu { position:fixed; z-index:170; bottom:calc(92px + env(safe-area-inset-bottom));
+    left:50%;transform:translateX(-50%);width:min(320px,calc(100vw - 28px));
+    display:grid;gap:5px;padding:9px;border:1px solid #6d5685;border-radius:16px;
+    background:#24192e;box-shadow:0 14px 38px #000b; }
+  :global(body:has(.notifications-page-root)) .menu button, :global(body:has(.notifications-page-root)) .menu a { width:100%;min-height:44px;display:flex;align-items:center;
+    padding:10px 12px;border:0;border-radius:10px;background:transparent;color:#f5efff!important;
+    font-family:inherit;font-size:13px;text-align:left;text-decoration:none!important; }
+  :global(body:has(.notifications-page-root)) .menu :is(button, :global(body:has(.notifications-page-root)) a):hover { background:#443153; }
+}
+
+
 /* STEP 117: MOBILE SETTINGS SCROLL FIX */
 
 @media (max-width: 700px) {

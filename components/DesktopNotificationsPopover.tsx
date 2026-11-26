@@ -33,6 +33,8 @@ function destination(n: Notice) {
   const type = n.type || "";
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+  if (type === "group_shared_comment_mention" || type === "group_promotion_comment_mention") return `/notifications?mention=${encodeURIComponent(n.id)}`;
+
   if (type.startsWith("group_") || type.startsWith("creatorverse_")) {
     const creator = type.startsWith("creatorverse_");
     const id = creator ? n.creatorverse_page_id : n.group_id;
@@ -61,6 +63,7 @@ function destination(n: Notice) {
   if (type === "badge_award" || type === "achievement_award") {
     return `/profile/${n.user_id}`;
   }
+  if (type === "post_mention" || type === "comment_mention") return `/notifications?mention=${encodeURIComponent(n.id)}`;
   if (n.post_id) {
     return `/dashboard?post=${n.post_id}#post-${n.post_id}`;
   }
@@ -70,6 +73,7 @@ function destination(n: Notice) {
 function description(n: Notice, name: string) {
   if (n.message?.trim()) return n.message.trim();
   const t = n.type || "";
+  if (t.includes("mention")) return `${name} mentioned you.`;
   if (t === "friend_request") return `${name} sent you a friend request.`;
   if (t === "friend_accept") return `${name} accepted your friend request.`;
   if (t.includes("follow")) return `${name} started following your page.`;
@@ -190,7 +194,7 @@ export default function DesktopNotificationsPopover({
         type.startsWith("comment_") ||
         type === "share");
 
-    if (isDashboardPost && n.post_id && onOpenPost) {
+    if (isDashboardPost && !type.includes("mention") && n.post_id && onOpenPost) {
       const shareId =
         (n as Notice & { share_id?: string | null }).share_id ?? null;
 

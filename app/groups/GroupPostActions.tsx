@@ -1,4 +1,5 @@
 'use client';
+import MentionTextarea from "@/components/MentionTextarea";
 
 import { shareErrorMessage } from '@/lib/groups/shareErrors';
 import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
@@ -114,7 +115,9 @@ export default function GroupPostActions({
 
 
   const reload = useCallback(async () => {
-    const url = `/api/groups?kind=interactions&group=${groupId}&post=${postId}`;
+    const target = new URLSearchParams(window.location.search);
+    const comment = target.get('post') === postId ? target.get('comment') : null;
+    const url = `/api/groups?kind=interactions&group=${groupId}&post=${postId}${comment ? `&comment=${encodeURIComponent(comment)}` : ''}`;
     const response = await read(url);
     const data = await response.json() as Stats;
     if (typeof data.like_count !== 'number' ||
@@ -308,7 +311,7 @@ export default function GroupPostActions({
 
   const commentForm = (parentId: string | null) => (
     <form className={styles.commentForm} onSubmit={submitComment}>
-      <textarea id={`group-comment-input-${postId}-${parentId || 'new'}`}
+      <MentionTextarea mentionContext={{ surface: 'group', containerId: groupId, postId }} id={`group-comment-input-${postId}-${parentId || 'new'}`}
         aria-label={parentId ? 'Write a reply' : 'Write a comment'}
         placeholder={parentId ? 'Write a reply...' : 'Write a comment...'}
         value={draft} onChange={event => setDraft(event.target.value)} maxLength={1200}
@@ -332,7 +335,7 @@ export default function GroupPostActions({
                   event.preventDefault();
                   void manageComment(comment, 'edit_comment');
                 }}>
-                <textarea
+                <MentionTextarea mentionContext={{ surface: 'group', containerId: groupId, postId }}
                   aria-label="Edit comment"
                   value={editDraft}
                   maxLength={1200}

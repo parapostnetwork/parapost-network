@@ -1,4 +1,5 @@
 "use client";
+import MentionTextarea from "@/components/MentionTextarea";
 
 import { shareErrorMessage } from '@/lib/groups/shareErrors';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -34,8 +35,9 @@ type Stats = {
 type Profile = PostProfile & { id: string };
 
 export default function SharedGroupPostEngagement({
-  shareId, groupId, postId, kind = "post", canShare = true, postPreview, postAuthorName
+  shareId, groupId, postId, kind = "post", canShare = true, postPreview, postAuthorName, targetCommentId
 }: {
+  targetCommentId?: string;
   postPreview?: ReactNode;
   postAuthorName?: string;
   shareId: string;
@@ -60,7 +62,7 @@ export default function SharedGroupPostEngagement({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(Boolean(targetCommentId));
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export default function SharedGroupPostEngagement({
     setLoading(true);
     try {
       const response = await groupsFetch(
-        `/api/groups/sharing/interactions?share=${encodeURIComponent(shareId)}&kind=${kind}`,
+        `/api/groups/sharing/interactions?share=${encodeURIComponent(shareId)}&kind=${kind}${targetCommentId ? `&comment=${encodeURIComponent(targetCommentId)}` : ""}`,
         {signal: controller.signal}
       );
       const result = await response.json() as Stats;
@@ -102,7 +104,7 @@ export default function SharedGroupPostEngagement({
     } finally {
       if (request === sequence.current) setLoading(false);
     }
-  }, [shareId, kind, scope]);
+  }, [shareId, kind, scope, targetCommentId]);
 
   useEffect(() => {
     currentScope.current = scope;
@@ -202,6 +204,12 @@ export default function SharedGroupPostEngagement({
       setReplyTo(null);
     }
   }
+
+  useEffect(() => {
+    if (!targetCommentId || !commentsOpen || !stats?.comments.some(comment => comment.id === targetCommentId)) return;
+    const frame = requestAnimationFrame(() => document.getElementById(`shared-group-comment-${targetCommentId}`)?.scrollIntoView({ block: 'center' }));
+    return () => cancelAnimationFrame(frame);
+  }, [targetCommentId, commentsOpen, stats]);
 
   async function submitShare(event: FormEvent) {
     event.preventDefault();
@@ -306,7 +314,7 @@ export default function SharedGroupPostEngagement({
               <button type="button" onClick={() => { setReplyTo(null); setDraft(''); }}>Cancel reply</button>
             </p>}
             {viewerId && <PostAvatar id={viewerId} profile={profiles[viewerId]} size={32}/>}
-            <textarea data-shared-group-comment={shareId}
+            <MentionTextarea mentionContext={{ surface: kind === "post" ? "group_share" : "group_promotion", containerId: groupId, postId, shareId }} disabled={busy || loading} data-shared-group-comment={shareId}
               aria-label={replyTo ? 'Write a reply' : 'Write a comment'}
               placeholder={replyTo ? 'Write a reply...' : 'Write a comment...'}
               value={draft} maxLength={1200} rows={1} onChange={e => setDraft(e.target.value)}
@@ -320,7 +328,7 @@ export default function SharedGroupPostEngagement({
             const own = comment.author_id === viewerId;
             const author = profiles[comment.author_id];
             return (
-              <div key={comment.id} className={styles.engagementComment} data-reply={Boolean(comment.parent_id)}>
+              <div id={`shared-group-comment-${comment.id}`} key={comment.id} className={styles.engagementComment} data-reply={Boolean(comment.parent_id)}>
                 <PostAvatar id={comment.author_id} profile={author} size={32}/>
                 <div className={styles.commentBody}>
                 <div style={{ fontSize: 13, opacity: 0.8 }}>
@@ -335,7 +343,7 @@ export default function SharedGroupPostEngagement({
                       setEditingId(null);
                     }
                   }}>
-                    <textarea value={editDraft} maxLength={1200}
+                    <MentionTextarea mentionContext={{ surface: kind === "post" ? "group_share" : "group_promotion", containerId: groupId, postId, shareId }} disabled={busy || loading} value={editDraft} maxLength={1200}
                       onChange={e => setEditDraft(e.target.value)}
                       style={dashboardCommentTextareaStyle} />
                     <button type="submit" disabled={busy || loading || !editDraft.trim()}>

@@ -1,10 +1,13 @@
 "use client";
+import SharedGroupPostEngagement from "@/app/groups/SharedGroupPostEngagement";
+import CommunityMobileBottomNav from "@/components/CommunityMobileBottomNav";
+import MentionTextarea from "@/components/MentionTextarea";
 
 import ResponsiveMediaImage from "@/components/ResponsiveMediaImage";
 
 import { CSSProperties, Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type NotificationRow = {
@@ -343,6 +346,8 @@ function getNotificationTitle(notification: NotificationCard) {
     return `${actorName} replied to your comment on a shared post.`;
   }
 
+  if (type.includes("mention")) return `${actorName} mentioned you in a ${notification.comment_id || (notification as NotificationCard & { community_comment_id?: string }).community_comment_id ? "comment" : "post"}.`;
+
   if (notification.message?.trim()) return notification.message.trim();
   if (type === "friend_request") return `${actorName} sent you a friend request.`;
   if (type === "friend_accept") return `${actorName} accepted your friend request.`;
@@ -388,6 +393,7 @@ function getPostOverlayActivityTitle(notification: NotificationCard) {
 function getNotificationMeta(notification: NotificationCard) {
   const type = notification.type || "";
 
+  if (type.includes("mention")) return "Mentions";
   if (type.includes("parachat")) return "Parachat";
   if (type.includes("reel")) return "Parapost Reels";
   if (type.includes("live")) return "Live";
@@ -412,6 +418,8 @@ function getNotificationHref(notification: NotificationCard) {
   if (type === "parachat_message" || type === "parachat_photo") {
     return notification.actor_id ? `/messages?user=${notification.actor_id}` : "/messages";
   }
+
+  if (type === "group_shared_comment_mention" || type === "group_promotion_comment_mention") return `/notifications?mention=${encodeURIComponent(notification.id)}`;
 
   if (type === "friend_request") {
     return "/friends/requests";
@@ -504,6 +512,7 @@ function getFilterLabel(filter: FilterKey) {
 function NotificationTypeIcon({ type }: { type: string | null }) {
   const normalizedType = type || "";
 
+  if (normalizedType.includes("mention")) return <span style={notificationTypeIconTextStyle}>@</span>;
   if (normalizedType.includes("parachat")) return <span style={notificationTypeIconTextStyle}>💬</span>;
   if (normalizedType.includes("reel")) return <span style={notificationTypeIconTextStyle}>▶</span>;
   if (normalizedType.includes("live")) return <span style={notificationTypeIconTextStyle}>●</span>;
@@ -545,6 +554,7 @@ export default function NotificationsPage() {
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState("");
+  const pathname = usePathname();
   const [notifications, setNotifications] = useState<NotificationCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
@@ -552,6 +562,7 @@ export default function NotificationsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
   const [reelActivityModal, setReelActivityModal] = useState<NotificationCard | null>(null);
+  const [sharedMention, setSharedMention] = useState<{ groupId: string; postId?: string; shareId: string; commentId: string; kind: "post" | "promotion" } | null>(null);
   const [postOverlayNotification, setPostOverlayNotification] = useState<NotificationCard | null>(null);
   const [postOverlayData, setPostOverlayData] = useState<NotificationPostOverlayData | null>(null);
   const [postOverlayLoading, setPostOverlayLoading] = useState(false);
@@ -1464,6 +1475,21 @@ export default function NotificationsPage() {
           throw commentsResponse.error;
         }
 
+        const targetCommentId = postOverlayNotification?.comment_id;
+        if (postOverlayNotification?.type === "comment_mention" && targetCommentId && !commentsResponse.data?.some(comment => comment.id === targetCommentId)) {
+          const target = await supabase.rpc('parapost_mention_post_thread', {
+            p_post_id: postId, p_share_id: shareId, p_comment_id: targetCommentId
+          });
+          if (target.error) throw target.error;
+          if (Array.isArray(target.data)) {
+            const merged = new Map((commentsResponse.data ?? []).map(comment => [comment.id, comment]));
+            for (const comment of target.data) {
+              if (comment.post_id === postId && (comment.share_id ?? null) === shareId) merged.set(comment.id, comment);
+            }
+            commentsResponse.data = [...merged.values()];
+          }
+        }
+
         if (imagesResponse.error) {
           console.warn(
             "Notification post images could not be loaded:",
@@ -1714,6 +1740,34 @@ export default function NotificationsPage() {
     window.setTimeout(() => setStatusMessage(""), 2600);
   }, []);
 
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("mention");
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    let cancelled = false;
+    void (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user || cancelled) return;
+      const { data, error } = await supabase.from("notifications").select("*")
+        .eq("id", id).eq("user_id", auth.user.id).maybeSingle();
+      if (cancelled) return;
+      if (error || !data || !["post_mention", "comment_mention", "group_shared_comment_mention", "group_promotion_comment_mention"].includes(data.type)) {
+        setStatusMessage("This mention is no longer available."); return;
+      }
+      if (data.type === "group_shared_comment_mention" || data.type === "group_promotion_comment_mention") {
+        const target = await supabase.rpc('parapost_mention_shared_destination', { p_notification_id: id });
+        if (cancelled) return;
+        if (target.error || !target.data) { setStatusMessage("This mention is no longer available."); return; }
+        setSharedMention(target.data);
+      } else {
+        setPostOverlayNotification(data as NotificationCard);
+      }
+      setPostOverlayIsMobile(window.matchMedia("(max-width: 700px)").matches);
+      const marked = await supabase.from("notifications").update({ is_read: true }).eq("id", id).eq("user_id", auth.user.id);
+      if (!cancelled && !marked.error) setNotifications(rows => rows.map(row => row.id === id ? { ...row, is_read: true } : row));
+    })().catch(() => { if (!cancelled) setStatusMessage("This mention could not be opened. Please try again."); });
+    return () => { cancelled = true; };
+  }, []);
+
   const loadNotifications = useCallback(async (userId: string) => {
     setLoading(true);
 
@@ -1928,6 +1982,10 @@ export default function NotificationsPage() {
 
     const type = notification.type || "";
 
+    if (type === "group_shared_comment_mention" || type === "group_promotion_comment_mention") {
+      window.location.assign(getNotificationHref(notification)); return;
+    }
+
     if (
       type.startsWith("group_") ||
       type.startsWith("creatorverse_")
@@ -1960,7 +2018,7 @@ export default function NotificationsPage() {
 
         const requiresPost =
           type === "group_like" ||
-          type === "group_comment";
+          type === "group_comment" || type === "group_mention" || type === "creatorverse_mention";
 
         if (
           !destination.startsWith(expectedPrefix) ||
@@ -2072,6 +2130,10 @@ export default function NotificationsPage() {
       <div style={glowTwoStyle} />
       <div style={glowThreeStyle} />
 
+      {sharedMention && <section aria-label="Mentioned Group share">
+        <button type="button" onClick={() => setSharedMention(null)}>Close shared thread</button>
+        <SharedGroupPostEngagement key={sharedMention.shareId} {...sharedMention} targetCommentId={sharedMention.commentId} />
+      </section>}
       {postOverlayNotification ? (
         <div
           className="notification-post-overlay-backdrop"
@@ -2616,7 +2678,7 @@ export default function NotificationsPage() {
                                       marginTop: 8,
                                     }}
                                   >
-                                    <textarea
+                                    <MentionTextarea mentionContext={{ surface: "post", postId: postOverlayData?.post.id, shareId: postOverlayNotification?.share_id }}
                                       value={postOverlayEditingCommentDraft}
                                       onChange={(event) =>
                                         setPostOverlayEditingCommentDraft(
@@ -2880,7 +2942,7 @@ export default function NotificationsPage() {
                                       marginTop: 10,
                                     }}
                                   >
-                                    <textarea
+                                    <MentionTextarea mentionContext={{ surface: "post", postId: postOverlayData?.post.id, shareId: postOverlayNotification?.share_id }}
                                       value={postOverlayReplyDraft}
                                       onChange={(event) =>
                                         setPostOverlayReplyDraft(
@@ -2988,7 +3050,7 @@ export default function NotificationsPage() {
                         borderTop: "1px solid rgba(255,255,255,0.10)",
                       }}
                     >
-                      <textarea
+                      <MentionTextarea mentionContext={{ surface: "post", postId: postOverlayData?.post.id, shareId: postOverlayNotification?.share_id }}
                         ref={postOverlayCommentComposerRef}
                         value={postOverlayCommentDraft}
                         onChange={(event) =>
@@ -3915,6 +3977,9 @@ export default function NotificationsPage() {
           </div>
         </>
       ) : null}
+      {pathname === "/notifications" && (
+        <CommunityMobileBottomNav viewerId={currentUserId} />
+      )}
     </main>
   );
 }

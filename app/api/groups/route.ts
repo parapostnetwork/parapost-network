@@ -92,6 +92,23 @@ export async function GET(request: Request) {
         throw (likes.error || mine.error || comments.error ||
                commentLikeStats.error || shareStats.error);
 
+      const targetCommentId = params.get('comment');
+      if (targetCommentId) {
+        if (!UUID.test(targetCommentId)) throw new Error('Invalid comment');
+        if (!comments.data?.some(comment => comment.id === targetCommentId)) {
+          const target = await client.rpc('parapost_mention_comment_thread', {
+            p_surface: 'group', p_container_id: groupId, p_post_id: postId, p_comment_id: targetCommentId
+          });
+          if (!target.error && Array.isArray(target.data)) {
+            const merged = new Map((comments.data ?? []).map(comment => [comment.id, comment]));
+            for (const comment of target.data) {
+              if (comment.post_id === postId) merged.set(comment.id, comment);
+            }
+            comments.data = [...merged.values()];
+          }
+        }
+      }
+
       const shareCount = Number(shareStats.data);
       if (!Number.isSafeInteger(shareCount) || shareCount < 0)
         throw new Error('Invalid share count');

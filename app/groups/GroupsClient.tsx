@@ -1,4 +1,5 @@
 'use client';
+import MentionTextarea from "@/components/MentionTextarea";
 import { communityStorageNamespace } from '@/lib/community/release-target';
 import ExpandablePostText from '@/components/ExpandablePostText';
 
@@ -700,7 +701,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       <aside className={styles.aboutSidebar} data-community-sidebar="group"><GroupAbout group={group}/></aside>
       <div className={styles.discussionColumn} data-community-primary="group">
       {canRead&&!approved&&<p className={styles.readingNotice}>You’re viewing a public discussion. Join this Group to participate.</p>}
-      {approved && <GroupPostComposer userId={userId} profile={viewerProfile}
+      {approved && <GroupPostComposer groupId={group.id} userId={userId} profile={viewerProfile}
         groupName={group.name}
         avatarPath={group.avatar_storage_path ?? null}
         content={content}
@@ -767,7 +768,7 @@ const requestNumber=useRef(0);const mutationLock=useRef(false);
       }}>Delete post</button>
   </div>}
 </div>
-)}</div>{editPost===post.id?<form className={posting.editForm} onSubmit={e=>{e.preventDefault();void perform(async()=>{await groupAction('edit_post',group.id,{post_id:post.id,content:editContent});setEditPost(undefined);});}}><label>Edit post<textarea maxLength={5000} value={editContent} onChange={e=>setEditContent(e.target.value)}/></label><button disabled={busy}>Save post</button><button type="button" onClick={()=>setEditPost(undefined)}>Cancel</button></form>:<ExpandablePostText text={post.content} style={postContentStyle} />}
+)}</div>{editPost===post.id?<form className={posting.editForm} onSubmit={e=>{e.preventDefault();void perform(async()=>{await groupAction('edit_post',group.id,{post_id:post.id,content:editContent});setEditPost(undefined);});}}><label>Edit post<MentionTextarea mentionContext={{ surface: "group", containerId: group.id, postId: post.id }} maxLength={5000} value={editContent} onChange={e=>setEditContent(e.target.value)}/></label><button disabled={busy}>Save post</button><button type="button" onClick={()=>setEditPost(undefined)}>Cancel</button></form>:<ExpandablePostText text={post.content} style={postContentStyle} />}
         <GroupPostMedia groupId={group.id} postId={post.id} media={post.group_post_media} read={groupsFetch} />
 
       <GroupPostActions viewerId={userId} ownerId={group.owner_id}

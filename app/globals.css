@@ -1063,3 +1063,13 @@ main {
     pointer-events: auto !important;
   }
 }
+
+
+/* Mobile Dashboard feed tab left spacing */
+@media (max-width: 760px) {
+  html body .dashboard-main-column
+  > .dashboard-card.dashboard-feed-tabs-mobile-inset {
+    padding-left: 16px !important;
+    padding-right: 6px !important;
+  }
+}

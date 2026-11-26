@@ -100,10 +100,10 @@ function Preview({ file, index, count, disabled, onRemove }: {
   </button>;
 }
 
-export default function GroupPostComposer({ profile,
+export default function GroupPostComposer({ profile, groupId,
   groupName, avatarPath,
   content, setContent, files, setFiles, busy, onPublish }: {
-  userId: string; profile: PostProfile | null;
+  groupId: string; userId: string; profile: PostProfile | null;
   groupName: string; avatarPath: string | null;
   content: string; setContent: (value: string) => void;
   files: File[]; setFiles: (files: File[]) => void; busy: boolean; onPublish: () => void;
@@ -113,7 +113,7 @@ export default function GroupPostComposer({ profile,
   const firstName = (profile?.full_name || profile?.username || 'there').trim().split(' ')[0];
   return <form data-posting className={`${styles.posting} ${styles.composer}`} style={composerCardStyle}
     onSubmit={event => { event.preventDefault(); if (!busy) onPublish(); }} aria-label="Create a Group post">
-    <PostComposerInput className={styles.composerTop}
+    <PostComposerInput mentionContext={{ surface: 'group', containerId: groupId }} className={styles.composerTop}
       avatar={<GroupAvatarView path={avatarPath} name={groupName} size={48} />}
       inputProps={{ value: content, onChange: event => setContent(event.target.value), maxLength: 5000,
         placeholder: `What's on your mind, ${firstName}?`, 'aria-label': 'Write a Group post' }}

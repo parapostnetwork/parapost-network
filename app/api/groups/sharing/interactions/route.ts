@@ -36,6 +36,21 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
+    const targetComment = params.get('comment');
+    if (targetComment) {
+      if (!UUID.test(targetComment)) throw new Error('Invalid comment');
+      if (data && Array.isArray(data.comments) && !data.comments.some((row: { id: string }) => row.id === targetComment)) {
+        const target = await client.rpc('parapost_mention_shared_thread', {
+          p_kind: kind, p_share_id: shareId, p_comment_id: targetComment
+        });
+        if (!target.error && Array.isArray(target.data)) {
+          const merged = new Map(data.comments.map((row: { id: string }) => [row.id, row]));
+          for (const row of target.data) if (row.share_id === shareId) merged.set(row.id, row);
+          data.comments = [...merged.values()];
+        }
+      }
+    }
+
     return Response.json(data, {
       headers: privateHeaders
     });

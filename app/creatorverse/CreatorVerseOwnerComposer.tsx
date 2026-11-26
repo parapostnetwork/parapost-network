@@ -302,7 +302,7 @@ export default function CreatorVerseOwnerComposer({
       className={styles.composer}
       style={composerCardStyle}
     >
-      <PostComposerInput
+      <PostComposerInput mentionContext={{ surface: 'creatorverse', containerId: pageId }}
         className={styles.composerRow}
         avatar={avatar}
         disabled={busy}
