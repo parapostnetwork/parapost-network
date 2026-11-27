@@ -138,6 +138,7 @@ export default function CreatorVersePostMedia({ attachments, onRemove, disabled 
     return item.kind === 'video'
       ? <PostVideoOverlay
           src={item.url}
+          thumbnailSrc={item.url.split('#')[0] + '#t=0.001'}
           label={item.name}
           className={grid ? undefined : styles.singleMedia}
           style={grid
