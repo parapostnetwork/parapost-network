@@ -17287,75 +17287,74 @@ return (
                           {profileBlockedActionLabel}
                         </button>
                       ) : (
-                        <>
+                        <div className="profile-compact-actions">
                           <button
                             type="button"
-                            onClick={handleFollowToggle}
+                            onClick={handleFollowToggle} data-profile-compact="follow" data-profile-primary={!isFollowing ? "true" : "false"}
                             disabled={followLoading}
                             className={isFollowing ? "profile-mobile-secondary-real" : "profile-mobile-primary-real"}
                           >
-                            {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M19 8v6M16 11h6"/></svg><span>{followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}</span>
                           </button>
 
                           {friendStatus === "none" ? (
                             <button
                               type="button"
-                              onClick={handleSendFriendRequest}
+                              onClick={handleSendFriendRequest} data-profile-compact="friend"
                               disabled={friendLoading}
                               className="profile-mobile-secondary-real"
                             >
-                              {friendLoading ? "Saving..." : "Add Friend"}
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M19 8v6M16 11h6"/></svg><span>{friendLoading ? "Saving..." : "Add Friend"}</span>
                             </button>
                           ) : friendStatus === "outgoing_request" ? (
                             <button
                               type="button"
-                              onClick={handleCancelFriendRequest}
+                              onClick={handleCancelFriendRequest} data-profile-compact="friend"
                               disabled={friendLoading}
                               className="profile-mobile-secondary-real"
                             >
-                              {friendLoading ? "Saving..." : "Requested"}
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-10 2 2 4-4"/></svg><span>{friendLoading ? "Saving..." : "Requested"}</span>
                             </button>
                           ) : friendStatus === "incoming_request" ? (
                             <>
                               <button
                                 type="button"
-                                onClick={handleAcceptFriendRequest}
+                                onClick={handleAcceptFriendRequest} data-profile-compact="friend" data-profile-primary="true"
                                 disabled={friendLoading}
                                 className="profile-mobile-primary-real"
                               >
-                                {friendLoading ? "Saving..." : "Accept"}
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-10 2 2 4-4"/></svg><span>{friendLoading ? "Saving..." : "Accept"}</span>
                               </button>
 
                               <button
                                 type="button"
-                                onClick={handleDeclineFriendRequest}
+                                onClick={handleDeclineFriendRequest} data-profile-compact="friend"
                                 disabled={friendLoading}
                                 className="profile-mobile-secondary-real"
                               >
-                                {friendLoading ? "Saving..." : "Decline"}
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-10 2 2 4-4"/></svg><span>{friendLoading ? "Saving..." : "Decline"}</span>
                               </button>
                             </>
                           ) : friendStatus === "friends" ? (
                             <button
                               type="button"
-                              onClick={handleRemoveFriend}
+                              onClick={handleRemoveFriend} data-profile-compact="friend"
                               disabled={friendLoading}
                               className="profile-mobile-secondary-real"
                             >
-                              {friendLoading ? "Saving..." : "Friends"}
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-10 2 2 4-4"/></svg><span>{friendLoading ? "Saving..." : "Friends"}</span>
                             </button>
                           ) : null}
 
                           {friendStatus === "friends" ? (
                             <button
                               type="button"
-                              onClick={handleMessageUser}
+                              onClick={handleMessageUser} data-profile-compact="chat"
                               className="profile-mobile-primary-real"
                             >
-                              Parachat
-                            </button>
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5A8.5 8.5 0 1 1 21 11.5Z"/></svg><span>Parachat</span>                            </button>
                           ) : null}
-                        </>
+                        </div>
                       )
                     ) : null}
                   </div>
@@ -17464,75 +17463,74 @@ return (
                               {profileBlockedActionLabel}
                             </button>
                           ) : (
-                            <>
+                            <div className="profile-compact-actions">
                               <button
                                 type="button"
-                                onClick={handleFollowToggle}
+                                onClick={handleFollowToggle} data-profile-compact="follow" data-profile-primary={!isFollowing ? "true" : "false"}
                                 disabled={followLoading}
                                 style={isFollowing ? profileGlassButtonStyle : profilePrimaryButtonStyle}
                               >
-                                {followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M19 8v6M16 11h6"/></svg><span>{followLoading ? "Saving..." : isFollowing ? "Following" : "Follow"}</span>
                               </button>
 
                               {friendStatus === "none" ? (
                                 <button
                                   type="button"
-                                  onClick={handleSendFriendRequest}
+                                  onClick={handleSendFriendRequest} data-profile-compact="friend"
                                   disabled={friendLoading}
                                   style={profilePrimaryButtonStyle}
                                 >
-                                  {friendLoading ? "Saving..." : "Add Friend"}
+                                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M19 8v6M16 11h6"/></svg><span>{friendLoading ? "Saving..." : "Add Friend"}</span>
                                 </button>
                               ) : friendStatus === "outgoing_request" ? (
                                 <button
                                   type="button"
-                                  onClick={handleCancelFriendRequest}
+                                  onClick={handleCancelFriendRequest} data-profile-compact="friend"
                                   disabled={friendLoading}
                                   style={profileGlassButtonStyle}
                                 >
-                                  {friendLoading ? "Saving..." : "Requested"}
+                                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-10 2 2 4-4"/></svg><span>{friendLoading ? "Saving..." : "Requested"}</span>
                                 </button>
                               ) : friendStatus === "incoming_request" ? (
                                 <>
                                   <button
                                     type="button"
-                                    onClick={handleAcceptFriendRequest}
+                                    onClick={handleAcceptFriendRequest} data-profile-compact="friend" data-profile-primary="true"
                                     disabled={friendLoading}
                                     style={profilePrimaryButtonStyle}
                                   >
-                                    {friendLoading ? "Saving..." : "Accept"}
+                                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-10 2 2 4-4"/></svg><span>{friendLoading ? "Saving..." : "Accept"}</span>
                                   </button>
 
                                   <button
                                     type="button"
-                                    onClick={handleDeclineFriendRequest}
+                                    onClick={handleDeclineFriendRequest} data-profile-compact="friend"
                                     disabled={friendLoading}
                                     style={profileGlassButtonStyle}
                                   >
-                                    {friendLoading ? "Saving..." : "Decline"}
+                                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-10 2 2 4-4"/></svg><span>{friendLoading ? "Saving..." : "Decline"}</span>
                                   </button>
                                 </>
                               ) : friendStatus === "friends" ? (
                                 <button
                                   type="button"
-                                  onClick={handleRemoveFriend}
+                                  onClick={handleRemoveFriend} data-profile-compact="friend"
                                   disabled={friendLoading}
                                   style={profileGlassButtonStyle}
                                 >
-                                  {friendLoading ? "Saving..." : "Friends"}
+                                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-10 2 2 4-4"/></svg><span>{friendLoading ? "Saving..." : "Friends"}</span>
                                 </button>
                               ) : null}
 
                               {friendStatus === "friends" ? (
                                 <button
                                   type="button"
-                                  onClick={handleMessageUser}
+                                  onClick={handleMessageUser} data-profile-compact="chat"
                                   style={profilePrimaryButtonStyle}
                                 >
-                                  Parachat
-                                </button>
+                                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5A8.5 8.5 0 1 1 21 11.5Z"/></svg><span>Parachat</span>                                </button>
                               ) : null}
-                            </>
+                            </div>
                           )
                         ) : null}
                         {profileIsReady ? (

@@ -1086,3 +1086,116 @@ main {
     overscroll-behavior: none !important;
   }
 }
+
+
+/* Compact public profile action buttons */
+
+html body .profile-compact-actions.profile-compact-actions {
+  --action-width: 100px;
+  --action-height: 34px;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  grid-column: 1 / -1;
+}
+
+html body .profile-compact-actions.profile-compact-actions
+> button[data-profile-compact] {
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 1 var(--action-width) !important;
+  width: var(--action-width) !important;
+  min-width: 0 !important;
+  height: var(--action-height) !important;
+  min-height: var(--action-height) !important;
+  max-height: var(--action-height) !important;
+  gap: 5px !important;
+  margin: 0 !important;
+  padding: 0 5px !important;
+  border: 1px solid #42364f !important;
+  border-radius: 8px !important;
+  background: #22232a !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+
+html body .profile-compact-actions.profile-compact-actions
+> button[data-profile-primary="true"] {
+  background: #7738ba !important;
+  color: #ffffff !important;
+}
+
+html body .profile-compact-actions
+> button[data-profile-compact] > svg {
+  width: 14px !important;
+  height: 14px !important;
+  flex: 0 0 14px !important;
+}
+
+html body .profile-compact-actions
+> button[data-profile-compact="chat"] > svg {
+  color: #c39aff !important;
+}
+
+html body .profile-compact-actions
+> button[data-profile-compact] > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html body .profile-compact-actions
+> button[data-profile-compact]:disabled {
+  opacity: 0.65 !important;
+  cursor: not-allowed !important;
+}
+
+@media (min-width: 721px) {
+  html body .profile-hero-actions.profile-public-actions:has(> .profile-compact-actions) {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1180px) {
+  html body .profile-compact-actions.profile-compact-actions {
+    --action-width: 106px;
+    --action-height: 36px;
+  }
+}
+
+@media (max-width: 720px) {
+  html body .profile-compact-actions.profile-compact-actions {
+    --action-height: 44px;
+    width: 100% !important;
+    max-width: 340px !important;
+  }
+
+  html body .profile-compact-actions.profile-compact-actions
+  > button[data-profile-compact] {
+    flex: 1 1 0 !important;
+    width: 0 !important;
+    font-size: 11px !important;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 1180px) {
+  html body .profile-compact-actions.profile-compact-actions {
+    --action-height: 44px;
+  }
+}
