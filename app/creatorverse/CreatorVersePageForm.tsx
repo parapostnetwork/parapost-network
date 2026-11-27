@@ -205,6 +205,7 @@ export default function CreatorVersePageForm({
         </div>
         <div
           className={styles.previewLogo}
+          style={logoPreview ? { background: '#ffffff' } : undefined}
           role="img"
           aria-label={logoPreview ? 'Selected logo' : 'Default page logo'}
         >

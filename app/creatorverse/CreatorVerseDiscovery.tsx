@@ -26,7 +26,9 @@ function CreatorVerseCardAvatar({ pageId, sample = false }: { pageId: string; sa
   const showLogo = !sample && !logoUnavailable;
 
   return (
-    <div className={styles.avatar} aria-hidden="true">
+    <div className={styles.avatar}
+      style={showLogo ? { background: '#ffffff' } : undefined}
+      aria-hidden="true">
       <Image
         src={showLogo
           ? `/api/creatorverse/pages/${encodeURIComponent(pageId)}/images/logo`

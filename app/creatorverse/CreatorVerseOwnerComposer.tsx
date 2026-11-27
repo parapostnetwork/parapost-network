@@ -64,10 +64,14 @@ async function sendPost(
 export default function CreatorVerseOwnerComposer({
   pageId,
   pageName,
+  logoSrc,
+  onLogoError,
   onPublished,
 }: {
   pageId: string;
   pageName: string;
+  logoSrc?: string;
+  onLogoError?: () => void;
   onPublished?: () => void;
 }) {
   const [content, setContent] = useState('');
@@ -285,10 +289,19 @@ export default function CreatorVerseOwnerComposer({
   }
 
   const avatar = (
-    <span className={styles.avatar}>
-      <span aria-hidden="true">
-        {pageName.trim().charAt(0).toUpperCase() || 'C'}
-      </span>
+    <span className={styles.avatar}
+      style={logoSrc ? { background: '#ffffff' } : undefined}>
+      {logoSrc ? (
+        <img src={logoSrc} alt=""
+          onError={onLogoError}
+          style={{ width: '100%', height: '100%', objectFit: 'cover',
+            filter: 'none', opacity: 1, mixBlendMode: 'normal' }}
+        />
+      ) : (
+        <span aria-hidden="true">
+          {pageName.trim().charAt(0).toUpperCase() || 'C'}
+        </span>
+      )}
     </span>
   );
 

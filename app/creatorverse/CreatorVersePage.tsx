@@ -456,7 +456,8 @@ export default function CreatorVersePage({ id }: { id: string }) {
           </div>
 
           <div className={`${draftStyles.identity} ${!canManage ? profileStyles.identity : ""}`}>
-            <div className={draftStyles.avatar}>
+            <div className={draftStyles.avatar}
+      style={logoAvailable ? { background: '#ffffff' } : undefined}>
               {logoAvailable ? (
                 <Image
                   src={logoSrc}
@@ -608,6 +609,8 @@ export default function CreatorVersePage({ id }: { id: string }) {
                     key={`${id}:${viewerId}`}
                   pageId={id}
                   pageName={page.name}
+                  logoSrc={logoAvailable ? logoSrc : undefined}
+                  onLogoError={() => setLogoAvailable(false)}
                   onPublished={() => { void refreshPublishedPosts(); }}
                 />
               )}
