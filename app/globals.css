@@ -1245,3 +1245,194 @@ html body .profile-compact-actions
     max-width: calc(100% - 56px) !important;
   }
 }
+
+
+/* Modern mobile dashboard control centre */
+
+html body .modern-control-centre {
+  background: #101116 !important;
+  background-image: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+  color: #f3f2f7;
+}
+
+html body .modern-control-centre .modern-menu-header {
+  display: grid !important;
+  grid-template-columns: 58px minmax(0,1fr) 44px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 12px 16px !important;
+  min-height: 68px !important;
+  background: #101116 !important;
+  border-bottom: 1px solid rgba(255,255,255,.08) !important;
+}
+
+html body .modern-control-centre .modern-menu-header h2 {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.025em !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+html body .modern-control-centre .modern-menu-back {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  min-height: 44px !important;
+}
+
+html body .modern-control-centre .modern-menu-back span {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+html body .modern-control-centre[data-section="main"] .modern-menu-back {
+  visibility: hidden;
+}
+
+html body .modern-control-centre .modern-menu-close {
+  width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 12px !important;
+  font-size: 23px !important;
+  font-weight: 400 !important;
+  background: #23242d !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+}
+
+html body .modern-control-centre .modern-menu-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 14px 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+html body .modern-control-centre .modern-menu-section {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #b7a0df !important;
+  letter-spacing: .04em !important;
+  margin: 4px 0 6px !important;
+}
+
+html body .modern-control-centre .modern-menu-row {
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  min-height: 54px !important;
+  height: auto !important;
+  gap: 10px !important;
+  padding: 9px 12px !important;
+  margin: 0 !important;
+  background: #1c1e27 !important;
+  border: 1px solid rgba(255,255,255,.07) !important;
+  border-radius: 13px !important;
+  box-shadow: none !important;
+  font-size: 15px !important;
+  text-decoration: none !important;
+  text-align: left !important;
+}
+
+html body .modern-control-centre .modern-menu-label {
+  display: flex !important;
+  flex: 1;
+  align-items: center !important;
+  gap: 11px !important;
+  min-width: 0 !important;
+  font-size: 15px !important;
+  font-weight: 550 !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+}
+
+html body .modern-control-centre .modern-menu-label-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+html body .modern-control-centre .modern-menu-icon {
+  display: grid !important;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: #30263f;
+  color: #c4a6ed;
+}
+
+html body .modern-control-centre
+:is([data-label="Friends"], [data-label="Following"], [data-label="Followers"])
+.modern-menu-icon {
+  background: #25334a;
+  color: #9cbbf1;
+}
+
+html body .modern-control-centre
+:is([data-label="Groups"], [data-label="Privacy & Safety"])
+.modern-menu-icon {
+  background: #223930;
+  color: #99d6b4;
+}
+
+html body .modern-control-centre
+:is([data-label="Notifications"], [data-label="Ads & Sponsors"])
+.modern-menu-icon {
+  background: #3b3023;
+  color: #eac083;
+}
+
+html body .modern-control-centre .modern-menu-chevron {
+  font-size: 20px !important;
+  font-weight: 400 !important;
+  color: #999bab !important;
+}
+
+html body .modern-control-centre[data-section="settings"]
+[data-label="Your Account"] {
+  background: #2a203b !important;
+  border-color: #50376b !important;
+  min-height: 76px !important;
+}
+
+html body .modern-control-centre .modern-menu-info {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.6 !important;
+  color: #a8adbd !important;
+  background: transparent !important;
+  padding: 10px 4px !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+html body .modern-control-centre .modern-menu-logout {
+  color: #efa1ac !important;
+  background: #302027 !important;
+  border-color: #53323c !important;
+}
+
+html body .modern-control-centre .modern-menu-logout .modern-menu-icon,
+html body .modern-control-centre [data-label="Blocked Users"] .modern-menu-icon {
+  background: #442b36;
+  color: #efa1ac;
+}
+
+html body .modern-control-centre .modern-menu-muted {
+  opacity: .65;
+}
+
+html body .modern-control-centre .modern-menu-row:focus-visible,
+html body .modern-control-centre .modern-menu-close:focus-visible,
+html body .modern-control-centre .modern-menu-back:focus-visible {
+  outline: 2px solid #b99ae7;
+  outline-offset: 2px;
+}

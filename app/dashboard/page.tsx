@@ -15754,9 +15754,9 @@ function MobileDashboardMenuDrawer({
   return createPortal(
     <>
       <div className="dashboard-mobile-menu-backdrop" style={mobileMenuBackdropStyle} onClick={onClose} />
-      <aside ref={menuDrawerRef} className="dashboard-mobile-menu-drawer" style={mobileMenuDrawerStyle} role="dialog" aria-modal="true" aria-label="Dashboard menu">
-        <div style={mobileMenuTopBarStyle}>
-          <button type="button" onClick={goBack} style={mobileMenuBackButtonStyle} aria-label={activeSection === "main" ? "Close dashboard menu" : "Back to previous menu"}>
+      <aside ref={menuDrawerRef} className="dashboard-mobile-menu-drawer modern-control-centre" data-section={activeSection} style={mobileMenuDrawerStyle} role="dialog" aria-modal="true" aria-label="Dashboard menu">
+        <div className="modern-menu-header" style={mobileMenuTopBarStyle}>
+          <button type="button" onClick={goBack} className="modern-menu-back" style={mobileMenuBackButtonStyle} aria-label={activeSection === "main" ? "Close dashboard menu" : "Back to previous menu"}>
             {activeSection === "main" ? (
               <span style={mobileMenuBackTextStyle}>Close</span>
             ) : (
@@ -15767,13 +15767,13 @@ function MobileDashboardMenuDrawer({
             )}
           </button>
           <h2 style={mobileMenuTitleStyle}>{sectionTitle}</h2>
-          <button type="button" onClick={onClose} style={mobileMenuCloseButtonStyle} aria-label="Close dashboard menu">×</button>
+          <button type="button" onClick={onClose} className="modern-menu-close" style={mobileMenuCloseButtonStyle} aria-label="Close dashboard menu">×</button>
         </div>
 
         <div ref={menuScrollRef} className="dashboard-mobile-menu-scroll-area" style={mobileMenuScrollAreaStyle}>
         {activeSection === "main" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Dashboard Extras</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Dashboard Extras</div>
             <MobileMenuLink href="/friends" label="Friends" badge={pendingFriendRequestCount || undefined} />
             <MobileMenuLink href={currentUserId ? `/profile/${currentUserId}/followers` : "/dashboard"} label="Followers" />
             <MobileMenuLink href={currentUserId ? `/profile/${currentUserId}/following` : "/dashboard"} label="Following" />
@@ -15790,43 +15790,43 @@ function MobileDashboardMenuDrawer({
         ) : null}
 
         {activeSection === "discover" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Private & Suggested</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Private & Suggested</div>
             <MobileMenuButton label={`Recently viewed${recentlyViewed.length ? ` (${recentlyViewed.length})` : ""}`} onClick={() => setActiveSection("discoverRecentlyViewed")} />
             <MobileMenuButton label={`People to discover${peopleToDiscover.length ? ` (${Math.min(peopleToDiscover.length, 4)})` : ""}`} onClick={() => setActiveSection("discoverPeople")} />
             <MobileMenuButton label="Trending in Parapost" onClick={() => setActiveSection("discoverTrending")} />
 
             <div style={mobileMenuDividerStyle} />
-            <div style={mobileMenuSectionHeadingStyle}>Timeline</div>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Timeline</div>
             <MobileMenuButton label="Timeline activity" onClick={() => setActiveSection("discoverActivity")} />
           </div>
         ) : null}
 
         {activeSection === "discoverRecentlyViewed" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Recently Viewed Profiles</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Recently Viewed Profiles</div>
             {recentlyViewed.length > 0 ? (
               recentlyViewed.map((profile) => <MobileMenuProfileLinkRow key={profile.id} profile={profile} />)
             ) : (
-              <div style={mobileMenuInfoCardStyle}>Profiles you recently viewed will appear here privately.</div>
+              <div className="modern-menu-info" style={mobileMenuInfoCardStyle}>Profiles you recently viewed will appear here privately.</div>
             )}
           </div>
         ) : null}
 
         {activeSection === "discoverPeople" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>People to Discover</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>People to Discover</div>
             {peopleToDiscover.length > 0 ? (
               peopleToDiscover.map((profile) => <MobileMenuProfileLinkRow key={profile.id} profile={profile} />)
             ) : (
-              <div style={mobileMenuInfoCardStyle}>New people to discover will appear here as more completed profiles are found.</div>
+              <div className="modern-menu-info" style={mobileMenuInfoCardStyle}>New people to discover will appear here as more completed profiles are found.</div>
             )}
           </div>
         ) : null}
 
         {activeSection === "discoverTrending" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Active Topics</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Active Topics</div>
             {trendingTopics.map((topic) => (
               <MobileMenuTrendDetailRow key={`${topic.title}-${topic.meta}`} title={topic.title} meta={topic.meta} />
             ))}
@@ -15834,8 +15834,8 @@ function MobileDashboardMenuDrawer({
         ) : null}
 
         {activeSection === "discoverActivity" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Timeline Activity</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Timeline Activity</div>
             <MobileMenuStatRow label="Following" value={followedCount} />
             <MobileMenuStatRow label="Feed items" value={feedItems} />
             <MobileMenuStatRow label="Likes" value={totalLikes} />
@@ -15845,53 +15845,53 @@ function MobileDashboardMenuDrawer({
         ) : null}
 
         {activeSection === "creator" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Creator tools</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Creator tools</div>
             <MobileMenuMutedRow label="Creator Studio" />
             <MobileMenuMutedRow label="Post insights" />
             <MobileMenuMutedRow label="Reel insights" />
             <MobileMenuMutedRow label="Saved replies" />
             <MobileMenuMutedRow label="Audience insights" />
 
-            <div style={mobileMenuInfoCardStyle}>
+            <div className="modern-menu-info" style={mobileMenuInfoCardStyle}>
               Creator tools will support profile growth, performance insights, sponsor opportunities, and future business features.
             </div>
           </div>
         ) : null}
 
         {activeSection === "ads" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Ads & Sponsors</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Ads & Sponsors</div>
             <MobileMenuLink href="/settings/payments" label="Payments & Promotions" />
             <MobileMenuLink href="/settings/payments" label="Sponsor Placements" />
             <MobileMenuLink href="/settings/payments" label="Advertise with Parapost Network" />
             <MobileMenuMutedRow label="Boosted Posts" />
             <MobileMenuMutedRow label="Sponsored Reels" />
 
-            <div style={mobileMenuInfoCardStyle}>
+            <div className="modern-menu-info" style={mobileMenuInfoCardStyle}>
               Payment tools are coming soon. Sponsor and ad placements will stay organized here and can also appear naturally inside the timeline later.
             </div>
           </div>
         ) : null}
 
         {activeSection === "hub" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Parapost Hub</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Parapost Hub</div>
             <MobileMenuMutedRow label="Ghost Hunts" />
             <MobileMenuMutedRow label="Investigations" />
             <MobileMenuMutedRow label="Evidence Collections" />
             <MobileMenuMutedRow label="Case Files" />
             <MobileMenuMutedRow label="Events" />
 
-            <div style={mobileMenuInfoCardStyle}>
+            <div className="modern-menu-info" style={mobileMenuInfoCardStyle}>
               Future community areas will live here so the mobile dashboard stays clean and focused.
             </div>
           </div>
         ) : null}
 
         {activeSection === "settings" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Settings & Support</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Settings & Support</div>
             <MobileMenuButton label="Your Account" onClick={() => setActiveSection("settingsAccount")} />
             <MobileMenuButton label="Privacy & Safety" onClick={() => setActiveSection("settingsPrivacy")} />
             <MobileMenuButton label="Help & Legal" onClick={() => setActiveSection("settingsHelp")} />
@@ -15899,8 +15899,8 @@ function MobileDashboardMenuDrawer({
         ) : null}
 
         {activeSection === "settingsAccount" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Your Account</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Your Account</div>
             <MobileMenuLink href="/settings" label="Settings Home" />
             <MobileMenuLink href="/settings/profile" label="Profile Settings" />
             <MobileMenuLink href="/settings/account" label="Account & Security" />
@@ -15912,8 +15912,8 @@ function MobileDashboardMenuDrawer({
         ) : null}
 
         {activeSection === "settingsPrivacy" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Privacy & Safety</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Privacy & Safety</div>
             <MobileMenuLink href="/settings/profile-visibility" label="Profile Visibility" />
             <MobileMenuLink href="/settings/privacy-safety" label="Privacy & Safety Center" />
             <MobileMenuLink href="/settings/blocked-users" label="Blocked Users" />
@@ -15927,8 +15927,8 @@ function MobileDashboardMenuDrawer({
         ) : null}
 
         {activeSection === "settingsHelp" ? (
-          <div style={mobileMenuListWrapStyle}>
-            <div style={mobileMenuSectionHeadingStyle}>Help & Legal</div>
+          <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
+            <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Help & Legal</div>
             <MobileMenuLink href="/settings/help-support" label="Contact Parapost Network" />
             <MobileMenuLink href="/settings/help-support" label="Report a Problem" />
             <MobileMenuLink href="/settings/help-support" label="Account Help" />
@@ -15957,11 +15957,16 @@ function MobileMenuLink({
   badge?: number | string;
 }) {
   return (
-    <Link href={href} style={mobileMenuListRowStyle}>
-      <span style={mobileMenuRowLabelStyle}>{label}</span>
+    <Link href={href} className="modern-menu-row" data-label={label} style={mobileMenuListRowStyle}>
+      <span className="modern-menu-label" style={mobileMenuRowLabelStyle}>
+        <MobileControlCentreIcon label={label} />
+        <span className="modern-menu-label-copy">
+          {label}
+        </span>
+      </span>
       <span style={mobileMenuRowRightStyle}>
         {badge ? <span style={mobileMenuBadgeStyle}>{badge}</span> : null}
-        <span style={mobileMenuArrowStyle}>›</span>
+        <span className="modern-menu-chevron" style={mobileMenuArrowStyle}>›</span>
       </span>
     </Link>
   );
@@ -15975,9 +15980,14 @@ function MobileMenuButton({
   onClick: () => void;
 }) {
   return (
-    <button type="button" onClick={onClick} style={mobileMenuListRowButtonStyle}>
-      <span style={mobileMenuRowLabelStyle}>{label}</span>
-      <span style={mobileMenuArrowStyle}>›</span>
+    <button type="button" onClick={onClick} className="modern-menu-row" data-label={label} style={mobileMenuListRowButtonStyle}>
+      <span className="modern-menu-label" style={mobileMenuRowLabelStyle}>
+        <MobileControlCentreIcon label={label} />
+        <span className="modern-menu-label-copy">
+          {label}
+        </span>
+      </span>
+      <span className="modern-menu-chevron" style={mobileMenuArrowStyle}>›</span>
     </button>
   );
 }
@@ -15990,23 +16000,33 @@ function MobileMenuLogoutButton({
   onClick: () => void;
 }) {
   return (
-    <button type="button" onClick={onClick} style={mobileMenuLogoutButtonStyle}>
-      <span style={mobileMenuRowLabelStyle}>{label}</span>
+    <button type="button" onClick={onClick} className="modern-menu-row modern-menu-logout" data-label={label} style={mobileMenuLogoutButtonStyle}>
+      <span className="modern-menu-label" style={mobileMenuRowLabelStyle}>
+        <MobileControlCentreIcon label={label} />
+        <span className="modern-menu-label-copy">
+          {label}
+        </span>
+      </span>
     </button>
   );
 }
 
 function MobileMenuMutedRow({ label }: { label: string }) {
   return (
-    <div style={mobileMenuMutedRowStyle}>
-      <span style={mobileMenuRowLabelStyle}>{label}</span>
+    <div className="modern-menu-row modern-menu-muted" data-label={label} style={mobileMenuMutedRowStyle}>
+      <span className="modern-menu-label" style={mobileMenuRowLabelStyle}>
+        <MobileControlCentreIcon label={label} />
+        <span className="modern-menu-label-copy">
+          {label}
+        </span>
+      </span>
       <span style={mobileMenuComingSoonStyle}>Soon</span>
     </div>
   );
 }
 
 function MobileMenuInfoCardText({ text }: { text: string }) {
-  return <div style={mobileMenuInfoCardStyle}>{text}</div>;
+  return <div className="modern-menu-info" style={mobileMenuInfoCardStyle}>{text}</div>;
 }
 
 function MobileMenuProfileLinkRow({ profile }: { profile: ProfilePreview }) {
@@ -16014,13 +16034,13 @@ function MobileMenuProfileLinkRow({ profile }: { profile: ProfilePreview }) {
   const subline = profile.username ? `@${profile.username}` : profile.location || "View profile";
 
   return (
-    <Link href={`/profile/${profile.id}`} style={mobileMenuProfileLinkRowStyle}>
+    <Link href={`/profile/${profile.id}`} className="modern-menu-row" style={mobileMenuProfileLinkRowStyle}>
       <Avatar profile={profile} size={46} />
       <span style={mobileMenuProfileTextStyle}>
         <span style={mobileMenuProfileNameStyle}>{displayName}</span>
         <span style={mobileMenuProfileMetaStyle}>{subline}</span>
       </span>
-      <span style={mobileMenuArrowStyle}>›</span>
+      <span className="modern-menu-chevron" style={mobileMenuArrowStyle}>›</span>
     </Link>
   );
 }
@@ -16028,7 +16048,7 @@ function MobileMenuProfileLinkRow({ profile }: { profile: ProfilePreview }) {
 function MobileMenuTrendDetailRow({ title, meta }: { title: string; meta: string }) {
   return (
     <div style={mobileMenuDetailRowStyle}>
-      <span style={mobileMenuRowLabelStyle}>{title}</span>
+      <span className="modern-menu-label" style={mobileMenuRowLabelStyle}>{title}</span>
       <span style={mobileMenuDetailMetaStyle}>{meta}</span>
     </div>
   );
@@ -16037,9 +16057,52 @@ function MobileMenuTrendDetailRow({ title, meta }: { title: string; meta: string
 function MobileMenuStatRow({ label, value }: { label: string; value: number }) {
   return (
     <div style={mobileMenuDetailRowStyle}>
-      <span style={mobileMenuRowLabelStyle}>{label}</span>
+      <span className="modern-menu-label" style={mobileMenuRowLabelStyle}>
+        <MobileControlCentreIcon label={label} />
+        <span className="modern-menu-label-copy">
+          {label}
+        </span>
+      </span>
       <span style={mobileMenuStatValueStyle}>{value}</span>
     </div>
+  );
+}
+
+
+function MobileControlCentreIcon({ label }: { label: string }) {
+  const paths: Record<string, string> = {
+    "Friends": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M22 21v-2a4 4 0 0 0-3-4 M17 3a4 4 0 0 1 0 8",
+    "Followers": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M19 8v6 M16 11h6",
+    "Following": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M16 11l2 2 4-4",
+    "Groups": "M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M14 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M20 21v-2a4 4 0 0 0-3-4 M18 3a4 4 0 0 1 0 8",
+    "Discover": "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0 M16 8l-3 5-5 3 3-5z",
+    "Parapost Hub": "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
+    "Creator Tools": "M3 20h18 M5 16l5-5 4 3 6-8 M15 6h5v5",
+    "Ads & Sponsors": "M3 10v4h4l11 5V5L7 10z M7 14l2 7h3l-2-6",
+    "Settings & Support": "M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6",
+    "Your Account": "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
+    "Privacy & Safety": "M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11 M9 12l2 2 4-4",
+    "Help & Legal": "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0 M9 9a3 3 0 1 1 5 2c-2 1-2 2-2 3 M12 17h.01",
+    "Notifications": "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4",
+    "Blocked Users": "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0 M5 5l14 14",
+    "Log out": "M10 17l5-5-5-5 M15 12H3 M15 3h6v18h-6",
+  };
+
+  const path = paths[label] ||
+    (label.includes("Privacy") || label.includes("Security")
+      ? paths["Privacy & Safety"]
+      : label.includes("Profile") || label.includes("Account")
+        ? paths["Your Account"]
+        : paths["Settings & Support"]);
+
+  return (
+    <span className="modern-menu-icon" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" strokeWidth="1.8"
+        strokeLinecap="round" strokeLinejoin="round">
+        <path d={path} />
+      </svg>
+    </span>
   );
 }
 
