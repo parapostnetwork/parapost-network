@@ -21,6 +21,7 @@ function ComposerVideoPreview({ url, name }: {
 
   useEffect(() => {
     let active = true;
+    let captured = false;
     const video = document.createElement('video');
 
     video.muted = true;
@@ -28,7 +29,7 @@ function ComposerVideoPreview({ url, name }: {
     video.preload = 'auto';
 
     const capture = () => {
-      if (!active || !video.videoWidth || !video.videoHeight ||
+      if (!active || captured || !video.videoWidth || !video.videoHeight ||
           video.readyState < 2) return;
 
       try {
@@ -45,8 +46,24 @@ function ComposerVideoPreview({ url, name }: {
 
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        if (active) {
-          setThumbnail(canvas.toDataURL('image/jpeg', 0.85));
+        const pixels = ctx.getImageData(
+          0, 0, canvas.width, canvas.height
+        ).data;
+
+        let visible = false;
+
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i + 3] > 0 &&
+              Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) > 24) {
+            visible = true;
+            break;
+          }
+        }
+
+        if (active && visible && !captured) {
+          const image = canvas.toDataURL('image/jpeg', 0.85);
+          captured = true;
+          setThumbnail(image);
         }
       } catch {
         // Retain native video preview as fallback.
