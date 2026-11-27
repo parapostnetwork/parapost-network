@@ -1,6 +1,6 @@
 'use client';
 import PostVideoOverlay from '@/components/PostVideoOverlay';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PostMediaViewer, { type PostMediaViewerState } from '@/components/PostMediaViewer';
 
 import {
@@ -12,6 +12,79 @@ import {
 import styles from './CreatorVersePosting.module.css';
 
 export type LocalAttachment = { name: string; url: string; kind: 'image' | 'video'; blob?: Blob };
+
+function ComposerVideoPreview({ url, name }: {
+  url: string;
+  name: string;
+}) {
+  const [thumbnail, setThumbnail] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    const video = document.createElement('video');
+
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+
+    const capture = () => {
+      if (!active || !video.videoWidth || !video.videoHeight ||
+          video.readyState < 2) return;
+
+      try {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 960 / Math.max(
+          video.videoWidth, video.videoHeight
+        ));
+
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        if (active) {
+          setThumbnail(canvas.toDataURL('image/jpeg', 0.85));
+        }
+      } catch {
+        // Retain native video preview as fallback.
+      }
+    };
+
+    video.onloadedmetadata = () => {
+      if (!active) return;
+      try {
+        video.currentTime = Number.isFinite(video.duration)
+          ? Math.min(0.2, video.duration / 2)
+          : 0.2;
+      } catch {
+        // Some browsers cannot seek this file.
+      }
+    };
+
+    video.onseeked = capture;
+    video.onloadeddata = capture;
+    video.src = url;
+    video.load();
+
+    return () => {
+      active = false;
+      video.onloadedmetadata = null;
+      video.onseeked = null;
+      video.onloadeddata = null;
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [url]);
+
+  return thumbnail
+    ? <img src={thumbnail} alt={name} style={composerPreviewImageStyle} />
+    : <video src={url} muted playsInline preload="auto"
+        style={composerPreviewImageStyle} />;
+}
+
 export default function CreatorVersePostMedia({ attachments, onRemove, disabled = false }: {
   attachments: LocalAttachment[]; onRemove?: (index: number) => void; disabled?: boolean;
 }) {
@@ -28,7 +101,7 @@ export default function CreatorVersePostMedia({ attachments, onRemove, disabled 
             aria-label={`Remove selected media ${index + 1}: ${item.name}`}
             onClick={() => onRemove(index)}
             style={{ ...composerPreviewTileStyle, ...(single ? composerPreviewSingleTileStyle : {}) }}>
-            {item.kind === 'video' ? <video src={item.url} muted playsInline preload="metadata" style={composerPreviewImageStyle} />
+            {item.kind === 'video' ? <ComposerVideoPreview key={item.url} url={item.url} name={item.name} />
               // Blob URLs are browser-local and cannot pass through the Next image optimizer.
               // eslint-disable-next-line @next/next/no-img-element
               : <img src={item.url} alt={item.name} style={composerPreviewImageStyle} />}
