@@ -13509,7 +13509,7 @@ function ComposerCard({
         <ComposerActionPill label="Photos" icon="▣" tone="green" onClick={() => fileInputRef.current?.click()} />
         <ComposerActionPill label="Parapost Reel" icon="▶" tone="pink" href="/reels?create=1" />
         <ComposerActionPill label="Live Stream" icon="◎" tone="red" href="/live" />
-        <ComposerActionPill label="Feeling / Activity" icon="●" tone="gold" active={!!selectedFeelingActivity} onClick={onOpenFeelingActivity} />
+        <ComposerActionPill label="Feeling" icon="●" tone="gold" active={!!selectedFeelingActivity} onClick={onOpenFeelingActivity} />
       </div>
 
       <div className="dashboard-composer-footer" style={composerFooterStyle}>
@@ -13551,9 +13551,72 @@ function ComposerActionPill({
   note?: string;
 }) {
   const toneStyle = composerActionToneStyles[tone];
+
+  const iconColors = {
+    green: { color: "#70e2a5", background: "#193d31" },
+    pink: { color: "#cfacff", background: "#40255d" },
+    red: { color: "#ff8188", background: "#50252e" },
+    gold: { color: "#ffdc74", background: "#493c20" },
+  }[tone];
+
+  const artwork =
+    icon === "▣" ? (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="m21 15-5-5L5 21" />
+      </>
+    ) : icon === "▶" ? (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4M7 12h10" />
+      </>
+    ) : icon === "◎" ? (
+      <>
+        <circle cx="12" cy="12" r="2" />
+        <path d="M16.24 7.76a6 6 0 0 1 0 8.48M7.76 7.76a6 6 0 0 0 0 8.48" />
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+      </>
+    ) : icon === "●" || icon === "✦" ? (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 14a4 4 0 0 0 8 0" />
+        <path d="M9 9h.01M15 9h.01" strokeWidth="3" />
+      </>
+    ) : null;
+
   const content = (
     <>
-      <span style={{ ...composerActionIconStyle, ...toneStyle }}>{icon}</span>
+      <span
+        aria-hidden="true"
+        style={{
+          ...composerActionIconStyle,
+          ...toneStyle,
+          ...(artwork ? {
+            ...iconColors,
+            borderRadius: 5
+          } : {})
+        }}
+      >
+        {artwork ? (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              width: "75%",
+              height: "75%",
+              display: "block",
+              flexShrink: 0
+            }}
+          >
+            {artwork}
+          </svg>
+        ) : icon}
+      </span>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
         {note ? <span style={composerActionNoteStyle}>{note}</span> : null}
