@@ -779,3 +779,55 @@ button[class~="min-h-11"] {
     margin-top: 0 !important;
   }
 }
+
+
+/* Settings native scroll optimization */
+
+.settings-app-shell > .pointer-events-none.absolute {
+  display: none !important;
+}
+
+@media (max-width: 1023px) {
+  html:has(.settings-app-shell) {
+    scroll-behavior: auto !important;
+  }
+
+  html body .settings-app-shell,
+  html body .settings-app-shell .settings-content-scroll {
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: clip !important;
+    overflow-y: visible !important;
+    scroll-behavior: auto !important;
+    scroll-snap-type: none !important;
+    overscroll-behavior-y: auto !important;
+    scrollbar-gutter: auto !important;
+    touch-action: pan-y pinch-zoom !important;
+  }
+
+  html body .settings-app-shell
+  .settings-content-scroll > main {
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: clip !important;
+    overflow-y: visible !important;
+    scroll-behavior: auto !important;
+  }
+
+  .settings-app-shell .settings-content-scroll
+  :is([class*="backdrop-blur"], [class*="blur-3xl"]) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .settings-app-shell .settings-modern-card {
+    transition: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .settings-app-shell .settings-content-scroll {
+    scroll-behavior: auto !important;
+    scroll-snap-type: none !important;
+  }
+}

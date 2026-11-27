@@ -1436,3 +1436,41 @@ html body .modern-control-centre .modern-menu-back:focus-visible {
   outline: 2px solid #b99ae7;
   outline-offset: 2px;
 }
+
+
+/* Mobile menu native scroll optimization */
+
+html body .modern-control-centre {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html body .modern-control-centre .modern-menu-header {
+  flex-shrink: 0 !important;
+}
+
+html body .modern-control-centre
+.dashboard-mobile-menu-scroll-area {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: auto !important;
+  scroll-snap-type: none !important;
+  overscroll-behavior-y: contain !important;
+  touch-action: pan-y pinch-zoom !important;
+}
+
+html body .modern-control-centre .modern-menu-list {
+  flex-shrink: 0 !important;
+  overflow: visible !important;
+}
+
+html body .modern-control-centre .modern-menu-row {
+  transition: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
