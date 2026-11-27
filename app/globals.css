@@ -1216,3 +1216,32 @@ html body .profile-compact-actions
     min-height: 42px !important;
   }
 }
+
+/* Consistent public profile desktop action alignment */
+@media (min-width: 721px) {
+  html body .profile-polish-surface.profile-mobile-first-polish
+  .profile-hero-topline:has(.profile-public-actions) {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    gap: 24px !important;
+    width: 100% !important;
+  }
+
+  html body .profile-polish-surface.profile-mobile-first-polish
+  .profile-hero-topline > .profile-public-actions {
+    align-self: flex-start !important;
+    justify-content: flex-start !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    max-width: 100% !important;
+  }
+
+  html body .profile-polish-surface.profile-mobile-first-polish
+  .profile-hero-topline:has(.profile-public-actions)
+  > .profile-identity-block {
+    max-width: calc(100% - 56px) !important;
+  }
+}
