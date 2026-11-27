@@ -682,3 +682,100 @@ button[class~="min-h-11"][class~="rounded-full"] {
     font-size: 18px !important;
   }
 }
+
+/* Notification Settings redesign */
+
+.settings-app-shell .notification-settings-page {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.settings-app-shell .notification-settings-page
+.notification-preference-card {
+  background: var(--settings-card) !important;
+  border: 1px solid var(--settings-border) !important;
+  border-radius: 12px !important;
+  padding: 15px !important;
+}
+
+.settings-app-shell .notification-settings-page
+.notification-preference-card h3 {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.settings-app-shell .notification-settings-page
+.notification-preference-card p {
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+}
+
+.settings-app-shell .notification-settings-page
+.notification-preference-card button {
+  flex-shrink: 0;
+  align-self: center !important;
+}
+
+.settings-app-shell .notification-settings-page
+.notification-preference-card span.rounded-full.border {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 4px 9px !important;
+}
+
+.settings-app-shell .notification-settings-page
+.notification-info-card {
+  background: var(--settings-card) !important;
+  border-radius: 14px !important;
+  padding: 15px !important;
+  box-shadow: none !important;
+}
+
+.settings-app-shell .notification-settings-page
+button[class~="min-h-11"] {
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.settings-app-shell .notification-settings-page
+.notification-settings-hero-grid .text-2xl {
+  font-size: 20px !important;
+  font-weight: 650 !important;
+}
+
+.settings-app-shell .notification-settings-page
+.notification-settings-content-grid {
+  gap: 14px !important;
+}
+
+@media (max-width: 639px) {
+  .settings-app-shell .notification-settings-page
+  .notification-preference-card {
+    padding: 12px !important;
+  }
+
+  .settings-app-shell .notification-settings-page
+  .notification-preference-card > div {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .settings-app-shell .notification-settings-page
+  .notification-preference-card > div > div {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .settings-app-shell .notification-settings-page
+  .notification-settings-info-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .settings-app-shell .notification-settings-page
+  .notification-settings-info-grid > * {
+    margin-top: 0 !important;
+  }
+}
