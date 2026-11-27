@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useState } from 'react';
+import PostVideoOverlay from '@/components/PostVideoOverlay';
 import PostMediaViewer, { type PostMediaViewerState } from '@/components/PostMediaViewer';
 import type {
   CreatorVersePublishedMedia as Media,
@@ -41,13 +42,12 @@ export default function CreatorVersePublishedMedia({
   };
 
   return media.media_type === 'video' ? (
-    <video
+    <PostVideoOverlay
       src={source}
-      controls
-      playsInline
-      preload="metadata"
+      thumbnailSrc={source + '#t=0.001'}
+      generatePoster
+      label="CreatorVerse published video"
       style={style}
-      aria-label="CreatorVerse published video"
     />
   ) : (
     <>
