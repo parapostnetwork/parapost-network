@@ -1,3 +1,4 @@
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { CreatorVerseError } from '@/lib/creatorverse/permissions';
 import { pageId } from '@/lib/creatorverse/validation';
 import {
@@ -20,7 +21,9 @@ export const dynamic = 'force-dynamic';
  * upload, verification and cleanup flow is approved.
  */
 function mediaReservationsApproved(): boolean {
-  return false;
+  return communityServerTargetAllowed() &&
+    process.env.CREATORVERSE_POST_WRITES_ENABLED === 'true' &&
+    process.env.CREATORVERSE_POST_MEDIA_UPLOADS_ENABLED === 'true';
 }
 
 type RouteContext = {

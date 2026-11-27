@@ -1,3 +1,4 @@
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { createClient } from '@supabase/supabase-js';
 import {
   requireCreatorVerseOwner,
@@ -14,8 +15,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function mediaVerificationApproved(): boolean {
-  // Keep disabled until staging security tests are complete.
-  return false;
+  return communityServerTargetAllowed() &&
+    process.env.CREATORVERSE_POST_WRITES_ENABLED === 'true' &&
+    process.env.CREATORVERSE_POST_MEDIA_UPLOADS_ENABLED === 'true';
 }
 
 type RouteContext = {

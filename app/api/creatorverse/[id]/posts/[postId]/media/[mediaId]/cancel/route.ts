@@ -1,3 +1,4 @@
+import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
@@ -13,8 +14,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function mediaCancellationApproved(): boolean {
-  // Must remain disabled until staging lifecycle testing.
-  return false;
+  return communityServerTargetAllowed() &&
+    process.env.CREATORVERSE_POST_WRITES_ENABLED === 'true' &&
+    process.env.CREATORVERSE_POST_MEDIA_UPLOADS_ENABLED === 'true';
 }
 
 type RouteContext = {

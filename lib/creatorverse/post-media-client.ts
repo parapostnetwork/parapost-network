@@ -1,5 +1,7 @@
 'use client';
 
+import { communityClientTargetAllowed } from '@/lib/community/release-target';
+
 import { supabase } from '@/lib/supabase';
 
 const formats = {
@@ -19,7 +21,8 @@ const uuidPattern =
  * are reviewed and tested on staging.
  */
 function mediaUploadClientApproved(): boolean {
-  return false;
+  return communityClientTargetAllowed() &&
+    process.env.NEXT_PUBLIC_CREATORVERSE_POST_MEDIA_UPLOADS_ENABLED === 'true';
 }
 
 export type PendingCreatorVerseUpload = Readonly<{
