@@ -15,6 +15,7 @@ type Props = {
   src: string;
   thumbnailSrc?: string;
   posterSrc?: string;
+  generatePoster?: boolean;
   label: string;
   className?: string;
   style?: CSSProperties;
@@ -26,6 +27,7 @@ export default function PostVideoOverlay({
   src,
   thumbnailSrc,
   posterSrc,
+  generatePoster = false,
   label,
   className,
   style
@@ -33,11 +35,165 @@ export default function PostVideoOverlay({
   const [open, setOpen] = useState(false);
   const [failedPoster, setFailedPoster] = useState<string | null>(null);
 
+  const [generatedPoster, setGeneratedPoster] = useState<{
+    source: string;
+    image: string;
+  } | null>(null);
+
+  const displayPoster = posterSrc ||
+    (generatedPoster?.source === src ? generatedPoster.image : undefined);
+
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const playerRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (!generatePoster || posterSrc || !src) return;
+
+    let active = true;
+    let started = false;
+    let observer: IntersectionObserver | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    let positions: number[] = [];
+    let index = 0;
+
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+
+    function stop() {
+      active = false;
+      observer?.disconnect();
+      clearTimeout(timer);
+      clearTimeout(deadline);
+      video.onloadedmetadata = null;
+      video.onloadeddata = null;
+      video.onseeked = null;
+      video.onerror = null;
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    }
+
+    function scheduleCapture(delay = 150) {
+      clearTimeout(timer);
+      if (active) timer = setTimeout(capture, delay);
+    }
+
+    function seekNext() {
+      if (!active) return;
+      if (index >= positions.length) {
+        stop();
+        return;
+      }
+
+      try {
+        video.currentTime = positions[index++];
+        scheduleCapture(500);
+      } catch {
+        scheduleCapture();
+      }
+    }
+
+    function capture() {
+      if (!active) return;
+
+      if (video.seeking || video.readyState < 2 ||
+          !video.videoWidth || !video.videoHeight) {
+        scheduleCapture(250);
+        return;
+      }
+
+      try {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(
+          1, 960 / Math.max(video.videoWidth, video.videoHeight)
+        );
+
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          stop();
+          return;
+        }
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const pixels = ctx.getImageData(
+          0, 0, canvas.width, canvas.height
+        ).data;
+
+        let visible = false;
+
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i + 3] > 0 &&
+              Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) > 24) {
+            visible = true;
+            break;
+          }
+        }
+
+        if (!visible) {
+          seekNext();
+          return;
+        }
+
+        const image = canvas.toDataURL('image/jpeg', 0.85);
+        setGeneratedPoster({ source: src, image });
+        stop();
+
+      } catch {
+        // Preserve normal playback if thumbnail generation is unavailable.
+        stop();
+      }
+    }
+
+    function start() {
+      if (!active || started) return;
+      started = true;
+
+      video.onloadedmetadata = () => {
+        const duration = Number.isFinite(video.duration)
+          ? video.duration : 4;
+
+        positions = [0.2, 0.8, 1.5, 3].map(
+          time => Math.min(time, duration / 2)
+        );
+
+        seekNext();
+      };
+
+      video.onloadeddata = () => scheduleCapture();
+      video.onseeked = () => scheduleCapture();
+      video.onerror = stop;
+
+      deadline = setTimeout(stop, 10000);
+      video.src = src.split('#')[0];
+      video.load();
+    }
+
+    if (typeof IntersectionObserver !== 'undefined' && triggerRef.current) {
+      observer = new IntersectionObserver(entries => {
+        if (entries.some(entry => entry.isIntersecting)) {
+          observer?.disconnect();
+          start();
+        }
+      }, { rootMargin: '100px' });
+
+      observer.observe(triggerRef.current);
+    } else {
+      start();
+    }
+
+    return stop;
+  }, [src, generatePoster, posterSrc]);
 
   useEffect(() => {
     if (!open) return;
@@ -158,10 +314,10 @@ export default function PostVideoOverlay({
         onClick={openVideo}
         aria-label={`Play video: ${label}`}
       >
-        {posterSrc && failedPoster !== posterSrc ? (
+        {displayPoster && failedPoster !== displayPoster ? (
           <img
-            src={posterSrc}
-            onError={() => setFailedPoster(posterSrc)}
+            src={displayPoster}
+            onError={() => setFailedPoster(displayPoster)}
             alt=""
             aria-hidden="true"
             className={styles.thumbnailVideo}
