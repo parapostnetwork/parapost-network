@@ -142,12 +142,7 @@ export default function CreatorVerseOwnerComposer({
       }
 
       if (attachments.length > 0 && !mediaVerified.current) {
-        if (mediaAttempted.current) {
-          throw new Error(
-            'An earlier upload did not finish verification. ' +
-            'Do not upload again until the draft is recovered.'
-          );
-        }
+        const recovering = mediaAttempted.current;
 
         const files = attachments.map(item => {
           if (!(item.blob instanceof File)) {
@@ -160,7 +155,8 @@ export default function CreatorVerseOwnerComposer({
         await uploadAndVerifyCreatorVerseMedia(
           pageId,
           draft.id,
-          files
+          files,
+          recovering
         );
         mediaVerified.current = true;
       }

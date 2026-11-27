@@ -21,7 +21,8 @@ export type VerifiedCreatorVerseMedia = {
 export async function uploadAndVerifyCreatorVerseMedia(
   pageId: string,
   postId: string,
-  files: readonly File[]
+  files: readonly File[],
+  recovering = false
 ): Promise<VerifiedCreatorVerseMedia[]> {
   if (files.length > 4) {
     throw new Error('Select no more than four attachments.');
@@ -41,7 +42,50 @@ export async function uploadAndVerifyCreatorVerseMedia(
 
   const verified: VerifiedCreatorVerseMedia[] = [];
 
+  const completed = new Map<number, string>();
+
+  if (recovering) {
+    const response = await fetch(
+      `/api/creatorverse/${encodeURIComponent(pageId)}/posts/${encodeURIComponent(postId)}/media/recover`,
+      {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Upload recovery could not be confirmed. Please retry.');
+    }
+
+    const body = await response.json();
+
+    if (!Array.isArray(body.verified)) {
+      throw new Error('Invalid upload recovery response.');
+    }
+
+    for (const item of body.verified) {
+      if (!Number.isInteger(item.order) ||
+          item.order < 0 ||
+          item.order >= files.length ||
+          typeof item.id !== 'string' ||
+          item.mimeType !== files[item.order].type ||
+          completed.has(item.order)) {
+        throw new Error('Saved attachments could not be matched.');
+      }
+
+      completed.set(item.order, item.id);
+    }
+  }
+
   for (const [index, file] of files.entries()) {
+    const existing = completed.get(index);
+
+    if (existing) {
+      verified.push({ mediaId: existing, verification: 'verified' });
+      continue;
+    }
+
     const pending = await uploadCreatorVersePostMedia(
       pageId,
       postId,
