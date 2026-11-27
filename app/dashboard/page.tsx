@@ -15892,7 +15892,27 @@ function MobileDashboardMenuDrawer({
         {activeSection === "settings" ? (
           <div className="modern-menu-list" style={mobileMenuListWrapStyle}>
             <div className="modern-menu-section" style={mobileMenuSectionHeadingStyle}>Settings & Support</div>
-            <MobileMenuButton label="Your Account" onClick={() => setActiveSection("settingsAccount")} />
+            <button
+  type="button"
+  className="modern-account-centre"
+  onClick={() => setActiveSection("settingsAccount")}
+>
+  <span className="modern-account-avatar">
+    {currentProfile ? (
+      <Avatar profile={currentProfile} size={52} />
+    ) : (
+      <MobileControlCentreIcon label="Your Account" />
+    )}
+  </span>
+  <span className="modern-account-copy">
+    <span className="modern-account-eyebrow">Your Account</span>
+    <strong>{currentProfile?.full_name || currentProfile?.username || "Your profile"}</strong>
+    <span className="modern-account-description">
+      Manage your account and preferences
+    </span>
+  </span>
+  <span className="modern-account-chevron" aria-hidden="true">›</span>
+</button>
             <MobileMenuButton label="Privacy & Safety" onClick={() => setActiveSection("settingsPrivacy")} />
             <MobileMenuButton label="Help & Legal" onClick={() => setActiveSection("settingsHelp")} />
           </div>
