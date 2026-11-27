@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import CreatorVerseReplayCard, {
   type CreatorVerseReplayShow,
@@ -9,9 +9,11 @@ import CreatorVerseReplayCard, {
 export default function CreatorVerseReplayFeed({
   pageId,
   currentUserId,
+  children,
 }: {
   pageId: string;
   currentUserId: string | null;
+  children?: (replays: CreatorVerseReplayShow[]) => ReactNode;
 }) {
   const [replays, setReplays] = useState<CreatorVerseReplayShow[]>([]);
 
@@ -26,7 +28,7 @@ export default function CreatorVerseReplayFeed({
         .eq('visibility', 'public')
         .eq('is_hidden', false)
         .eq('status', 'ended')
-        .order('updated_at', { ascending: false })
+        .order('ended_at', { ascending: false, nullsFirst: false })
         .limit(5);
 
       if (active && !error) {
@@ -41,6 +43,8 @@ export default function CreatorVerseReplayFeed({
       window.clearInterval(interval);
     };
   }, [pageId]);
+
+  if (children) return <>{children(replays)}</>;
 
   return (
     <>

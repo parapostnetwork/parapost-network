@@ -29,6 +29,7 @@ import CreatorVerseFollowers from './CreatorVerseFollowers';
 import CreatorVerseLivePanel from './CreatorVerseLivePanel';
 import CreatorVerseLiveHub from "./CreatorVerseLiveHub";
 import CreatorVerseReplayFeed from './CreatorVerseReplayFeed';
+import CreatorVerseReplayCard from './CreatorVerseReplayCard';
 import liveStyles from "./CreatorVerseLiveLayout.module.css";
 import styles from './creatorverse.module.css';
 import layout from './CreatorVerseGroupsLayout.module.css';
@@ -615,10 +616,7 @@ export default function CreatorVersePage({ id }: { id: string }) {
                 pageName={page.name}
                 currentUserId={viewerId}
               />
-              <CreatorVerseReplayFeed
-                pageId={id}
-                currentUserId={viewerId}
-              />
+              
 
               {postRefreshMessage && (
                 <p role="status">{postRefreshMessage}</p>
@@ -626,7 +624,48 @@ export default function CreatorVersePage({ id }: { id: string }) {
               {linkedPostError && (
                 <p role="alert">{linkedPostError}</p>
               )}
-              {posts.length ? posts.map(post => (
+              <CreatorVerseReplayFeed
+                key={id}
+                pageId={id}
+                currentUserId={viewerId}
+              >
+                {replays => {
+                  const timeline = [
+                    ...posts.map(post => ({
+                      kind: 'post' as const,
+                      post,
+                      key: `post-${post.id}`,
+                      timestamp: Date.parse(post.created_at) || 0,
+                    })),
+                    ...replays.map(show => ({
+                      kind: 'replay' as const,
+                      show,
+                      key: `replay-${show.id}`,
+                      timestamp: Date.parse(
+                        show.ended_at ||
+                        show.started_at ||
+                        show.scheduled_at ||
+                        show.updated_at || ''
+                      ) || 0,
+                    })),
+                  ].sort((a, b) =>
+                    b.timestamp - a.timestamp ||
+                    b.key.localeCompare(a.key)
+                  );
+
+                  return timeline.length ? timeline.map(item => {
+                    if (item.kind === 'replay') {
+                      return (
+                        <CreatorVerseReplayCard
+                          key={item.key}
+                          show={item.show}
+                          currentUserId={viewerId}
+                        />
+                      );
+                    }
+
+                    const post = item.post;
+                    return (
                 <article
                   key={post.id}
                   id={`creatorverse-post-${post.id}`}
@@ -705,11 +744,14 @@ export default function CreatorVersePage({ id }: { id: string }) {
                     </>}
                   />
                 </article>
-              )) : (
-                <p className={styles.empty}>
-                  This page hasn’t published any posts yet.
-                </p>
-              )}
+                    );
+                  }) : (
+                    <p className={styles.empty}>
+                      This page hasn’t published any posts yet.
+                    </p>
+                  );
+                }}
+              </CreatorVerseReplayFeed>
             </section>
           )}
 
