@@ -47,3 +47,4 @@ TASKS.md
 PROJECT_CONTEXT.md
 *.local.md
 SETTINGS_CHANGES_REPORT.txt
+/vendor/creatorverse-video/

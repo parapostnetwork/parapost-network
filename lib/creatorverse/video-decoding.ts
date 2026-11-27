@@ -1,7 +1,7 @@
 import "server-only";
 
 import { execFile } from "node:child_process";
-import { isAbsolute } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 
 const runExecutable = promisify(execFile);
@@ -21,7 +21,10 @@ const MAX_OUTPUT_BYTES = 256 * 1024;
 export async function decodeCreatorVerseVideoFile(
   filePath: string
 ): Promise<void> {
-  const executable = process.env.CREATORVERSE_FFMPEG_BIN;
+  const executable = process.env.CREATORVERSE_FFMPEG_BIN ||
+    (process.env.VERCEL === '1'
+      ? join(process.cwd(), 'vendor', 'creatorverse-video', 'ffmpeg')
+      : undefined);
 
   if (!executable || !isAbsolute(executable)) {
     throw new Error(
@@ -40,6 +43,11 @@ export async function decodeCreatorVerseVideoFile(
         "-xerror",
         "-err_detect", "explode",
         "-progress", "pipe:1",
+         "-protocol_whitelist", "file,pipe",
+        "-f", filePath.endsWith(".mp4") ? "mov" : "matroska",
+        ...(filePath.endsWith(".mp4")
+          ? ["-enable_drefs", "0", "-use_absolute_path", "0"]
+          : []),
         "-i", filePath,
         "-map", "0:v:0",
         "-map", "0:a?",
@@ -52,6 +60,7 @@ export async function decodeCreatorVerseVideoFile(
         timeout: MAX_DECODE_TIME_MS,
         maxBuffer: MAX_OUTPUT_BYTES,
         windowsHide: true,
+        env: { PATH: "/usr/bin:/bin", LANG: "C", NODE_ENV: process.env.NODE_ENV },
       }
     );
 

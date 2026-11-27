@@ -12,6 +12,7 @@ import {
 } from '@/lib/creatorverse/media-verification';
 
 export const runtime = 'nodejs';
+export const maxDuration = 90;
 export const dynamic = 'force-dynamic';
 
 function mediaVerificationApproved(): boolean {

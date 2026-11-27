@@ -36,7 +36,10 @@ export async function inspectCreatorVerseVideo(
   declaredMimeType: string,
   maxDurationSeconds: number
 ): Promise<CreatorVerseVideoProbeResult> {
-  const executable = process.env.CREATORVERSE_FFPROBE_BIN;
+  const executable = process.env.CREATORVERSE_FFPROBE_BIN ||
+    (process.env.VERCEL === '1'
+      ? join(process.cwd(), 'vendor', 'creatorverse-video', 'ffprobe')
+      : undefined);
 
   if (!executable || !isAbsolute(executable)) {
     throw new Error(
@@ -76,12 +79,18 @@ export async function inspectCreatorVerseVideo(
         "-show_entries",
         "format=duration,format_name:stream=codec_type,codec_name,width,height",
         "-of", "json",
+         "-protocol_whitelist", "file,pipe",
+        "-f", declaredMimeType === "video/mp4" ? "mov" : "matroska",
+        ...(declaredMimeType === "video/mp4"
+          ? ["-enable_drefs", "0", "-use_absolute_path", "0"]
+          : []),
         "-i", filename,
       ],
       {
         timeout: MAX_PROBE_TIME_MS,
         maxBuffer: MAX_PROBE_OUTPUT_BYTES,
         windowsHide: true,
+        env: { PATH: "/usr/bin:/bin", LANG: "C", NODE_ENV: process.env.NODE_ENV },
       }
     );
 
