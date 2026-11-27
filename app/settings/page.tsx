@@ -1,5 +1,7 @@
 "use client";
 
+import SettingsCategoryIcon from "@/components/SettingsCategoryIcon";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -357,62 +359,38 @@ export default function SettingsPage() {
   }) {
     const content = (
       <div
-        className={`group/card flex h-full flex-col rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-5 shadow-md transition-all duration-150 hover:border-white/[0.15] hover:bg-white/[0.06] hover:shadow-lg ${
-          card.active ? "" : "opacity-50 pointer-events-none"
-        }`}
+        className={`settings-modern-card ${card.active ? "" : "opacity-50 pointer-events-none"}`}
+        data-setting={card.href.split("/").pop()}
       >
-        {/* Group breadcrumb — shown in search results only */}
-        {groupLabel && (
-          <div className="mb-2 flex items-center gap-1.5">
-            <span className="text-[10px] text-purple-400/40" aria-hidden="true">{groupIcon}</span>
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-purple-300/40">
-              {groupLabel}
-            </span>
-          </div>
-        )}
-
-        {/* Eyebrow + badge row */}
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-purple-300/60">
-            {card.eyebrow}
-          </span>
-          {card.comingSoon ? (
-            <span className="rounded-full border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black text-amber-300">
-              Coming soon
-            </span>
-          ) : null}
+        <div className="settings-modern-icon">
+          <SettingsCategoryIcon route={card.href} />
         </div>
 
-        {/* Title */}
-        <h3 className="text-lg font-black leading-snug tracking-[-0.02em] text-white">
-          {card.title}
-        </h3>
-
-        {/* Description */}
-        <p className="mt-1.5 flex-1 text-sm leading-[1.55] text-slate-400">
-          {card.description}
-        </p>
-
-        {/* Item tags */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {card.items.map((item) => (
-            <span
-              key={item}
-              className="rounded-full border border-white/[0.07] bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-semibold text-slate-400"
-            >
-              {item}
-            </span>
-          ))}
+        <div className="settings-modern-card-copy">
+          {groupLabel && (
+            <div className="settings-modern-breadcrumb"><span aria-hidden="true">{groupIcon}</span> {groupLabel}</div>
+          )}
+          <div className="settings-modern-eyebrow">{card.eyebrow}</div>
+          <div className="settings-modern-title-row">
+            <h3>{card.title}</h3>
+            {card.comingSoon && (
+              <span className="settings-modern-soon">Coming soon</span>
+            )}
+          </div>
+          <p>{card.description}</p>
+          <div className="settings-modern-tags">
+            {card.items.map((item) => (
+              <span key={item}>{item}</span>
+            ))}
+          </div>
         </div>
 
-        {/* Arrow — shown on hover */}
-        {!card.comingSoon && (
-          <div className="mt-3 flex justify-end">
-            <span className="text-xs text-purple-400/0 transition-all duration-150 group-hover/card:text-purple-400/80">
-              Open →
-            </span>
-          </div>
-        )}
+        <svg className="settings-modern-chevron" width="16" height="16"
+          viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          aria-hidden="true">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
       </div>
     );
 
@@ -439,8 +417,10 @@ export default function SettingsPage() {
           />
         </div>
 
+        <h1 className="settings-modern-heading">Settings</h1>
+
         {/* Hero — user card */}
-        <div className="mb-4 rounded-[22px] border border-white/[0.08] bg-gradient-to-br from-purple-500/10 via-white/[0.04] to-slate-950/60 p-5 shadow-xl ring-1 ring-white/[0.04]">
+        <div className="settings-modern-account mb-4">
           <div className="flex items-center gap-4">
             {/* Avatar */}
             <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-slate-900 text-sm font-black ring-2 ring-white/10">
@@ -461,15 +441,15 @@ export default function SettingsPage() {
 
             {/* Name + email */}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-black leading-tight text-white">
+              <p className="settings-modern-account-name truncate">
                 {pageLoading ? "Loading…" : displayName}
               </p>
-              <p className="mt-0.5 truncate text-xs text-slate-500">{userEmail || "Signed out"}</p>
+              <p className="settings-modern-account-email truncate">{userEmail || "Signed out"}</p>
             </div>
           </div>
 
           {/* Quick actions — row below */}
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="settings-modern-quick-actions mt-4 flex flex-wrap gap-2">
             <Link
               href="/settings/help-support"
               onClick={prepareSettingsNavigation}
@@ -553,7 +533,7 @@ export default function SettingsPage() {
                   {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} for &ldquo;{searchQuery.trim()}&rdquo;
                 </p>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
+                <div className="settings-modern-grid">
                   {searchResults.map((result) => (
                     <SettingsCardItem
                       key={result.href}
@@ -600,12 +580,12 @@ export default function SettingsPage() {
                 {/* Section header */}
                 <div className="mb-3 flex items-center gap-2 px-0.5">
                   <span className="text-sm text-purple-400/50" aria-hidden="true">{group.icon}</span>
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-purple-300/80">
+                  <p className="settings-modern-section-heading">
                     {group.label}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
+                <div className="settings-modern-grid">
                   {group.cards.map((card) => (
                     <SettingsCardItem key={card.href} card={card} />
                   ))}

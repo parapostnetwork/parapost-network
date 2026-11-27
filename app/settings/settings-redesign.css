@@ -1,0 +1,684 @@
+/* Shared Settings design foundation */
+.settings-app-shell {
+  --settings-title-size: 1.625rem;
+  --settings-subtitle-size: 1.375rem;
+  --settings-label-size: 1rem;
+  --settings-description-size: .8125rem;
+  --settings-radius: 14px;
+  --settings-accent: var(--parapost-accent-readable-text, #c3a0ee);
+  --settings-border: rgba(255,255,255,.09);
+  --settings-card: #1c1e27;
+  --settings-muted: #adb3c2;
+}
+
+/* Main Settings page */
+.settings-hub-page .settings-modern-heading {
+  font-size: var(--settings-title-size);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -.025em;
+  margin: 0 0 18px;
+}
+
+.settings-hub-page .settings-modern-account {
+  background: linear-gradient(135deg,
+    var(--parapost-accent-active-bg, rgba(119,56,186,.18)),
+    var(--settings-card));
+  border: 1px solid var(--settings-border);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.settings-modern-account-name {
+  font-size: 1.0625rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.settings-modern-account-email {
+  font-size: var(--settings-description-size);
+  color: var(--settings-muted);
+  line-height: 1.5;
+}
+
+.settings-modern-quick-actions > a,
+.settings-modern-quick-actions > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 10px !important;
+  font-size: .875rem !important;
+  font-weight: 600 !important;
+  padding: 9px 13px !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.settings-modern-quick-actions > a:first-child {
+  background-color: #7738ba;
+}
+
+.settings-hub-page input[type="search"] {
+  min-height: 48px;
+  font-size: 1rem !important;
+  border-radius: 12px !important;
+  background: var(--settings-card);
+}
+
+.settings-modern-section-heading {
+  font-size: .875rem;
+  font-weight: 650;
+  color: var(--settings-accent);
+  letter-spacing: .015em;
+}
+
+.settings-modern-grid {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  gap: 9px;
+}
+
+.settings-modern-grid > a {
+  min-width: 0;
+}
+
+.settings-modern-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+  padding: 15px;
+  background: var(--settings-card);
+  border: 1px solid var(--settings-border);
+  border-radius: var(--settings-radius);
+  transition: background .15s, border-color .15s;
+}
+
+.settings-modern-card:hover {
+  background: #242632;
+  border-color: var(--parapost-accent-active-border, #76529e);
+}
+
+.settings-modern-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--parapost-accent-active-bg, #33254b);
+  color: var(--settings-accent);
+}
+
+.settings-modern-card-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-modern-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-modern-card h3 {
+  font-size: var(--settings-label-size);
+  font-weight: 650;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.settings-modern-card p {
+  font-size: var(--settings-description-size);
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--settings-muted);
+  margin: 5px 0 0;
+}
+
+.settings-modern-breadcrumb {
+  font-size: .75rem;
+  color: var(--settings-accent);
+  margin-bottom: 5px;
+}
+
+.settings-modern-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 9px;
+}
+
+.settings-modern-tags span {
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--settings-muted);
+  line-height: 1.5;
+}
+
+.settings-modern-chevron {
+  flex-shrink: 0;
+  align-self: center;
+  color: var(--settings-muted);
+}
+
+.settings-modern-soon {
+  color: #e9bf79;
+  font-size: .6875rem;
+  font-weight: 600;
+}
+
+.settings-modern-card[data-setting="notifications"] .settings-modern-icon {
+  color: #e9bf79;
+  background: #3b3020;
+}
+
+.settings-modern-card[data-setting="privacy-safety"] .settings-modern-icon {
+  color: #93d8b4;
+  background: #213a30;
+}
+
+.settings-modern-card[data-setting="blocked-users"] .settings-modern-icon {
+  color: #ec9ca9;
+  background: #39262e;
+}
+
+.settings-modern-card[data-setting="content-feed"] .settings-modern-icon {
+  color: #9bb6fa;
+  background: #252d49;
+}
+
+.settings-hub-page .space-y-7 > * + * {
+  margin-top: 22px;
+}
+
+@media (min-width: 768px) {
+  .settings-modern-grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-modern-card {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .settings-modern-icon {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .settings-hub-page .settings-modern-account {
+    padding: 15px;
+  }
+}
+
+
+/* Unified Settings subpage design */
+
+.settings-app-shell {
+  --settings-page-bg: #101116;
+  --settings-card: #1c1e27;
+  --settings-radius: 14px;
+  --settings-muted: #b0b4c2;
+  --settings-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--settings-font);
+  background-color: var(--settings-page-bg) !important;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* Reduce decorative background effects */
+
+.settings-app-shell > .pointer-events-none {
+  opacity: .15;
+}
+
+/* Consistent typography */
+
+.settings-app-shell .settings-content-scroll h1 {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.025em !important;
+  overflow-wrap: anywhere;
+}
+
+.settings-app-shell .settings-content-scroll h2 {
+  font-size: 18px !important;
+  font-weight: 650 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -.015em !important;
+}
+
+.settings-app-shell .settings-content-scroll h3 {
+  font-size: 16px !important;
+  font-weight: 650 !important;
+  line-height: 1.4 !important;
+  letter-spacing: -.01em !important;
+}
+
+.settings-app-shell .settings-content-scroll .font-black {
+  font-weight: 650 !important;
+}
+
+.settings-app-shell .settings-content-scroll .font-bold {
+  font-weight: 600 !important;
+}
+
+.settings-app-shell .settings-content-scroll p:not(.sr-only) {
+  line-height: 1.55 !important;
+}
+
+.settings-app-shell .settings-content-scroll p.text-sm {
+  font-size: 14px !important;
+}
+
+.settings-app-shell .settings-content-scroll .text-xs {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+.settings-app-shell .settings-content-scroll .uppercase {
+  letter-spacing: .045em !important;
+}
+
+.settings-app-shell .settings-content-scroll h1 + p {
+  margin-top: 12px !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+/* Modern card proportions */
+
+.settings-app-shell .settings-content-scroll
+:is(section, article, div, aside, button, a)[class*="rounded-["][class~="border"] {
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+.settings-app-shell .settings-content-scroll
+:is(section, article, div, aside)[class*="rounded-["][class~="border"][class*="shadow"] {
+  padding: 18px !important;
+  background-image: none !important;
+  background-color: var(--settings-card);
+}
+
+.settings-app-shell .settings-content-scroll
+:is(section, article, div)[class~="rounded-2xl"][class~="border"] {
+  border-radius: 12px !important;
+}
+
+.settings-app-shell .settings-content-scroll
+:is(section, article, div)[class~="shadow-2xl"] {
+  box-shadow: none !important;
+}
+
+/* Form fields */
+
+.settings-app-shell .settings-content-scroll
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]), select, textarea) {
+  font-family: inherit !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  min-height: 46px;
+  max-width: 100%;
+  border-radius: 10px !important;
+  padding: 11px 13px !important;
+}
+
+.settings-app-shell .settings-content-scroll textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.settings-app-shell .settings-content-scroll label:not(.sr-only) {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.5 !important;
+}
+
+/* Action buttons, excluding switches and colour swatches */
+
+.settings-app-shell .settings-content-scroll
+:is(button, a)[class*="px-5"][class*="py-3"]:not([role="switch"]),
+.settings-app-shell .settings-content-scroll
+button[class*="px-4"][class*="py-2.5"]:not([role="switch"]),
+.settings-app-shell .settings-content-scroll
+button[class*="px-5"][class*="py-2.5"]:not([role="switch"]) {
+  min-height: 44px !important;
+  border-radius: 10px !important;
+  font-family: inherit;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  padding: 11px 16px !important;
+  box-shadow: none !important;
+  white-space: normal;
+}
+
+/* Preserve existing switch mechanics and thumb positions */
+
+.settings-app-shell .settings-content-scroll
+span.relative.inline-flex.rounded-full.border {
+  box-shadow: none !important;
+}
+
+.settings-app-shell .settings-content-scroll
+span.inline-block.transform.rounded-full {
+  box-shadow: 0 1px 3px rgba(0,0,0,.18) !important;
+}
+
+/* Keyboard accessibility */
+
+.settings-app-shell .settings-content-scroll
+:is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--settings-accent);
+  outline-offset: 3px;
+}
+
+/* Consistent internal back navigation */
+
+.settings-app-shell .settings-content-scroll
+:is([class*="-back-row"], [class*="-topbar"])
+button {
+  min-height: 44px;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+/* Desktop sidebar */
+
+.settings-app-shell .settings-desktop-nav {
+  width: 250px;
+  background: #15161d !important;
+  border-right: 1px solid var(--settings-border);
+}
+
+.settings-app-shell .settings-desktop-nav p {
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  letter-spacing: .035em !important;
+  color: var(--settings-accent);
+}
+
+.settings-app-shell .settings-desktop-nav a {
+  min-height: 42px;
+  font-size: 14px !important;
+  font-weight: 550 !important;
+  line-height: 1.45;
+  border-radius: 9px !important;
+}
+
+.settings-app-shell .settings-desktop-nav a span.rounded-full {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+/* Legal document readability */
+
+.settings-app-shell .legal-document-page
+.legal-document-content-card :is(p, li),
+.settings-app-shell .child-safety-page
+.policy-section :is(p, li) {
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+}
+
+.settings-app-shell .child-safety-page .legal-card {
+  border-radius: 16px !important;
+  padding: 22px !important;
+  box-shadow: none !important;
+}
+
+.settings-app-shell .child-safety-page
+:is(.intro-panel, .contact-card, .emergency-notice) {
+  border-radius: 12px !important;
+}
+
+/* Mobile and tablet proportions */
+
+@media (max-width: 1023px) {
+  .settings-app-shell .settings-content-scroll h1 {
+    font-size: 24px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll h2 {
+    font-size: 18px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll {
+    scrollbar-gutter: auto !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .settings-app-shell .settings-content-scroll h1 {
+    font-size: 22px !important;
+  }
+
+  .settings-app-shell .settings-hub-page h1 {
+    font-size: 26px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll h2 {
+    font-size: 17px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll
+  :is(section, article, div, aside)[class*="rounded-["][class~="border"][class*="shadow"] {
+    padding: 14px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll
+  :is(section, div)[class*="hero-grid"] {
+    gap: 12px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll h1 + p {
+    margin-top: 10px !important;
+    font-size: 14px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll
+  :is(section, article, div)[class~="space-y-8"] > * + * {
+    margin-top: 20px !important;
+  }
+
+  .settings-app-shell .child-safety-page .legal-card {
+    padding: 15px !important;
+  }
+}
+
+/* Settings interface refinements */
+
+.settings-app-shell .settings-modern-nav-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-app-shell .settings-modern-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 32px;
+  flex: 0 0 28px;
+  color: inherit;
+}
+
+.settings-app-shell .settings-modern-nav-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-app-shell .settings-desktop-nav nav a {
+  gap: 6px;
+  padding: 6px 9px;
+  min-height: 44px;
+}
+
+.settings-app-shell .settings-modern-eyebrow {
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--settings-accent);
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
+
+.settings-app-shell .settings-modern-card-copy {
+  overflow-wrap: anywhere;
+}
+
+.settings-app-shell .settings-content-scroll
+.settings-hub-page input[type="search"] {
+  padding-left: 42px !important;
+  padding-right: 42px !important;
+  min-height: 48px;
+}
+
+.settings-app-shell .settings-hub-page
+button[aria-label="Clear search"] {
+  width: 32px;
+  height: 32px;
+  right: 8px;
+}
+
+.settings-app-shell .settings-modern-account-email {
+  color: var(--settings-muted);
+}
+
+.settings-app-shell .settings-content-scroll
+:is(section, div)[class*="-hero-grid"] {
+  gap: 12px !important;
+  margin-bottom: 16px !important;
+}
+
+.settings-app-shell .settings-content-scroll
+:is(section, div)[class*="-hero-grid"]
+> :is(div, section)[class~="border"] {
+  background: var(--settings-card) !important;
+  border-color: var(--settings-border) !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+}
+
+.settings-app-shell .settings-content-scroll
+:is(section, div)[class*="-content-grid"] {
+  gap: 14px !important;
+}
+
+.settings-app-shell .settings-content-scroll
+:is(div, article)[class*="preference-card"] {
+  padding: 14px !important;
+  border-radius: 12px !important;
+}
+
+.settings-app-shell .settings-content-scroll
+button:has(> span.inline-block.transform.rounded-full) {
+  flex-shrink: 0;
+  align-self: center;
+  box-shadow: none !important;
+  position: relative;
+}
+
+.settings-app-shell .settings-content-scroll
+button:has(> span.inline-block.transform.rounded-full)::after {
+  content: "";
+  position: absolute;
+  inset: -7px 0;
+  border-radius: inherit;
+}
+
+.settings-app-shell .settings-content-scroll
+button:has(> span.inline-block.transform.rounded-full)
+> span {
+  box-shadow: 0 1px 4px rgba(0,0,0,.2) !important;
+}
+
+.settings-app-shell .settings-content-scroll
+button[class~="min-h-11"][class~="rounded-full"] {
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+.settings-app-shell .settings-content-scroll
+:is([role="dialog"], dialog) {
+  max-width: calc(100vw - 32px);
+  border-radius: 16px;
+  font-family: var(--settings-font);
+}
+
+.settings-app-shell .settings-content-scroll
+:is([role="dialog"], dialog) button {
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-app-shell .settings-content-scroll
+[class*="-back-row"] {
+  margin-bottom: 14px !important;
+}
+
+@media (max-width: 639px) {
+  .settings-app-shell .settings-content-scroll
+  div[class~="flex-col"]:has(
+    > button > span.inline-block.transform.rounded-full
+  ) {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between;
+    gap: 12px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll
+  div[class~="flex-col"]:has(
+    > button > span.inline-block.transform.rounded-full
+  ) > div {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .settings-app-shell .settings-modern-quick-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 8px;
+  }
+
+  .settings-app-shell .settings-modern-quick-actions > * {
+    min-width: 0;
+    text-align: center;
+  }
+
+  .settings-app-shell .settings-modern-card {
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .settings-app-shell .settings-modern-tags {
+    gap: 4px 8px;
+  }
+
+  .settings-app-shell .settings-modern-section-heading {
+    font-size: 14px !important;
+  }
+
+  .settings-app-shell .settings-content-scroll
+  :is(section, div)[class*="-hero-grid"]
+  .h-16.w-16 {
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 18px !important;
+  }
+}

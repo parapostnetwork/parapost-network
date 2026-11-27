@@ -1,6 +1,7 @@
 "use client";
 
 import SettingsNav from "@/components/SettingsNav";
+import "./settings-redesign.css";
 
 export default function SettingsLayout({
   children,
