@@ -90,7 +90,11 @@ export async function inspectCreatorVerseVideo(
         timeout: MAX_PROBE_TIME_MS,
         maxBuffer: MAX_PROBE_OUTPUT_BYTES,
         windowsHide: true,
-        env: { PATH: "/usr/bin:/bin", LANG: "C", NODE_ENV: process.env.NODE_ENV },
+        env: { PATH: "/usr/bin:/bin", LANG: "C", NODE_ENV: process.env.NODE_ENV,
+          ...(process.env.VERCEL === '1' ? {
+            LD_LIBRARY_PATH: join(process.cwd(), 'vendor', 'creatorverse-video', 'lib')
+          } : {})
+        },
       }
     );
 

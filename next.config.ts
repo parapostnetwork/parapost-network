@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     '/api/creatorverse/*/posts/*/media/*/verify': [
       './vendor/creatorverse-video/ffmpeg',
       './vendor/creatorverse-video/ffprobe',
+      './vendor/creatorverse-video/lib/**/*',
     ],
   },
   allowedDevOrigins: ["192.168.2.16"],

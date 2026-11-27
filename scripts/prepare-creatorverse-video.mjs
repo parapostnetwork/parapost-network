@@ -2,10 +2,10 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
   mkdtempSync, mkdirSync, writeFileSync,
-  copyFileSync, chmodSync, rmSync, statSync
+  copyFileSync, chmodSync, rmSync, statSync, realpathSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 
 const vercel = process.env.VERCEL === '1';
 const staging = process.env.VERCEL_ENV === 'preview' &&
@@ -17,8 +17,8 @@ if (vercel && (staging || production)) {
     throw new Error('Unsupported video verification platform');
   }
 
-  const url = 'https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-11-27-12-42/ffmpeg-n9.0.2-982-g836df4e858-linux64-lgpl-9.0.tar.xz';
-  const checksum = '5214026246bf4a186b96d2d3e4ba45549d52651c4fa9dee947742d130796c40d';
+  const url = 'https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/ffmpeg-n9.0.2-39-g7adfbe40dc-linux64-lgpl-shared-9.0.tar.xz';
+  const checksum = '5a58e2dffad4835ee3418939f2676d6898489f8e047299f5f62ee0da3f8dd5dc';
 
   const temporary = mkdtempSync(join(tmpdir(), 'cv-video-'));
   const destination = join(process.cwd(), 'vendor', 'creatorverse-video');
@@ -43,39 +43,78 @@ if (vercel && (staging || production)) {
       encoding: 'utf8'
     }).split('\n');
 
-    mkdirSync(destination, { recursive: true });
+    const entry = entries.find(e => e.endsWith('/bin/ffmpeg'));
+    if (!entry) throw new Error('Missing FFmpeg executable');
+
+    execFileSync('tar', ['-xJf', archive, '-C', temporary]);
+
+    const root = dirname(dirname(join(temporary, entry)));
+    const libraryRoot = realpathSync(join(root, 'lib'));
+    const libraries = join(destination, 'lib');
+
+    mkdirSync(libraries, { recursive: true });
+
+    const dependencies = new Map();
+
+    for (const name of ['ffmpeg', 'ffprobe']) {
+      const source = join(root, 'bin', name);
+      const target = join(destination, name);
+
+      const linked = execFileSync('ldd', [source], {
+        encoding: 'utf8',
+        env: {
+          PATH: '/usr/bin:/bin',
+          LD_LIBRARY_PATH: libraryRoot,
+          LANG: 'C'
+        }
+      });
+
+      if (linked.includes('not found')) {
+        throw new Error('Missing video library: ' + linked);
+      }
+
+      for (const line of linked.split('\n')) {
+        const match = line.match(/^\s*(\S+)\s+=>\s+(\/\S+)\s+\(/);
+        if (!match) continue;
+
+        const resolved = realpathSync(match[2]);
+
+        if (resolved.startsWith(libraryRoot + '/')) {
+          dependencies.set(match[1], resolved);
+        }
+      }
+
+      copyFileSync(source, target);
+      chmodSync(target, 0o755);
+    }
 
     let totalBytes = 0;
 
+    for (const [name, source] of dependencies) {
+      const target = join(libraries, name);
+      copyFileSync(source, target);
+      totalBytes += statSync(target).size;
+    }
+
     for (const name of ['ffmpeg', 'ffprobe']) {
-      const matches = entries.filter(entry =>
-        entry.endsWith('/bin/' + name)
-      );
-
-      if (matches.length !== 1) {
-        throw new Error('Unexpected archive layout');
-      }
-
-      execFileSync('tar', [
-        '-xJf', archive, '-C', temporary, matches[0]
-      ]);
-
       const target = join(destination, name);
-      copyFileSync(join(temporary, matches[0]), target);
-      chmodSync(target, 0o755);
-
       totalBytes += statSync(target).size;
 
       console.log(execFileSync(target, ['-version'], {
-        encoding: 'utf8'
+        encoding: 'utf8',
+        env: {
+          PATH: '/usr/bin:/bin',
+          LD_LIBRARY_PATH: libraries,
+          LANG: 'C'
+        }
       }).split('\n')[0]);
     }
 
-    if (totalBytes >= 250 * 1024 * 1024) {
-      throw new Error('Video binaries exceed function size budget');
-    }
+    console.log('Shared video tools installed:', totalBytes, 'bytes');
 
-    console.log('Video tools installed:', totalBytes, 'bytes');
+    if (totalBytes >= 220 * 1024 * 1024) {
+      throw new Error('Shared video tools exceed reserved size budget');
+    }
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
