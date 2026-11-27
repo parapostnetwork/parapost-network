@@ -228,53 +228,53 @@ export default function CreateLiveShowPage() {
         return;
       }
 
-      const { data: rows, error: pagesError } = await supabase
-        .from("creatorverse_pages")
-        .select("id,name")
-        .eq("owner_id", authData.user.id)
-        .eq("status", "active")
-        .order("name", { ascending: true })
-        .limit(100);
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
 
       if (cancelled) return;
-      if (pagesError) {
-        setCreatorVersePagesError("Could not load your CreatorVerse pages. Personal broadcasts are still available.");
-        setLoadingCreatorVersePages(false);
-        return;
-      }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (sessionError || !sessionData.session) {
+      if (sessionError ||
+          !sessionData.session ||
+          sessionData.session.user.id !== authData.user.id) {
         setCreatorVersePagesError("Sign in again to check CreatorVerse publishing permissions.");
         setLoadingCreatorVersePages(false);
         return;
       }
 
-      const accessToken = sessionData.session.access_token;
-      const eligiblePages = await Promise.all(
-        (rows || []).map(async (page): Promise<OwnedCreatorVersePage | null> => {
-          try {
-            const response = await fetch(
-              `/api/creatorverse/${encodeURIComponent(page.id)}/permissions`,
-              {
-                cache: "no-store",
-                headers: { Authorization: `Bearer ${accessToken}` },
-              }
-            );
-            if (!response.ok) return null;
-            const permissions = await response.json();
-            return permissions?.can_publish === true
-              ? { id: page.id, name: page.name }
-              : null;
-          } catch {
-            return null;
+      let allowed: OwnedCreatorVersePage[] = [];
+
+      try {
+        const response = await fetch(
+          "/api/creatorverse/pages/owned",
+          {
+            cache: "no-store",
+            headers: {
+              Authorization: `Bearer ${sessionData.session.access_token}`,
+            },
           }
-        })
-      );
+        );
+
+        if (!response.ok) throw new Error("Page retrieval failed");
+
+        const body = await response.json();
+
+        if (!Array.isArray(body.pages)) {
+          throw new Error("Invalid page response");
+        }
+
+        allowed = body.pages.filter(
+          (page: OwnedCreatorVersePage) =>
+            typeof page?.id === "string" &&
+            typeof page?.name === "string"
+        );
+      } catch {
+        if (cancelled) return;
+        setCreatorVersePagesError("Could not load your CreatorVerse pages. Personal broadcasts are still available.");
+        setLoadingCreatorVersePages(false);
+        return;
+      }
 
       if (cancelled) return;
-      const allowed = eligiblePages.filter((page): page is OwnedCreatorVersePage => page !== null);
       setOwnedCreatorVersePages(allowed);
       if (!editingId && requestedPageId) {
         if (allowed.some((page) => page.id === requestedPageId)) {
