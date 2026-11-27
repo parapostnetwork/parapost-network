@@ -1,4 +1,8 @@
 "use client";
+
+import { dotsButtonStyle as sharedDotsStyle } from "@/components/postPresentation";
+import { DotsIcon as SharedDotsIcon } from "@/components/PostActionIcons";
+
 import { communityClientTargetAllowed } from '@/lib/community/release-target';
 
 import { useState } from "react";
@@ -81,9 +85,10 @@ export default function CreatorVerseSharedPostMenu({
   return (
     <div
       style={{
-        alignSelf: "flex-end",
-        position: "relative",
-        marginTop: 2,
+        position: "absolute",
+        top: 0,
+        right: 0,
+        zIndex: 30,
       }}
     >
       <button
@@ -95,18 +100,8 @@ export default function CreatorVerseSharedPostMenu({
           setErrorMessage("");
         }}
         disabled={removing}
-        style={{
-          border: "1px solid currentColor",
-          borderRadius: 8,
-          background: "transparent",
-          color: "inherit",
-          cursor: "pointer",
-          padding: "3px 11px",
-          fontSize: 20,
-          lineHeight: 1.2,
-        }}
-      >
-        ⋯
+        style={sharedDotsStyle}>
+        <SharedDotsIcon />
       </button>
 
       {open && (

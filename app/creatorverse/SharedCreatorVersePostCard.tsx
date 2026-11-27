@@ -121,6 +121,8 @@ export default function SharedCreatorVersePostCard({
       aria-label="Shared CreatorVerse post"
     >
       <header style={{
+        position: "relative",
+        paddingRight: 52,
         display: "flex",
         flexDirection: "column",
         gap: 4,
