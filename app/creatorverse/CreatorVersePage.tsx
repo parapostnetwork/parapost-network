@@ -457,7 +457,11 @@ export default function CreatorVersePage({ id }: { id: string }) {
 
           <div className={`${draftStyles.identity} ${!canManage ? profileStyles.identity : ""}`}>
             <div className={draftStyles.avatar}
-      style={logoAvailable ? { background: '#ffffff' } : undefined}>
+      style={logoAvailable ? {
+                background: '#ffffff',
+                border: '4px solid #8f48eb',
+                boxSizing: 'border-box'
+              } : undefined}>
               {logoAvailable ? (
                 <Image
                   src={logoSrc}
