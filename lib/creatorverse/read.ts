@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { communityServerTargetAllowed } from '@/lib/community/release-target';
 import { creatorVerseEnabled } from '@/lib/creatorverse/config';
 import 'server-only';
@@ -91,7 +92,23 @@ export async function readPublicPage(client: SupabaseClient, id: string, offset 
     communityServerTargetAllowed() && creatorVerseEnabled() &&
     posts.length > 0
   ) {
-    const mediaResult = await client
+    try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!url || !key) {
+      throw new Error('Media server configuration unavailable.');
+    }
+
+    const mediaClient = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+
+    const mediaResult = await mediaClient
       .from('creatorverse_media')
       .select('id,post_id,media_type,display_order')
       .eq('page_id', id)
@@ -124,6 +141,9 @@ export async function readPublicPage(client: SupabaseClient, id: string, offset 
         media_type: item.media_type,
         display_order: item.display_order,
       });
+    }
+    } catch {
+      console.warn('[CreatorVerse] Published media retrieval failed.');
     }
   }
 
