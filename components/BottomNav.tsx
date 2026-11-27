@@ -1,5 +1,6 @@
 "use client";
 
+import ParachatNavIcon from "@/components/ParachatNavIcon";
 import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
@@ -122,7 +123,7 @@ export default function BottomNav({
 
         <NavButton
           label="Parachat"
-          icon="☏"
+          customIcon={<ParachatNavIcon size={22} />}
           active={detectedActiveItem === "parachat"}
           onClick={() => goTo("/messages")}
         />

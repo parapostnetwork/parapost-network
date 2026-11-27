@@ -1,4 +1,5 @@
 "use client";
+import ParachatNavIcon from "@/components/ParachatNavIcon";
 import MentionTextarea from "@/components/MentionTextarea";
 
 import { composerCardStyle, composerTopRowStyle, composerInputStyle, composerImageButtonStyle, composerActionPillStyle, composerFooterStyle, publishButtonStyle, imagePreviewWrapStyle, composerPreviewGridStyle, composerPreviewSingleGridStyle, composerPreviewTileStyle, composerPreviewSingleTileStyle, composerPreviewImageStyle, composerPreviewCounterStyle, postCardStyle, postHeaderStyle, postAuthorStyle, postAuthorNameStyle, postMetaStyle, postContentStyle, postImageStyle, postImageGridStyle, postImageGridTileStyle, postImageGridLargeTileStyle, postImageGridImageStyle, dotsButtonStyle, postMenuStyle, menuItemStyle, postStatsSummaryStyle, postActionsStyle, dashboardCommentTextareaStyle, dashboardCommentSubmitButtonStyle, dashboardCommentRowStyle, dashboardCommentBubbleStyle, dashboardCommentTopLineStyle, dashboardCommentAuthorStyle, dashboardCommentTimeStyle, dashboardCommentTextStyle, dashboardCommentActionRowStyle, sharedPostFrameStyle } from "@/components/postPresentation";
@@ -1801,17 +1802,7 @@ function BellIcon() {
 }
 
 function ChatIcon() {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M7 17L4 20V6C4 4.895 4.895 4 6 4H18C19.105 4 20 4.895 20 6V15C20 16.105 19.105 17 18 17H7Z"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinejoin="round"
-      />
-      <path d="M8 9H16M8 13H13" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-    </svg>
-  );
+  return <ParachatNavIcon size={19} />;
 }
 
 function PlusIcon() {
@@ -17066,7 +17057,7 @@ function MobileBottomNav({
 
       <Link href="/messages" style={mobileNavItemStyle} aria-label="Parachat">
         <span style={{ ...mobileNavIconSlotStyle, position: "relative", fontSize: 22, lineHeight: 1 }}>
-          ☏
+          <ParachatNavIcon size={22} />
           {parachatUnreadCount > 0 ? <span style={mobileNavBadgeStyle}>{parachatUnreadCount > 9 ? "9+" : parachatUnreadCount}</span> : null}
         </span>
         <span style={mobileNavLabelStyle}>Parachat</span>

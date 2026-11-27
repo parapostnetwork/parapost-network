@@ -1,5 +1,6 @@
 'use client';
 
+import ParachatNavIcon from "@/components/ParachatNavIcon";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
@@ -53,7 +54,7 @@ export default function CommunityMobileBottomNav({
           <span className={styles.createSpacer} aria-hidden="true">Create</span>
         </button>
         <Link href="/messages" className={styles.item} aria-label="Parachat">
-          <span className={styles.icon} aria-hidden="true" style={{fontSize:22}}>☏</span>
+          <span className={styles.icon} aria-hidden="true" style={{fontSize:22}}><ParachatNavIcon size={22} /></span>
           <span className={styles.label}>Parachat</span>
         </Link>
         <Link href={viewerId ? `/profile/${viewerId}` : '/dashboard'} className={styles.item} aria-label="Profile">

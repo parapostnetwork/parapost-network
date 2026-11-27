@@ -1,4 +1,5 @@
 "use client";
+import ParachatNavIcon from "@/components/ParachatNavIcon";
 import MentionTextarea from "@/components/MentionTextarea";
 
 import PostComposerInput from "@/components/PostComposerInput";
@@ -21531,7 +21532,7 @@ function ProfileStableBottomNav({
 
         <Link href="/messages" aria-label="Parachat" style={profileStableBottomNavItemStyle}>
           <span style={{ ...profileStableBottomNavIconStyle, position: "relative", fontSize: 22, lineHeight: 1 }}>
-            ☏
+            <ParachatNavIcon size={22} />
           </span>
           <span style={profileStableBottomNavLabelStyle}>Parachat</span>
         </Link>
