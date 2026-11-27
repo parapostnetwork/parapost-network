@@ -1199,3 +1199,20 @@ html body .profile-compact-actions
     --action-height: 44px;
   }
 }
+
+/* Public profile menu positioning */
+@media (min-width: 721px) {
+  html body .profile-polish-surface.profile-mobile-first-polish
+  .profile-public-actions > .profile-desktop-action-menu-wrap {
+    position: absolute !important;
+    top: 50px !important;
+    right: 18px !important;
+    bottom: auto !important;
+    left: auto !important;
+    margin: 0 !important;
+  }
+
+  html body .profile-public-actions:has(> .profile-compact-actions) {
+    min-height: 42px !important;
+  }
+}
