@@ -17,9 +17,12 @@ import { supabase } from "@/lib/supabase";
 import ParachatGroupCreate from "@/components/ParachatGroupCreate";
 import { AuthenticatedGroupConversation } from "@/components/ParachatGroupConversation";
 import ParachatGroupAvatar from "@/components/ParachatGroupAvatar";
+import ParachatGroupInvitation from "@/components/ParachatGroupInvitation";
 import {
   groupChatEnabled,
   getGroupChatInbox,
+  getGroupChatInvitations,
+  type GroupChatInvitation,
   type GroupChatConversation,
 } from "@/lib/parachat/group-client";
 
@@ -760,6 +763,16 @@ function MessagesPage() {
   const [groupConversations, setGroupConversations] =
     useState<GroupChatConversation[]>([]);
 
+  const [groupInvitations, setGroupInvitations] =
+    useState<GroupChatInvitation[]>([]);
+
+  const groupRefreshRef = useRef<() => void>(() => {});
+
+  const selectedInvitation = groupInvitations.find(
+    (invitation) =>
+      invitation.conversation_id === selectedGroupId
+  );
+
   const [groupInboxError, setGroupInboxError] = useState("");
   const [groupInboxLoading, setGroupInboxLoading] =
     useState(groupChatEnabled());
@@ -1054,15 +1067,37 @@ function MessagesPage() {
       const requestGeneration = generation;
 
       try {
-        const rows = await getGroupChatInbox();
+        const [groupsResult, invitationsResult] =
+          await Promise.allSettled([
+            getGroupChatInbox(),
+            getGroupChatInvitations(),
+          ]);
 
         if (!disposed && generation === requestGeneration) {
-          setGroupConversations(rows);
-          setGroupInboxError("");
+          if (groupsResult.status === "fulfilled") {
+            setGroupConversations(groupsResult.value);
+          } else {
+            setGroupConversations([]);
+          }
+
+          if (invitationsResult.status === "fulfilled") {
+            setGroupInvitations(invitationsResult.value);
+          } else {
+            setGroupInvitations([]);
+          }
+
+          setGroupInboxError(
+            groupsResult.status === "rejected"
+              ? "Unable to load group conversations."
+              : invitationsResult.status === "rejected"
+                ? "Unable to load group invitations."
+                : ""
+          );
         }
       } catch {
         if (!disposed && generation === requestGeneration) {
           setGroupConversations([]);
+          setGroupInvitations([]);
           setGroupInboxError("Unable to load group conversations.");
         }
       } finally {
@@ -1084,6 +1119,7 @@ function MessagesPage() {
           generation++;
           currentUserId = nextUserId;
           setGroupConversations([]);
+          setGroupInvitations([]);
           setGroupInboxError("");
           setGroupInboxLoading(Boolean(nextUserId));
         }
@@ -1099,6 +1135,11 @@ function MessagesPage() {
         }, 0);
       });
 
+    groupRefreshRef.current = () => {
+      generation++;
+      void refreshGroups();
+    };
+
     const interval = setInterval(() => {
       void refreshGroups();
     }, 15000);
@@ -1112,6 +1153,7 @@ function MessagesPage() {
     return () => {
       disposed = true;
       generation++;
+      groupRefreshRef.current = () => {};
       clearTimeout(refreshTimer);
       clearInterval(interval);
       subscription.unsubscribe();
@@ -1183,9 +1225,32 @@ function MessagesPage() {
             activity: group.last_activity_at,
           }));
 
-    if (groupItems.length === 0) return directItems;
+    const invitationItems = !groupsEnabled
+      ? []
+      : groupInvitations
+          .filter((invitation) =>
+            !groupConversations.some(
+              (group) =>
+                group.conversation_id === invitation.conversation_id
+            )
+          )
+          .filter((invitation) =>
+            !term ||
+            invitation.group_name.toLowerCase().includes(term) ||
+            invitation.inviter_name.toLowerCase().includes(term) ||
+            "invitation pending".includes(term)
+          )
+          .map((invitation) => ({
+            kind: "invitation" as const,
+            invitation,
+            activity: invitation.created_at,
+          }));
 
-    return [...directItems, ...groupItems].sort(
+    return [
+      ...directItems,
+      ...groupItems,
+      ...invitationItems,
+    ].sort(
       (a, b) =>
         (Date.parse(b.activity) || 0) -
         (Date.parse(a.activity) || 0)
@@ -1193,6 +1258,7 @@ function MessagesPage() {
   }, [
     filteredConversations,
     groupConversations,
+    groupInvitations,
     groupsEnabled,
     inboxFilter,
     searchText,
@@ -3714,6 +3780,61 @@ function MessagesPage() {
               </div>
             ) : (
               combinedInbox.map((item) => {
+                if (item.kind === "invitation") {
+                  const invitation = item.invitation;
+
+                  return (
+                    <div
+                      key={"invitation-" + invitation.invitation_id}
+                      style={
+                        selectedGroupId === invitation.conversation_id
+                          ? conversationItemActiveStyle
+                          : conversationItemStyle
+                      }
+                    >
+                      <Link
+                        href={`/messages?group=${invitation.conversation_id}`}
+                        scroll={false}
+                        style={{
+                          ...conversationSelectButtonStyle,
+                          textDecoration: "none",
+                          color: "inherit",
+                        }}
+                      >
+                        <div style={conversationAvatarWrapStyle}>
+                          <ParachatGroupAvatar
+                            conversationId={invitation.conversation_id}
+                            name={invitation.group_name}
+                            photoPath={invitation.photo_path}
+                          />
+                        </div>
+
+                        <div style={conversationTextStyle}>
+                          <div style={conversationTopLineStyle}>
+                            <strong style={conversationNameStyle}>
+                              {invitation.group_name}
+                            </strong>
+
+                            <span style={conversationTimeStyle}>
+                              {formatMessageTime(invitation.created_at)}
+                            </span>
+                          </div>
+
+                          <div style={conversationBottomLineStyle}>
+                            <span style={{
+                              ...conversationPreviewStyle,
+                              color: "#bc92ef",
+                              fontWeight: 750,
+                            }}>
+                              Invitation pending
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+                  );
+                }
+
                 if (item.kind === "group") {
                   const group = item.group;
                   const unread = Number(group.unread_count) || 0;
@@ -3878,7 +3999,82 @@ function MessagesPage() {
         </aside>
 
         <main className="parachat-panel" style={chatPanelStyle}>
-          {selectedGroupId ? (
+          {selectedGroupId && groupInboxLoading ? (
+            <div style={selectConversationStyle}>
+              <span>Loading group conversation...</span>
+            </div>
+          ) : selectedGroupId && selectedInvitation ? (
+            <div style={{
+              gridRow: "1 / -1",
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+              overflow: "hidden",
+            }}>
+              <header style={chatHeaderStyle}>
+                <div style={headerLeftStyle}>
+                  <ParachatGroupAvatar
+                    conversationId={selectedInvitation.conversation_id}
+                    name={selectedInvitation.group_name}
+                    photoPath={selectedInvitation.photo_path}
+                  />
+
+                  <div style={{ minWidth: 0 }}>
+                    <h2 style={headerTitleStyle}>
+                      {selectedInvitation.group_name}
+                    </h2>
+                    <div style={{
+                      ...headerSubtitleStyle,
+                      color: "#bc92ef",
+                    }}>
+                      Invitation pending
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => router.replace("/messages")}
+                  style={closeChatButtonStyle}
+                  aria-label="Close group invitation"
+                >
+                  ×
+                </button>
+              </header>
+
+              <div style={{
+                flex: 1,
+                display: "grid",
+                placeContent: "center",
+                textAlign: "center",
+                padding: 24,
+                color: "#9ca3af",
+              }}>
+                Accept your invitation to enter this conversation.
+              </div>
+
+              <ParachatGroupInvitation
+                key={selectedInvitation.invitation_id}
+                invitation={selectedInvitation}
+                onClose={() => router.replace("/messages")}
+                onResponded={(status) => {
+                  setGroupInvitations((previous) =>
+                    previous.filter(
+                      (invitation) =>
+                        invitation.invitation_id !==
+                        selectedInvitation.invitation_id
+                    )
+                  );
+
+                  groupRefreshRef.current();
+
+                  if (status !== "accepted") {
+                    router.replace("/messages");
+                  }
+                }}
+              />
+            </div>
+          ) : selectedGroupId ? (
             <AuthenticatedGroupConversation
               key={selectedGroupId}
               conversationId={selectedGroupId}

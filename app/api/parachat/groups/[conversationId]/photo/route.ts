@@ -51,6 +51,25 @@ async function requireAccess(
     { p_conversation_id: id }
   );
 
+  if (!manage && (error || !data)) {
+    const invitation = await session.client.rpc(
+      "parachat_group_invitation_photo_access",
+      { p_conversation_id: id }
+    );
+
+    if (
+      !invitation.error &&
+      invitation.data &&
+      invitation.data.can_manage === false
+    ) {
+      return {
+        ...session,
+        photoPath: invitation.data.photo_path,
+        canManage: false,
+      };
+    }
+  }
+
   if (error || !data || (manage && data.can_manage !== true)) {
     throw new GroupChatError(403, "Group photo access denied.");
   }

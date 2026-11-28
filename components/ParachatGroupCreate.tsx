@@ -164,7 +164,7 @@ export default function ParachatGroupCreate({
         }}
       >
         {open ? "Cancel" :
-          adding ? "+ Add Members" : "+ Create Group Chat"}
+          adding ? "+ Invite Members" : "+ Create Group Chat"}
       </button>
 
       {open ? (
@@ -191,6 +191,12 @@ export default function ParachatGroupCreate({
           />
 
           <small>{valid.length} selected</small>
+
+          <small style={{ color: "#b5afc3", lineHeight: 1.5 }}>
+            {adding
+              ? "Selected friends must accept their invitations before joining."
+              : "Select at least two friends to invite to your new group."}
+          </small>
 
           {loading ? <small>Loading friends...</small> : null}
 
@@ -243,7 +249,7 @@ export default function ParachatGroupCreate({
             onClick={() => void submit()}
           >
             {busy ? "Updating..." :
-              adding ? "Add Selected Members" : "Create Group"}
+              adding ? "Send Invitations" : "Create Group"}
           </button>
         </div>
       ) : null}

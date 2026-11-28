@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  getGroupChatPendingMembers,
+  cancelGroupChatInvitation,
+  type GroupChatPendingMember,
+} from "@/lib/parachat/group-client";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -463,6 +469,64 @@ export default function GroupConversation({
               year: "numeric",
             });
 
+          if (message.message_type === "system") {
+            return (
+              <div key={message.id} style={{
+                width: "100%",
+                minWidth: 0,
+                flexShrink: 0,
+              }}>
+                {!previous || previous.toDateString() !== day ? (
+                  <div style={dateDividerStyle}>
+                    <span>{dateLabel}</span>
+                  </div>
+                ) : null}
+
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 7,
+                  padding: "12px 16px",
+                  color: "#bc92ef",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  lineHeight: 1.5,
+                  textAlign: "center",
+                  overflowWrap: "anywhere",
+                }}>
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    style={{ flexShrink: 0 }}
+                  >
+                    {message.system_event === "member_joined" ? (
+                      <>
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M2 21v-2a7 7 0 0 1 14 0v2" />
+                        <path d="M19 8v6M16 11h6" />
+                      </>
+                    ) : (
+                      <>
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 11v5M12 7h.01" />
+                      </>
+                    )}
+                  </svg>
+
+                  <span>{message.body}</span>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={message.id} style={{
               width: "100%",
@@ -880,6 +944,93 @@ function GroupSettings({
       member.user_id === userId &&
       member.role === "admin"
   );
+
+  const [pendingMembers, setPendingMembers] =
+    useState<GroupChatPendingMember[]>([]);
+
+  const [pendingLoading, setPendingLoading] = useState(true);
+  const [pendingError, setPendingError] = useState("");
+  const [pendingRefresh, setPendingRefresh] = useState(0);
+
+  useEffect(() => {
+    if (!admin) {
+      setPendingMembers([]);
+      setPendingLoading(false);
+      return;
+    }
+
+    let active = true;
+    let inFlight = false;
+
+    async function loadPending() {
+      if (!active || inFlight) return;
+
+      inFlight = true;
+
+      try {
+        const rows =
+          await getGroupChatPendingMembers(conversationId);
+
+        if (active) {
+          setPendingMembers(rows);
+          setPendingError("");
+        }
+      } catch {
+        if (active) {
+          setPendingMembers([]);
+          setPendingError("Unable to load pending invitations.");
+        }
+      } finally {
+        inFlight = false;
+        if (active) setPendingLoading(false);
+      }
+    }
+
+    void loadPending();
+
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void loadPending();
+      }
+    }, 15000);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [admin, conversationId, userId, pendingRefresh]);
+
+  async function cancelPending(invitationId: string) {
+    if (!admin || busyRef.current) return;
+
+    busyRef.current = true;
+    setBusy(true);
+    setError("");
+    setStatus("");
+
+    try {
+      await cancelGroupChatInvitation(
+        conversationId,
+        invitationId
+      );
+
+      setPendingMembers((previous) =>
+        previous.filter(
+          (item) => item.invitation_id !== invitationId
+        )
+      );
+
+      setStatus("Invitation cancelled.");
+      onRefresh();
+
+    } catch {
+      setError("Unable to cancel this invitation.");
+    } finally {
+      setPendingRefresh((previous) => previous + 1);
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
 
   async function run(
     action: Parameters<typeof manageGroupChat>[1]
@@ -1428,7 +1579,7 @@ function GroupSettings({
               {settingIcon("shield")}
 
               <span className="pgs-setting-label">
-                Who can add members?
+                Who can invite members?
                 <span
                   className="pgs-muted"
                   style={{ display: "block", marginTop: 3 }}
@@ -1481,10 +1632,16 @@ function GroupSettings({
               <div className="pgs-add-picker">
                 <ParachatGroupCreate
                   conversationId={conversationId}
-                  existingMemberIds={
-                    members.map((member) => member.user_id)
-                  }
-                  onAdded={onRefresh}
+                  existingMemberIds={[
+                    ...members.map((member) => member.user_id),
+                    ...pendingMembers.map(
+                      (item) => item.invited_user_id
+                    ),
+                  ]}
+                  onAdded={() => {
+                    setPendingRefresh((previous) => previous + 1);
+                    onRefresh();
+                  }}
                   disabled={busy}
                 />
               </div>
@@ -1495,7 +1652,7 @@ function GroupSettings({
             <p className="pgs-muted">50-member limit reached.</p>
           ) : !details?.can_add_members && details?.admin_only ? (
             <p className="pgs-muted">
-              Only administrators can add members.
+              Only administrators can invite members.
             </p>
           ) : null}
 
@@ -1608,6 +1765,85 @@ function GroupSettings({
             );
           })}
         </div>
+
+        {admin ? (
+          <div style={{ paddingTop: 12, paddingBottom: 12 }}>
+            <div className="pgs-members-heading">
+              <strong style={{ fontSize: 14 }}>
+                Pending Invitations ({pendingMembers.length})
+              </strong>
+            </div>
+
+            {pendingLoading ? (
+              <p className="pgs-muted">
+                Loading invitations...
+              </p>
+            ) : pendingError ? (
+              <div role="alert" style={{ color: "#fca5a5" }}>
+                {pendingError}
+                <button
+                  type="button"
+                  className="pgs-button"
+                  onClick={() => {
+                    setPendingLoading(true);
+                    setPendingRefresh((previous) => previous + 1);
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : pendingMembers.length === 0 ? (
+              <p className="pgs-muted">
+                No pending invitations.
+              </p>
+            ) : (
+              pendingMembers.map((item) => (
+                <div
+                  key={item.invitation_id}
+                  className="pgs-member"
+                  style={{
+                    borderBottom: "1px solid rgba(255,255,255,.08)",
+                  }}
+                >
+                  <span className="pgs-member-avatar">
+                    {item.invited_user_name.charAt(0).toUpperCase()}
+                  </span>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: 650,
+                      overflowWrap: "anywhere",
+                    }}>
+                      {item.invited_user_name}
+                    </div>
+
+                    <div style={{
+                      color: "#bc92ef",
+                      fontSize: 12,
+                    }}>
+                      {item.available
+                        ? "Invitation pending"
+                        : "Invitation unavailable"}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="pgs-button pgs-danger"
+                    disabled={busy}
+                    onClick={() => {
+                      if (window.confirm("Cancel this invitation?")) {
+                        void cancelPending(item.invitation_id);
+                      }
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        ) : null}
 
         <button
           type="button"

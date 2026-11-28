@@ -55,7 +55,8 @@ export type GroupChatMessage = {
   body: string;
   created_at: string;
   edited_at: string | null;
-  message_type: "text" | "photo" | "video";
+  message_type: "text" | "photo" | "video" | "system";
+  system_event: GroupChatSystemEvent | null;
   attachment_mime_type: string | null;
   reply_preview: {
     is_reply: boolean;
@@ -258,7 +259,7 @@ export async function getGroupChatMessages(
   }
 
   const { data, error } = await supabase.rpc(
-    "parachat_group_get_messages_v4",
+    "parachat_group_get_messages_v5",
     {
       p_conversation_id: validateId(conversationId),
       p_before_seq: beforeSequence,
@@ -550,5 +551,144 @@ export async function reportGroupChatMessage(
     throw new Error(
       "Unable to submit this message report."
     );
+  }
+}
+
+
+export type GroupChatSystemEvent =
+  | "member_joined"
+  | "member_left"
+  | "member_removed"
+  | "member_promoted"
+  | "group_renamed"
+  | "group_photo_changed";
+
+export type GroupChatInvitation = {
+  photo_path: string | null;
+  invitation_id: string;
+  conversation_id: string;
+  group_name: string;
+  invited_by: string;
+  inviter_name: string;
+  member_count: number;
+  created_at: string;
+  expires_at: string;
+};
+
+export type GroupChatPendingMember = {
+  invitation_id: string;
+  invited_user_id: string;
+  invited_user_name: string;
+  invited_by: string;
+  created_at: string;
+  expires_at: string;
+  available: boolean;
+};
+
+export type GroupChatInvitationStatus =
+  | "accepted"
+  | "declined"
+  | "cancelled"
+  | "expired";
+
+export async function getGroupChatInvitations():
+  Promise<GroupChatInvitation[]> {
+
+  const session = await requireGroupSession();
+
+  const { data, error } = await supabase.rpc(
+    "parachat_group_pending_invitations_v2"
+  );
+
+  const current = await requireGroupSession();
+
+  if (
+    error ||
+    !Array.isArray(data) ||
+    current.user.id !== session.user.id
+  ) {
+    throw new Error("Unable to load group invitations.");
+  }
+
+  return data as GroupChatInvitation[];
+}
+
+export async function respondToGroupChatInvitation(
+  invitationId: string,
+  accept: boolean
+): Promise<GroupChatInvitationStatus> {
+
+  const session = await requireGroupSession();
+
+  const { data, error } = await supabase.rpc(
+    "parachat_group_respond_to_invitation",
+    {
+      p_invitation_id: validateId(invitationId),
+      p_accept: accept,
+    }
+  );
+
+  const current = await requireGroupSession();
+
+  if (
+    error ||
+    current.user.id !== session.user.id ||
+    !["accepted", "declined", "cancelled", "expired"].includes(data)
+  ) {
+    throw new Error("Unable to respond to this invitation.");
+  }
+
+  return data as GroupChatInvitationStatus;
+}
+
+export async function getGroupChatPendingMembers(
+  conversationId: string
+): Promise<GroupChatPendingMember[]> {
+
+  const session = await requireGroupSession();
+
+  const { data, error } = await supabase.rpc(
+    "parachat_group_admin_pending_invitations",
+    {
+      p_conversation_id: validateId(conversationId),
+    }
+  );
+
+  const current = await requireGroupSession();
+
+  if (
+    error ||
+    !Array.isArray(data) ||
+    current.user.id !== session.user.id
+  ) {
+    throw new Error("Unable to load pending invitations.");
+  }
+
+  return data as GroupChatPendingMember[];
+}
+
+export async function cancelGroupChatInvitation(
+  conversationId: string,
+  invitationId: string
+): Promise<void> {
+
+  const session = await requireGroupSession();
+
+  const { data, error } = await supabase.rpc(
+    "parachat_group_cancel_invitation",
+    {
+      p_conversation_id: validateId(conversationId),
+      p_invitation_id: validateId(invitationId),
+    }
+  );
+
+  const current = await requireGroupSession();
+
+  if (
+    error ||
+    data !== true ||
+    current.user.id !== session.user.id
+  ) {
+    throw new Error("Unable to cancel this invitation.");
   }
 }

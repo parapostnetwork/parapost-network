@@ -42,6 +42,10 @@ function getNotificationBody(record: NotificationRecord) {
 
   // Handle Parachat before reading record.message because Parachat can store
   // internal grouping values such as "parachat_group_count:1" in that field.
+  if (type === "parachat_group_invitation") {
+    return "You have been invited to join a Parachat group.";
+  }
+
   if (type === "parachat_group_message") {
     return "New Parachat group message";
   }
@@ -150,7 +154,14 @@ export async function POST(req: Request) {
     let destination = "/notifications";
     let groupMention = false;
 
-    if (record.type === "parachat_group_message") {
+    const groupInvitation =
+      record.type === "parachat_group_invitation";
+
+    const groupNotification =
+      groupInvitation ||
+      record.type === "parachat_group_message";
+
+    if (groupNotification) {
       if (
         !isCommunityStagingTarget(supabaseUrl) ||
         !communityServerTargetAllowed(supabaseUrl)
@@ -170,7 +181,12 @@ export async function POST(req: Request) {
           .select("id,parachat_group_conversation_id,is_read,message")
           .eq("id", record.id)
           .eq("user_id", record.user_id)
-          .eq("type", "parachat_group_message")
+          .eq(
+            "type",
+            groupInvitation
+              ? "parachat_group_invitation"
+              : "parachat_group_message"
+          )
           .maybeSingle();
 
       if (notificationError) {
@@ -192,7 +208,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ ignored: true });
       }
 
-      groupMention = notification.message ===
+      groupMention = !groupInvitation &&
+        notification.message ===
         "You were mentioned in a Parachat group.";
 
       destination = `/messages/groups/${conversationId}`;
@@ -254,10 +271,12 @@ export async function POST(req: Request) {
       vapidPrivateKey
     );
 
-    if (record.type === "parachat_group_message") {
+    if (groupNotification) {
       const { data: allowedDestination, error: eligibilityError } =
         await supabase.rpc(
-          "parachat_group_push_destination",
+          groupInvitation
+            ? "parachat_group_invitation_push_destination"
+            : "parachat_group_push_destination",
           {
             p_notification_id: record.id,
             p_recipient_id: record.user_id,
@@ -309,7 +328,7 @@ export async function POST(req: Request) {
             },
             payload,
             {
-              TTL: record.type === "parachat_group_message"
+              TTL: groupNotification
                 ? 60
                 : 60 * 60,
             }

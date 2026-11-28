@@ -37,7 +37,10 @@ type Notice = {
 };
 
 function destination(n: Notice) {
-  if (n.type === "parachat_group_message") {
+  if (
+    n.type === "parachat_group_message" ||
+    n.type === "parachat_group_invitation"
+  ) {
     const id = n.parachat_group_conversation_id;
     const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -88,6 +91,10 @@ function destination(n: Notice) {
 }
 
 function description(n: Notice, name: string) {
+  if (n.type === "parachat_group_invitation") {
+    return `${name} invited you to join a Parachat group.`;
+  }
+
   if (n.type === "parachat_group_message") {
     return n.message === "You were mentioned in a Parachat group."
       ? `${name} mentioned you in a Parachat group.`

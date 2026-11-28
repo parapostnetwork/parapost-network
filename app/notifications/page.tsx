@@ -312,6 +312,10 @@ function getNotificationTitle(notification: NotificationCard) {
   const actorName = getDisplayName(notification.actor);
   const type = notification.type || "";
 
+  if (type === "parachat_group_invitation") {
+    return `${actorName} invited you to join a Parachat group.`;
+  }
+
   if (type === "parachat_group_message") {
     return notification.message ===
       "You were mentioned in a Parachat group."
@@ -430,7 +434,10 @@ function getNotificationMeta(notification: NotificationCard) {
 function getNotificationHref(notification: NotificationCard) {
   const type = notification.type || "";
 
-  if (type === "parachat_group_message") {
+  if (
+    type === "parachat_group_message" ||
+    type === "parachat_group_invitation"
+  ) {
     const id = notification.parachat_group_conversation_id;
     const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -2017,7 +2024,10 @@ export default function NotificationsPage() {
   const handleOpenNotification = async (notification: NotificationCard) => {
     const href = getNotificationHref(notification);
 
-    if (notification.type === "parachat_group_message") {
+    if (
+      notification.type === "parachat_group_message" ||
+      notification.type === "parachat_group_invitation"
+    ) {
       window.location.assign(href);
       return;
     }

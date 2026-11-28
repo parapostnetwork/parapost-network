@@ -3524,7 +3524,12 @@ export default function DashboardPage() {
               .select("id", { count: "exact", head: true })
               .eq("user_id", userId)
               .eq("is_read", false)
-              .in("type", ["parachat_message", "parachat_photo", "parachat_group_message"]),
+              .in("type", [
+                "parachat_message",
+                "parachat_photo",
+                "parachat_group_message",
+                "parachat_group_invitation",
+              ]),
             supabase
               .from("friend_requests")
               .select("*", { count: "exact", head: true })
