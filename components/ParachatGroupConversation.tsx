@@ -433,113 +433,122 @@ export default function GroupConversation({
           ? <p>Start the conversation.</p>
           : null}
 
-        {available && messages.map((message) => {
+        {available && messages.map((message, index) => {
           const own = message.sender_id === userId;
 
           const sender = members.find(
-            (member) =>
-              member.user_id === message.sender_id
+            (member) => member.user_id === message.sender_id
           );
 
+          const senderName =
+            sender?.full_name || sender?.username || "Member";
+
+          const date = new Date(message.created_at);
+          const previous = index > 0
+            ? new Date(messages[index - 1].created_at)
+            : null;
+
+          const today = new Date();
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+
+          const day = date.toDateString();
+
+          const dateLabel =
+            day === today.toDateString() ? "Today" :
+            day === yesterday.toDateString() ? "Yesterday" :
+            date.toLocaleDateString([], {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            });
+
           return (
-            <div
-              key={message.id}
-              style={{
-                alignSelf: own ? "flex-end" : "flex-start",
-                maxWidth: "82%",
-              }}
-            >
-              {!own ? (
-                <div style={{
-                  fontSize: 11,
-                  color: "#bca2df",
-                  marginBottom: 3,
-                }}>
-                  {sender?.full_name || "Member"}
+            <div key={message.id} style={{
+              width: "100%",
+              minWidth: 0,
+              flexShrink: 0,
+            }}>
+              {!previous || previous.toDateString() !== day ? (
+                <div style={dateDividerStyle}>
+                  <span>{dateLabel}</span>
                 </div>
               ) : null}
 
               <div style={{
-                background: own ? "#65478e" : "#251f30",
-                padding: "9px 12px",
-                borderRadius: 12,
-                fontSize: 14,
-                whiteSpace: "pre-wrap",
-                overflowWrap: "anywhere",
+                ...messageRowStyle,
+                justifyContent: own ? "flex-end" : "flex-start",
               }}>
-
-              {message.reply_preview?.is_reply ? (
-                <div style={{
-                  borderLeft: "3px solid #bc92ef",
-                  background: "rgba(0,0,0,.15)",
-                  padding: "6px 9px",
-                  marginBottom: 7,
-                  borderRadius: 4,
-                  fontSize: 12,
-                  overflowWrap: "anywhere",
-                }}>
-                  <strong>Replying to</strong>
-                  <div>
-                    {message.reply_preview.original_message?.body
-                      || "Original message unavailable"}
+                {!own ? (
+                  <div style={smallAvatarStyle}>
+                    {sender?.avatar_url ? (
+                      <img
+                        src={sender.avatar_url}
+                        alt=""
+                        style={smallAvatarImageStyle}
+                      />
+                    ) : (
+                      <span>{senderName.charAt(0).toUpperCase()}</span>
+                    )}
                   </div>
+                ) : null}
+
+                <div style={{
+                  ...bubbleWrapStyle,
+                  minWidth: 0,
+                  alignItems: own ? "flex-end" : "flex-start",
+                }}>
+                  {!own ? (
+                    <div style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#bc92ef",
+                      padding: "0 4px",
+                    }}>
+                      {senderName}
+                    </div>
+                  ) : null}
+
+                  <div style={{
+                    ...(own ? myBubbleStyle : theirBubbleStyle),
+                    maxWidth: "100%",
+                    boxSizing: "border-box",
+                    overflowWrap: "anywhere",
+                  }}>
+                    {message.reply_preview?.is_reply ? (
+                      <div style={{
+                        borderLeft: "3px solid #bc92ef",
+                        background: "rgba(0,0,0,.15)",
+                        padding: "6px 9px",
+                        marginBottom: 7,
+                        borderRadius: 4,
+                        fontSize: 12,
+                      }}>
+                        <strong>Replying to</strong>
+                        <div>
+                          {message.reply_preview.original_message?.body
+                            || "Original message unavailable"}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {message.message_type === "text"
+                      ? message.body
+                      : <GroupAttachment
+                          conversationId={conversationId}
+                          message={message}
+                        />}
+                  </div>
+
+                  <GroupMessageActions
+                    conversationId={conversationId}
+                    message={message}
+                    own={own}
+                    canReply={!browsingHistory && available && !sending}
+                    onReply={() => setReplyToId(message.id)}
+                    onRefresh={() => refreshRef.current()}
+                  />
                 </div>
-              ) : null}
-
-              {!browsingHistory && available ? (
-                <button
-                  type="button"
-                  disabled={sending}
-                  onClick={() => setReplyToId(message.id)}
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: "#e1ccff",
-                    fontSize: 11,
-                    cursor: "pointer",
-                    padding: "3px 0",
-                    display: "block",
-                  }}
-                >
-                  Reply
-                </button>
-              ) : null}
-
-{message.message_type === "text"
-                  ? message.body
-                  : <GroupAttachment
-                      conversationId={conversationId}
-                      message={message}
-                    />}
-
-              <GroupMessageReactions
-                conversationId={conversationId}
-                message={message}
-                onRefresh={() => refreshRef.current()}
-              />
-
-              {message.sender_id &&
-               message.sender_id !== userId ? (
-                <GroupMessageReport
-                  conversationId={conversationId}
-                  messageId={message.id}
-                />
-              ) : null}
-
-
-              </div>
-
-              <div style={{
-                fontSize: 10,
-                color: "#9ca3af",
-                marginTop: 3,
-                textAlign: own ? "right" : "left",
-              }}>
-                {new Date(message.created_at)
-                  .toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
               </div>
             </div>
           );
@@ -598,13 +607,7 @@ export default function GroupConversation({
             event.preventDefault();
             void send();
           }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            borderTop: "1px solid rgba(255,255,255,.12)",
-            paddingTop: 10,
-          }}
+          style={composerRowStyle}
         >
           <input
             ref={fileInput}
@@ -640,34 +643,21 @@ export default function GroupConversation({
               }
             }}
             aria-label="Message"
-            placeholder="Write a message..."
+            placeholder="Message..."
             value={body}
             maxLength={4000}
             disabled={sending}
             onChange={(event) => setBody(event.target.value)}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              background: "#251f30",
-              color: "#fff",
-              border: "1px solid #41364f",
-              borderRadius: 8,
-              padding: 10,
-              fontSize: 16,
-            }}
+            style={composerInputStyle}
           />
 
           <button
             type="submit"
             disabled={sending || !body.trim()}
             style={{
-              background: "#65478e",
-              color: "#fff",
-              border: 0,
-              borderRadius: 8,
-              padding: "10px 14px",
-              fontWeight: 700,
+              ...sendButtonStyle,
               opacity: sending || !body.trim() ? 0.5 : 1,
+              cursor: sending || !body.trim() ? "default" : "pointer",
             }}
           >
             {sending ? "..." : "Send"}
@@ -1658,6 +1648,136 @@ const groupReactionIcons: Record<GroupChatReaction, string> = {
   angry: "😠",
 };
 
+function GroupMessageActions({
+  conversationId,
+  message,
+  own,
+  canReply,
+  onReply,
+  onRefresh,
+}: {
+  conversationId: string;
+  message: GroupChatMessage;
+  own: boolean;
+  canReply: boolean;
+  onReply: () => void;
+  onRefresh: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const actionStyle: React.CSSProperties = {
+    display: "block",
+    width: "100%",
+    minHeight: 36,
+    border: 0,
+    borderRadius: 8,
+    background: "transparent",
+    color: "#f9fafb",
+    padding: "8px 10px",
+    textAlign: "left",
+    fontSize: 13,
+    cursor: "pointer",
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: own ? "flex-end" : "flex-start",
+        maxWidth: "100%",
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setOpen(false);
+      }}
+    >
+      <div style={messageMetaRowStyle}>
+        <span style={messageTimeStyle}>
+          {new Date(message.created_at).toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          })}
+        </span>
+
+        <button
+          type="button"
+          style={messageOptionsButtonStyle}
+          aria-label="Message options"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          ⋯
+        </button>
+      </div>
+
+      {open ? (
+        <div style={{
+          ...messageOptionsMenuStyle,
+          position: "static",
+          width: 190,
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+        }}>
+          {canReply ? (
+            <button
+              type="button"
+              style={actionStyle}
+              onClick={() => {
+                onReply();
+                setOpen(false);
+              }}
+            >
+              Reply
+            </button>
+          ) : null}
+
+          <GroupMessageReactions
+            conversationId={conversationId}
+            message={message}
+            onRefresh={onRefresh}
+          />
+
+          {!own && message.sender_id ? (
+            <GroupMessageReport
+              conversationId={conversationId}
+              messageId={message.id}
+            />
+          ) : null}
+        </div>
+      ) : (
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 4,
+        }}>
+          {GROUP_CHAT_REACTIONS.filter(
+            (reaction) => (message.reactions?.counts[reaction] || 0) > 0
+          ).map((reaction) => (
+            <button
+              key={reaction}
+              type="button"
+              aria-label={reaction + " reactions"}
+              onClick={() => setOpen(true)}
+              style={{
+                border: "1px solid rgba(255,255,255,.12)",
+                background: "rgba(255,255,255,.06)",
+                color: "#fff",
+                borderRadius: 12,
+                padding: "3px 7px",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              {groupReactionIcons[reaction]} {message.reactions?.counts[reaction]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GroupMessageReactions({
   conversationId,
   message,
@@ -1942,3 +2062,151 @@ export function AuthenticatedGroupConversation({
     />
   );
 }
+
+
+const dateDividerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  margin: "6px 0",
+  color: "#9ca3af",
+  fontSize: "12px",
+  fontWeight: 800,
+};
+
+const messageRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  gap: "8px",
+};
+
+const smallAvatarStyle: React.CSSProperties = {
+  width: "30px",
+  height: "30px",
+  borderRadius: "50%",
+  background: "rgba(255,255,255,0.07)",
+  display: "grid",
+  placeItems: "center",
+  color: "#f9fafb",
+  fontSize: "12px",
+  fontWeight: 900,
+  flexShrink: 0,
+  overflow: "hidden",
+};
+
+const smallAvatarImageStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+};
+
+const bubbleWrapStyle: React.CSSProperties = {
+  maxWidth: "min(700px, 78%)",
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+};
+
+const myBubbleStyle: React.CSSProperties = {
+  background: "linear-gradient(135deg, #9333ea, #7c3aed)",
+  color: "#ffffff",
+  borderRadius: "20px 20px 6px 20px",
+  padding: "11px 14px",
+  lineHeight: 1.55,
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  boxShadow: "0 12px 30px rgba(124,58,237,0.24)",
+};
+
+const theirBubbleStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.075)",
+  color: "#f9fafb",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: "20px 20px 20px 6px",
+  padding: "11px 14px",
+  lineHeight: 1.55,
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+};
+
+const messageTimeStyle: React.CSSProperties = {
+  color: "#6b7280",
+  fontSize: "11px",
+  fontWeight: 700,
+  padding: "0 4px",
+};
+
+const messageMetaRowStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "4px",
+  minHeight: "20px",
+  padding: "0 2px",
+};
+
+const messageOptionsButtonStyle: React.CSSProperties = {
+  width: "22px",
+  height: "20px",
+  border: "1px solid transparent",
+  borderRadius: "999px",
+  background: "transparent",
+  color: "#9ca3af",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 950,
+  cursor: "pointer",
+  lineHeight: 1,
+  padding: 0,
+};
+
+const messageOptionsMenuStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 0,
+  bottom: "24px",
+  zIndex: 55,
+  minWidth: "168px",
+  borderRadius: "13px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(7,10,16,0.98)",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.44)",
+  padding: "6px",
+  backdropFilter: "blur(16px)",
+};
+
+const composerRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  width: "100%",
+  minWidth: 0,
+};
+
+const composerInputStyle: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  boxSizing: "border-box",
+  minHeight: "44px",
+  maxHeight: "130px",
+  resize: "none",
+  overflowY: "hidden",
+  borderRadius: "18px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.065)",
+  color: "#ffffff",
+  outline: "none",
+  padding: "12px 14px",
+  lineHeight: 1.45,
+  fontSize: "14px",
+};
+
+const sendButtonStyle: React.CSSProperties = {
+  flexShrink: 0,
+  minHeight: "44px",
+  borderRadius: "999px",
+  border: "1px solid rgba(168,85,247,0.55)",
+  background: "linear-gradient(135deg, #a855f7, #7c3aed)",
+  color: "#ffffff",
+  padding: "0 18px",
+  fontWeight: 950,
+};
