@@ -816,6 +816,8 @@ function GroupSettings({
   const busyRef = useRef(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [editingName, setEditingName] = useState(false);
+  const [expandedSetting, setExpandedSetting] =
+    useState<"notifications" | "permissions" | null>(null);
   const [memberMenu, setMemberMenu] = useState<string | null>(null);
 
   useEffect(() => {
@@ -823,7 +825,18 @@ function GroupSettings({
     if (!dialog) return;
     if (!dialog.open) dialog.showModal();
 
+    const resetScroll = () => {
+      dialog.querySelector<HTMLElement>(".pgs-body")
+        ?.scrollTo({ top: 0 });
+      dialog.querySelector<HTMLElement>(".pgs-header button")
+        ?.focus({ preventScroll: true });
+    };
+
+    resetScroll();
+    const frame = requestAnimationFrame(resetScroll);
+
     return () => {
+      cancelAnimationFrame(frame);
       if (dialog.open) dialog.close();
     };
   }, []);
@@ -907,6 +920,47 @@ function GroupSettings({
     }
   }
 
+
+  function settingIcon(kind: string) {
+    return (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        style={{ flexShrink: 0 }}
+      >
+        {kind === "edit" ? (
+          <>
+            <path d="m16 3 5 5-12 12-6 1 1-6Z" />
+            <path d="m13 6 5 5" />
+          </>
+        ) : kind === "bell" ? (
+          <>
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+            <path d="M10 21h4" />
+          </>
+        ) : kind === "shield" ? (
+          <>
+            <path d="m12 2 9 4v6c0 5-5 9-9 10-4-1-9-5-9-10V6Z" />
+            <path d="m8 12 3 3 5-6" />
+          </>
+        ) : kind === "leave" ? (
+          <>
+            <path d="M10 3H4v18h6" />
+            <path d="M9 12h12m-5-5 5 5-5 5" />
+          </>
+        ) : (
+          <path d="m9 6 6 6-6 6" />
+        )}
+      </svg>
+    );
+  }
 
   return (
     <dialog
@@ -1067,7 +1121,114 @@ function GroupSettings({
         }
 
         .pgs-danger {
-          color: #fca5a5;
+          color: #f87171;
+        }
+
+        .parachat-group-settings-dialog {
+          position: fixed;
+          inset: 0;
+          max-width: 460px;
+        }
+
+        .pgs-body {
+          flex: 1 1 auto;
+          min-height: 0;
+          padding: 12px 18px 16px;
+        }
+
+        .pgs-identity {
+          gap: 4px;
+          padding: 8px 0 12px;
+          border-bottom: 1px solid rgba(255,255,255,.10);
+        }
+
+        .pgs-identity .pgs-button {
+          min-height: 36px;
+          padding: 6px 10px;
+        }
+
+        .pgs-setting-trigger {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          min-height: 48px;
+          padding: 8px 2px;
+          border: 0;
+          background: transparent;
+          color: #f9fafb;
+          text-align: left;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .pgs-setting-trigger > svg:first-child {
+          color: #bc92ef;
+        }
+
+        .pgs-setting-trigger > svg:last-child {
+          color: #9291a1;
+          width: 16px;
+        }
+
+        .pgs-setting-label {
+          flex: 1;
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+
+        .pgs-row {
+          display: block;
+          min-height: 0;
+          padding: 0;
+        }
+
+        .pgs-setting-content {
+          padding: 0 0 10px 32px;
+        }
+
+        .pgs-members-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 6px;
+          min-height: 44px;
+        }
+
+        .pgs-add-picker {
+          flex: 0 1 auto;
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .pgs-add-picker:has(input) {
+          flex-basis: 100%;
+        }
+
+        .pgs-member {
+          min-height: 56px;
+        }
+
+        .pgs-member-avatar {
+          width: 38px;
+          height: 38px;
+        }
+
+        .pgs-leave {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          margin-top: 10px;
+          padding: 10px 2px;
+          background: transparent;
+          border: 0;
+          color: #f87171;
+          text-align: left;
+          min-height: 44px;
+          cursor: pointer;
+          font-size: 14px;
         }
 
         @media (max-width: 480px) {
@@ -1099,7 +1260,6 @@ function GroupSettings({
           aria-label="Close group settings"
           disabled={busy}
           onClick={onClose}
-          autoFocus
         >
           ×
         </button>
@@ -1112,7 +1272,7 @@ function GroupSettings({
             conversationId={conversationId}
             name={name}
             photoPath={photoPath}
-            size={76}
+            size={64}
           />
 
           <strong style={{ fontSize: 20 }}>{name}</strong>
@@ -1146,127 +1306,204 @@ function GroupSettings({
           ) : null}
         </div>
 
+
         {admin ? (
           <div className="pgs-row">
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong>Edit group name</strong>
+            <button
+              type="button"
+              className="pgs-setting-trigger"
+              disabled={busy}
+              aria-expanded={editingName}
+              onClick={() => {
+                setNewName(name);
+                setEditingName(!editingName);
+                setExpandedSetting(null);
+              }}
+            >
+              {settingIcon("edit")}
+              <span className="pgs-setting-label">
+                Edit group name
+              </span>
+              {settingIcon("chevron")}
+            </button>
 
-              {editingName ? (
-                <div style={{ marginTop: 10 }}>
-                  <input
-                    className="pgs-field"
-                    aria-label="Group name"
-                    value={newName}
-                    maxLength={100}
-                    disabled={busy}
-                    onChange={(event) => setNewName(event.target.value)}
-                  />
+            {editingName ? (
+              <div className="pgs-setting-content">
+                <input
+                  className="pgs-field"
+                  aria-label="Group name"
+                  value={newName}
+                  maxLength={100}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setNewName(event.target.value)
+                  }
+                />
 
-                  <button
-                    type="button"
-                    className="pgs-button"
-                    disabled={busy || !newName.trim() || newName.trim() === name}
-                    onClick={() => void run({
-                      action: "rename",
-                      name: newName,
-                    })}
-                  >
-                    Save
-                  </button>
+                <button
+                  type="button"
+                  className="pgs-button"
+                  disabled={
+                    busy ||
+                    !newName.trim() ||
+                    newName.trim() === name
+                  }
+                  onClick={() => void run({
+                    action: "rename",
+                    name: newName,
+                  })}
+                >
+                  Save
+                </button>
 
-                  <button
-                    type="button"
-                    className="pgs-button"
-                    disabled={busy}
-                    onClick={() => setEditingName(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            {!editingName ? (
-              <button
-                type="button"
-                className="pgs-button"
-                disabled={busy}
-                onClick={() => {
-                  setNewName(name);
-                  setEditingName(true);
-                }}
-              >
-                Edit ›
-              </button>
+                <button
+                  type="button"
+                  className="pgs-button"
+                  disabled={busy}
+                  onClick={() => setEditingName(false)}
+                >
+                  Cancel
+                </button>
+              </div>
             ) : null}
           </div>
         ) : null}
 
         <div className="pgs-row">
-          <label style={{ width: "100%", display: "grid", gap: 8 }}>
-            <strong>Notifications</strong>
+          <button
+            type="button"
+            className="pgs-setting-trigger"
+            disabled={busy}
+            aria-expanded={expandedSetting === "notifications"}
+            onClick={() => {
+              setEditingName(false);
+              setExpandedSetting(
+                expandedSetting === "notifications"
+                  ? null : "notifications"
+              );
+            }}
+          >
+            {settingIcon("bell")}
+            <span className="pgs-setting-label">
+              Mute notifications
+            </span>
+            {settingIcon("chevron")}
+          </button>
 
-            <select
-              className="pgs-field"
-              value=""
-              disabled={busy}
-              onChange={(event) => {
-                if (event.target.value === "mute") {
-                  void run({
-                    action: "mute",
-                    mutedUntil: new Date(
-                      Date.now() + 8 * 60 * 60 * 1000
-                    ).toISOString(),
-                  });
-                } else if (event.target.value === "unmute") {
-                  void run({ action: "unmute" });
-                }
-              }}
-            >
-              <option value="">Manage notifications</option>
-              <option value="mute">Mute for 8 hours</option>
-              <option value="unmute">Unmute notifications</option>
-            </select>
-          </label>
+          {expandedSetting === "notifications" ? (
+            <div className="pgs-setting-content">
+              <button
+                type="button"
+                className="pgs-button"
+                disabled={busy}
+                onClick={() => void run({
+                  action: "mute",
+                  mutedUntil: new Date(
+                    Date.now() + 8 * 60 * 60 * 1000
+                  ).toISOString(),
+                })}
+              >
+                Mute for 8 hours
+              </button>
+
+              <button
+                type="button"
+                className="pgs-button"
+                disabled={busy}
+                onClick={() => void run({
+                  action: "unmute",
+                })}
+              >
+                Unmute
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {details?.role === "admin" ? (
           <div className="pgs-row">
-            <label style={{ width: "100%", display: "grid", gap: 8 }}>
-              <strong>Who can add members?</strong>
+            <button
+              type="button"
+              className="pgs-setting-trigger"
+              disabled={busy}
+              aria-expanded={expandedSetting === "permissions"}
+              onClick={() => {
+                setEditingName(false);
+                setExpandedSetting(
+                  expandedSetting === "permissions"
+                    ? null : "permissions"
+                );
+              }}
+            >
+              {settingIcon("shield")}
 
-              <select
-                className="pgs-field"
-                value={details.admin_only ? "admin" : "all"}
-                disabled={busy}
-                onChange={(event) => {
-                  void saveInvitationMode(event.target.value === "admin");
-                }}
-              >
-                <option value="all">All members</option>
-                <option value="admin">Administrators only</option>
-              </select>
-            </label>
+              <span className="pgs-setting-label">
+                Who can add members?
+                <span
+                  className="pgs-muted"
+                  style={{ display: "block", marginTop: 3 }}
+                >
+                  {details.admin_only
+                    ? "Administrators only"
+                    : "All members"}
+                </span>
+              </span>
+
+              {settingIcon("chevron")}
+            </button>
+
+            {expandedSetting === "permissions" ? (
+              <div className="pgs-setting-content">
+                <button
+                  type="button"
+                  className="pgs-button"
+                  disabled={busy}
+                  aria-pressed={!details.admin_only}
+                  onClick={() => void saveInvitationMode(false)}
+                >
+                  {!details.admin_only ? "✓ " : ""}
+                  All members
+                </button>
+
+                <button
+                  type="button"
+                  className="pgs-button"
+                  disabled={busy}
+                  aria-pressed={details.admin_only}
+                  onClick={() => void saveInvitationMode(true)}
+                >
+                  {details.admin_only ? "✓ " : ""}
+                  Administrators only
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
-        <div style={{ paddingTop: 18 }}>
-          <strong style={{ fontSize: 15 }}>
-            Members ({members.length})
-          </strong>
+        <div style={{ paddingTop: 8 }}>
+          <div className="pgs-members-heading">
+            <strong style={{ fontSize: 14 }}>
+              Members ({members.length})
+            </strong>
 
-          {details?.can_add_members && details.member_count < 50 ? (
-            <div style={{ marginTop: 6 }}>
-              <ParachatGroupCreate
-                conversationId={conversationId}
-                existingMemberIds={members.map((member) => member.user_id)}
-                onAdded={onRefresh}
-                disabled={busy}
-              />
-            </div>
-          ) : details?.member_count === 50 ? (
+            {details?.can_add_members &&
+              details.member_count < 50 ? (
+              <div className="pgs-add-picker">
+                <ParachatGroupCreate
+                  conversationId={conversationId}
+                  existingMemberIds={
+                    members.map((member) => member.user_id)
+                  }
+                  onAdded={onRefresh}
+                  disabled={busy}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          {details?.member_count === 50 ? (
             <p className="pgs-muted">50-member limit reached.</p>
-          ) : details?.admin_only ? (
+          ) : !details?.can_add_members && details?.admin_only ? (
             <p className="pgs-muted">
               Only administrators can add members.
             </p>
@@ -1384,20 +1621,15 @@ function GroupSettings({
 
         <button
           type="button"
-          className="pgs-button pgs-danger"
+          className="pgs-leave"
           disabled={busy}
-          style={{
-            marginTop: 14,
-            width: "100%",
-            background: "rgba(239,68,68,.07)",
-            textAlign: "left",
-          }}
           onClick={() => {
             if (window.confirm("Leave this group chat?")) {
               void run({ action: "leave" });
             }
           }}
         >
+          {settingIcon("leave")}
           Leave group
         </button>
 
