@@ -337,12 +337,8 @@ export default function GroupConversation({
       </header>
 
       {available && settingsOpen ? (
-        <div style={{
-          maxHeight: "45%",
-          overflowY: "auto",
-          padding: 12,
-        }}>
         <GroupSettings details={details}
+          photoPath={photoPath}
           conversationId={conversationId}
           userId={userId}
           name={name}
@@ -350,7 +346,6 @@ export default function GroupConversation({
           onRefresh={() => refreshRef.current()}
           onClose={() => setSettingsOpen(false)}
         />
-        </div>
       ) : null}
 
       {available && (hasOlder || browsingHistory) ? (
@@ -796,6 +791,7 @@ function GroupAttachment({
 
 function GroupSettings({
   details,
+  photoPath,
   conversationId,
   userId,
   name,
@@ -804,6 +800,7 @@ function GroupSettings({
   onClose,
 }: {
   details: GroupChatDetails | null;
+  photoPath: string | null;
   conversationId: string;
   userId: string;
   name: string;
@@ -817,6 +814,19 @@ function GroupSettings({
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const busyRef = useRef(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [memberMenu, setMemberMenu] = useState<string | null>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (!dialog.open) dialog.showModal();
+
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, []);
 
   async function saveInvitationMode(adminOnly: boolean) {
     if (busyRef.current || details?.role !== "admin") return;
@@ -886,6 +896,8 @@ function GroupSettings({
       }
 
       setStatus("Group settings updated.");
+      setMemberMenu(null);
+      if (action.action === "rename") setEditingName(false);
       onRefresh();
     } catch {
       setError("Unable to complete this group action.");
@@ -895,233 +907,515 @@ function GroupSettings({
     }
   }
 
-  const actionStyle = {
-    background: "transparent",
-    border: 0,
-    color: "#bc92ef",
-    fontSize: 13,
-    padding: "8px 4px",
-    cursor: "pointer",
-  };
 
   return (
-    <section style={{
-      padding: 12,
-      background: "#211b2b",
-      borderBottom: "1px solid #41364f",
-      fontSize: 13,
-    }}>
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}>
-        <strong>Group settings</strong>
+    <dialog
+      ref={dialogRef}
+      className="parachat-group-settings-dialog"
+      aria-labelledby="parachat-group-settings-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!busyRef.current) onClose();
+      }}
+    >
+      <style>{`
+        .parachat-group-settings-dialog {
+          width: min(460px, calc(100% - 24px));
+          width: min(460px, calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+          max-height: calc(100vh - 32px);
+          max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+          box-sizing: border-box;
+          margin: auto;
+          padding: 0;
+          border: 1px solid rgba(168,85,247,.32);
+          border-radius: 24px;
+          background: linear-gradient(180deg, #171426, #10111b);
+          color: #f9fafb;
+          color-scheme: dark;
+          box-shadow: 0 24px 90px rgba(0,0,0,.6);
+          overflow: hidden;
+          font-size: 14px;
+        }
+
+        .parachat-group-settings-dialog[open] {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .parachat-group-settings-dialog::backdrop {
+          background: rgba(3,7,18,.78);
+          backdrop-filter: blur(7px);
+          -webkit-backdrop-filter: blur(7px);
+        }
+
+        .pgs-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 18px;
+          border-bottom: 1px solid rgba(255,255,255,.09);
+          flex-shrink: 0;
+        }
+
+        .pgs-body {
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+          padding: 14px 18px 18px;
+        }
+
+        .pgs-identity {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 0 16px;
+          text-align: center;
+          overflow-wrap: anywhere;
+        }
+
+        .pgs-muted {
+          color: #a3a3b5;
+          font-size: 12px;
+        }
+
+        .pgs-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          min-height: 52px;
+          padding: 9px 0;
+          border-bottom: 1px solid rgba(255,255,255,.08);
+          box-sizing: border-box;
+        }
+
+        .pgs-button {
+          min-height: 44px;
+          padding: 8px 10px;
+          border: 0;
+          background: transparent;
+          color: #c4a0f3;
+          font-size: 13px;
+          font-weight: 650;
+          cursor: pointer;
+          border-radius: 10px;
+        }
+
+        .pgs-button:disabled {
+          opacity: .45;
+          cursor: default;
+        }
+
+        .pgs-round {
+          display: grid;
+          place-items: center;
+          width: 44px;
+          min-width: 44px;
+          height: 44px;
+          padding: 0;
+          border: 1px solid rgba(255,255,255,.12);
+          border-radius: 50%;
+          background: rgba(255,255,255,.055);
+          color: #fff;
+          cursor: pointer;
+          font-size: 22px;
+        }
+
+        .pgs-field {
+          width: 100%;
+          min-width: 0;
+          min-height: 44px;
+          box-sizing: border-box;
+          padding: 10px 12px;
+          border: 1px solid #45375c;
+          border-radius: 12px;
+          color: #f9fafb;
+          background: #15121e;
+          font-size: 16px;
+        }
+
+        .pgs-member {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-height: 58px;
+        }
+
+        .pgs-member-avatar {
+          position: relative;
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          background: #493168;
+          border: 1px solid #8055ad;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          overflow: hidden;
+          font-weight: 750;
+        }
+
+        .pgs-member-avatar img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .pgs-danger {
+          color: #fca5a5;
+        }
+
+        @media (max-width: 480px) {
+          .parachat-group-settings-dialog {
+            border-radius: 20px;
+          }
+
+          .pgs-header {
+            padding: 10px 14px;
+          }
+
+          .pgs-body {
+            padding: 12px 14px 16px;
+          }
+        }
+      `}</style>
+
+      <header className="pgs-header">
+        <h2
+          id="parachat-group-settings-title"
+          style={{ margin: 0, fontSize: 18, fontWeight: 800 }}
+        >
+          Group settings
+        </h2>
+
         <button
           type="button"
-          style={actionStyle}
+          className="pgs-round"
+          aria-label="Close group settings"
+          disabled={busy}
           onClick={onClose}
-          disabled={busy}
+          autoFocus
         >
-          Close
+          ×
         </button>
-      </div>
+      </header>
 
-      {admin ? (
-        <div>
-          <input
-            ref={photoInput}
-            type="file"
-            accept={GROUP_PHOTO_ACCEPT}
-            hidden
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void changePhoto(file);
-            }}
+      <div className="pgs-body">
+        <div className="pgs-identity">
+          <ParachatGroupAvatar
+            key={photoPath || "default"}
+            conversationId={conversationId}
+            name={name}
+            photoPath={photoPath}
+            size={76}
           />
-          <button
-            type="button"
-            style={actionStyle}
-            disabled={busy}
-            onClick={() => photoInput.current?.click()}
-          >
-            Change Group Photo
-          </button>
+
+          <strong style={{ fontSize: 20 }}>{name}</strong>
+
+          <span className="pgs-muted">
+            {members.length} visible members
+          </span>
+
+          {admin ? (
+            <>
+              <input
+                ref={photoInput}
+                type="file"
+                accept={GROUP_PHOTO_ACCEPT}
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void changePhoto(file);
+                }}
+              />
+
+              <button
+                type="button"
+                className="pgs-button"
+                disabled={busy}
+                onClick={() => photoInput.current?.click()}
+              >
+                Change group photo
+              </button>
+            </>
+          ) : null}
         </div>
-      ) : null}
 
-      {admin ? (
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            aria-label="Group name"
-            value={newName}
-            maxLength={100}
-            disabled={busy}
-            onChange={(event) => setNewName(event.target.value)}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              background: "#15121c",
-              border: "1px solid #41364f",
-              color: "#fff",
-              padding: 8,
-              borderRadius: 6,
-              fontSize: 16,
-            }}
-          />
-          <button
-            type="button"
-            style={actionStyle}
-            disabled={busy || !newName.trim() || newName.trim() === name}
-            onClick={() => void run({
-              action: "rename",
-              name: newName,
-            })}
-          >
-            Save name
-          </button>
-        </div>
-      ) : null}
+        {admin ? (
+          <div className="pgs-row">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <strong>Edit group name</strong>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-        <button
-          type="button"
-          style={actionStyle}
-          disabled={busy}
-          onClick={() => void run({
-            action: "mute",
-            mutedUntil: new Date(
-              Date.now() + 8 * 60 * 60 * 1000
-            ).toISOString(),
-          })}
-        >
-          Mute for 8 hours
-        </button>
+              {editingName ? (
+                <div style={{ marginTop: 10 }}>
+                  <input
+                    className="pgs-field"
+                    aria-label="Group name"
+                    value={newName}
+                    maxLength={100}
+                    disabled={busy}
+                    onChange={(event) => setNewName(event.target.value)}
+                  />
 
-        <button
-          type="button"
-          style={actionStyle}
-          disabled={busy}
-          onClick={() => void run({ action: "unmute" })}
-        >
-          Unmute
-        </button>
-      </div>
+                  <button
+                    type="button"
+                    className="pgs-button"
+                    disabled={busy || !newName.trim() || newName.trim() === name}
+                    onClick={() => void run({
+                      action: "rename",
+                      name: newName,
+                    })}
+                  >
+                    Save
+                  </button>
 
-
-      {details?.role === "admin" ? (
-        <label style={{ display: "grid", gap: 6 }}>
-          <strong>Who can add members?</strong>
-          <select
-            value={details.admin_only ? "admin" : "all"}
-            disabled={busy}
-            onChange={(event) => {
-              void saveInvitationMode(event.target.value === "admin");
-            }}
-            style={{
-              background: "#251f30",
-              color: "#fff",
-              border: "1px solid #65478e",
-              borderRadius: 8,
-              padding: "9px 12px",
-              width: "100%",
-            }}
-          >
-            <option value="all">All members</option>
-            <option value="admin">Administrators only</option>
-          </select>
-        </label>
-      ) : null}
-
-      {details?.can_add_members && details.member_count < 50 ? (
-        <ParachatGroupCreate
-        conversationId={conversationId}
-        existingMemberIds={members.map((member) => member.user_id)}
-        onAdded={onRefresh}
-        disabled={busy}
-      />
-      ) : details?.member_count === 50 ? (
-        <small>This group has reached its 50-member limit.</small>
-      ) : details?.admin_only ? (
-        <small>Only administrators can add new members.</small>
-      ) : null}
-
-
-      <strong>Members ({members.length})</strong>
-
-      <div style={{ maxHeight: 240, overflowY: "auto" }}>
-        {members.map((member) => (
-          <div key={member.user_id} style={{
-            padding: "8px 0",
-            borderBottom: "1px solid rgba(255,255,255,.08)",
-          }}>
-            <div>
-              {member.full_name || member.username || "Member"}
-              {member.user_id === userId ? " (You)" : ""}
-              {member.role === "admin" ? " · Admin" : ""}
+                  <button
+                    type="button"
+                    className="pgs-button"
+                    disabled={busy}
+                    onClick={() => setEditingName(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
             </div>
 
-            {admin &&
-              member.role === "member" &&
-              member.user_id !== userId ? (
-              <div style={{ display: "flex", gap: 12 }}>
-                <button
-                  type="button"
-                  disabled={busy}
-                  style={actionStyle}
-                  onClick={() => {
-                    if (window.confirm("Make this member an admin?")) {
-                      void run({
-                        action: "promote",
-                        targetUserId: member.user_id,
-                      });
-                    }
-                  }}
-                >
-                  Make admin
-                </button>
-
-                <button
-                  type="button"
-                  disabled={busy}
-                  style={{ ...actionStyle, color: "#fca5a5" }}
-                  onClick={() => {
-                    if (window.confirm("Remove this member?")) {
-                      void run({
-                        action: "remove",
-                        targetUserId: member.user_id,
-                      });
-                    }
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
+            {!editingName ? (
+              <button
+                type="button"
+                className="pgs-button"
+                disabled={busy}
+                onClick={() => {
+                  setNewName(name);
+                  setEditingName(true);
+                }}
+              >
+                Edit ›
+              </button>
             ) : null}
           </div>
-        ))}
+        ) : null}
+
+        <div className="pgs-row">
+          <label style={{ width: "100%", display: "grid", gap: 8 }}>
+            <strong>Notifications</strong>
+
+            <select
+              className="pgs-field"
+              value=""
+              disabled={busy}
+              onChange={(event) => {
+                if (event.target.value === "mute") {
+                  void run({
+                    action: "mute",
+                    mutedUntil: new Date(
+                      Date.now() + 8 * 60 * 60 * 1000
+                    ).toISOString(),
+                  });
+                } else if (event.target.value === "unmute") {
+                  void run({ action: "unmute" });
+                }
+              }}
+            >
+              <option value="">Manage notifications</option>
+              <option value="mute">Mute for 8 hours</option>
+              <option value="unmute">Unmute notifications</option>
+            </select>
+          </label>
+        </div>
+
+        {details?.role === "admin" ? (
+          <div className="pgs-row">
+            <label style={{ width: "100%", display: "grid", gap: 8 }}>
+              <strong>Who can add members?</strong>
+
+              <select
+                className="pgs-field"
+                value={details.admin_only ? "admin" : "all"}
+                disabled={busy}
+                onChange={(event) => {
+                  void saveInvitationMode(event.target.value === "admin");
+                }}
+              >
+                <option value="all">All members</option>
+                <option value="admin">Administrators only</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
+
+        <div style={{ paddingTop: 18 }}>
+          <strong style={{ fontSize: 15 }}>
+            Members ({members.length})
+          </strong>
+
+          {details?.can_add_members && details.member_count < 50 ? (
+            <div style={{ marginTop: 6 }}>
+              <ParachatGroupCreate
+                conversationId={conversationId}
+                existingMemberIds={members.map((member) => member.user_id)}
+                onAdded={onRefresh}
+                disabled={busy}
+              />
+            </div>
+          ) : details?.member_count === 50 ? (
+            <p className="pgs-muted">50-member limit reached.</p>
+          ) : details?.admin_only ? (
+            <p className="pgs-muted">
+              Only administrators can add members.
+            </p>
+          ) : null}
+
+          {members.map((member) => {
+            const displayName =
+              member.full_name || member.username || "Member";
+
+            const canManage =
+              admin &&
+              member.role === "member" &&
+              member.user_id !== userId;
+
+            const menuOpen = memberMenu === member.user_id;
+
+            return (
+              <div
+                key={member.user_id}
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,.08)",
+                }}
+              >
+                <div className="pgs-member">
+                  <span className="pgs-member-avatar">
+                    {displayName.charAt(0).toUpperCase()}
+
+                    {member.avatar_url ? (
+                      <img
+                        src={member.avatar_url}
+                        alt=""
+                        loading="lazy"
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
+                  </span>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: 650,
+                      overflowWrap: "anywhere",
+                    }}>
+                      {displayName}
+                      {member.user_id === userId ? " (You)" : ""}
+                    </div>
+
+                    <div className="pgs-muted">
+                      {member.role === "admin" ? "Admin" : "Member"}
+                    </div>
+                  </div>
+
+                  {canManage ? (
+                    <button
+                      type="button"
+                      className="pgs-round"
+                      aria-label={"Manage " + displayName}
+                      aria-expanded={menuOpen}
+                      disabled={busy}
+                      onClick={() => setMemberMenu(
+                        menuOpen ? null : member.user_id
+                      )}
+                    >
+                      ⋯
+                    </button>
+                  ) : null}
+                </div>
+
+                {canManage && menuOpen ? (
+                  <div style={{
+                    display: "grid",
+                    background: "#211a30",
+                    borderRadius: 12,
+                    marginBottom: 8,
+                    padding: 4,
+                  }}>
+                    <button
+                      type="button"
+                      className="pgs-button"
+                      disabled={busy}
+                      onClick={() => {
+                        if (window.confirm("Make this member an admin?")) {
+                          void run({
+                            action: "promote",
+                            targetUserId: member.user_id,
+                          });
+                        }
+                      }}
+                    >
+                      Make admin
+                    </button>
+
+                    <button
+                      type="button"
+                      className="pgs-button pgs-danger"
+                      disabled={busy}
+                      onClick={() => {
+                        if (window.confirm("Remove this member?")) {
+                          void run({
+                            action: "remove",
+                            targetUserId: member.user_id,
+                          });
+                        }
+                      }}
+                    >
+                      Remove member
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          className="pgs-button pgs-danger"
+          disabled={busy}
+          style={{
+            marginTop: 14,
+            width: "100%",
+            background: "rgba(239,68,68,.07)",
+            textAlign: "left",
+          }}
+          onClick={() => {
+            if (window.confirm("Leave this group chat?")) {
+              void run({ action: "leave" });
+            }
+          }}
+        >
+          Leave group
+        </button>
+
+        {busy ? <p role="status">Updating...</p> : null}
+        {status ? (
+          <p role="status" style={{ color: "#c4b5fd" }}>
+            {status}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" style={{ color: "#fca5a5" }}>
+            {error}
+          </p>
+        ) : null}
       </div>
-
-      <button
-        type="button"
-        disabled={busy}
-        style={{ ...actionStyle, color: "#fca5a5" }}
-        onClick={() => {
-          if (window.confirm("Leave this group chat?")) {
-            void run({ action: "leave" });
-          }
-        }}
-      >
-        Leave group
-      </button>
-
-      {busy ? <p role="status">Updating...</p> : null}
-      {status ? <p role="status">{status}</p> : null}
-      {error ? <p role="alert">{error}</p> : null}
-    </section>
+    </dialog>
   );
 }
-
 
 const groupReactionIcons: Record<GroupChatReaction, string> = {
   like: "👍",
