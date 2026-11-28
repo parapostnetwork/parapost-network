@@ -3519,35 +3519,6 @@ export default function NotificationsPage() {
             box-shadow: none !important;
           }
 
-          .notifications-filter-scroller {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 5px !important;
-            padding: 0 !important;
-            overflow: visible !important;
-          }
-
-          .notifications-filter-scroller .notifications-filter-button {
-            flex: 0 0 auto !important;
-            min-width: 0 !important;
-            min-height: 44px !important;
-            padding: 8px 12px !important;
-            gap: 5px !important;
-            border: 0 !important;
-            border-radius: 9px !important;
-            box-shadow: none !important;
-            font-size: 13px !important;
-            white-space: nowrap !important;
-          }
-
-          .notifications-filter-button[aria-pressed="false"] {
-            background: transparent !important;
-          }
-
-          .notifications-filter-button[aria-pressed="true"] {
-            background: rgba(139,92,246,.24) !important;
-          }
-
           .notifications-feed .notifications-card {
             background: transparent !important;
             background-image: none !important;
@@ -3604,11 +3575,6 @@ export default function NotificationsPage() {
           }
 
           @media (max-width: 600px) {
-            .notifications-filter-scroller .notifications-filter-button {
-              padding: 8px 9px !important;
-              font-size: 12px !important;
-            }
-
             .notifications-feed .notifications-card {
               padding: 13px 6px !important;
               gap: 5px !important;
@@ -3655,7 +3621,7 @@ export default function NotificationsPage() {
           </header>
 
           <div className="notifications-filter-scroller" style={filterScrollerStyle} aria-label="Notification filters">
-            {(["all", "friends", "mentions", "unread", "activity"] as const).map(key => ({
+            {(["all", "unread"] as const).map(key => ({
               key,
               count: filterButtons.find(item => item.key === key)?.count ?? 0,
             })).map((filter) => {
@@ -3673,10 +3639,8 @@ export default function NotificationsPage() {
                     ...(isActive ? activeFilterButtonStyle : {}),
                   }}
                 >
-                  <span>{filter.key === "mentions" ? "Mentions" : getFilterLabel(filter.key)}</span>
-                  {filter.key === "unread" && filter.count > 0 ? (
-                    <span style={filterCountStyle}>{filter.count}</span>
-                  ) : null}
+                  <span>{getFilterLabel(filter.key)}</span>
+                  <span style={filterCountStyle}>{filter.count}</span>
                 </button>
               );
             })}

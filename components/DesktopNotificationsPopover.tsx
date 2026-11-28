@@ -353,7 +353,7 @@ export default function DesktopNotificationsPopover({
             aria-label="Notifications"
             style={{
               position: "fixed", right: "max(18px, calc((100vw - 1740px) / 2 + 16px))", top: 92,
-              zIndex: 9999, width: 480,
+              zIndex: 9999, width: 410,
               maxWidth: "calc(100vw - 36px)",
               maxHeight: "min(660px, calc(100dvh - 110px))",
               display: "flex", flexDirection: "column",
@@ -405,8 +405,8 @@ export default function DesktopNotificationsPopover({
               </details>
             </div>
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "0 14px 12px" }}>
-              {(["all", "friends", "mentions", "unread", "activity"] as const).map(filter => (
+            <div style={{ display: "flex", gap: 8, padding: "0 18px 12px" }}>
+              {(["all", "unread"] as const).map(filter => (
                 <button
                   key={filter}
                   type="button"
@@ -628,9 +628,9 @@ const emptyStyle: CSSProperties = {
 
 function filterStyle(active: boolean): CSSProperties {
   return {
-    padding: "8px 11px", border: 0,
+    padding: "7px 16px", border: 0,
     borderRadius: 20, cursor: "pointer",
-    background: active ? "rgba(139,92,246,.24)" : "transparent",
+    background: active ? "#65478e" : "rgba(255,255,255,.06)",
     color: active ? "#fff" : "#bcb6c7",
     fontWeight: 650, fontSize: 13,
   };
