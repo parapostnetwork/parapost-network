@@ -117,7 +117,7 @@ export default function ParachatGroupCreate({
         onAdded?.();
       } else {
         const id = await createGroupChat(name, valid);
-        router.push(`/messages/groups/${id}`);
+        router.push(`/messages?group=${id}`, { scroll: false });
       }
     } catch {
       setError("Unable to complete this request. Check your friend selection.");

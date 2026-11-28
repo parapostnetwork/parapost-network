@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import ParachatGroupCreate from "@/components/ParachatGroupCreate";
+import { AuthenticatedGroupConversation } from "@/components/ParachatGroupConversation";
 import ParachatGroupAvatar from "@/components/ParachatGroupAvatar";
 import {
   groupChatEnabled,
@@ -631,7 +632,15 @@ function updateConversationUrl(conversationId: string) {
   window.history.replaceState(null, "", nextUrl);
 }
 
+function currentGroupConversationId(): string {
+  if (typeof window === "undefined" || !groupChatEnabled()) return "";
+  const id = new URLSearchParams(window.location.search).get("group") || "";
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    ? id : "";
+}
+
 function clearConversationUrl() {
+  if (currentGroupConversationId()) return;
   if (typeof window === "undefined") return;
   window.history.replaceState(null, "", "/messages");
 }
@@ -726,8 +735,16 @@ function MessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const selectedConversationFromUrl = searchParams?.get("conversation") || "";
-  const selectedUserFromUrl = searchParams?.get("user") || "";
+  const requestedGroupId = searchParams?.get("group") || "";
+  const selectedGroupId =
+    groupChatEnabled() &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedGroupId)
+      ? requestedGroupId : "";
+
+  const selectedConversationFromUrl = selectedGroupId
+    ? "" : searchParams?.get("conversation") || "";
+  const selectedUserFromUrl = selectedGroupId
+    ? "" : searchParams?.get("user") || "";
 
   const [viewerId, setViewerId] = useState("");
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
@@ -760,6 +777,7 @@ function MessagesPage() {
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [conversationDeleteTarget, setConversationDeleteTarget] = useState<ConversationItem | null>(null);
   const [mobileChatOpen, setMobileChatOpen] = useState(!!selectedConversationFromUrl);
+  const conversationPanelOpen = mobileChatOpen || Boolean(selectedGroupId);
   const [selectedImage, setSelectedImage] = useState<ParachatImageDraft | null>(null);
   const [imageError, setImageError] = useState("");
   const [compressingImage, setCompressingImage] = useState(false);
@@ -1635,6 +1653,12 @@ function MessagesPage() {
       });
 
     setConversations(nextItems);
+
+    if (currentGroupConversationId()) {
+      inboxLoadedOnceRef.current = true;
+      setLoadingInbox(false);
+      return;
+    }
 
     const urlConversationValid = nextItems.some(
       (conversation) => conversation.id === selectedConversationFromUrl
@@ -2753,6 +2777,11 @@ function MessagesPage() {
     }
   };
 
+  useEffect(() => {
+    if (!selectedGroupId) return;
+    handleCloseActiveConversation();
+  }, [selectedGroupId]);
+
   const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     const nextValue = event.target.value;
     setMessageText(nextValue);
@@ -3087,7 +3116,7 @@ function MessagesPage() {
   return (
     <div
       className={
-        mobileChatOpen
+        conversationPanelOpen
           ? "parachat-page-root parachat-page-chat-open parachat-mobile-chat-open"
           : "parachat-page-root"
       }
@@ -3216,7 +3245,8 @@ function MessagesPage() {
             padding-top: env(safe-area-inset-top, 0px);
           }
 
-          .parachat-mobile-chat-open .parachat-panel > header {
+          .parachat-mobile-chat-open .parachat-panel > header,
+          .parachat-mobile-chat-open .parachat-group-header {
             padding-top: calc(14px + env(safe-area-inset-top, 0px)) !important;
           }
 
@@ -3522,7 +3552,7 @@ function MessagesPage() {
       `}</style>
 
       <div
-        className={`parachat-shell ${mobileChatOpen ? "parachat-mobile-chat-open" : ""}`}
+        className={`parachat-shell ${conversationPanelOpen ? "parachat-mobile-chat-open" : ""}`}
         style={shellStyle}
       >
         <aside className="parachat-inbox" style={inboxStyle}>
@@ -3654,10 +3684,12 @@ function MessagesPage() {
                   return (
                     <div
                       key={"group-" + group.conversation_id}
-                      style={conversationItemStyle}
+                      style={selectedGroupId === group.conversation_id
+                        ? conversationItemActiveStyle
+                        : conversationItemStyle}
                     >
                       <Link
-                        href={`/messages/groups/${group.conversation_id}`}
+                        href={`/messages?group=${group.conversation_id}`} scroll={false}
                         style={{
                           ...conversationSelectButtonStyle,
                           textDecoration: "none",
@@ -3809,7 +3841,12 @@ function MessagesPage() {
         </aside>
 
         <main className="parachat-panel" style={chatPanelStyle}>
-          {!activeConversationId ? (
+          {selectedGroupId ? (
+            <AuthenticatedGroupConversation
+              key={selectedGroupId}
+              conversationId={selectedGroupId}
+            />
+          ) : !activeConversationId ? (
             <div style={selectConversationStyle}>
               <div style={emptyIconStyle}>💬</div>
               <strong>Select a Parachat</strong>
