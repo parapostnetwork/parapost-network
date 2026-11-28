@@ -3346,6 +3346,19 @@ function MessagesPage() {
         }
 
         @media (min-width: 981px) {
+          .parachat-inbox {
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+          }
+
+          .parachat-conversation-list {
+            max-height: none !important;
+            overflow: visible !important;
+          }
+
           .parachat-mobile-back {
             display: none !important;
           }
