@@ -2782,6 +2782,43 @@ function MessagesPage() {
     handleCloseActiveConversation();
   }, [selectedGroupId]);
 
+  function renderComposerControls(
+    onAttach: () => void,
+    attachDisabled: boolean,
+    isGroup = false
+  ) {
+    return (
+      <>
+                  <button
+                    type="button"
+                    className="parachat-image-button"
+                    onClick={onAttach}
+                    disabled={attachDisabled}
+                    style={{
+                      ...imageButtonStyle,
+                      opacity: attachDisabled ? 0.55 : 1,
+                      cursor: attachDisabled ? "not-allowed" : "pointer",
+                    }}
+                    aria-label={isGroup ? "Add a photo or video" : "Add a photo to this Parachat"}
+                    title={isGroup ? "Add photo or video" : "Add photo"}
+                  >
+                    +
+                  </button>
+
+                  <button
+                    type="button"
+                    className="parachat-voice-button"
+                    onClick={() => setVoiceComingSoonOpen(true)}
+                    style={voiceComingSoonButtonStyle}
+                    aria-label="Voice messaging coming soon"
+                    title="Voice messaging coming soon"
+                  >
+                    <MicrophoneIcon size={19} />
+                  </button>
+      </>
+    );
+  }
+
   const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     const nextValue = event.target.value;
     setMessageText(nextValue);
@@ -3845,6 +3882,7 @@ function MessagesPage() {
             <AuthenticatedGroupConversation
               key={selectedGroupId}
               conversationId={selectedGroupId}
+              renderControls={renderComposerControls}
             />
           ) : !activeConversationId ? (
             <div style={selectConversationStyle}>
@@ -4193,32 +4231,10 @@ function MessagesPage() {
                 ) : null}
 
                 <div className="parachat-composer-row" style={composerRowStyle}>
-                  <button
-                    type="button"
-                    className="parachat-image-button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={inputDisabled || compressingImage}
-                    style={{
-                      ...imageButtonStyle,
-                      opacity: inputDisabled || compressingImage ? 0.55 : 1,
-                      cursor: inputDisabled || compressingImage ? "not-allowed" : "pointer",
-                    }}
-                    aria-label="Add a photo to this Parachat"
-                    title="Add photo"
-                  >
-                    +
-                  </button>
-
-                  <button
-                    type="button"
-                    className="parachat-voice-button"
-                    onClick={() => setVoiceComingSoonOpen(true)}
-                    style={voiceComingSoonButtonStyle}
-                    aria-label="Voice messaging coming soon"
-                    title="Voice messaging coming soon"
-                  >
-                    <MicrophoneIcon size={19} />
-                  </button>
+                  {renderComposerControls(
+                    () => fileInputRef.current?.click(),
+                    inputDisabled || compressingImage
+                  )}
 
                   <textarea
                     ref={textareaRef}

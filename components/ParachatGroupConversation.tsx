@@ -37,12 +37,20 @@ import {
   type GroupChatMember,
 } from "@/lib/parachat/group-client";
 
+type GroupComposerControls = (
+  onAttach: () => void,
+  attachDisabled: boolean,
+  isGroup?: boolean
+) => React.ReactNode;
+
 export default function GroupConversation({
   userId,
   conversationId,
+  renderControls,
 }: {
   userId: string;
   conversationId: string;
+  renderControls: GroupComposerControls;
 }) {
   const [name, setName] = useState("Group Chat");
   const [details, setDetails] = useState<GroupChatDetails | null>(null);
@@ -590,6 +598,7 @@ export default function GroupConversation({
             </div>
           ) : null}
         <form
+          className="parachat-composer-row"
           onSubmit={(event) => {
             event.preventDefault();
             void send();
@@ -613,34 +622,11 @@ export default function GroupConversation({
             }}
           />
 
-          <button
-            type="button"
-            aria-label="Attach photo or video"
-            title="Attach photo or video"
-            disabled={sending}
-            onClick={() => fileInput.current?.click()}
-            style={{
-              background: "transparent",
-              border: 0,
-              color: "#bc92ef",
-              padding: 6,
-              cursor: "pointer",
-            }}
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M21 11.5l-8.5 8.5a6 6 0 0 1-8.5-8.5l9-9a4 4 0 0 1 5.7 5.7l-9 9a2 2 0 0 1-2.8-2.8l8.5-8.5"/>
-            </svg>
-          </button>
+          {renderControls(
+            () => fileInput.current?.click(),
+            sending,
+            true
+          )}
 
           <MentionTextarea
             mentionContext={{
@@ -1388,8 +1374,10 @@ const messagesAreaStyle: React.CSSProperties = {
 
 export function AuthenticatedGroupConversation({
   conversationId,
+  renderControls,
 }: {
   conversationId: string;
+  renderControls: GroupComposerControls;
 }) {
 
   const [userId, setUserId] =
@@ -1424,6 +1412,7 @@ export function AuthenticatedGroupConversation({
       key={`${userId}:${conversationId}`}
       userId={userId}
       conversationId={conversationId}
+      renderControls={renderControls}
     />
   );
 }
