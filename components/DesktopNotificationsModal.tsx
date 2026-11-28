@@ -70,7 +70,7 @@ export default function DesktopNotificationsModal({
           overflow: "hidden",
           borderRadius: 20,
           border: "1px solid rgba(184,144,230,.28)",
-          background: "#0d0917",
+          background: "#15121c",
           boxShadow: "0 30px 100px rgba(0,0,0,.75)",
         }}
       >
@@ -82,7 +82,7 @@ export default function DesktopNotificationsModal({
             alignItems: "center",
             justifyContent: "flex-end",
             padding: "0 16px",
-            background: "#130c20",
+            background: "#15121c",
             borderBottom: "1px solid rgba(184,144,230,.14)",
           }}
         >

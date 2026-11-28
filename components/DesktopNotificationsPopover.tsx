@@ -76,7 +76,12 @@ function destination(n: Notice) {
 }
 
 function description(n: Notice, name: string) {
-  if (n.message?.trim()) return n.message.trim();
+  if (n.message?.trim()) {
+    const message = n.message.trim();
+    return n.actor && name !== "Someone"
+      ? message.replace(/^Someone\b/i, () => name)
+      : message;
+  }
   const t = n.type || "";
   if (t.includes("mention")) return `${name} mentioned you.`;
   if (t === "friend_request") return `${name} sent you a friend request.`;
@@ -120,7 +125,9 @@ export default function DesktopNotificationsPopover({
   const [items, setItems] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<
+    "all" | "friends" | "mentions" | "unread" | "activity"
+  >("all");
   const [rowMenuId, setRowMenuId] = useState<string | null>(null);
   const [rowMenuPosition, setRowMenuPosition] = useState({ top: 0, right: 0 });
 
@@ -277,7 +284,14 @@ export default function DesktopNotificationsPopover({
   const pendingRequests = usePendingNotificationRequests(
     open ? userId : null, items
   );
-  const visible = unreadOnly ? items.filter(n => !n.is_read) : items;
+  const visible = items.filter(n => {
+    const type = (n.type || "").toLowerCase();
+    if (activeFilter === "unread") return !n.is_read;
+    if (activeFilter === "friends") return type.includes("friend");
+    if (activeFilter === "mentions") return type.includes("mention");
+    if (activeFilter === "activity") return !type.includes("friend");
+    return true;
+  });
 
   return (
     <>
@@ -339,7 +353,7 @@ export default function DesktopNotificationsPopover({
             aria-label="Notifications"
             style={{
               position: "fixed", right: "max(18px, calc((100vw - 1740px) / 2 + 16px))", top: 92,
-              zIndex: 9999, width: 410,
+              zIndex: 9999, width: 480,
               maxWidth: "calc(100vw - 36px)",
               maxHeight: "min(660px, calc(100dvh - 110px))",
               display: "flex", flexDirection: "column",
@@ -391,9 +405,18 @@ export default function DesktopNotificationsPopover({
               </details>
             </div>
 
-            <div style={{ display: "flex", gap: 8, padding: "0 18px 12px" }}>
-              <button onClick={() => setUnreadOnly(false)} style={filterStyle(!unreadOnly)}>All</button>
-              <button onClick={() => setUnreadOnly(true)} style={filterStyle(unreadOnly)}>Unread</button>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "0 14px 12px" }}>
+              {(["all", "friends", "mentions", "unread", "activity"] as const).map(filter => (
+                <button
+                  key={filter}
+                  type="button"
+                  aria-pressed={activeFilter === filter}
+                  onClick={() => setActiveFilter(filter)}
+                  style={filterStyle(activeFilter === filter)}
+                >
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                </button>
+              ))}
             </div>
 
             <div onScroll={() => setRowMenuId(null)} style={{ overflowY: "auto", padding: "0 8px 8px" }}>
@@ -403,7 +426,9 @@ export default function DesktopNotificationsPopover({
                 <p style={emptyStyle}>{error}</p>
               ) : visible.length === 0 ? (
                 <p style={emptyStyle}>
-                  {unreadOnly ? "No unread notifications." : "You're all caught up."}
+                  {activeFilter === "all"
+                    ? "You're all caught up."
+                    : "No recent notifications in this category."}
                 </p>
               ) : visible.map(n => {
                 const name = n.actor?.full_name || n.actor?.username || "Someone";
@@ -412,14 +437,17 @@ export default function DesktopNotificationsPopover({
                 const initial = name.charAt(0).toUpperCase();
 
                 return (
-                  <div key={n.id}>
+                  <div key={n.id} style={{
+                    background: n.is_read ? "transparent" : "rgba(139,92,246,.10)",
+                    borderBottom: "1px solid rgba(255,255,255,.05)",
+                  }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <button type="button"
                     onClick={() => void openNotice(n)}
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
                       flex: 1, minWidth: 0, padding: "11px 10px",
-                      background: n.is_read ? "transparent" : "rgba(102,78,150,.14)",
+                      background: "transparent",
                       border: 0, borderRadius: 8,
                       color: "inherit", cursor: "pointer", textAlign: "left",
                     }}
@@ -505,7 +533,7 @@ export default function DesktopNotificationsPopover({
                         lineHeight: 1,
                         borderRadius: "50%",
                         border: 0,
-                        background: "rgba(125,85,185,.18)",
+                        background: "transparent",
                         color: "#e4d5f7",
                         fontSize: 22,
                         cursor: "pointer",
@@ -600,9 +628,9 @@ const emptyStyle: CSSProperties = {
 
 function filterStyle(active: boolean): CSSProperties {
   return {
-    padding: "7px 16px", border: 0,
+    padding: "8px 11px", border: 0,
     borderRadius: 20, cursor: "pointer",
-    background: active ? "#65478e" : "rgba(255,255,255,.06)",
+    background: active ? "rgba(139,92,246,.24)" : "transparent",
     color: active ? "#fff" : "#bcb6c7",
     fontWeight: 650, fontSize: 13,
   };

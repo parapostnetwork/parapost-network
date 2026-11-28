@@ -352,7 +352,12 @@ function getNotificationTitle(notification: NotificationCard) {
 
   if (type.includes("mention")) return `${actorName} mentioned you in a ${notification.comment_id || (notification as NotificationCard & { community_comment_id?: string }).community_comment_id ? "comment" : "post"}.`;
 
-  if (notification.message?.trim()) return notification.message.trim();
+  if (notification.message?.trim()) {
+    const message = notification.message.trim();
+    return notification.actor && actorName !== "Someone"
+      ? message.replace(/^Someone\b/i, () => actorName)
+      : message;
+  }
   if (type === "friend_request") return `${actorName} sent you a friend request.`;
   if (type === "friend_accept") return `${actorName} accepted your friend request.`;
   if (type === "post_like") return `${actorName} liked your post.`;
@@ -398,6 +403,8 @@ function getNotificationMeta(notification: NotificationCard) {
   const type = notification.type || "";
 
   if (type.includes("mention")) return "Mentions";
+  if (type.startsWith("creatorverse_")) return "CreatorVerse";
+  if (type.startsWith("group_")) return "Groups";
   if (type.includes("parachat")) return "Parachat";
   if (type.includes("reel")) return "Parapost Reels";
   if (type.includes("live")) return "Live";
@@ -3497,23 +3504,119 @@ export default function NotificationsPage() {
         `}</style>
 
         <style id="notifications-borderless-rows">{`
-          .notifications-feed .notifications-card,
-          .notifications-feed .notifications-card-unread,
-          .notifications-feed .notifications-card:hover {
+          .notifications-page-root {
+            background: #15121c !important;
+          }
+
+          .notifications-page-inner {
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+          }
+
+          .notifications-compact-header {
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+          }
+
+          .notifications-filter-scroller {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 5px !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          .notifications-filter-scroller .notifications-filter-button {
+            flex: 0 0 auto !important;
+            min-width: 0 !important;
+            min-height: 44px !important;
+            padding: 8px 12px !important;
+            gap: 5px !important;
+            border: 0 !important;
+            border-radius: 9px !important;
+            box-shadow: none !important;
+            font-size: 13px !important;
+            white-space: nowrap !important;
+          }
+
+          .notifications-filter-button[aria-pressed="false"] {
+            background: transparent !important;
+          }
+
+          .notifications-filter-button[aria-pressed="true"] {
+            background: rgba(139,92,246,.24) !important;
+          }
+
+          .notifications-feed .notifications-card {
             background: transparent !important;
             background-image: none !important;
-            border: none !important;
+            border: 0 !important;
+            border-bottom: 1px solid rgba(255,255,255,.05) !important;
             box-shadow: none !important;
             border-radius: 0 !important;
+            align-items: flex-start !important;
+            padding: 14px 10px !important;
+            gap: 8px !important;
+            min-width: 0 !important;
+          }
+
+          .notifications-feed .notifications-card-unread {
+            background: rgba(139,92,246,.10) !important;
           }
 
           .notifications-feed .notifications-main-button,
           .notifications-feed .notifications-main-button:hover {
             background: transparent !important;
-            background-image: none !important;
             border: none !important;
             box-shadow: none !important;
             border-radius: 0 !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+            min-width: 0 !important;
+            overflow-wrap: anywhere;
+          }
+
+          .notifications-feed .notifications-avatar {
+            width: 58px !important;
+            height: 58px !important;
+            min-width: 58px !important;
+            flex-shrink: 0 !important;
+          }
+
+          .notifications-feed .notifications-item-menu {
+            margin-top: 0 !important;
+          }
+
+          .notifications-feed .notifications-item-menu > summary,
+          .notifications-compact-header summary {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            width: 44px !important;
+            height: 44px !important;
+            border-radius: 8px !important;
+          }
+
+          .notifications-caught-up {
+            min-height: 280px !important;
+            padding: 35px 16px !important;
+          }
+
+          @media (max-width: 600px) {
+            .notifications-filter-scroller .notifications-filter-button {
+              padding: 8px 9px !important;
+              font-size: 12px !important;
+            }
+
+            .notifications-feed .notifications-card {
+              padding: 13px 6px !important;
+              gap: 5px !important;
+            }
+
+            .notifications-feed .notifications-main-button {
+              gap: 10px !important;
+            }
           }
         `}</style>
 
@@ -3552,7 +3655,10 @@ export default function NotificationsPage() {
           </header>
 
           <div className="notifications-filter-scroller" style={filterScrollerStyle} aria-label="Notification filters">
-            {filterButtons.map((filter) => {
+            {(["all", "friends", "mentions", "unread", "activity"] as const).map(key => ({
+              key,
+              count: filterButtons.find(item => item.key === key)?.count ?? 0,
+            })).map((filter) => {
               const isActive = activeFilter === filter.key;
 
               return (
@@ -3560,6 +3666,7 @@ export default function NotificationsPage() {
                   key={filter.key}
                   type="button"
                   onClick={() => setActiveFilter(filter.key)}
+                  aria-pressed={isActive}
                   className="notifications-filter-button"
                   style={{
                     ...filterButtonStyle,
@@ -3567,7 +3674,9 @@ export default function NotificationsPage() {
                   }}
                 >
                   <span>{filter.key === "mentions" ? "Mentions" : getFilterLabel(filter.key)}</span>
-                  <span style={filterCountStyle}>{filter.count}</span>
+                  {filter.key === "unread" && filter.count > 0 ? (
+                    <span style={filterCountStyle}>{filter.count}</span>
+                  ) : null}
                 </button>
               );
             })}
