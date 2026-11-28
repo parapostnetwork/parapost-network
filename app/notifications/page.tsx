@@ -9,6 +9,7 @@ import { CSSProperties, Fragment, useCallback, useEffect, useMemo, useRef, useSt
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { groupChatEnabled } from "@/lib/parachat/group-client";
 import NotificationFriendRequestActions, {
   usePendingNotificationRequests,
 } from "@/components/NotificationFriendRequestActions";
@@ -23,6 +24,8 @@ type NotificationRow = {
   comment_id: string | null;
   share_id?: string | null;
   friend_request_id: string | null;
+  parachat_group_conversation_id?: string | null;
+  parachat_group_message_id?: string | null;
   reel_id?: string | null;
   message: string | null;
   is_read: boolean | null;
@@ -309,6 +312,13 @@ function getNotificationTitle(notification: NotificationCard) {
   const actorName = getDisplayName(notification.actor);
   const type = notification.type || "";
 
+  if (type === "parachat_group_message") {
+    return notification.message ===
+      "You were mentioned in a Parachat group."
+      ? `${actorName} mentioned you in a Parachat group.`
+      : `${actorName} sent a message in a Parachat group.`;
+  }
+
   if (isParachatNotificationType(type)) {
     const parachatCount = getParachatMessageCount(notification);
 
@@ -419,6 +429,15 @@ function getNotificationMeta(notification: NotificationCard) {
 
 function getNotificationHref(notification: NotificationCard) {
   const type = notification.type || "";
+
+  if (type === "parachat_group_message") {
+    const id = notification.parachat_group_conversation_id;
+    const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    return id && valid.test(id)
+      ? `/messages/groups/${id}`
+      : "/messages";
+  }
 
   if (type === "badge_award" || type === "achievement_award") {
     return notification.user_id
@@ -1798,12 +1817,19 @@ export default function NotificationsPage() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("id, user_id, actor_id, type, post_id, comment_id, share_id, friend_request_id, reel_id, message, is_read, created_at, group_id, creatorverse_page_id, community_post_id, community_comment_id")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(100);
+      const { data, error } = groupChatEnabled()
+        ? await supabase
+            .from("notifications")
+            .select("id, user_id, actor_id, type, post_id, comment_id, share_id, friend_request_id, reel_id, message, is_read, created_at, group_id, creatorverse_page_id, community_post_id, community_comment_id, parachat_group_conversation_id, parachat_group_message_id")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(100)
+        : await supabase
+            .from("notifications")
+            .select("id, user_id, actor_id, type, post_id, comment_id, share_id, friend_request_id, reel_id, message, is_read, created_at, group_id, creatorverse_page_id, community_post_id, community_comment_id")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(100);
 
       if (error) {
         console.error("Notifications load error:", error.message);
@@ -1990,6 +2016,12 @@ export default function NotificationsPage() {
 
   const handleOpenNotification = async (notification: NotificationCard) => {
     const href = getNotificationHref(notification);
+
+    if (notification.type === "parachat_group_message") {
+      window.location.assign(href);
+      return;
+    }
+
     const notificationIds = notification.groupedNotificationIds?.length
       ? notification.groupedNotificationIds
       : [notification.id];

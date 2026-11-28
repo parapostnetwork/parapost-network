@@ -3,12 +3,13 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { groupChatEnabled } from "@/lib/parachat/group-client";
 
 type AdminRole = "owner" | "admin" | "support" | "moderator";
 type ModerationRole = AdminRole;
 
 type ReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
-type ReportTargetType = "profile" | "post" | "comment" | "reel" | "message";
+type ReportTargetType = "profile" | "post" | "comment" | "reel" | "message" | "parachat_group_message";
 
 type ReportRow = {
   id: string;
@@ -53,6 +54,11 @@ const TARGET_TYPE_OPTIONS: Array<{ value: ReportTargetType; label: string }> = [
   { value: "comment", label: "Comment" },
   { value: "reel", label: "Reel" },
   { value: "message", label: "Message" },
+  {
+    value: "parachat_group_message",
+    label: "Parachat Group Message"
+  },
+
 ];
 
 function formatDateTime(value?: string | null) {
@@ -700,7 +706,14 @@ export default function AdminModerationPage() {
                     Full target ID: <span className="break-all">{selectedReport.target_id}</span>
                   </div>
 
-                  {getTargetHref(selectedReport) ? (
+                  {selectedReport.target_type === "parachat_group_message" &&
+                    groupChatEnabled() ? (
+                    <ReportedGroupAttachment
+                      key={`${currentUserId}:${selectedReport.id}`}
+                      reportId={selectedReport.id}
+                      userId={currentUserId}
+                    />
+                  ) : getTargetHref(selectedReport) ? (
                     <Link
                       href={getTargetHref(selectedReport)}
                       className="mt-4 inline-flex rounded-xl border border-purple-300/25 bg-purple-400/10 px-4 py-2 text-sm font-black text-purple-100 no-underline transition hover:bg-purple-400/15"
@@ -869,6 +882,171 @@ function StatCard({ label, value }: { label: string; value: number }) {
     <div className="rounded-[20px] border border-white/10 bg-white/[0.055] p-3 shadow-xl sm:rounded-[22px] sm:p-4">
       <div className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</div>
       <div className="mt-2 text-2xl font-black tracking-[-0.04em] text-white sm:text-3xl">{value}</div>
+    </div>
+  );
+}
+
+
+function ReportedGroupAttachment({
+  reportId,
+  userId,
+}: {
+  reportId: string;
+  userId: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [attachment, setAttachment] = useState<{
+    signed_url: string;
+    mime_type: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const { data: subscription } =
+      supabase.auth.onAuthStateChange(() => {
+        setAttachment(null);
+      });
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  async function loadAttachment() {
+    if (loading || !groupChatEnabled()) return;
+
+    setLoading(true);
+    setAttachment(null);
+    setError("");
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+
+      if (!session || session.user.id !== userId) {
+        throw new Error("Authentication required.");
+      }
+
+      const response = await fetch(
+        `/api/parachat/reports/${encodeURIComponent(reportId)}/attachment`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Attachment unavailable.");
+      }
+
+      const result = await response.json();
+      const current = await supabase.auth.getSession();
+
+      if (current.data.session?.user.id !== userId) {
+        throw new Error("Session changed.");
+      }
+
+      if (!result.attachment) {
+        setError(
+          "No available photo or video is associated with this report."
+        );
+        return;
+      }
+
+      const media = result.attachment;
+      const url = new URL(media.signed_url);
+      const project = new URL(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!
+      );
+
+      if (
+        url.protocol !== "https:" ||
+        url.origin !== project.origin ||
+        !url.pathname.startsWith(
+          "/storage/v1/object/sign/parachat-group-media/"
+        ) ||
+        ![
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "video/mp4",
+          "video/webm",
+        ].includes(media.mime_type)
+      ) {
+        throw new Error("Invalid attachment.");
+      }
+
+      setAttachment({
+        signed_url: media.signed_url,
+        mime_type: media.mime_type,
+      });
+
+    } catch {
+      setError("Unable to access the reported attachment.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function mediaError() {
+    setAttachment(null);
+    setError("Attachment unavailable or link expired. Try again.");
+  }
+
+  return (
+    <div className="mt-4 space-y-3">
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => void loadAttachment()}
+        className="rounded-xl border border-purple-300/25 bg-purple-400/10 px-4 py-2 text-sm font-bold text-purple-100 disabled:opacity-50"
+      >
+        {loading
+          ? "Loading attachment..."
+          : attachment
+            ? "Refresh attachment"
+            : "View reported attachment"}
+      </button>
+
+      {attachment ? (
+        <>
+          {attachment.mime_type.startsWith("image/") ? (
+            <img
+              src={attachment.signed_url}
+              alt="Reported group message attachment"
+              referrerPolicy="no-referrer"
+              onError={mediaError}
+              className="max-h-[420px] max-w-full rounded-xl object-contain"
+            />
+          ) : (
+            <video
+              src={attachment.signed_url}
+              controls
+              playsInline
+              preload="metadata"
+              onError={mediaError}
+              className="max-h-[420px] max-w-full rounded-xl"
+            />
+          )}
+
+          <button
+            type="button"
+            onClick={() => setAttachment(null)}
+            className="block text-sm text-slate-300"
+          >
+            Close attachment
+          </button>
+        </>
+      ) : null}
+
+      {error ? (
+        <p className="text-sm text-slate-300">{error}</p>
+      ) : null}
+
+      <p className="text-xs text-slate-500">
+        Access is limited to the reported attachment.
+        Temporary viewing links expire after 60 seconds.
+      </p>
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
+import {
+  isCommunityStagingTarget,
+  communityServerTargetAllowed,
+} from "@/lib/community/release-target";
 
 export const runtime = "nodejs";
 
@@ -15,6 +19,8 @@ type NotificationRecord = {
   post_id?: string | null;
   comment_id?: string | null;
   friend_request_id?: string | null;
+  parachat_group_conversation_id?: string | null;
+  parachat_group_message_id?: string | null;
   message?: string | null;
 };
 
@@ -36,6 +42,10 @@ function getNotificationBody(record: NotificationRecord) {
 
   // Handle Parachat before reading record.message because Parachat can store
   // internal grouping values such as "parachat_group_count:1" in that field.
+  if (type === "parachat_group_message") {
+    return "New Parachat group message";
+  }
+
   if (type === "parachat_message") {
     return "New Parachat message";
   }
@@ -137,6 +147,57 @@ export async function POST(req: Request) {
       },
     });
 
+    let destination = "/notifications";
+    let groupMention = false;
+
+    if (record.type === "parachat_group_message") {
+      if (
+        !isCommunityStagingTarget(supabaseUrl) ||
+        !communityServerTargetAllowed(supabaseUrl)
+      ) {
+        return NextResponse.json({ ignored: true });
+      }
+
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      if (!record.id || !uuid.test(record.id)) {
+        return NextResponse.json({ ignored: true });
+      }
+
+      const { data: notification, error: notificationError } =
+        await supabase
+          .from("notifications")
+          .select("id,parachat_group_conversation_id,is_read,message")
+          .eq("id", record.id)
+          .eq("user_id", record.user_id)
+          .eq("type", "parachat_group_message")
+          .maybeSingle();
+
+      if (notificationError) {
+        return NextResponse.json(
+          { error: "Could not verify group notification." },
+          { status: 500 }
+        );
+      }
+
+      const conversationId =
+        notification?.parachat_group_conversation_id;
+
+      if (
+        !notification ||
+        notification.is_read ||
+        !conversationId ||
+        !uuid.test(conversationId)
+      ) {
+        return NextResponse.json({ ignored: true });
+      }
+
+      groupMention = notification.message ===
+        "You were mentioned in a Parachat group.";
+
+      destination = `/messages/groups/${conversationId}`;
+    }
+
     const { data, error } = await supabase
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth_key")
@@ -193,13 +254,42 @@ export async function POST(req: Request) {
       vapidPrivateKey
     );
 
+    if (record.type === "parachat_group_message") {
+      const { data: allowedDestination, error: eligibilityError } =
+        await supabase.rpc(
+          "parachat_group_push_destination",
+          {
+            p_notification_id: record.id,
+            p_recipient_id: record.user_id,
+          }
+        );
+
+      if (eligibilityError) {
+        return NextResponse.json(
+          { error: "Could not verify group notification eligibility." },
+          { status: 500 }
+        );
+      }
+
+      if (
+        typeof allowedDestination !== "string" ||
+        destination !== `/messages/groups/${allowedDestination}`
+      ) {
+        return NextResponse.json({
+          ignored: true,
+        });
+      }
+    }
+
     const payload = JSON.stringify({
       recipientUserId: record.user_id,
       title: getNotificationTitle(record),
-      body: getNotificationBody(record),
+      body: groupMention
+      ? "You were mentioned in a Parachat group."
+      : getNotificationBody(record),
       icon: "/icons/parapost-192.png",
       badge: "/icons/parapost-notification-badge.png",
-      url: "/notifications",
+      url: destination,
     });
 
     let sent = 0;
@@ -219,7 +309,9 @@ export async function POST(req: Request) {
             },
             payload,
             {
-              TTL: 60 * 60,
+              TTL: record.type === "parachat_group_message"
+                ? 60
+                : 60 * 60,
             }
           );
 

@@ -14,6 +14,13 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import ParachatGroupCreate from "@/components/ParachatGroupCreate";
+import ParachatGroupAvatar from "@/components/ParachatGroupAvatar";
+import {
+  groupChatEnabled,
+  getGroupChatInbox,
+  type GroupChatConversation,
+} from "@/lib/parachat/group-client";
 
 type ProfileRow = {
   id: string;
@@ -730,6 +737,17 @@ function MessagesPage() {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [messageText, setMessageText] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [inboxFilter, setInboxFilter] =
+    useState<"all" | "unread" | "groups">("all");
+
+  const [groupConversations, setGroupConversations] =
+    useState<GroupChatConversation[]>([]);
+
+  const [groupInboxError, setGroupInboxError] = useState("");
+  const [groupInboxLoading, setGroupInboxLoading] =
+    useState(groupChatEnabled());
+
+  const groupsEnabled = groupChatEnabled();
   const [loadingInbox, setLoadingInbox] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
@@ -1001,9 +1019,95 @@ function MessagesPage() {
     );
   }, [activeConversation?.otherUserId, blockedUserIds]);
 
+  useEffect(() => {
+    if (!groupsEnabled) return;
+
+    let disposed = false;
+    let generation = 0;
+    let currentUserId = "";
+    let loading = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const refreshGroups = async () => {
+      if (disposed || loading || !currentUserId) return;
+      if (document.visibilityState === "hidden") return;
+
+      loading = true;
+      const requestGeneration = generation;
+
+      try {
+        const rows = await getGroupChatInbox();
+
+        if (!disposed && generation === requestGeneration) {
+          setGroupConversations(rows);
+          setGroupInboxError("");
+        }
+      } catch {
+        if (!disposed && generation === requestGeneration) {
+          setGroupConversations([]);
+          setGroupInboxError("Unable to load group conversations.");
+        }
+      } finally {
+        loading = false;
+
+        if (!disposed && generation === requestGeneration) {
+          setGroupInboxLoading(false);
+        } else if (!disposed && currentUserId) {
+          void refreshGroups();
+        }
+      }
+    };
+
+    const { data: { subscription } } =
+      supabase.auth.onAuthStateChange((_event, session) => {
+        const nextUserId = session?.user?.id || "";
+
+        if (nextUserId !== currentUserId) {
+          generation++;
+          currentUserId = nextUserId;
+          setGroupConversations([]);
+          setGroupInboxError("");
+          setGroupInboxLoading(Boolean(nextUserId));
+        }
+
+        if (!nextUserId) {
+          setGroupInboxLoading(false);
+        }
+
+        clearTimeout(refreshTimer);
+
+        refreshTimer = setTimeout(() => {
+          void refreshGroups();
+        }, 0);
+      });
+
+    const interval = setInterval(() => {
+      void refreshGroups();
+    }, 15000);
+
+    const onVisible = () => {
+      void refreshGroups();
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      disposed = true;
+      generation++;
+      clearTimeout(refreshTimer);
+      clearInterval(interval);
+      subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [groupsEnabled]);
+
   const totalUnreadCount = useMemo(() => {
-    return conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
-  }, [conversations]);
+    return conversations.reduce(
+      (total, conversation) => total + conversation.unreadCount, 0
+    ) + groupConversations.reduce(
+      (total, group) => total + (Number(group.unread_count) || 0), 0
+    );
+  }, [conversations, groupConversations]);
 
   const filteredConversations = useMemo(() => {
     const term = searchText.trim().toLowerCase();
@@ -1025,6 +1129,56 @@ function MessagesPage() {
       );
     });
   }, [conversations, searchText]);
+
+  const combinedInbox = useMemo(() => {
+    const term = searchText.trim().toLowerCase();
+
+    const directItems = inboxFilter === "groups"
+      ? []
+      : filteredConversations
+          .filter((conversation) =>
+            inboxFilter !== "unread" || conversation.unreadCount > 0
+          )
+          .map((conversation) => ({
+            kind: "direct" as const,
+            conversation,
+            activity: conversation.lastMessage?.created_at ||
+              conversation.updated_at ||
+              conversation.created_at || "",
+          }));
+
+    const groupItems = !groupsEnabled
+      ? []
+      : groupConversations
+          .filter((group) =>
+            inboxFilter !== "unread" || Number(group.unread_count) > 0
+          )
+          .filter((group) =>
+            !term ||
+            group.name.toLowerCase().includes(term) ||
+            (group.last_body || "").toLowerCase().includes(term) ||
+            (group.last_sender_name || "").toLowerCase().includes(term)
+          )
+          .map((group) => ({
+            kind: "group" as const,
+            group,
+            activity: group.last_activity_at,
+          }));
+
+    if (groupItems.length === 0) return directItems;
+
+    return [...directItems, ...groupItems].sort(
+      (a, b) =>
+        (Date.parse(b.activity) || 0) -
+        (Date.parse(a.activity) || 0)
+    );
+  }, [
+    filteredConversations,
+    groupConversations,
+    groupsEnabled,
+    inboxFilter,
+    searchText,
+  ]);
 
   const shareableConversations = useMemo(() => {
     return conversations.filter(
@@ -3407,15 +3561,140 @@ function MessagesPage() {
             style={searchInputStyle}
           />
 
+          {groupsEnabled ? (
+            <div
+              aria-label="Filter Parachat conversations"
+              style={{
+                display: "flex",
+                flexWrap: "nowrap",
+                width: "100%",
+                flexShrink: 0,
+                borderBottom: "1px solid rgba(255,255,255,.12)",
+              }}
+            >
+              {(["all", "unread", "groups"] as const).map((filter) => {
+                const active = inboxFilter === filter;
+
+                return (
+                  <button
+                    key={filter}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setInboxFilter(filter)}
+                    style={{
+                      flex: "1 1 0",
+                      minWidth: 0,
+                      minHeight: 42,
+                      padding: "10px 4px",
+                      background: "transparent",
+                      border: 0,
+                      borderRadius: 0,
+                      borderBottom: active
+                        ? "3px solid #a779e5"
+                        : "3px solid transparent",
+                      color: active ? "#bc92ef" : "#cbd5e1",
+                      fontSize: 14,
+                      fontWeight: active ? 800 : 600,
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {filter === "all" ? "All" :
+                      filter === "unread" ? "Unread" : "Groups"}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {groupsEnabled && groupInboxError ? (
+            <div style={conversationEmptyStyle} role="alert">
+              {groupInboxError}
+            </div>
+          ) : null}
+
+
+          {groupsEnabled && inboxFilter === "groups" ? (
+            <ParachatGroupCreate />
+          ) : null}
+
           <div className="parachat-conversation-list" style={conversationListStyle}>
-            {loadingInbox ? (
+            {(inboxFilter !== "groups" && loadingInbox) ||
+              (groupsEnabled && groupInboxLoading) ? (
               <div style={conversationEmptyStyle}>Loading Parachat...</div>
-            ) : filteredConversations.length === 0 ? (
+            ) : combinedInbox.length === 0 ? (
               <div style={conversationEmptyStyle}>
-                No conversations yet. Visit an accepted friend’s profile and click Parachat to start messaging.
+                {inboxFilter === "groups"
+                  ? "No group chats found."
+                  : inboxFilter === "unread"
+                    ? "No unread conversations."
+                    : searchText.trim()
+                      ? "No matching conversations."
+                      : "No conversations yet. Visit an accepted friend’s profile and click Parachat to start messaging."}
               </div>
             ) : (
-              filteredConversations.map((conversation) => {
+              combinedInbox.map((item) => {
+                if (item.kind === "group") {
+                  const group = item.group;
+                  const unread = Number(group.unread_count) || 0;
+
+                  return (
+                    <div
+                      key={"group-" + group.conversation_id}
+                      style={conversationItemStyle}
+                    >
+                      <Link
+                        href={`/messages/groups/${group.conversation_id}`}
+                        style={{
+                          ...conversationSelectButtonStyle,
+                          textDecoration: "none",
+                          color: "inherit",
+                        }}
+                      >
+                        <div style={conversationAvatarWrapStyle}>
+                          <ParachatGroupAvatar
+                            key={group.photo_path || "default"}
+                            conversationId={group.conversation_id}
+                            name={group.name}
+                            photoPath={group.photo_path}
+                          />
+                        </div>
+
+                        <div style={conversationTextStyle}>
+                          <div style={conversationTopLineStyle}>
+                            <strong style={conversationNameStyle}>
+                              {group.name}
+                            </strong>
+
+                            <span style={conversationTimeStyle}>
+                              {formatMessageTime(group.last_activity_at)}
+                            </span>
+                          </div>
+
+                          <div style={conversationBottomLineStyle}>
+                            <span style={{
+                              ...conversationPreviewStyle,
+                              color: unread > 0 ? "#f9fafb" : "#9ca3af",
+                              fontWeight: unread > 0 ? 850 : 500,
+                            }}>
+                              {group.last_body
+                                ? `${group.last_sender_name || "Member"}: ${group.last_body}`
+                                : `${group.member_count} members · Group chat`}
+                            </span>
+
+                            {unread > 0 ? (
+                              <span style={unreadBadgeStyle}>
+                                {unread}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+                  );
+                }
+
+                const conversation = item.conversation;
                 const profile = conversation.otherProfile;
                 const isActive = conversation.id === activeConversationId;
 

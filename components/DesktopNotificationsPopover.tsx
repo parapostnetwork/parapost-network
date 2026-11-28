@@ -18,6 +18,8 @@ type Profile = {
 
 type Notice = {
   friend_request_id?: string | null;
+  parachat_group_conversation_id?: string | null;
+  parachat_group_message_id?: string | null;
   id: string;
   user_id: string;
   actor_id: string | null;
@@ -35,6 +37,16 @@ type Notice = {
 };
 
 function destination(n: Notice) {
+  if (n.type === "parachat_group_message") {
+    const id = n.parachat_group_conversation_id;
+    const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    return id && valid.test(id)
+      ? `/messages/groups/${id}`
+      : "/messages";
+  }
+
+
   const type = n.type || "";
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -76,6 +88,13 @@ function destination(n: Notice) {
 }
 
 function description(n: Notice, name: string) {
+  if (n.type === "parachat_group_message") {
+    return n.message === "You were mentioned in a Parachat group."
+      ? `${name} mentioned you in a Parachat group.`
+      : `${name} sent a message in a Parachat group.`;
+  }
+
+
   if (n.message?.trim()) {
     const message = n.message.trim();
     return n.actor && name !== "Someone"
