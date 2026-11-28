@@ -1,0 +1,166 @@
+.root {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.bubble {
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.hasReactions {
+  margin-bottom: 14px;
+}
+
+.actions {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease;
+  z-index: 3;
+}
+
+.own .actions {
+  right: 100%;
+  padding-right: 5px;
+  flex-direction: row-reverse;
+}
+
+.received .actions {
+  left: 100%;
+  padding-left: 5px;
+}
+
+@media (hover: hover) {
+  .root:hover .actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.root:focus-within .actions,
+.active .actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #a8a5b1;
+  font-size: 22px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.actions button:hover,
+.actions button:focus-visible {
+  color: #fff;
+  background: #30283e;
+}
+
+.reactionBadge {
+  position: absolute;
+  right: 4px;
+  bottom: -11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 23px;
+  padding: 2px 6px;
+  border: 1px solid #51465e;
+  border-radius: 999px;
+  background: #282330;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.count {
+  color: #d6d2dc;
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.picker {
+  position: fixed;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  width: min(280px, calc(100vw - 16px));
+  padding: 4px;
+  box-sizing: border-box;
+  border: 1px solid #51465e;
+  border-radius: 999px;
+  background: #25212d;
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  z-index: 10000;
+}
+
+.picker button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  border-radius: 50%;
+  font-size: 23px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.picker button:hover,
+.picker button[aria-pressed="true"] {
+  background: #65478e;
+}
+
+.error {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  padding: 6px;
+  color: #fca5a5;
+  background: #25212d;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .actions {
+    top: auto;
+    bottom: 100%;
+    left: auto !important;
+    right: 0 !important;
+    transform: none;
+    background: #25212d;
+    border-radius: 999px;
+    padding: 3px !important;
+    margin-bottom: 4px;
+  }
+
+  .actions button {
+    width: 36px;
+    height: 36px;
+  }
+}

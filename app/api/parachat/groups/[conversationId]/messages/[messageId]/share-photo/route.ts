@@ -138,6 +138,27 @@ export async function POST(
       `${userId}/${destinationId}/` +
       `group-forward-${copyId}.${extensions[mime]}`;
 
+    const { data: registered, error: registrationError } =
+      await admin.rpc(
+        "parachat_group_register_photo_copy",
+        {
+          p_actor_id: userId,
+          p_conversation_id: conversationId,
+          p_message_id: messageId,
+          p_destination_id: destinationId,
+          p_copy_id: copyId,
+          p_storage_path: destinationPath,
+        }
+      );
+
+    if (registrationError || registered !== true) {
+      throw new GroupChatError(
+        403,
+        "Photograph forwarding authorization failed."
+      );
+    }
+
+
     const { error: uploadError } =
       await admin.storage
         .from("parachat-images")

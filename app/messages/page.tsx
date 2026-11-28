@@ -1,5 +1,9 @@
 "use client";
 
+import ParachatMessageControls, {
+  type ParachatReaction,
+} from "@/components/ParachatMessageControls";
+
 import {
   ChangeEvent,
   FormEvent,
@@ -60,6 +64,24 @@ type AcceptedFriendshipRow = {
   user_id?: string | null;
   friend_id?: string | null;
   status?: string | null;
+};
+
+type DirectMessageInteraction = {
+  message_id: string;
+  reactions: {
+    counts: Partial<Record<ParachatReaction, number>>;
+    mine: ParachatReaction | null;
+  };
+  reply_preview: {
+    is_reply: boolean;
+    original_message: {
+      id: string;
+      sender_id: string;
+      body: string;
+      message_type: "text" | "image";
+      created_at: string;
+    } | null;
+  } | null;
 };
 
 type MessageRow = {
@@ -804,6 +826,20 @@ function MessagesPage() {
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [sharingMessage, setSharingMessage] = useState<MessageRow | null>(null);
   const [sharingMessageId, setSharingMessageId] = useState<string | null>(null);
+
+  const [replyTarget, setReplyTarget] =
+    useState<MessageRow | null>(null);
+
+  const [interactionVersion, setInteractionVersion] =
+    useState(0);
+
+  const [directInteractions, setDirectInteractions] =
+    useState<{
+      conversationId: string;
+      viewerId: string;
+      byId: Record<string, DirectMessageInteraction>;
+    } | null>(null);
+
   const [voiceComingSoonOpen, setVoiceComingSoonOpen] = useState(false);
   const [remoteTypingUserId, setRemoteTypingUserId] = useState("");
 
@@ -2973,9 +3009,159 @@ function MessagesPage() {
     }
   };
 
+  const directCanInteract = Boolean(
+    viewerId &&
+    activeConversationId &&
+    !selectedGroupId &&
+    activeConversationIsAcceptedFriend &&
+    !activeConversationIsBlocked
+  );
+
+  const directInteractionMessageKey = messages
+    .filter((message) =>
+      message.conversation_id === activeConversationId
+    )
+    .map((message) => message.id)
+    .join(",");
+
+  const directInteractionRows =
+    directCanInteract &&
+    directInteractions &&
+    directInteractions.conversationId === activeConversationId &&
+    directInteractions.viewerId === viewerId
+      ? directInteractions.byId
+      : {};
+
+  const replyingTo =
+    directCanInteract &&
+    replyTarget?.conversation_id === activeConversationId
+      ? replyTarget
+      : null;
+
+  useEffect(() => {
+    setReplyTarget(null);
+  }, [activeConversationId, selectedGroupId, viewerId]);
+
+  useEffect(() => {
+    if (!directCanInteract || !directInteractionMessageKey ||
+        !viewerId || !activeConversationId) {
+      setDirectInteractions(null);
+      return;
+    }
+
+    let cancelled = false;
+    let busy = false;
+
+    const conversationId = activeConversationId;
+    const actorId = viewerId;
+    const ids = directInteractionMessageKey.split(",");
+
+    async function refreshInteractions() {
+      if (cancelled || busy ||
+          document.visibilityState === "hidden") return;
+
+      busy = true;
+
+      try {
+        const byId: Record<
+          string, DirectMessageInteraction
+        > = {};
+
+        for (let index = 0; index < ids.length; index += 500) {
+          const { data, error } = await supabase.rpc(
+            "parachat_direct_get_interactions",
+            {
+              p_conversation_id: conversationId,
+              p_message_ids: ids.slice(index, index + 500),
+            }
+          );
+
+          if (error) throw error;
+          if (cancelled) return;
+
+          for (const row of
+            (data || []) as DirectMessageInteraction[]
+          ) {
+            byId[row.message_id] = row;
+          }
+        }
+
+        if (!cancelled &&
+            activeConversationIdRef.current === conversationId) {
+          setDirectInteractions({
+            conversationId,
+            viewerId: actorId,
+            byId,
+          });
+        }
+      } catch {
+        if (!cancelled) setDirectInteractions(null);
+      } finally {
+        busy = false;
+      }
+    }
+
+    void refreshInteractions();
+
+    const interval = window.setInterval(
+      refreshInteractions, 8000
+    );
+
+    document.addEventListener(
+      "visibilitychange", refreshInteractions
+    );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener(
+        "visibilitychange", refreshInteractions
+      );
+    };
+  }, [
+    directCanInteract,
+    directInteractionMessageKey,
+    activeConversationId,
+    viewerId,
+    interactionVersion,
+  ]);
+
+  async function reactToDirectMessage(
+    message: MessageRow,
+    reaction: ParachatReaction | null
+  ) {
+    if (!directCanInteract ||
+        message.conversation_id !== activeConversationId) {
+      throw new Error("Conversation unavailable.");
+    }
+
+    const { data, error } = await supabase.rpc(
+      "parachat_direct_set_reaction",
+      {
+        p_conversation_id: message.conversation_id,
+        p_message_id: message.id,
+        p_reaction: reaction,
+      }
+    );
+
+    if (error || data !== true) {
+      throw new Error("Unable to update reaction.");
+    }
+
+    setInteractionVersion((version) => version + 1);
+  }
+
   const handleSendMessage = async () => {
     const trimmed = messageText.trim();
     const imageDraft = selectedImage;
+    const replyToSend = replyingTo;
+
+    if (replyToSend && imageDraft) {
+      setErrorMessage(
+        "Remove the selected photo to send a text reply."
+      );
+      return;
+    }
 
     if ((!trimmed && !imageDraft) || sending || compressingImage || !viewerId || !activeConversationId) return;
 
@@ -3048,6 +3234,13 @@ function MessagesPage() {
       return;
     }
 
+    if (replyToSend &&
+        replyToSend.conversation_id !== sendConversationId) {
+      setErrorMessage("The original message is unavailable.");
+      setSending(false);
+      return;
+    }
+
     let uploadedImagePath: string | null = null;
 
     if (imageDraft) {
@@ -3072,7 +3265,16 @@ function MessagesPage() {
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = replyToSend
+      ? await supabase.rpc(
+          "parachat_direct_send_reply",
+          {
+            p_conversation_id: sendConversationId,
+            p_reply_to_message_id: replyToSend.id,
+            p_body: trimmed,
+          }
+        ).single()
+      : await supabase
       .from("direct_messages")
       .insert([
         {
@@ -3110,7 +3312,7 @@ function MessagesPage() {
         null;
 
       if (notificationConversation?.otherUserId) {
-        await createParachatNotification(data.id);
+        await createParachatNotification(sentMessage.id);
       }
 
       setMessages((prev) => {
@@ -3152,6 +3354,10 @@ function MessagesPage() {
     }
 
     setMessageText("");
+    if (replyToSend) {
+      setReplyTarget(null);
+      setInteractionVersion((version) => version + 1);
+    }
     clearSelectedImage();
 
     if (textareaRef.current) {
@@ -4288,7 +4494,61 @@ function MessagesPage() {
                                   alignItems: isMine ? "flex-end" : "flex-start",
                                 }}
                               >
+                                <ParachatMessageControls
+                                  own={isMine}
+                                  counts={directInteractionRows[message.id]?.reactions.counts}
+                                  mine={directInteractionRows[message.id]?.reactions.mine}
+                                  menuOpen={openMessageMenuId === message.id}
+                                  disabled={isSavingMessage || isDeletingMessage || sharingMessageId === message.id}
+                                  onReact={directCanInteract && !isEditing
+                                    ? (reaction) => reactToDirectMessage(message, reaction)
+                                    : undefined}
+                                  onReply={directCanInteract && !isEditing && !sending
+                                    ? () => {
+                                        if (selectedImage || compressingImage) {
+                                          setErrorMessage("Remove the selected photo before replying.");
+                                          return;
+                                        }
+
+                                        setReplyTarget(message);
+                                        closeMessageOptions();
+                                        textareaRef.current?.focus();
+                                      }
+                                    : undefined}
+                                  onMore={(button) => {
+                                    if (openMessageMenuId === message.id) {
+                                      closeMessageOptions();
+                                      return;
+                                    }
+
+                                    setOpenConversationMenuId(null);
+                                    setConversationMenuAnchor(null);
+                                    setMessageMenuAnchor(
+                                      getDesktopMessageMenuPosition(button)
+                                    );
+                                    setOpenMessageMenuId(message.id);
+                                  }}
+                                >
                                 <div style={isMine ? myBubbleStyle : theirBubbleStyle}>
+                                  {directInteractionRows[message.id]?.reply_preview?.is_reply ? (
+                                    <div style={{
+                                      borderLeft: "3px solid #bc92ef",
+                                      background: "rgba(0,0,0,.15)",
+                                      padding: "6px 9px",
+                                      marginBottom: 7,
+                                      borderRadius: 4,
+                                      fontSize: 12,
+                                    }}>
+                                      <strong>Replying to</strong>
+                                      <div>
+                                        {directInteractionRows[message.id]
+                                          ?.reply_preview
+                                          ?.original_message
+                                          ?.body || "Original message unavailable"}
+                                      </div>
+                                    </div>
+                                  ) : null}
+
                                   {isImageMessage(message) ? (
                                     <div style={messageImageBlockStyle}>
                                       {message.signedImageUrl ? (
@@ -4335,39 +4595,11 @@ function MessagesPage() {
                                     message.body
                                   )}
                                 </div>
+                                </ParachatMessageControls>
 
                                 <div style={messageMetaRowStyle}>
                                   <span style={messageTimeStyle}>
                                     {isDeletingMessage ? "Deleting..." : formatMessageTime(message.created_at)}
-                                  </span>
-
-                                  <span
-                                    style={messageOptionsWrapStyle}
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-
-                                        if (openMessageMenuId === message.id) {
-                                          closeMessageOptions();
-                                          return;
-                                        }
-
-                                        setOpenConversationMenuId(null);
-                                        setConversationMenuAnchor(null);
-                                        setMessageMenuAnchor(getDesktopMessageMenuPosition(event.currentTarget));
-                                        setOpenMessageMenuId(message.id);
-                                      }}
-                                      style={messageOptionsButtonStyle}
-                                      aria-label="Message options"
-                                      disabled={isSavingMessage || isDeletingMessage || sharingMessageId === message.id}
-                                    >
-                                      ⋯
-                                    </button>
-
-                                    {/* Message options are rendered once at page level so the menu cannot be clipped on mobile. */}
                                   </span>
                                 </div>
                               </div>
@@ -4397,6 +4629,54 @@ function MessagesPage() {
                   onChange={handleSelectImage}
                   style={{ display: "none" }}
                 />
+
+                {replyingTo ? (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    borderLeft: "3px solid #bc92ef",
+                    background: "rgba(255,255,255,.05)",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    marginBottom: 8,
+                    fontSize: 13,
+                  }}>
+                    <div style={{ minWidth: 0 }}>
+                      <strong style={{ color: "#bc92ef" }}>
+                        Replying to {replyingTo.sender_id === viewerId
+                          ? "yourself"
+                          : activeName}
+                      </strong>
+                      <div style={{
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        textOverflow: "ellipsis",
+                      }}>
+                        {replyingTo.body ||
+                          (isImageMessage(replyingTo)
+                            ? "Photograph"
+                            : "Message")}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Cancel reply"
+                      onClick={() => setReplyTarget(null)}
+                      disabled={sending}
+                      style={{
+                        background: "transparent",
+                        border: 0,
+                        color: "#d1d5db",
+                        cursor: "pointer",
+                        fontSize: 22,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : null}
 
                 {selectedImage || imageError || compressingImage ? (
                   <div className="parachat-image-preview" style={imagePreviewShellStyle}>
@@ -4435,7 +4715,7 @@ function MessagesPage() {
                 <div className="parachat-composer-row" style={composerRowStyle}>
                   {renderComposerControls(
                     () => fileInputRef.current?.click(),
-                    inputDisabled || compressingImage
+                    inputDisabled || compressingImage || Boolean(replyingTo)
                   )}
 
                   <textarea
@@ -4566,6 +4846,9 @@ function MessagesPage() {
                 ? messageOptionsActionSheetStyle
                 : {
                     ...messageOptionsDesktopPopoverStyle,
+                    width: 190,
+                    padding: 5,
+                    borderRadius: 10,
                     top: messageMenuAnchor?.top ?? 80,
                     left: messageMenuAnchor?.left ?? 16,
                   }
@@ -4613,6 +4896,7 @@ function MessagesPage() {
               </>
             ) : null}
 
+            {messageOptionsUsesBottomSheet ? (
             <button
               type="button"
               onClick={closeMessageOptions}
@@ -4620,6 +4904,7 @@ function MessagesPage() {
             >
               Cancel
             </button>
+            ) : null}
           </div>
         </>
       ) : null}

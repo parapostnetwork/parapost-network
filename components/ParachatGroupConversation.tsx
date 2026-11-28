@@ -9,6 +9,9 @@ import {
 } from "@/lib/parachat/group-client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import ParachatMessageControls from "@/components/ParachatMessageControls";
+
 import {
   editGroupChatMessage,
   deleteGroupChatMessage,
@@ -43,10 +46,8 @@ import {
   getGroupChatMessages,
   sendGroupChatMessage,
   sendGroupChatReply,
-  GROUP_CHAT_REACTIONS,
   setGroupChatReaction,
   reportGroupChatMessage,
-  type GroupChatReaction,
 
   markGroupChatRead,
   manageGroupChat,
@@ -588,6 +589,13 @@ export default function GroupConversation({
                     </div>
                   ) : null}
 
+                  <GroupMessageActions
+                    conversationId={conversationId}
+                    message={message}
+                    own={own}
+                    canReply={!browsingHistory && available && !sending}
+                    onReply={() => setReplyToId(message.id)}
+                    onRefresh={() => refreshRef.current()}>
                   <div style={{
                     ...(own ? myBubbleStyle : theirBubbleStyle),
                     maxWidth: "100%",
@@ -618,15 +626,7 @@ export default function GroupConversation({
                           message={message}
                         />}
                   </div>
-
-                  <GroupMessageActions
-                    conversationId={conversationId}
-                    message={message}
-                    own={own}
-                    canReply={!browsingHistory && available && !sending}
-                    onReply={() => setReplyToId(message.id)}
-                    onRefresh={() => refreshRef.current()}
-                  />
+                  </GroupMessageActions>
                 </div>
               </div>
             </div>
@@ -1890,16 +1890,8 @@ function GroupSettings({
   );
 }
 
-const groupReactionIcons: Record<GroupChatReaction, string> = {
-  like: "👍",
-  love: "❤️",
-  laugh: "😂",
-  wow: "😮",
-  sad: "😢",
-  angry: "😠",
-};
-
 function GroupMessageActions({
+  children,
   conversationId,
   message,
   own,
@@ -1907,6 +1899,7 @@ function GroupMessageActions({
   onReply,
   onRefresh,
 }: {
+  children: ReactNode;
   conversationId: string;
   message: GroupChatMessage;
   own: boolean;
@@ -2072,9 +2065,18 @@ function GroupMessageActions({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const actionStyle = mobile
+  const actionStyle: React.CSSProperties = mobile
     ? messageOptionButtonStyle
-    : messageDesktopOptionButtonStyle;
+    : {
+        ...messageDesktopOptionButtonStyle,
+        minHeight: 34,
+        padding: "8px 10px",
+        border: 0,
+        borderRadius: 6,
+        background: "transparent",
+        textAlign: "left",
+        fontSize: 13,
+      };
 
   function showMenu() {
     if (busy || message.message_type === "system" ||
@@ -2171,6 +2173,31 @@ function GroupMessageActions({
         if (event.key === "Escape") setOpen(false);
       }}
     >
+      <ParachatMessageControls
+        own={own}
+        counts={message.reactions?.counts}
+        mine={message.reactions?.mine}
+        menuOpen={open}
+        moreButtonRef={triggerRef}
+        onMore={() =>
+          open ? setOpen(false) : showMenu()
+        }
+        onReply={canReply ? () => {
+          setOpen(false);
+          onReply();
+        } : undefined}
+        onReact={async (reaction) => {
+          await setGroupChatReaction(
+            conversationId,
+            message.id,
+            reaction
+          );
+          onRefresh();
+        }}
+      >
+        {children}
+      </ParachatMessageControls>
+
       <div style={messageMetaRowStyle}>
         <span style={messageTimeStyle}>
           {new Date(message.created_at).toLocaleTimeString([], {
@@ -2179,17 +2206,6 @@ function GroupMessageActions({
           })}
           {message.edited_at ? " · Edited" : ""}
         </span>
-
-        <button
-          type="button"
-          ref={triggerRef}
-          style={messageOptionsButtonStyle}
-          aria-label="Message options"
-          aria-expanded={open}
-          onClick={() => open ? setOpen(false) : showMenu()}
-        >
-          ⋯
-        </button>
       </div>
 
       {shareStatus ? (
@@ -2222,6 +2238,11 @@ function GroupMessageActions({
               ? messageOptionsActionSheetStyle
               : {
                   ...messageOptionsDesktopPopoverStyle,
+                  ...(operation ? {} : {
+                    width: 190,
+                    padding: 5,
+                    gap: 2,
+                  }),
                   top: anchor.top,
                   left: anchor.left,
                 }}
@@ -2409,24 +2430,7 @@ function GroupMessageActions({
             </div>
           ) : (
             <>
-          {canReply ? (
-            <button
-              type="button"
-              style={actionStyle}
-              onClick={() => {
-                onReply();
-                setOpen(false);
-              }}
-            >
-              Reply
-            </button>
-          ) : null}
 
-          <GroupMessageReactions
-            conversationId={conversationId}
-            message={message}
-            onRefresh={onRefresh}
-          />
 
           {canShare ? (
             <button
@@ -2487,6 +2491,7 @@ function GroupMessageActions({
             </div>
           ) : null}
 
+            {mobile || operation ? (
             <button
               type="button"
               disabled={busy}
@@ -2501,171 +2506,10 @@ function GroupMessageActions({
             >
               Cancel
             </button>
+            ) : null}
           </div>
         </>,
         document.body
-      ) : (
-        <div style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 4,
-        }}>
-          {GROUP_CHAT_REACTIONS.filter(
-            (reaction) => (message.reactions?.counts[reaction] || 0) > 0
-          ).map((reaction) => (
-            <button
-              key={reaction}
-              type="button"
-              aria-label={reaction + " reactions"}
-              onClick={showMenu}
-              style={{
-                border: "1px solid rgba(255,255,255,.12)",
-                background: "rgba(255,255,255,.06)",
-                color: "#fff",
-                borderRadius: 12,
-                padding: "3px 7px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              {groupReactionIcons[reaction]} {message.reactions?.counts[reaction]}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GroupMessageReactions({
-  conversationId,
-  message,
-  onRefresh,
-}: {
-  conversationId: string;
-  message: GroupChatMessage;
-  onRefresh: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const busyRef = useRef(false);
-
-  const summary = message.reactions;
-
-  async function react(reaction: GroupChatReaction) {
-    if (busyRef.current) return;
-
-    busyRef.current = true;
-    setBusy(true);
-    setError("");
-
-    try {
-      await setGroupChatReaction(
-        conversationId,
-        message.id,
-        summary?.mine === reaction ? null : reaction
-      );
-
-      setOpen(false);
-      onRefresh();
-    } catch {
-      setError("Unable to update reaction.");
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div style={{ marginTop: 5 }}>
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: 4,
-      }}>
-        <button
-          type="button"
-          aria-label="React to message"
-          aria-expanded={open}
-          disabled={busy}
-          onClick={() => setOpen(!open)}
-          style={{
-            ...messageDesktopOptionButtonStyle,
-            width: "100%",
-          }}
-        >
-          React
-        </button>
-
-        {GROUP_CHAT_REACTIONS.filter(
-          (reaction) => (summary?.counts[reaction] || 0) > 0
-        ).map((reaction) => (
-          <button
-            key={reaction}
-            type="button"
-            disabled={busy}
-            aria-pressed={summary?.mine === reaction}
-            aria-label={reaction + " reaction"}
-            onClick={() => void react(reaction)}
-            style={{
-              background: summary?.mine === reaction
-                ? "#65478e"
-                : "rgba(0,0,0,.18)",
-              color: "#fff",
-              border: summary?.mine === reaction
-                ? "1px solid #bc92ef"
-                : "1px solid transparent",
-              borderRadius: 12,
-              padding: "3px 7px",
-              cursor: "pointer",
-              fontSize: 12,
-            }}
-          >
-            {groupReactionIcons[reaction]} {summary?.counts[reaction]}
-          </button>
-        ))}
-      </div>
-
-      {open ? (
-        <div style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 4,
-          background: "#251f30",
-          padding: 6,
-          borderRadius: 8,
-          marginTop: 5,
-        }}>
-          {GROUP_CHAT_REACTIONS.map((reaction) => (
-            <button
-              key={reaction}
-              type="button"
-              title={reaction}
-              aria-label={reaction}
-              aria-pressed={summary?.mine === reaction}
-              disabled={busy}
-              onClick={() => void react(reaction)}
-              style={{
-                background: summary?.mine === reaction
-                  ? "#65478e"
-                  : "transparent",
-                border: 0,
-                borderRadius: 6,
-                padding: 5,
-                cursor: "pointer",
-                fontSize: 20,
-              }}
-            >
-              {groupReactionIcons[reaction]}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {error ? (
-        <small style={{ color: "#ffaaaa" }}>{error}</small>
       ) : null}
     </div>
   );
