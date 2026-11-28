@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+
 import {
   getGroupChatPendingMembers,
   cancelGroupChatInvitation,
@@ -7,6 +9,15 @@ import {
 } from "@/lib/parachat/group-client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  editGroupChatMessage,
+  deleteGroupChatMessage,
+  getGroupShareRecipients,
+  shareGroupTextToDirect,
+  shareGroupPhotoToDirect,
+  type GroupShareRecipient,
+} from "@/lib/parachat/group-client";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -287,14 +298,16 @@ export default function GroupConversation({
     }}>
       <header className="parachat-group-header" style={{
         ...chatHeaderStyle,
-        justifyContent: "flex-start",
         flexShrink: 0,
-        minHeight: 72,
+        minHeight: 86,
+        boxSizing: "border-box",
       }}>
+        <div style={headerLeftStyle}>
         <Link
           href="/messages"
+          className="parachat-mobile-back"
           aria-label="Back to Parachat"
-          style={{ color: "#bc92ef", fontSize: 22 }}
+          style={mobileBackButtonStyle}
         >
           ←
         </Link>
@@ -305,41 +318,43 @@ export default function GroupConversation({
             conversationId={conversationId}
             name={name}
             photoPath={photoPath}
-            size={50}
+            size={54}
           />
         ) : null}
 
         <div style={{ minWidth: 0 }}>
-          <strong style={{ fontSize: 16 }}>
-            {name}
-          </strong>
+          <h2 style={headerTitleStyle}>{name}</h2>
 
-          <div style={{
-            fontSize: 12,
-            color: "#9ca3af",
-          }}>
+          <div style={headerSubtitleStyle}>
             {members.length} visible members
           </div>
         </div>
+        </div>
+
+        <div style={headerActionsStyle}>
         {available ? (
           <button
             type="button"
             aria-label="Group settings"
             aria-expanded={settingsOpen}
             onClick={() => setSettingsOpen(!settingsOpen)}
-            style={{
-              marginLeft: "auto",
-              background: "transparent",
-              border: 0,
-              color: "#bc92ef",
-              fontSize: 22,
-              padding: "4px 10px",
-              cursor: "pointer",
-            }}
+            style={closeChatButtonStyle}
           >
             ⋯
           </button>
         ) : null}
+
+        <Link
+          href="/messages"
+          aria-label="Close group conversation"
+          style={{
+            ...closeChatButtonStyle,
+            textDecoration: "none",
+          }}
+        >
+          ×
+        </Link>
+        </div>
       </header>
 
       {available && settingsOpen ? (
@@ -1900,20 +1915,249 @@ function GroupMessageActions({
   onRefresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [operation, setOperation] =
+    useState<"edit" | "delete" | "share" | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
 
-  const actionStyle: React.CSSProperties = {
-    display: "block",
-    width: "100%",
-    minHeight: 36,
-    border: 0,
-    borderRadius: 8,
-    background: "transparent",
-    color: "#f9fafb",
-    padding: "8px 10px",
-    textAlign: "left",
-    fontSize: 13,
-    cursor: "pointer",
-  };
+  const canModify =
+    own &&
+    Boolean(message.sender_id) &&
+    message.message_type !== "system" &&
+    !message.system_event;
+
+  const canEdit =
+    canModify && message.message_type === "text";
+
+  const [shareRecipients, setShareRecipients] =
+    useState<GroupShareRecipient[]>([]);
+  const [shareSearch, setShareSearch] = useState("");
+  const [shareStatus, setShareStatus] = useState("");
+
+  const canShare =
+    (
+      message.message_type === "text" ||
+      message.message_type === "photo"
+    ) &&
+    Boolean(message.sender_id) &&
+    !message.system_event;
+
+  async function openShare() {
+    if (!canShare || busy) return;
+
+    setOperation("share");
+    setShareRecipients([]);
+    setShareSearch("");
+    setShareStatus("");
+    setActionError("");
+    setBusy(true);
+
+    try {
+      const recipients = await getGroupShareRecipients(
+        conversationId,
+        message.id
+      );
+      setShareRecipients(recipients);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load recipients."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function shareToRecipient(
+    recipient: GroupShareRecipient
+  ) {
+    if (!canShare || busy) return;
+
+    setBusy(true);
+    setActionError("");
+
+    try {
+      if (message.message_type === "photo") {
+        await shareGroupPhotoToDirect(
+          conversationId,
+          message.id,
+          recipient.destination_id
+        );
+      } else {
+        await shareGroupTextToDirect(
+          conversationId,
+          message.id,
+          recipient.destination_id
+        );
+      }
+
+      setShareStatus(
+        (message.message_type === "photo"
+          ? "Photograph shared with "
+          : "Message shared with ") +
+        recipient.full_name
+      );
+      setOperation(null);
+      setOpen(false);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Unable to share this message."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEdit() {
+    if (!canEdit || busy || !editBody.trim()) return;
+
+    setBusy(true);
+    setActionError("");
+
+    try {
+      await editGroupChatMessage(
+        conversationId,
+        message.id,
+        editBody
+      );
+      setOperation(null);
+      setOpen(false);
+      onRefresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Unable to edit message."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!canModify || busy) return;
+
+    setBusy(true);
+    setActionError("");
+
+    try {
+      await deleteGroupChatMessage(
+        conversationId,
+        message.id
+      );
+      setOperation(null);
+      setOpen(false);
+      onRefresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete message."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const [mobile, setMobile] = useState(false);
+  const [anchor, setAnchor] = useState({
+    top: 80,
+    left: 16,
+  });
+
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const actionStyle = mobile
+    ? messageOptionButtonStyle
+    : messageDesktopOptionButtonStyle;
+
+  function showMenu() {
+    if (busy || message.message_type === "system" ||
+        message.system_event) return;
+
+    setOperation(null);
+    setActionError("");
+    const rect =
+      triggerRef.current?.getBoundingClientRect();
+
+    if (!rect) return;
+
+    setMobile(window.innerWidth <= 980);
+
+    setAnchor({
+      top: rect.bottom + 8,
+      left: Math.max(
+        12,
+        Math.min(
+          rect.right - 224,
+          window.innerWidth - 236
+        )
+      ),
+    });
+
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+
+    function close(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+
+    function resize() {
+      setOpen(false);
+    }
+
+    document.addEventListener("keydown", close);
+    window.addEventListener("resize", resize);
+
+    return () => {
+      document.removeEventListener("keydown", close);
+      window.removeEventListener("resize", resize);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || mobile || !menuRef.current) return;
+
+    const menu = menuRef.current;
+
+    const observer = new ResizeObserver(() => {
+      const rect =
+        triggerRef.current?.getBoundingClientRect();
+
+      if (!rect) return;
+
+      const height = menu.offsetHeight;
+      const below = rect.bottom + 8;
+
+      setAnchor({
+        top: below + height <= window.innerHeight - 12
+          ? below
+          : Math.max(12, rect.top - height - 8),
+        left: Math.max(
+          12,
+          Math.min(
+            rect.right - menu.offsetWidth,
+            window.innerWidth - menu.offsetWidth - 12
+          )
+        ),
+      });
+    });
+
+    observer.observe(menu);
+
+    return () => observer.disconnect();
+  }, [open, mobile]);
 
   return (
     <div
@@ -1933,28 +2177,238 @@ function GroupMessageActions({
             hour: "numeric",
             minute: "2-digit",
           })}
+          {message.edited_at ? " · Edited" : ""}
         </span>
 
         <button
           type="button"
+          ref={triggerRef}
           style={messageOptionsButtonStyle}
           aria-label="Message options"
           aria-expanded={open}
-          onClick={() => setOpen(!open)}
+          onClick={() => open ? setOpen(false) : showMenu()}
         >
           ⋯
         </button>
       </div>
 
-      {open ? (
-        <div style={{
-          ...messageOptionsMenuStyle,
-          position: "static",
-          width: 190,
-          maxWidth: "100%",
-          minWidth: 0,
-          boxSizing: "border-box",
+      {shareStatus ? (
+        <span role="status" style={{
+          color: "#bc92ef",
+          fontSize: 12,
+          padding: "4px 0",
         }}>
+          {shareStatus}
+        </span>
+      ) : null}
+
+      {open ? createPortal(
+        <>
+          <button
+            type="button"
+            aria-label="Close message options"
+            onClick={() => setOpen(false)}
+            style={mobile
+              ? messageOptionsOverlayBackdropStyle
+              : messageOptionsDesktopBackdropStyle}
+          />
+
+          <div
+            ref={menuRef}
+            role={mobile || operation ? "dialog" : "menu"}
+            aria-modal={mobile ? true : undefined}
+            aria-label="Message options"
+            style={mobile
+              ? messageOptionsActionSheetStyle
+              : {
+                  ...messageOptionsDesktopPopoverStyle,
+                  top: anchor.top,
+                  left: anchor.left,
+                }}
+          >
+            {mobile ? (
+              <div style={mobileMessageOptionsHeaderStyle}>
+                <span style={mobileMessageOptionsHandleStyle} />
+                <span style={mobileMessageOptionsTitleStyle}>
+                  Message options
+                </span>
+              </div>
+            ) : null}
+          {operation === "share" ? (
+            <div style={{
+              display: "grid",
+              gap: 10,
+              padding: 10,
+            }}>
+              <strong>Share to Parachat</strong>
+
+              <span style={{
+                fontSize: 13,
+                color: "#cbd5e1",
+              }}>
+                Choose an authorized friend to forward
+                this {message.message_type === "photo"
+                  ? "photograph"
+                  : "message"}.
+              </span>
+
+              <input
+                aria-label="Search recipients"
+                placeholder="Search friends..."
+                value={shareSearch}
+                disabled={busy}
+                onChange={(event) =>
+                  setShareSearch(event.target.value)
+                }
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: 10,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,.15)",
+                  background: "#111827",
+                  color: "#fff",
+                }}
+              />
+
+              <div style={{
+                display: "grid",
+                gap: 6,
+                maxHeight: 260,
+                overflowY: "auto",
+              }}>
+                {busy ? (
+                  <span role="status">Please wait...</span>
+                ) : shareRecipients.length === 0 ? (
+                  <span style={{
+                    fontSize: 13,
+                    color: "#9ca3af",
+                  }}>
+                    No eligible Parachat recipients.
+                  </span>
+                ) : shareRecipients.filter((recipient) =>
+                  (
+                    recipient.full_name + " " +
+                    (recipient.username || "")
+                  ).toLowerCase().includes(
+                    shareSearch.trim().toLowerCase()
+                  )
+                ).map((recipient) => (
+                  <button
+                    key={recipient.user_id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void shareToRecipient(recipient)
+                    }
+                    style={{
+                      ...actionStyle,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      textAlign: "left",
+                    }}
+                  >
+                    {recipient.avatar_url ? (
+                      <img
+                        src={recipient.avatar_url}
+                        alt=""
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <span style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: "50%",
+                        background: "#7c3aed",
+                        display: "grid",
+                        placeItems: "center",
+                        flexShrink: 0,
+                      }}>
+                        {recipient.full_name
+                          .charAt(0).toUpperCase()}
+                      </span>
+                    )}
+
+                    <span>{recipient.full_name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : operation === "edit" ? (
+            <div style={{
+              display: "grid",
+              gap: 10,
+              padding: 10,
+            }}>
+              <strong>Edit Message</strong>
+
+              <textarea
+                aria-label="Edit message"
+                value={editBody}
+                maxLength={4000}
+                rows={4}
+                disabled={busy}
+                onChange={(event) =>
+                  setEditBody(event.target.value)
+                }
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,.15)",
+                  background: "#111827",
+                  color: "#ffffff",
+                  fontSize: 14,
+                  resize: "vertical",
+                }}
+              />
+
+              <button
+                type="button"
+                style={actionStyle}
+                disabled={busy || !editBody.trim()}
+                onClick={() => void saveEdit()}
+              >
+                {busy ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          ) : operation === "delete" ? (
+            <div style={{
+              display: "grid",
+              gap: 10,
+              padding: 10,
+            }}>
+              <strong>Delete Message?</strong>
+
+              <span style={{
+                fontSize: 13,
+                color: "#cbd5e1",
+              }}>
+                This message will be removed from the
+                group conversation. This cannot be undone.
+              </span>
+
+              <button
+                type="button"
+                disabled={busy}
+                style={{
+                  ...actionStyle,
+                  color: "#fca5a5",
+                }}
+                onClick={() => void confirmDelete()}
+              >
+                {busy ? "Deleting..." : "Delete Message"}
+              </button>
+            </div>
+          ) : (
+            <>
           {canReply ? (
             <button
               type="button"
@@ -1974,13 +2428,82 @@ function GroupMessageActions({
             onRefresh={onRefresh}
           />
 
+          {canShare ? (
+            <button
+              type="button"
+              style={actionStyle}
+              onClick={() => void openShare()}
+            >
+              Share to Parachat
+            </button>
+          ) : null}
+
+          {canEdit ? (
+            <button
+              type="button"
+              style={actionStyle}
+              onClick={() => {
+                setEditBody(message.body);
+                setActionError("");
+                setOperation("edit");
+              }}
+            >
+              Edit Message
+            </button>
+          ) : null}
+
+          {canModify ? (
+            <button
+              type="button"
+              style={{
+                ...actionStyle,
+                color: "#fca5a5",
+              }}
+              onClick={() => {
+                setActionError("");
+                setOperation("delete");
+              }}
+            >
+              Delete Message
+            </button>
+          ) : null}
+
           {!own && message.sender_id ? (
             <GroupMessageReport
               conversationId={conversationId}
               messageId={message.id}
             />
           ) : null}
-        </div>
+            </>
+          )}
+
+          {actionError ? (
+            <div role="alert" style={{
+              padding: 10,
+              fontSize: 12,
+              color: "#fca5a5",
+            }}>
+              {actionError}
+            </div>
+          ) : null}
+
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setOperation(null);
+                setActionError("");
+                setOpen(false);
+              }}
+              style={mobile
+                ? messageCancelOptionButtonStyle
+                : messageDesktopCancelOptionButtonStyle}
+            >
+              Cancel
+            </button>
+          </div>
+        </>,
+        document.body
       ) : (
         <div style={{
           display: "flex",
@@ -1994,7 +2517,7 @@ function GroupMessageActions({
               key={reaction}
               type="button"
               aria-label={reaction + " reactions"}
-              onClick={() => setOpen(true)}
+              onClick={showMenu}
               style={{
                 border: "1px solid rgba(255,255,255,.12)",
                 background: "rgba(255,255,255,.06)",
@@ -2069,12 +2592,8 @@ function GroupMessageReactions({
           disabled={busy}
           onClick={() => setOpen(!open)}
           style={{
-            background: "transparent",
-            border: 0,
-            color: "#e1ccff",
-            padding: "3px 5px",
-            cursor: "pointer",
-            fontSize: 12,
+            ...messageDesktopOptionButtonStyle,
+            width: "100%",
           }}
         >
           React
@@ -2445,4 +2964,198 @@ const sendButtonStyle: React.CSSProperties = {
   color: "#ffffff",
   padding: "0 18px",
   fontWeight: 950,
+};
+
+
+const messageOptionsOverlayBackdropStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 2147483000,
+  border: "none",
+  background: "rgba(0,0,0,0.32)",
+  padding: 0,
+  cursor: "pointer",
+};
+
+
+const messageOptionsDesktopBackdropStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 2147483000,
+  border: "none",
+  background: "transparent",
+  padding: 0,
+  cursor: "default",
+};
+
+
+const messageOptionsActionSheetStyle: React.CSSProperties = {
+  position: "fixed",
+  left: "max(12px, env(safe-area-inset-left))",
+  right: "max(12px, env(safe-area-inset-right))",
+  bottom: "calc(12px + env(safe-area-inset-bottom))",
+  zIndex: 2147483001,
+  borderRadius: "24px",
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(7,10,16,0.99))",
+  boxShadow: "0 -18px 44px rgba(0,0,0,0.52)",
+  padding: "8px",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
+};
+
+
+const messageOptionsDesktopPopoverStyle: React.CSSProperties = {
+  position: "fixed",
+  zIndex: 2147483001,
+  width: "210px",
+  borderRadius: "16px",
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(7,10,16,0.99))",
+  boxShadow: "0 18px 44px rgba(0,0,0,0.50), 0 0 24px rgba(168,85,247,0.12)",
+  padding: "7px",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
+};
+
+
+const mobileMessageOptionsHeaderStyle: React.CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  gap: "8px",
+  padding: "8px 10px 10px",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  marginBottom: "8px",
+};
+
+
+const mobileMessageOptionsHandleStyle: React.CSSProperties = {
+  width: "42px",
+  height: "4px",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.25)",
+};
+
+
+const mobileMessageOptionsTitleStyle: React.CSSProperties = {
+  color: "#f9fafb",
+  fontSize: "13px",
+  fontWeight: 950,
+  letterSpacing: "-0.01em",
+};
+
+
+const messageOptionButtonStyle: React.CSSProperties = {
+  width: "100%",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.055)",
+  color: "#f3e8ff",
+  borderRadius: "10px",
+  padding: "7px 9px",
+  textAlign: "left",
+  fontWeight: 900,
+  fontSize: "11px",
+  cursor: "pointer",
+  marginBottom: "5px",
+};
+
+
+const messageDesktopOptionButtonStyle: React.CSSProperties = {
+  ...messageOptionButtonStyle,
+  borderRadius: "11px",
+  padding: "10px 11px",
+  fontSize: "12px",
+  marginBottom: "6px",
+  background: "rgba(255,255,255,0.045)",
+};
+
+
+const messageCancelOptionButtonStyle: React.CSSProperties = {
+  width: "100%",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.035)",
+  color: "#e5e7eb",
+  borderRadius: "10px",
+  padding: "8px 9px",
+  textAlign: "center",
+  fontWeight: 950,
+  fontSize: "11px",
+  cursor: "pointer",
+};
+
+
+const messageDesktopCancelOptionButtonStyle: React.CSSProperties = {
+  ...messageDesktopOptionButtonStyle,
+  marginBottom: 0,
+  textAlign: "center",
+  color: "#d1d5db",
+};
+
+
+const headerTitleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: "19px",
+  fontWeight: 950,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+
+const headerSubtitleStyle: React.CSSProperties = {
+  color: "#9ca3af",
+  fontSize: "13px",
+  marginTop: "3px",
+};
+
+
+const headerLeftStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  minWidth: 0,
+};
+
+
+const headerActionsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "8px",
+  flexShrink: 0,
+  flexWrap: "wrap",
+};
+
+
+const mobileBackButtonStyle: React.CSSProperties = {
+  display: "none",
+  width: "44px",
+  height: "44px",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#ffffff",
+  fontSize: "18px",
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+
+const closeChatButtonStyle: React.CSSProperties = {
+  width: "44px",
+  height: "44px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.075)",
+  color: "#ffffff",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "22px",
+  lineHeight: 1,
+  fontWeight: 950,
+  cursor: "pointer",
+  flexShrink: 0,
 };

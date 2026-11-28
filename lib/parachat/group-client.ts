@@ -520,6 +520,165 @@ export async function setGroupChatReaction(
 }
 
 
+export async function editGroupChatMessage(
+  conversationId: string,
+  messageId: string,
+  body: string
+): Promise<void> {
+  await requireGroupSession();
+
+  const message = body.trim();
+
+  if (
+    !message ||
+    Array.from(message).length > GROUP_CHAT_MAX_MESSAGE
+  ) {
+    throw new Error(
+      "Messages must contain 1 to 4000 characters."
+    );
+  }
+
+  const { data, error } = await supabase.rpc(
+    "parachat_group_edit_message",
+    {
+      p_conversation_id: validateId(conversationId),
+      p_message_id: validateId(messageId),
+      p_body: message,
+    }
+  );
+
+  if (error || data !== true) {
+    throw new Error("Unable to edit this group message.");
+  }
+}
+
+export async function deleteGroupChatMessage(
+  conversationId: string,
+  messageId: string
+): Promise<void> {
+  await requireGroupSession();
+
+  const { data, error } = await supabase.rpc(
+    "parachat_group_delete_message",
+    {
+      p_conversation_id: validateId(conversationId),
+      p_message_id: validateId(messageId),
+    }
+  );
+
+  if (error || data !== true) {
+    throw new Error("Unable to delete this group message.");
+  }
+}
+
+
+export type GroupShareRecipient = {
+  destination_id: string;
+  user_id: string;
+  full_name: string;
+  username: string | null;
+  avatar_url: string | null;
+};
+
+export async function getGroupShareRecipients(
+  conversationId: string,
+  messageId: string
+): Promise<GroupShareRecipient[]> {
+  const session = await requireGroupSession();
+
+  const { data, error } = await supabase.rpc(
+    "parachat_group_share_recipients",
+    {
+      p_conversation_id: validateId(conversationId),
+      p_message_id: validateId(messageId),
+    }
+  );
+
+  const current = await requireGroupSession();
+
+  if (
+    error ||
+    !Array.isArray(data) ||
+    current.user.id !== session.user.id
+  ) {
+    throw new Error("Unable to load sharing recipients.");
+  }
+
+  return data as GroupShareRecipient[];
+}
+
+export async function shareGroupTextToDirect(
+  conversationId: string,
+  messageId: string,
+  destinationId: string
+): Promise<void> {
+  const session = await requireGroupSession();
+
+  const { data, error } = await supabase.rpc(
+    "parachat_group_share_text_to_direct",
+    {
+      p_conversation_id: validateId(conversationId),
+      p_message_id: validateId(messageId),
+      p_destination_id: validateId(destinationId),
+    }
+  );
+
+  const current = await requireGroupSession();
+
+  if (
+    error ||
+    typeof data !== "string" ||
+    current.user.id !== session.user.id
+  ) {
+    throw new Error("Unable to share this message.");
+  }
+}
+
+
+export async function shareGroupPhotoToDirect(
+  conversationId: string,
+  messageId: string,
+  destinationId: string
+): Promise<void> {
+  const session = await requireGroupSession();
+
+  const response = await fetch(
+    `/api/parachat/groups/${validateId(conversationId)}` +
+    `/messages/${validateId(messageId)}/share-photo`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        destinationId: validateId(destinationId),
+      }),
+    }
+  );
+
+  const result = await response.json().catch(() => null);
+
+  const current = await requireGroupSession();
+
+  if (
+    !response.ok ||
+    result?.status !== "shared" ||
+    typeof result.message_id !== "string" ||
+    current.user.id !== session.user.id
+  ) {
+    throw new Error(
+      typeof result?.error === "string"
+        ? result.error
+        : "Photograph sharing could not be confirmed."
+    );
+  }
+
+  validateId(result.message_id);
+}
+
+
 export async function reportGroupChatMessage(
   conversationId: string,
   messageId: string,

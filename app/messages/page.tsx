@@ -2560,12 +2560,18 @@ function MessagesPage() {
     if (message.image_path) {
       parachatSignedImageUrlCache.delete(message.image_path);
 
-      const { error: removeImageError } = await supabase.storage
-        .from(PARACHAT_IMAGE_BUCKET)
-        .remove([message.image_path]);
+      const forwardedPhoto =
+        message.image_path.split("/")[2]
+          ?.startsWith("group-forward-");
 
-      if (removeImageError) {
-        console.warn("Parachat image cleanup warning:", removeImageError.message);
+      if (!forwardedPhoto) {
+        const { error: removeImageError } = await supabase.storage
+          .from(PARACHAT_IMAGE_BUCKET)
+          .remove([message.image_path]);
+
+        if (removeImageError) {
+          console.warn("Parachat image cleanup warning:", removeImageError.message);
+        }
       }
     }
 

@@ -37,6 +37,11 @@ const validPath = new RegExp(
   "i"
 );
 
+const validForwardedPhotoPath = new RegExp(
+  `^${uuid}/${uuid}/group-forward-${uuid}\\.(jpg|png|webp)$`,
+  "i"
+);
+
 export async function POST(request: Request) {
   try {
     groupChatTarget();
@@ -64,13 +69,18 @@ export async function POST(request: Request) {
     const batches: Record<string, string[]> = {
       "parachat-group-media": [],
       "parachat-group-conversion": [],
+      "parachat-images": [],
     };
 
     for (const row of data.slice(0, 100)) {
       if (
         !Object.hasOwn(batches, row.bucket_id) ||
         typeof row.storage_path !== "string" ||
-        !validPath.test(row.storage_path)
+        !(
+          row.bucket_id === "parachat-images"
+            ? validForwardedPhotoPath.test(row.storage_path)
+            : validPath.test(row.storage_path)
+        )
       ) {
         continue;
       }
